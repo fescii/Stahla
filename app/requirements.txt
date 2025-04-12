@@ -1,0 +1,34 @@
+
+# --- Core Framework ---
+fastapi>=0.100.0,<0.112.0 # The core FastAPI framework
+uvicorn[standard]>=0.20.0,<0.30.0 # ASGI server to run FastAPI (includes performance extras)
+
+# --- Data Validation & Settings ---
+pydantic>=2.0.0,<3.0.0       # Data validation and settings management
+python-dotenv>=1.0.0,<2.0.0  # For loading environment variables from .env file
+
+# --- Observability ---
+logfire>=0.20.0,<0.21.0      # Logging and observability (as specified in docs)
+# opentelemetry-api          # Required by logfire, usually installed as a dependency
+# opentelemetry-sdk          # Required by logfire, usually installed as a dependency
+# opentelemetry-instrumentation-fastapi # For auto-instrumentation, installed by logfire if needed
+
+# --- HTTP Client ---
+httpx>=0.25.0,<0.28.0         # Modern async HTTP client (good for calling external APIs like Bland.ai, HubSpot)
+# requests>=2.30.0,<3.0.0    # Alternatively, the classic requests library (if preferred/needed for specific SDKs)
+
+# --- Specific Integrations ---
+# Add SDKs or libraries for the services you need to integrate with.
+# Examples (check for the latest official/recommended libraries):
+hubspot-api-client>=8.0.0,<9.0.0 # Official HubSpot API Client (check latest version)
+# bland-ai                     # Check if Bland.ai provides a Python SDK, otherwise use httpx/requests
+# marvin                       # If using Marvin for classification, add its package name here
+
+# --- Development/Testing (Optional - consider a requirements-dev.txt) ---
+# pytest
+# pytest-asyncio
+# flake8
+# black
+# mypy
+
+# Note:** Pinning versions (as shown) is good practice for reproducibility. You might need to adjust versions based on compatibility or specific feature requirements. Install these using `pip install -r requirements.tx
