@@ -4,33 +4,64 @@ import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 from functools import lru_cache
+from typing import Optional, Literal
+from pydantic import EmailStr
 
 # Load environment variables from a .env file if it exists
 # Useful for local development
 load_dotenv()
 
-
 class Settings(BaseSettings):
 	"""
-		Application settings loaded from environment variables.
-		Uses pydantic-settings for validation and type hints.
+	Application settings loaded from environment variables.
+	Uses pydantic-settings for validation and type hints.
 	"""
+	# Development Mode
+	DEV: bool = False
+
 	# API Information
 	PROJECT_NAME: str = "Stahla AI SDR"
 	API_V1_STR: str = "/api/v1"
-	
+	# Base URL for constructing webhook URLs, needed for Bland callbacks etc.
+	# Example: http://localhost:8000 or https://your-deployed-domain.com
+	APP_BASE_URL: str = "http://localhost:8000"
+
 	# HubSpot Configuration
-	# Ensure this environment variable is set (e.g., in your .env file)
-	HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE"  # Default is just a placeholder
-	
-	# Bland.ai Configuration (Add if needed)
-	# BLAND_API_KEY: str = "YOUR_BLAND_AI_KEY_HERE"
-	
-	# Logfire Configuration (Token usually set directly via env var LOGFIRE_TOKEN)
+	HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE" # Default is just a placeholder
+
+	# Bland.ai Configuration
+	BLAND_API_KEY: str = "YOUR_BLAND_AI_KEY_HERE" # Add your Bland AI API Key
+	BLAND_API_URL: str = "https://api.bland.ai" # Default Bland API base URL
+	# Default Bland Voice ID (optional, can be overridden in requests)
+	BLAND_DEFAULT_VOICE_ID: Optional[int] = None
+
+	# Logfire Configuration
+	LOGFIRE_TOKEN: Optional[str] = None
+	LOGFIRE_IGNORE_NO_CONFIG: bool = False # Added to read from .env
 	# LOGFIRE_SERVICE_NAME: str = "stahla-ai-sdr-api"
-	
-	# Add other settings as needed...
-	
+
+	# LLM Configuration (Optional - if using LLM for parsing/classification)
+	LLM_PROVIDER: Optional[Literal["openai", "anthropic", "gemini", "marvin", "none"]] = "marvin"
+	OPENAI_API_KEY: Optional[str] = None
+	ANTHROPIC_API_KEY: Optional[str] = None
+	MARVIN_API_KEY: str = os.getenv("MARVIN_API_KEY", "")
+	# Add other LLM provider keys/settings as needed
+
+	# N8N / Orchestration Configuration (Optional)
+	N8N_ENABLED: bool = False
+	N8N_WEBHOOK_URL_CLASSIFICATION_DONE: Optional[str] = None # Example: URL to notify N8N after classification
+
+	# Email Configuration (Optional - if sending auto-replies)
+	EMAIL_SENDING_ENABLED: bool = False
+	SMTP_HOST: Optional[str] = None
+	SMTP_PORT: Optional[int] = 587
+	SMTP_USER: Optional[str] = None
+	SMTP_PASSWORD: Optional[str] = None
+	EMAIL_FROM_ADDRESS: Optional[EmailStr] = None
+
+	# Classification Logic Settings
+	LOCAL_DISTANCE_THRESHOLD_MILES: int = 50 # For defining "Local" vs "Not Local"
+
 	class Config:
 		# Specifies the prefix for environment variables (optional)
 		# env_prefix = ""
@@ -40,33 +71,86 @@ class Settings(BaseSettings):
 		# Make field names case-insensitive when reading from env vars
 		case_sensitive = False
 
-
 # Use lru_cache to cache the settings instance for performance
 # Ensures settings are loaded only once
 @lru_cache()
 def get_settings() -> Settings:
-	"""Returns the cached settings instance."""
-	return Settings()
-
+    """Returns the cached settings instance."""
+    # Process environment variables that need special handling
+    
+    # For BLAND_DEFAULT_VOICE_ID, convert to int if present and not empty
+    bland_voice_id = os.getenv("BLAND_DEFAULT_VOICE_ID")
+    if bland_voice_id and bland_voice_id.strip():
+        try:
+            bland_voice_id = int(bland_voice_id)
+        except ValueError:
+            bland_voice_id = None
+    else:
+        bland_voice_id = None
+        
+    # For EMAIL_FROM_ADDRESS, set to None if empty
+    email_from = os.getenv("EMAIL_FROM_ADDRESS", "")
+    if email_from == "":
+        email_from = None
+    
+    # Handle boolean conversion for N8N_ENABLED (in .env it might be "false" as a string)
+    n8n_enabled = os.getenv("N8N_ENABLED", "false").lower() == "true"
+    
+    # Handle boolean conversion for EMAIL_SENDING_ENABLED
+    email_sending_enabled = os.getenv("EMAIL_SENDING_ENABLED", "false").lower() == "true"
+    
+    # Handle SMTP_PORT conversion to int
+    smtp_port = os.getenv("SMTP_PORT")
+    if smtp_port and smtp_port.strip():
+        try:
+            smtp_port = int(smtp_port)
+        except ValueError:
+            smtp_port = 587
+    else:
+        smtp_port = 587
+    
+    return Settings(
+        # API Information
+        PROJECT_NAME=os.getenv("PROJECT_NAME", "Stahla AI SDR"),
+        API_V1_STR=os.getenv("API_V1_STR", "/api/v1"),
+        APP_BASE_URL=os.getenv("APP_BASE_URL", "http://localhost:8000"),
+        
+        # HubSpot Configuration
+        HUBSPOT_API_KEY=os.getenv("HUBSPOT_API_KEY", "YOUR_HUBSPOT_API_KEY_HERE"),
+        
+        # Bland.ai Configuration
+        BLAND_API_KEY=os.getenv("BLAND_API_KEY", "YOUR_BLAND_AI_KEY_HERE"),
+        BLAND_API_URL=os.getenv("BLAND_API_URL", "https://api.bland.ai"),
+        BLAND_DEFAULT_VOICE_ID=bland_voice_id,
+        
+        # Logfire Configuration
+        LOGFIRE_TOKEN=os.getenv("LOGFIRE_TOKEN"),
+        
+        # LLM Configuration
+        LLM_PROVIDER=os.getenv("LLM_PROVIDER", "marvin"),
+        OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"),
+        ANTHROPIC_API_KEY=os.getenv("ANTHROPIC_API_KEY"),
+        MARVIN_API_KEY=os.getenv("MARVIN_API_KEY", ""),
+        
+        # N8N Configuration
+        N8N_ENABLED=n8n_enabled,
+        N8N_WEBHOOK_URL_CLASSIFICATION_DONE=os.getenv("N8N_WEBHOOK_URL_CLASSIFICATION_DONE"),
+        
+        # Email Configuration
+        EMAIL_SENDING_ENABLED=email_sending_enabled,
+        SMTP_HOST=os.getenv("SMTP_HOST"),
+        SMTP_PORT=smtp_port,
+        SMTP_USER=os.getenv("SMTP_USER"),
+        SMTP_PASSWORD=os.getenv("SMTP_PASSWORD"),
+        EMAIL_FROM_ADDRESS=email_from,
+        
+        # Classification Settings
+        LOCAL_DISTANCE_THRESHOLD_MILES=int(os.getenv("LOCAL_DISTANCE_THRESHOLD_MILES", "50"))
+    )
 
 # Create an instance accessible throughout the application
 settings = get_settings()
 
 # Example usage:
 # from app.core.config import settings
-# api_key = settings.HUBSPOT_API_KEY
-
-"""
-**Instructions:**
-1.  Create a file named `config.py` inside the `app/core/` directory.
-2.  Paste this code into it.
-3.  **Crucially:** Create a `.env` file in your project's root directory (where `docker-compose.yml` is).
-4.  Add your actual HubSpot API key to the `.env` file like this:
-    ```
-    HUBSPOT_API_KEY=your-real-api-key-xxxx-xxxx-xxxx-xxxx
-    LOGFIRE_TOKEN=your-real-logfire-token-if-any
-    # Add other secrets here
-    ```
-5.  Make sure `.env` is added to your `.gitignore` file to avoid committing secrets.
-6.  You'll need `pydantic-settings`: Add `pydantic-settings>=2.0.0,<3.0.0` to your `requirements.txt` and reinstall dependencies (`pip install -r requirements.txt` or rebuild your Docker containe
-"""
+# api_key = settings.BLAND_API_KEY

@@ -1,7 +1,7 @@
 # app/models/hubspot_models.py
 
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from typing import Optional, Dict, Any, List
 
 
 class HubSpotBaseModel(BaseModel):
@@ -19,11 +19,10 @@ class HubSpotContactProperties(HubSpotBaseModel):
 	firstname: Optional[str] = None
 	lastname: Optional[str] = None
 	phone: Optional[str] = None
-# Add other required/custom Stahla properties based on documentation
-# e.g., lead_source: Optional[str] = None
-# Make sure property names match the *internal* HubSpot property names
-# Example custom property:
-# stahla_lead_type: Optional[str] = Field(None, alias="stahla_lead_type")
+	# --- Stahla Custom Properties (Replace with actual internal names) ---
+	stahla_lead_source: Optional[str] = Field(None, alias="leadsource", description="Source of the lead (e.g., Webform, Phone, Email)") # Example standard field
+	stahla_lead_type: Optional[str] = Field(None, alias="stahla_lead_type", description="Classification result (Services, Logistics, Leads, Disqualify)")
+	# Add other relevant contact properties if needed
 
 
 class HubSpotContactInput(HubSpotBaseModel):
@@ -47,12 +46,19 @@ class HubSpotDealProperties(HubSpotBaseModel):
 	dealname: Optional[str] = None
 	pipeline: Optional[str] = None  # ID or name of the pipeline
 	dealstage: Optional[str] = None  # ID or name of the stage
-	amount: Optional[float] = None  # Deal amount
+	amount: Optional[float] = None  # Deal amount (might be estimated initially)
 	closedate: Optional[str] = None  # Deal close date (YYYY-MM-DD)
-# Add other required/custom Stahla properties
-# e.g., stahla_product_interest: Optional[str] = None
-# e.g., stahla_event_location: Optional[str] = None
-# e.g., stahla_stall_count: Optional[int] = None
+	# --- Stahla Custom Properties (Replace with actual internal names) ---
+	stahla_product_interest: Optional[str] = Field(None, alias="stahla_product_interest", description="Product(s) interested in (comma-separated string or specific property)")
+	stahla_event_location: Optional[str] = Field(None, alias="stahla_event_location", description="Delivery location details")
+	stahla_duration: Optional[str] = Field(None, alias="stahla_duration", description="Rental duration (e.g., '3 days', '2 weeks')")
+	stahla_stall_count: Optional[int] = Field(None, alias="stahla_stall_count", description="Number of stalls/units required")
+	stahla_budget_info: Optional[str] = Field(None, alias="stahla_budget_info", description="Budget information provided by prospect")
+	stahla_call_summary: Optional[str] = Field(None, alias="stahla_call_summary", description="Summary of the intake call")
+	stahla_call_recording_url: Optional[HttpUrl] = Field(None, alias="stahla_call_recording_url", description="Link to the call recording")
+	# Add other relevant deal properties (e.g., guest count, event type)
+	stahla_guest_count: Optional[int] = Field(None, alias="stahla_guest_count")
+	stahla_event_type: Optional[str] = Field(None, alias="stahla_event_type")
 
 
 class HubSpotDealInput(HubSpotBaseModel):
