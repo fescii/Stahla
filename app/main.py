@@ -14,7 +14,7 @@ from app.api.v1.api import api_router_v1
 # Import settings from core/config.py
 from app.core.config import settings
 # Import service managers needed for lifespan events (e.g., closing clients)
-from app.services.bland_service import bland_manager
+from app.services.bland import bland_manager
 
 # --- Logfire Configuration ---
 # Load environment variables (especially for LOGFIRE_TOKEN if set)

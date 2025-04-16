@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 
 # Import settings and models
 from app.core.config import settings
-from app.models.bland_models import BlandWebhookPayload, BlandCallbackRequest, BlandCallbackResponse, BlandApiResult
+from app.models.bland import BlandWebhookPayload, BlandCallbackRequest, BlandCallbackResponse, BlandApiResult
 # Import other services if needed (e.g., ClassificationManager to send data after processing)
 # from app.services.classification_service import classification_manager
 # from app.models.classification_models import ClassificationInput

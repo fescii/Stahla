@@ -4,7 +4,7 @@ import logfire
 from typing import Dict, Any
 
 # Import models
-from app.models.email_models import EmailWebhookPayload, EmailProcessingResult
+from app.models.email import EmailWebhookPayload, EmailProcessingResult
 # Import other services/clients if needed
 # from app.services.classification_service import classification_manager
 # from app.models.classification_models import ClassificationInput

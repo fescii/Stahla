@@ -4,7 +4,7 @@ import logfire
 from typing import Dict, Any
 
 # Import models and potentially external clients (like Marvin)
-from app.models.classification_models import ClassificationInput, ClassificationOutput, ClassificationResult, \
+from app.models.classification import ClassificationInput, ClassificationOutput, ClassificationResult, \
 	LeadClassificationType
 
 

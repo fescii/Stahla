@@ -8,7 +8,7 @@ from typing import Optional
 
 # Import settings and models
 from app.core.config import settings
-from app.models.hubspot_models import (
+from app.models.hubspot import (
 	HubSpotContactInput,
 	HubSpotDealInput,
 	HubSpotApiResult,

@@ -6,10 +6,10 @@ import logfire
 
 # Import Pydantic models
 # from app.models.webhook_models import FormPayload # Example for form (Create this model)
-from app.models.bland_models import BlandWebhookPayload, BlandApiResult, BlandCallbackRequest # Import Bland models
+from app.models.bland import BlandWebhookPayload, BlandApiResult, BlandCallbackRequest # Import Bland models
 
 # Import Services
-from app.services.bland_service import bland_manager # Import Bland manager instance
+from app.services.bland import bland_manager # Import Bland manager instance
 # from app.services.classification_service import classification_manager # Needed for classification step
 # from app.models.classification_models import ClassificationInput # Needed for classification step
 
