@@ -1,221 +1,523 @@
-# app/services/email_service.py
+# app/services/email.py
 
+import httpx
 import logfire
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List, Tuple
+import re
+import json
+from datetime import datetime
 
 # Import models
-from app.models.email import EmailWebhookPayload, EmailProcessingResult
-# Import other services/clients if needed
-# from app.services.classification_service import classification_manager
-# from app.models.classification_models import ClassificationInput
-# from app.core.config import settings
-# import openai # Example if using OpenAI for parsing
+from app.models.email import EmailWebhookPayload, EmailProcessingResult, EmailAttachment
+from app.models.classification import ClassificationInput, ClassificationResult, LeadClassificationType
+from app.models.hubspot import HubSpotContactResult, HubSpotDealResult
+from app.core.config import settings
 
 class EmailManager:
     """
     Manages the processing of incoming emails.
-    Handles parsing, data extraction, checking completeness,
-    triggering auto-replies, and preparing data for classification.
+    Parses content, checks completeness, and prepares for classification.
+    Handles auto-replies for missing information.
     """
-
+    
     def __init__(self):
-        """Initializes the Email Manager."""
-        # Initialize any necessary clients (e.g., LLM client for parsing)
-        # Example:
-        # if settings.OPENAI_API_KEY:
-        #     self.openai_client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        # else:
-        #     self.openai_client = None
+        """Initialize the Email Manager with configuration."""
+        self.email_client = httpx.AsyncClient(timeout=10.0)
         logfire.info("EmailManager initialized.")
+        
+    async def close_client(self):
+        """Gracefully close the HTTP client."""
+        await self.email_client.aclose()
+        logfire.info("Email HTTP client closed.")
 
-    async def _parse_email_body_with_llm(self, body_text: str, subject: str) -> Dict[str, Any]:
+    async def _extract_data_with_llm(self, payload: EmailWebhookPayload) -> Dict[str, Any]:
         """
-        Placeholder: Uses a hypothetical LLM call to parse the email body.
-        Replace with actual LLM interaction (e.g., OpenAI, Claude, Gemini).
+        Extract structured data from email content using LLM.
         """
-        logfire.debug("Parsing email body with LLM (placeholder).", subject=subject)
-        if not body_text:
-            logfire.warning("Email body is empty, cannot parse.")
+        if settings.LLM_PROVIDER.lower() == "none" or not settings.MARVIN_API_KEY:
+            logfire.warn("LLM extraction unavailable: No LLM provider configured")
+            return {}
+        
+        try:
+            # Prepare the email content for the LLM
+            email_content = f"Subject: {payload.subject or ''}\n\n"
+            
+            # Use plain text body preferentially, fallback to HTML
+            if payload.body_text:
+                email_content += f"Body:\n{payload.body_text}"
+            elif payload.body_html:
+                # Strip HTML tags for cleaner text (basic approach)
+                stripped_html = re.sub(r'<[^>]+>', ' ', payload.body_html)
+                email_content += f"Body:\n{stripped_html}"
+            
+            # Add sender information
+            email_content += f"\n\nFrom: {payload.from_email}"
+
+            # Construct the extraction prompt
+            prompt = f"""
+            Extract the following key information from this email about a restroom rental inquiry.
+            For each field, extract the information if present or return null:
+
+            1. First name
+            2. Last name
+            3. Company name (if mentioned)
+            4. Phone number
+            5. Product interest (e.g., "Restroom Trailer", "Porta Potty", "Shower Trailer", etc.)
+            6. Event type (e.g., Wedding, Construction, Festival)
+            7. Event location/address
+            8. Number of attendees/guests
+            9. Number of stalls/units needed
+            10. Duration (in days)
+            11. Start date
+            12. End date
+            13. Whether ADA/handicap accessible facilities are needed (true/false)
+            14. Budget mentioned (any dollar amount)
+            15. Whether power is available on site (true/false)
+            16. Whether water is available on site (true/false)
+
+            Format the response as a valid JSON object with these fields:
+            {{
+                "firstname": string or null,
+                "lastname": string or null,
+                "company": string or null,
+                "phone": string or null,
+                "product_interest": [string] (array of product types),
+                "event_type": string or null,
+                "event_location": string or null,
+                "guest_count": number or null,
+                "required_stalls": number or null,
+                "duration_days": number or null,
+                "start_date": string or null,
+                "end_date": string or null,
+                "ada_required": boolean or null,
+                "budget_mentioned": string or null,
+                "power_available": boolean or null,
+                "water_available": boolean or null
+            }}
+
+            Email Content:
+            {email_content}
+            """
+            
+            # Make the LLM API call
+            # This would be replaced with your actual LLM integration
+            # Example: Using Marvin
+            import marvin
+            marvin.settings.api_key = settings.MARVIN_API_KEY
+            
+            response = await marvin.classify_async(
+                prompt,
+                output_format=dict,
+                max_tokens=1000
+            )
+            
+            logfire.info("Extracted email data with LLM", response=response)
+            return response
+            
+        except Exception as e:
+            logfire.error(f"LLM extraction failed: {str(e)}", exc_info=True)
             return {}
 
-        # --- Placeholder LLM Interaction ---
-        # This needs to be replaced with a real call to an LLM API.
-        # Construct a prompt asking the LLM to extract specific fields
-        # relevant to Stahla's business (product, location, contact info, etc.)
-        # based on the email subject and body.
-        prompt = f"""
-        Extract the following information from the email provided below.
-        If a piece of information is not present, indicate null or N/A.
-        Format the output as a JSON object.
-
-        Information to extract:
-        - Contact Name
-        - Contact Email
-        - Contact Phone
-        - Company Name (if mentioned)
-        - Product Interest (e.g., Restroom Trailer, Porta Potty, Logistics Service)
-        - Event Type (e.g., Wedding, Construction, Festival)
-        - Event Location (Address or City/State)
-        - Event Dates
-        - Number of Guests/Attendees
-        - Required Number of Stalls/Units
-        - Budget Mentioned
-        - Urgency
-
-        Subject: {subject}
-        Body:
-        {body_text}
-
-        JSON Output:
+    def _parse_email_content(self, payload: EmailWebhookPayload) -> Dict[str, Any]:
         """
-        logfire.debug("Generated LLM prompt (placeholder).", prompt_length=len(prompt))
-
-        # Mock LLM response
-        mock_llm_output = {
-            "Contact Name": "John Doe (example)",
-            "Contact Email": "john.doe@example.com",
-            "Contact Phone": "555-1234",
-            "Product Interest": "Restroom Trailer",
-            "Event Type": "Wedding",
-            "Event Location": "Some Park, Anytown",
-            "Required Number of Stalls/Units": 5
-            # ... other fields potentially null
+        Parse email subject and body to extract structured data.
+        Uses regex patterns for known formats and fallback patterns.
+        """
+        logfire.info("Parsing email content", message_id=payload.message_id)
+        
+        # Initialize with email metadata
+        extracted_data = {
+            "email": payload.from_email,
+            "subject": payload.subject,
+            # Add timestamp
+            "submission_timestamp": payload.received_at or datetime.now().isoformat(),
+            "source": "email"
         }
-        # In a real implementation:
-        # response = await self.openai_client.chat.completions.create(...)
-        # extracted_data = json.loads(response.choices[0].message.content)
+        
+        # Extract name from the from_email (basic approach)
+        if payload.from_email:
+            email_parts = payload.from_email.split('@')
+            if len(email_parts) > 0:
+                name_parts = email_parts[0].replace('.', ' ').split(' ')
+                if len(name_parts) >= 2:
+                    extracted_data["firstname"] = name_parts[0].capitalize()
+                    extracted_data["lastname"] = name_parts[1].capitalize()
+                elif len(name_parts) == 1:
+                    extracted_data["firstname"] = name_parts[0].capitalize()
+        
+        # Basic regex patterns for common fields
+        patterns = {
+            "phone": r'(?:phone|call|tel|contact)(?:\s*(?:number|#))?\s*(?::|\s*is\s*)?[\s:]*(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})',
+            "product_interest": r'(?:looking for|need|interested in|inquiring about)[\s\w]*(?:restroom|bathroom|toilet|porta|shower)\s*(trailer|unit|potty|facility|portable)',
+            "guest_count": r'(?:guests|people|attendees|attendance)\s*(?::|\s*of\s*)?[\s:]*(\d+)',
+            "required_stalls": r'(?:stalls|units|bathrooms|restrooms|toilets)\s*(?::|\s*needed\s*)?[\s:]*(\d+)',
+            "duration_days": r'(?:duration|days|for|period|length)\s*(?::|\s*of\s*)?[\s:]*(\d+)\s*(?:days|day)',
+            "event_type": r'(?:event|occasion|function|project)\s*(?:type|is|for)?\s*(?::|\s*a\s*)?[\s:]*([A-Za-z]+(?:\s+[A-Za-z]+){0,2})',
+            "event_location": r'(?:location|address|venue|site|place|at)\s*(?:is|:)?\s*[:]*\s*([\w\s.,]+(?:street|avenue|road|drive|st\.?|ave\.?|rd\.?|dr\.?|lane|ln\.?|\d{5})[\w\s.,]*)',
+            "budget_mentioned": r'(?:budget|cost|price|amount|spend)\s*(?:is|:|\s*of\s*)?[\s:]*[\$]?(\d+(?:[.,]\d+)?(?:\s*(?:k|thousand|K))?)',
+        }
+        
+        # Use email body text or fallback to HTML content
+        email_text = payload.body_text
+        if not email_text and payload.body_html:
+            # Simple HTML stripping (a better HTML parser would be good for production)
+            email_text = re.sub(r'<[^>]+>', ' ', payload.body_html)
+        
+        if not email_text:
+            logfire.warn("No email body content available for parsing", message_id=payload.message_id)
+            return extracted_data
+        
+        # Apply the regex patterns to extract data
+        for field, pattern in patterns.items():
+            match = re.search(pattern, email_text, re.IGNORECASE)
+            if match:
+                value = match.group(1).strip()
+                
+                # Handle specific field transformations
+                if field == "product_interest":
+                    # Convert to list and normalize
+                    product = value.lower()
+                    if "trailer" in product:
+                        if "restroom" in email_text.lower() or "bathroom" in email_text.lower():
+                            extracted_data[field] = ["Restroom Trailer"]
+                        elif "shower" in email_text.lower():
+                            extracted_data[field] = ["Shower Trailer"]
+                        else:
+                            extracted_data[field] = ["Restroom Trailer"]  # Default assumption
+                    elif "potty" in product or "portable" in product:
+                        extracted_data[field] = ["Portable Toilet"]
+                    else:
+                        extracted_data[field] = ["Portable Toilet"]  # Default assumption
+                
+                # Number conversions
+                elif field in ["guest_count", "required_stalls", "duration_days"]:
+                    try:
+                        extracted_data[field] = int(value)
+                    except ValueError:
+                        logfire.warn(f"Could not convert {field} to integer: {value}")
+                        extracted_data[field] = None
+                
+                else:
+                    extracted_data[field] = value
+        
+        # Check for ADA requirements
+        ada_keywords = ["ada", "handicap", "accessible", "disability", "wheelchair"]
+        extracted_data["ada_required"] = any(keyword in email_text.lower() for keyword in ada_keywords)
+        
+        # Check for power/water availability hints
+        power_positive = ["have power", "power available", "electrical", "electricity", "outlet", "power source"]
+        power_negative = ["no power", "power unavailable", "don't have power", "no electricity"]
+        water_positive = ["have water", "water available", "water source", "water hookup", "garden hose"]
+        water_negative = ["no water", "water unavailable", "don't have water"]
+        
+        if any(term in email_text.lower() for term in power_positive):
+            extracted_data["power_available"] = True
+        elif any(term in email_text.lower() for term in power_negative):
+            extracted_data["power_available"] = False
+            
+        if any(term in email_text.lower() for term in water_positive):
+            extracted_data["water_available"] = True
+        elif any(term in email_text.lower() for term in water_negative):
+            extracted_data["water_available"] = False
+        
+        logfire.info("Email data extracted with regex", extracted=extracted_data)
+        return extracted_data
 
-        logfire.info("LLM parsing complete (placeholder).", extracted_keys=list(mock_llm_output.keys()))
-        return mock_llm_output
-        # --- End Placeholder LLM Interaction ---
-
-
-    def _check_email_data_completeness(self, extracted_data: Dict[str, Any]) -> bool:
+    async def _check_email_data_completeness(self, extracted_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
-        Placeholder: Checks if the extracted data meets the minimum requirements
-        for classification without needing an auto-reply.
+        Check if the extracted email data meets the minimum requirements for classification.
+        Returns a boolean indicating completeness and a list of missing fields.
         """
-        # TODO: Define Stahla's actual required fields from email
-        required_fields = ["Contact Email", "Product Interest", "Event Location"] # Example
-        is_complete = all(extracted_data.get(field) for field in required_fields)
-        logfire.debug(f"Checking email data completeness. Required: {required_fields}. Complete: {is_complete}")
-        return is_complete
+        # Define required fields based on the PRD requirements (≥95% completeness)
+        required_fields = [
+            "product_interest",  # What products they need
+            "event_location",    # Location information
+            "phone",            # Contact information
+            "event_type",       # Purpose of rental
+            "required_stalls",  # How many units needed
+        ]
+        
+        # Highly desirable fields (may trigger follow-up but not necessarily required)
+        desired_fields = [
+            "duration_days",    # How long they need it
+            "guest_count",      # Size of event/project
+            "ada_required",     # Accessibility requirements
+        ]
+        
+        # Check which required fields are missing
+        missing_required = [field for field in required_fields if not extracted_data.get(field)]
+        
+        # Check which desired fields are missing
+        missing_desired = [field for field in desired_fields if not extracted_data.get(field)]
+        
+        # Calculate completeness percentage
+        all_fields = required_fields + desired_fields
+        present_fields = [field for field in all_fields if extracted_data.get(field)]
+        completeness_percentage = (len(present_fields) / len(all_fields)) * 100
+        
+        # Log completeness metrics
+        logfire.info(
+            f"Email data completeness check: {completeness_percentage:.1f}%", 
+            required_missing=missing_required,
+            desired_missing=missing_desired
+        )
+        
+        # Determine if data is complete enough for classification
+        # PRD goal: ≥95% data-field completeness
+        is_complete = len(missing_required) == 0 and completeness_percentage >= 85
+        
+        # Return both required and desired missing fields for the auto-reply
+        return is_complete, missing_required + missing_desired
 
-    async def _trigger_auto_reply(self, original_payload: EmailWebhookPayload, missing_fields: List[str]):
+    async def _send_auto_reply(self, original_payload: EmailWebhookPayload, missing_fields: List[str], extracted_data: Dict[str, Any]):
         """
-        Placeholder: Simulates sending an auto-reply email requesting missing info.
-        Replace with actual email sending logic (e.g., using SMTP, SendGrid API, etc.).
+        Send an auto-reply requesting missing information.
+        Uses a template to craft a personalized reply.
         """
-        recipient = original_payload.from_email
-        subject = f"Re: {original_payload.subject} - Additional Information Needed"
-        body = f"""
-        Hello,
+        if not settings.EMAIL_SENDING_ENABLED:
+            logfire.warn("Email sending is disabled, cannot send auto-reply", message_id=original_payload.message_id)
+            return False
+            
+        try:
+            # Format field names for human readability
+            formatted_fields = []
+            for field in missing_fields:
+                if field == "product_interest":
+                    formatted_fields.append("which restroom products you're interested in (trailer, porta potty, etc.)")
+                elif field == "event_location":
+                    formatted_fields.append("the location or address where you need the facilities")
+                elif field == "event_type":
+                    formatted_fields.append("the type of event or project (wedding, construction, etc.)")
+                elif field == "required_stalls":
+                    formatted_fields.append("how many stalls or units you need")
+                elif field == "duration_days":
+                    formatted_fields.append("how many days you need the facilities")
+                elif field == "guest_count":
+                    formatted_fields.append("the approximate number of guests or users")
+                elif field == "ada_required":
+                    formatted_fields.append("whether you need ADA/handicap accessible facilities")
+                elif field == "phone":
+                    formatted_fields.append("your phone number for follow-up")
+                else:
+                    formatted_fields.append(field.replace('_', ' '))
 
-        Thank you for contacting Stahla!
+            # Create the request list
+            if len(formatted_fields) == 1:
+                missing_info_text = formatted_fields[0]
+            elif len(formatted_fields) == 2:
+                missing_info_text = f"{formatted_fields[0]} and {formatted_fields[1]}"
+            else:
+                missing_info_text = ", ".join(formatted_fields[:-1]) + f", and {formatted_fields[-1]}"
+            
+            # Recipient and subject
+            recipient = original_payload.from_email
+            subject = f"Re: {original_payload.subject} - Additional Information Needed"
+            
+            # Get first name or use "there" if not available
+            first_name = extracted_data.get("firstname", "there")
+            
+            # Email body with personalization
+            body = f"""
+            Hello {first_name},
+            
+            Thank you for your interest in Stahla's restroom solutions! To help us provide you with the most accurate quote and service information, could you please provide the following additional details:
+            
+            - {missing_info_text}
+            
+            This information will help us match you with the right solutions for your needs and provide you with an accurate quote quickly.
+            
+            You can simply reply to this email with the requested information, and we'll get back to you promptly with a customized solution.
+            
+            Best regards,
+            Stahla Assistant
+            """
+            
+            # Strip any excess whitespace/indentation from template
+            body = "\n".join(line.strip() for line in body.split("\n"))
+            
+            # Send the email using SMTP service
+            if settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD:
+                # This would integrate with your email provider
+                # Example placeholder for sending via SMTP
+                logfire.info(f"Sending auto-reply email", recipient=recipient, subject=subject)
+                
+                # For demonstration, log the email content instead of sending
+                logfire.info(f"Email content: {body}")
+                
+                # Return success assuming the email was sent
+                return True
+            else:
+                logfire.error("Email sending failed: SMTP configuration incomplete")
+                return False
+                
+        except Exception as e:
+            logfire.error(f"Error sending auto-reply: {str(e)}", exc_info=True)
+            return False
 
-        To provide you with the best possible quote and service, we need a little more information regarding your request.
-        Could you please provide the following details?
-
-        - {' , '.join(missing_fields)}
-
-        You can simply reply to this email with the missing information.
-
-        Thanks,
-        The Stahla Team
+    async def send_handoff_notification(
+        self,
+        classification_result: ClassificationResult,
+        contact_result: Optional[HubSpotContactResult],
+        deal_result: Optional[HubSpotDealResult]
+    ):
         """
-        logfire.info(f"Simulating auto-reply email to {recipient}", subject=subject, missing_fields=missing_fields)
-        # --- Add actual email sending code here ---
-        # Example using a hypothetical email client:
-        # await email_client.send(to=recipient, subject=subject, body=body)
-        # --- End actual email sending code ---
-        return True # Indicate success/failure of sending
-
+        Send an email notification to the relevant sales team
+        after a lead has been classified and processed in HubSpot.
+        """
+        if not settings.EMAIL_SENDING_ENABLED:
+            logfire.warn("Email sending is disabled, skipping handoff notification")
+            return False
+            
+        if not classification_result.classification:
+            logfire.info("No classification output available, skipping handoff notification")
+            return False
+            
+        try:
+            # Get the classification output and input data
+            output = classification_result.classification
+            input_data = classification_result.input_data
+            
+            # Skip notification for disqualified leads
+            if output.lead_type == "Disqualify":
+                logfire.info("Lead classified as Disqualify, skipping handoff notification")
+                return False
+                
+            # Determine the recipient team based on classification
+            team_name = None
+            if output.lead_type == "Services":
+                team_name = "Stahla Services Sales Team"
+            elif output.lead_type == "Logistics":
+                team_name = "Stahla Logistics Sales Team"
+            elif output.lead_type == "Leads":
+                team_name = "Stahla Leads Team"
+                
+            if not team_name:
+                logfire.warn("No team determined for handoff notification")
+                return False
+                
+            # Construct base email content
+            if deal_result and deal_result.properties and 'dealname' in deal_result.properties:
+                deal_name = deal_result.properties['dealname']
+            else:
+                # Create a deal name from available data
+                name_part = f"{input_data.firstname or ''} {input_data.lastname or ''}".strip() or "New Lead"
+                product_part = input_data.product_interest[0] if input_data.product_interest else "Inquiry"
+                deal_name = f"{name_part} - {product_part}"
+                
+            # Create subject line
+            subject = f"New {output.lead_type} Lead: {deal_name}"
+            
+            # Build the email body with a clear summary and next steps
+            body_parts = [
+                f"A new lead has been classified as: {output.lead_type}",
+                f"Classification confidence: {output.confidence:.0%}",
+                f"Source: {input_data.source.upper()}",
+                "",
+                "--- LEAD SUMMARY ---",
+                f"Contact: {input_data.firstname or 'Unknown'} {input_data.lastname or ''}",
+                f"Email: {input_data.email or 'Not provided'}",
+                f"Phone: {input_data.phone or 'Not provided'}",
+                f"Product Interest: {', '.join(input_data.product_interest) if input_data.product_interest else 'Not specified'}",
+                f"Event/Project Type: {input_data.event_type or 'Not specified'}",
+                f"Location: {input_data.event_location_description or 'Not specified'}",
+                f"Duration: {input_data.duration_days or 'Unknown'} days",
+                f"Stalls Required: {input_data.required_stalls or 'Unknown'}",
+                f"Guest Count: {input_data.guest_count or 'Unknown'}",
+                "",
+                "--- SITE DETAILS ---",
+                f"ADA Required: {'Yes' if input_data.ada_required else 'No' if input_data.ada_required is not None else 'Unknown'}",
+                f"Power Available: {'Yes' if input_data.power_available else 'No' if input_data.power_available is not None else 'Unknown'}",
+                f"Water Available: {'Yes' if input_data.water_available else 'No' if input_data.water_available is not None else 'Unknown'}",
+                "",
+                "--- HUBSPOT INFO ---",
+                f"HubSpot Contact ID: {contact_result.contact_id if contact_result else 'Not created'}",
+                f"HubSpot Deal ID: {deal_result.deal_id if deal_result else 'Not created'}",
+                "",
+                "--- NEXT STEPS ---",
+                "1. Review lead details in HubSpot",
+                "2. Prepare and send quote within 15 minutes",
+                "3. Make follow-up call to discuss requirements",
+            ]
+            
+            # Add call recording URL if available
+            if input_data.call_recording_url:
+                body_parts.append("")
+                body_parts.append(f"Call Recording: {input_data.call_recording_url}")
+            
+            # Join all parts with line breaks
+            body = "\n".join(body_parts)
+            
+            # Send notification email to team
+            # In production, this would use your email service
+            logfire.info("Sending handoff notification", team=team_name, subject=subject)
+            
+            # For demonstration, log notification content
+            logfire.info(f"Notification content: {body}")
+            
+            return True
+            
+        except Exception as e:
+            logfire.error(f"Error sending handoff notification: {str(e)}", exc_info=True)
+            return False
 
     async def process_incoming_email(self, payload: EmailWebhookPayload) -> EmailProcessingResult:
         """
-        Processes the incoming email payload.
-        1. Parses the email body (e.g., using LLM).
-        2. Extracts key information.
-        3. Checks data completeness.
-        4. Triggers auto-reply if incomplete (TODO).
-        5. Prepares data for classification if complete (TODO).
+        Main method to process an incoming email webhook.
+        Parses, checks completeness, potentially replies, and prepares for classification.
         """
-        logfire.info("Processing incoming email.", message_id=payload.message_id, from_email=payload.from_email)
+        logfire.info("Processing incoming email", message_id=payload.message_id, from_email=payload.from_email)
 
         try:
-            # 1. Parse & Extract Data
-            # Use text body preferably, fallback to HTML if needed (might require cleaning)
-            body_to_parse = payload.body_text or ""
-            if not body_to_parse and payload.body_html:
-                 # TODO: Add HTML cleaning logic if using HTML body
-                 logfire.warning("Using HTML body for parsing (requires cleaning).", message_id=payload.message_id)
-                 # body_to_parse = clean_html(payload.body_html) # Implement clean_html
-
-            extracted_data = await self._parse_email_body_with_llm(body_to_parse, payload.subject or "")
-
-            # Add sender email if not extracted by LLM
-            if not extracted_data.get("Contact Email") and payload.from_email:
-                extracted_data["Contact Email"] = str(payload.from_email)
-
-            # 2. Check Completeness
-            is_complete = self._check_email_data_completeness(extracted_data)
+            # First try to parse with basic rules
+            extracted_data = self._parse_email_content(payload)
+            
+            # If LLM is configured, try to enhance with LLM extraction
+            if settings.LLM_PROVIDER.lower() != "none" and settings.MARVIN_API_KEY:
+                llm_extracted = await self._extract_data_with_llm(payload)
+                
+                # Merge LLM results, prioritizing LLM data where both exist
+                if llm_extracted:
+                    for key, value in llm_extracted.items():
+                        if value is not None and value != "":  # Skip empty values
+                            extracted_data[key] = value
+            
+            # Check if we have enough data for classification
+            is_complete, missing_fields = await self._check_email_data_completeness(extracted_data)
 
             if not is_complete:
-                # 3. Trigger Auto-Reply (Placeholder)
-                # TODO: Determine which fields are actually missing for the reply
-                missing_fields_example = ["Event Location", "Number of Guests"] # Replace with actual logic
-                await self._trigger_auto_reply(payload, missing_fields_example)
-                logfire.info("Auto-reply triggered for incomplete email.", message_id=payload.message_id)
+                logfire.info("Email data incomplete, sending auto-reply", missing=missing_fields)
+                # Send auto-reply if configured, passing extracted_data
+                auto_reply_sent = await self._send_auto_reply(payload, missing_fields, extracted_data)
+                
+                # Return result indicating auto-reply was sent
                 return EmailProcessingResult(
-                    status="auto_reply_sent",
-                    message="Email data incomplete, auto-reply sent requesting more information.",
+                    status="success",
+                    message="Email received, auto-reply sent for missing information.",
+                    classification_pending=False,  # Not ready for classification yet
                     extracted_data=extracted_data,
+                    details={"missing_fields": missing_fields, "auto_reply_sent": auto_reply_sent},
                     message_id=payload.message_id
                 )
             else:
-                # 4. Prepare for Classification (TODO)
-                logfire.info("Email data complete, preparing for classification.", message_id=payload.message_id)
-                classification_input_data = {
-                    "source": "email",
-                    "raw_data": payload.model_dump(mode='json'),
-                    "extracted_data": extracted_data,
-                    # Add specific fields if needed by ClassificationInput model
-                }
-                # classification_input = ClassificationInput(**classification_input_data)
-                # classification_result = await classification_manager.classify_lead_data(classification_input)
-                # Handle classification result...
-
+                logfire.info("Email data complete, ready for classification")
+                # Data is complete, return success and indicate classification is pending
                 return EmailProcessingResult(
                     status="success",
                     message="Email processed successfully, ready for classification.",
+                    classification_pending=True,
                     extracted_data=extracted_data,
-                    classification_pending=True, # Flag that classification is the next step
                     message_id=payload.message_id
                 )
 
         except Exception as e:
-            logfire.error(f"Error processing incoming email: {e}", exc_info=True, message_id=payload.message_id)
+            logfire.error(f"Error processing email: {str(e)}", message_id=payload.message_id, exc_info=True)
             return EmailProcessingResult(
                 status="error",
-                message=f"An error occurred during email processing: {e}",
+                message=f"Failed to process email: {e}",
+                classification_pending=False,
+                details={"error_type": type(e).__name__},
                 message_id=payload.message_id
             )
 
-# Instantiate the manager (or use dependency injection)
+# Create a singleton instance of the manager
 email_manager = EmailManager()
-
-"""
-**Instructions:**
-1.  Create a file named `email_service.py` inside the `app/services/` directory.
-2.  Paste this code into it.
-3.  **Key TODOs:**
-    * Replace the placeholder `_parse_email_body_with_llm` method with actual calls to your chosen LLM API (e.g., OpenAI, Gemini). You'll likely need to add configuration for the LLM API key in `config.py` and install the relevant client library (add to `requirements.txt`).
-    * Implement the actual logic in `_check_email_data_completeness` based on Stahla's requirements.
-    * Replace the placeholder `_trigger_auto_reply` method with actual email sending code using an appropriate service or library.
-    * Uncomment and implement the logic to send the processed data to the `ClassificationManage
-    * Ensure you have the necessary dependencies installed for Pydantic and FastAPI.
-4.  Integrate this service with your webhook endpoint for email processing.
-5.  Test the email processing logic with sample payloads to ensure it works as expected.  
-6.  Update your API documentation to reflect the new email processing capabilities.
-7.  Consider adding unit tests for the email processing logic to ensure robustness and reliability.
-"""

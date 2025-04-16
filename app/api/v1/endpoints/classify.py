@@ -1,37 +1,32 @@
 # app/api/v1/endpoints/classify.py
 
 from fastapi import APIRouter, Body
-from typing import Any  # Use specific Pydantic models later
+from typing import Any
 import logfire
 
-# Import classification service (Create this in app/services/)
-# from app.services.classification_service import classify_lead_data # Example
-# Import Pydantic models (Create these in app/models/)
-# from app.models.classification_models import ClassificationInput, ClassificationOutput # Example
+# Import classification service and models
+from app.services.classification import classification_manager
+from app.models.classification import ClassificationInput, ClassificationResult
 
 # Create an APIRouter instance for classification endpoints
 router = APIRouter()
 
 
-@router.post("", summary="Classify Lead Data")
+@router.post("", summary="Classify Lead Data", response_model=ClassificationResult)
 async def classify_lead(
-	# Replace Any with your specific Pydantic model for classification input
-	lead_data: Any = Body(...)
+    lead_data: ClassificationInput = Body(...)
 ):
-	"""
-	Receives lead data and routes it to the classification engine.
-	Placeholder: Logs the data and returns a mock classification.
-	TODO: Implement data validation with Pydantic model.
-	TODO: Call the actual classification service (e.g., Marvin, custom logic).
-	TODO: Return a structured classification result (Pydantic model).
-	"""
-	logfire.info("Received classification request.", data=lead_data)
-	# Replace with call to actual classification service
-	# classification_result = await classify_lead_data(lead_data) # Example
-	mock_classification = {
-		"lead_type": "Services",  # Example: Services/Logistics/Leads/Disqualify
-		"routing": "Sales Team A",
-		"confidence": 0.95
-	}
-	logfire.info("Mock classification generated.", result=mock_classification)
-	return {"status": "classified", "result": mock_classification}
+    """
+    Receives lead data and routes it to the classification engine.
+    Returns a structured classification result.
+    """
+    logfire.info("Received classification request.", source=lead_data.source)
+    
+    # Call the actual classification service
+    classification_result = await classification_manager.classify_lead_data(lead_data)
+    
+    logfire.info("Classification completed.", 
+                 classification=classification_result.classification.lead_type if classification_result.classification else "Unknown",
+                 status=classification_result.status)
+    
+    return classification_result

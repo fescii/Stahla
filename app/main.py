@@ -15,6 +15,8 @@ from app.api.v1.api import api_router_v1
 from app.core.config import settings
 # Import service managers needed for lifespan events (e.g., closing clients)
 from app.services.bland import bland_manager
+from app.services.hubspot import hubspot_manager # Import HubSpot manager
+from app.services.email import email_manager # Import Email manager
 
 # --- Logfire Configuration ---
 # Load environment variables (especially for LOGFIRE_TOKEN if set)
@@ -37,12 +39,15 @@ async def lifespan(app: FastAPI):
     Manages application startup and shutdown events.
     Used here to gracefully close HTTP clients.
     """
-    # Startup actions (if any needed beyond global initializations)
+    # Startup actions
     logfire.info(f"Application startup: {settings.PROJECT_NAME} - v{app.version}")
+    # Initialize clients or connections if needed here (though singletons often init on import)
     yield
     # Shutdown actions
     logfire.info("Application shutdown initiated.")
     await bland_manager.close_client() # Close the BlandAI HTTP client
+    await hubspot_manager.close_client() # Close the HubSpot HTTP client
+    await email_manager.close_client() # Close the Email HTTP client
     # Add other cleanup actions here if needed (e.g., closing DB connections)
     logfire.info("Application shutdown complete.")
 

@@ -1,205 +1,170 @@
-# app/services/bland_service.py
+# app/services/bland.py
 
-import httpx # Using httpx for async HTTP requests
+import httpx
 import logfire
-from typing import Optional, Dict, Any
+from typing import Dict, Any, Optional
 
-# Import settings and models
+# Import models
+from app.models.bland import (
+    BlandApiResult,
+    BlandCallbackRequest,
+    BlandWebhookPayload,
+    BlandProcessingResult
+)
 from app.core.config import settings
-from app.models.bland import BlandWebhookPayload, BlandCallbackRequest, BlandCallbackResponse, BlandApiResult
-# Import other services if needed (e.g., ClassificationManager to send data after processing)
-# from app.services.classification_service import classification_manager
-# from app.models.classification_models import ClassificationInput
 
 class BlandAIManager:
     """
     Manages interactions with the Bland.ai API.
-    Handles processing incoming call transcripts and initiating outbound calls.
+    Handles initiating callbacks and processing incoming transcripts.
     """
-
-    def __init__(self):
-        """Initializes the HTTP client for Bland.ai API calls."""
-        self.api_key = settings.BLAND_API_KEY
-        self.base_url = settings.BLAND_API_URL
-        # Initialize an async HTTP client
-        # Consider configuring timeouts, headers, etc.
-        self.http_client = httpx.AsyncClient(
+    def __init__(self, api_key: str, base_url: str):
+        self.api_key = api_key
+        self.base_url = base_url
+        # Use httpx.AsyncClient for asynchronous requests
+        # Set headers common to all requests
+        headers = {
+            "Authorization": f"{self.api_key}",
+            "Content-Type": "application/json"
+        }
+        # Initialize the client with base URL and headers
+        # Add a timeout (e.g., 10 seconds)
+        self._client = httpx.AsyncClient(
             base_url=self.base_url,
-            headers={
-                "Authorization": f"{self.api_key}", # Use API Key directly if that's the auth method
-                "Content-Type": "application/json"
-            },
-            timeout=30.0 # Set a reasonable timeout
+            headers=headers,
+            timeout=10.0
         )
         logfire.info("BlandAIManager initialized.")
 
     async def close_client(self):
-        """Closes the HTTP client gracefully."""
-        await self.http_client.aclose()
-        logfire.info("BlandAIManager HTTP client closed.")
+        """Gracefully closes the HTTP client."""
+        await self._client.aclose()
+        logfire.info("BlandAI HTTP client closed.")
 
-    def _extract_key_info_from_transcript(self, payload: BlandWebhookPayload) -> Dict[str, Any]:
+    async def _make_request(self, method: str, endpoint: str, json_data: Optional[Dict] = None) -> BlandApiResult:
+        """Helper method to make requests to the Bland API."""
+        url = f"{self.base_url.strip('/')}/{endpoint.lstrip('/')}"
+        logfire.debug(f"Making Bland API request: {method} {url}", data=json_data)
+        try:
+            response = await self._client.request(method, endpoint, json=json_data)
+            response.raise_for_status() # Raise exception for 4xx/5xx errors
+            response_data = response.json()
+            logfire.debug("Bland API request successful.", response=response_data)
+            # Assuming Bland API returns a 'status' field indicating success/error
+            status = response_data.get("status", "success") # Default to success if status missing
+            message = response_data.get("message", "Request successful")
+            details = response_data # Return the full response data in details
+            return BlandApiResult(status=status, message=message, details=details)
+        except httpx.HTTPStatusError as e:
+            logfire.error(f"Bland API HTTP error: {e.response.status_code}", url=str(e.request.url), response=e.response.text)
+            message = f"HTTP error {e.response.status_code}: {e.response.text}"
+            try:
+                error_details = e.response.json()
+            except Exception:
+                error_details = {"raw_response": e.response.text}
+            return BlandApiResult(status="error", message=message, details=error_details)
+        except httpx.RequestError as e:
+            logfire.error(f"Bland API request error: {e}", url=str(e.request.url))
+            return BlandApiResult(status="error", message=f"Request failed: {e}", details={"error_type": type(e).__name__})
+        except Exception as e:
+            logfire.error(f"Unexpected error during Bland API request: {e}", exc_info=True)
+            return BlandApiResult(status="error", message=f"An unexpected error occurred: {e}", details={"error_type": type(e).__name__})
+
+    async def initiate_callback(self, request_data: BlandCallbackRequest) -> BlandApiResult:
         """
-        Placeholder function to extract key information from the transcript.
-        Replace with actual logic (e.g., using regex, keyword spotting, or another LLM call).
+        Initiates a callback using the Bland.ai /call endpoint.
         """
-        logfire.debug("Extracting key info from Bland transcript (placeholder).", call_id=payload.call_id)
-        extracted_data = {}
-        full_transcript = " ".join([seg.text for seg in payload.transcript if seg.text])
+        endpoint = "/call"
+        payload = request_data.model_dump(exclude_none=True)
+        logfire.info("Initiating Bland callback.", phone=request_data.phone_number)
+        result = await self._make_request("POST", endpoint, json_data=payload)
+        # Add call_id to the result details if available
+        if result.status == "success" and "call_id" in result.details:
+             result.call_id = result.details.get("call_id")
+        return result
 
-        # Example Placeholder Logic:
-        if "restroom trailer" in full_transcript.lower():
-            extracted_data["product_interest"] = "Restroom Trailer"
-        if "porta potty" in full_transcript.lower():
-             extracted_data["product_interest"] = "Porta Potty"
-        # Add more sophisticated extraction logic here...
-
-        # Include other potentially useful info
-        extracted_data["summary"] = payload.summary
-        extracted_data["recording_url"] = str(payload.recording_url) if payload.recording_url else None
-        extracted_data["full_transcript"] = full_transcript # Include the full text
-
-        logfire.info("Key info extracted (placeholder).", call_id=payload.call_id, extracted_keys=list(extracted_data.keys()))
-        return extracted_data
-
-    async def process_incoming_transcript(self, payload: BlandWebhookPayload) -> BlandApiResult:
+    def _extract_data_from_transcript(self, payload: BlandWebhookPayload) -> Dict[str, Any]:
         """
-        Processes the transcript received from the Bland.ai webhook.
-        1. Extracts key information.
-        2. Prepares data for the classification engine.
-        3. (TODO) Sends data to the classification engine.
+        Placeholder function to extract structured data from the transcript.
+        This needs significant refinement based on the actual transcript format
+        and the specific information required by the call script.
+        Could involve regex, keyword spotting, or an LLM call.
+        """
+        extracted = {
+            "full_transcript": "\n".join([f"{msg.get('role', 'unknown')}: {msg.get('text', '')}" for msg in payload.messages or []]),
+            "summary": payload.summary or "Summary not provided.",
+            "recording_url": payload.recording_url,
+            # Attempt basic extraction (highly dependent on script/transcript structure)
+            "firstname": None,
+            "lastname": None,
+            "email": None,
+            "phone": payload.to_number, # Caller ID might be available
+            "product_interest": [],
+            "event_location": None,
+            "duration_days": None,
+            "guest_count": None,
+            "ada_required": None,
+            # ... add other fields from ClassificationInput based on call script questions ...
+        }
+
+        # Example: Very basic keyword spotting (replace with robust parsing)
+        transcript_text = extracted["full_transcript"].lower()
+        if "restroom trailer" in transcript_text:
+            extracted["product_interest"].append("Restroom Trailer")
+        if "porta potty" in transcript_text or "portable toilet" in transcript_text:
+            extracted["product_interest"].append("Porta Potty")
+        if "wedding" in transcript_text:
+            extracted["event_type"] = "Wedding"
+        elif "construction" in transcript_text:
+            extracted["event_type"] = "Construction"
+
+        # TODO: Implement robust parsing logic here based on the call script.
+        # Consider using regex for patterns (email, phone numbers if not already present),
+        # or an LLM for more complex entity extraction.
+        logfire.warn("Transcript data extraction is using placeholder logic.", call_id=payload.call_id)
+
+        return extracted
+
+    async def process_incoming_transcript(self, payload: BlandWebhookPayload) -> BlandProcessingResult:
+        """
+        Processes the incoming transcript webhook from Bland.ai.
+        Extracts relevant information.
         """
         logfire.info("Processing incoming Bland transcript.", call_id=payload.call_id)
 
         try:
-            # 1. Extract key information
-            extracted_data = self._extract_key_info_from_transcript(payload)
+            extracted_data = self._extract_data_from_transcript(payload)
 
-            # 2. Prepare data for classification
-            classification_input = { # Build the ClassificationInput structure
-                "source": "voice",
-                "raw_data": payload.model_dump(mode='json'), # Store the raw payload
-                "extracted_data": extracted_data,
-                # Populate other specific fields if extracted
-                # "required_stalls": extracted_data.get("stalls"),
-            }
-            logfire.debug("Prepared data for classification.", call_id=payload.call_id, data=classification_input)
+            # Combine with metadata if available (e.g., original form data)
+            if payload.metadata:
+                extracted_data["metadata"] = payload.metadata
 
-            # 3. TODO: Send data to Classification Engine
-            # Example:
-            # from app.models.classification_models import ClassificationInput
-            # classification_payload = ClassificationInput(**classification_input)
-            # classification_result = await classification_manager.classify_lead_data(classification_payload)
-            # logfire.info("Sent data to classification engine.", call_id=payload.call_id, classification_status=classification_result.status)
-            # Handle classification result (e.g., trigger HubSpot update via another service/workflow)
-
-
-            return BlandApiResult(
+            logfire.info("Transcript data extracted.", call_id=payload.call_id, extracted_keys=list(extracted_data.keys()))
+            return BlandProcessingResult(
                 status="success",
-                operation="process_transcript",
-                message="Transcript processed successfully (placeholder).",
-                call_id=payload.call_id,
-                details={"extracted_keys": list(extracted_data.keys())}
-            )
-
-        except Exception as e:
-            logfire.error(f"Error processing Bland transcript: {e}", exc_info=True, call_id=payload.call_id)
-            return BlandApiResult(
-                status="error",
-                operation="process_transcript",
-                message=f"An error occurred: {e}",
-                call_id=payload.call_id
-            )
-
-    async def initiate_callback(self, callback_data: BlandCallbackRequest) -> BlandApiResult:
-        """
-        Initiates an outbound call using the Bland.ai /call endpoint.
-        """
-        logfire.info("Initiating Bland.ai callback.", phone_number=callback_data.phone_number)
-
-        try:
-            # Prepare the payload, excluding None values
-            payload = callback_data.model_dump(exclude_none=True, by_alias=True)
-            logfire.debug("Sending payload to Bland /call endpoint.", data=payload)
-
-            response = await self.http_client.post("/call", json=payload)
-            response.raise_for_status() # Raise exception for 4xx/5xx responses
-
-            response_data = response.json()
-            logfire.info("Bland.ai callback initiated successfully.", response=response_data)
-
-            # Validate response structure if possible (using BlandCallbackResponse)
-            try:
-                callback_response = BlandCallbackResponse(**response_data)
-                return BlandApiResult(
-                    status="success",
-                    operation="initiate_callback",
-                    message=callback_response.message or "Callback initiated.",
-                    call_id=callback_response.call_id,
-                    details=callback_response.model_dump()
-                )
-            except Exception as pydantic_error:
-                 logfire.warning(f"Could not parse Bland callback response: {pydantic_error}", raw_response=response_data)
-                 # Return success but indicate parsing issue
-                 return BlandApiResult(
-                    status="success", # API call succeeded
-                    operation="initiate_callback",
-                    message="Callback initiated, but response parsing failed.",
-                    call_id=response_data.get("call_id"), # Try to get call_id anyway
-                    details=response_data
-                 )
-
-
-        except httpx.HTTPStatusError as e:
-            error_body = e.response.text
-            logfire.error(f"HTTP error initiating Bland callback: {e.response.status_code} - {error_body}", exc_info=True, request_payload=payload)
-            return BlandApiResult(
-                status="error",
-                operation="initiate_callback",
-                message=f"HTTP Error {e.response.status_code}: {error_body}",
-                details={"status_code": e.response.status_code, "response": error_body}
-            )
-        except httpx.RequestError as e:
-            logfire.error(f"Request error initiating Bland callback: {e}", exc_info=True, request_payload=payload)
-            return BlandApiResult(
-                status="error",
-                operation="initiate_callback",
-                message=f"Request Error: {e}"
+                message="Transcript processed successfully.",
+                details={"extracted_data": extracted_data}
             )
         except Exception as e:
-            logfire.error(f"Unexpected error initiating Bland callback: {e}", exc_info=True, request_payload=payload)
-            return BlandApiResult(
+            logfire.error("Error processing Bland transcript.", call_id=payload.call_id, exc_info=True)
+            return BlandProcessingResult(
                 status="error",
-                operation="initiate_callback",
-                message=f"An unexpected error occurred: {e}"
+                message=f"Failed to process transcript: {e}",
+                details={"error_type": type(e).__name__}
             )
 
-# Instantiate the manager (or use dependency injection)
-bland_manager = BlandAIManager()
+# Create a singleton instance of the manager
+# Ensure settings are loaded before this is instantiated
+bland_manager = BlandAIManager(api_key=settings.BLAND_API_KEY, base_url=settings.BLAND_API_URL)
 
-# --- Cleanup ---
-# Ensure the client is closed when the application shuts down.
-# FastAPI's lifespan events are a good place for this.
-# Example (in main.py):
-# from contextlib import asynccontextmanager
-# from app.services.bland_service import bland_manager
-#
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Startup: Initialize clients, etc. (if not done globally)
-#     logfire.info("Application startup.")
-#     yield
-#     # Shutdown: Close clients gracefully
-#     logfire.info("Application shutdown.")
-#     await bland_manager.close_client()
-#
-# app = FastAPI(lifespan=lifespan, ...)
 
 """
 **Instructions:**
-1.  Create a file named `bland_service.py` inside the `app/services/` directory.
-2.  Paste this code into it.
-3.  **Important:** The `_extract_key_info_from_transcript` method has very basic placeholder logic. Replace it with your actual transcript analysis approach.
-4.  The `initiate_callback` method assumes API key authentication in the header; adjust if Bland.ai uses a different method. Verify the `/call` endpoint path and required parameters against their documentation.
-5.  Consider implementing the `lifespan` context manager in your `app/main.py` to ensure the `httpx` client is closed properly on application shutdo
+    Replace the content of `app/services/bland.py` with this code. Key changes:
+    *   Uses `httpx.AsyncClient` for efficient asynchronous requests.
+    *   Includes `close_client` method for graceful shutdown (used in `main.py`).
+    *   Implements `initiate_callback` using the `/call` endpoint and `BlandCallbackRequest`.
+    *   Adds `process_incoming_transcript` which takes `BlandWebhookPayload`.
+    *   Includes a **placeholder** `_extract_data_from_transcript` function. **This function requires significant development** to parse transcripts according to your call script, potentially using regex or an LLM.
+    *   Returns `BlandProcessingResult` with extracted data.
 """
