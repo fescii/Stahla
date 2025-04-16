@@ -1,0 +1,48 @@
+@baseUrl = http://localhost:8000 
+
+POST {{baseUrl}}/api/v1/webhook/form
+Content-Type: application/json
+
+{
+  "firstname": "Jane",
+  "lastname": "Doe",
+  "email": "jane.doe@example.com",
+  "phone": "+15551234567",
+  "company": "Example Corp",
+  "product_interest": "Luxury Restroom Trailer",
+  "event_location_description": "Central Park, near the fountain",
+  "event_type": "Wedding Reception",
+  "duration_days": 2,
+  "start_date": "2025-07-15",
+  "end_date": "2025-07-17",
+  "guest_count": 150,
+  "required_stalls": 3,
+  "ada_required": true,
+  "budget_mentioned": "Around $2000",
+  "comments": "Need delivery by noon on the 15th. Please confirm ADA accessibility.",
+  "source_url": "https://stahla.com/contact"
+}
+
+### Incomplete Form (to trigger Bland callback)
+POST {{baseUrl}}/api/v1/webhook/form
+Content-Type: application/json
+
+{
+  "firstname": "Peter",
+  "lastname": "Jones",
+  "email": "peter.jones@example.net",
+  "phone": "+15559876543",
+  "company": "",
+  "product_interest": "Standard Portable Toilet",
+  "event_location_description": "", 
+  "event_type": "Construction Site",
+  "duration_days": null, 
+  "start_date": "2025-05-01",
+  "end_date": null,
+  "guest_count": null, 
+  "required_stalls": 1, 
+  "ada_required": false,
+  "budget_mentioned": "",
+  "comments": "Need a quote for a long-term construction project.",
+  "source_url": "https://stahla.com/quick-quote"
+}
