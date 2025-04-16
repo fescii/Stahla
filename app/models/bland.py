@@ -62,9 +62,15 @@ class BlandCallbackResponse(BlandBaseModel):
 class BlandApiResult(BaseModel):
 		"""Generic result structure for Bland operations."""
 		status: str # e.g., "success", "error"
-		operation: str # e.g., "process_transcript", "initiate_callback"
 		message: Optional[str] = None
 		details: Optional[Any] = None # For detailed results or errors
+		call_id: Optional[str] = None # Include call ID where relevant
+
+class BlandProcessingResult(BaseModel):
+		"""Result structure for transcript processing operations."""
+		status: str # e.g., "success", "error", "partial"
+		message: Optional[str] = None
+		details: Optional[Dict[str, Any]] = None # For extracted data and other details
 		call_id: Optional[str] = None # Include call ID where relevant
 
 # --- Example Usage ---

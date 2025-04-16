@@ -34,7 +34,6 @@ class BlandAIManager:
             headers=headers,
             timeout=10.0
         )
-        logfire.info("BlandAIManager initialized.")
 
     async def close_client(self):
         """Gracefully closes the HTTP client."""

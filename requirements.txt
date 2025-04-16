@@ -1,9 +1,38 @@
-fastapi
-uvicorn[standard]
-pydantic
-pydantic-settings
-dotenv
-logfire
-httpx # Added for making async HTTP requests
-marvin # Added for AI-based classification
-python-dotenv
+# Stahla AI SDR API Requirements
+
+# FastAPI Framework and Server
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+email-validator>=2.0.0  # Required for EmailStr validation
+
+# HTTP and Async
+httpx>=0.24.0  # For async HTTP requests (HubSpot, BlandAI, etc.)
+
+# Environment and Configuration
+python-dotenv>=1.0.0  # For loading .env files
+
+# Logging
+logfire>=0.16.0  # For structured logging
+
+# AI and Classification
+marvin>=1.2.0  # For AI-based classification
+
+# Date and Time handling
+python-dateutil>=2.8.2  # For date parsing and manipulation
+
+# System Monitoring
+psutil>=5.9.0  # For system metrics in health check endpoint
+
+# Optional Dependencies
+# uncomment these as needed:
+# geopy>=2.3.0  # For geographical calculations if needed for location utilities
+# html2text>=2020.1.16  # For better HTML to text conversion in email parsing
+# pandas>=2.0.0  # For data manipulation if needed
+
+# Development Dependencies (optional)
+# pytest>=7.3.1
+# black>=23.3.0
+# flake8>=6.0.0
+# mypy>=1.3.0

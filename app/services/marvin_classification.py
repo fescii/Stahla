@@ -20,9 +20,19 @@ from app.models.classification import (
 from app.core.config import settings
 
 # Configure Marvin with API key from settings
-marvin.settings.api_key = settings.MARVIN_API_KEY
+# Check which API is available in the current Marvin version
+try:
+    # Try the newer Marvin configuration method first
+    marvin.settings.configure(api_key=settings.MARVIN_API_KEY)
+except AttributeError:
+    try:
+        # Fall back to the direct assignment method
+        marvin.settings.api_key = settings.MARVIN_API_KEY
+    except:
+        # Log the issue if neither method works
+        logfire.error("Failed to configure Marvin API key. Check Marvin library compatibility.")
 
-@marvin.ai_fn
+@marvin.fn # Changed from @marvin.ai_fn
 def classify_lead_with_ai(
     intended_use: Optional[str],
     product_interest: List[str],

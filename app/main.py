@@ -24,13 +24,19 @@ load_dotenv()
 
 # Configure Logfire
 # Make sure LOGFIRE_TOKEN is set in your environment or .env file
-logfire.configure(
-    send_to_logfire=True, # Send logs to Logfire cloud
-    service_name=settings.PROJECT_NAME, # Use project name from settings
-    # pydantic_plugin=logfire.PydanticPlugin(patch_models=True), # Optional: Auto-instrument Pydantic models
-    # fastapi_instrumentation=True # Automatically instrument FastAPI
-)
-# If using auto-instrumentation, ensure it's configured before creating FastAPI instance
+logfire_config = {
+    "send_to_logfire": True, # Send logs to Logfire cloud
+    "service_name": settings.PROJECT_NAME, # Use project name from settings
+    # "pydantic_plugin": logfire.PydanticPlugin(), # Removed deprecated argument
+    # "fastapi_instrumentation": True
+}
+
+# Only set console=False if DEV is False, otherwise rely on the default (True)
+if not settings.DEV:
+    logfire_config["console"] = False
+
+logfire.configure(**logfire_config)
+logfire.instrument_pydantic() # Instrument Pydantic models
 
 # --- Lifespan Management ---
 @asynccontextmanager
@@ -103,26 +109,9 @@ async def read_root():
     logfire.info("Root endpoint accessed.")
     return {"message": f"Welcome to the {settings.PROJECT_NAME} API"}
 
-# --- Removed Placeholder Endpoints ---
-# The old placeholder endpoints (@app.post('/api/v1/webhook/form', etc.))
-# have been removed as they are now handled by the routers in app/api/v1/endpoints/.
-
 # --- Run Instruction (for local debugging without uvicorn command) ---
 # if __name__ == "__main__":
 #     import uvicorn
 #     # Note: Lifespan events might not trigger correctly when running this way
 #     # compared to running directly with `uvicorn app.main:app` command.
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-"""
-**Summary of Changes:**
-
-* Added the `lifespan` context manager using `@asynccontextmanager`.
-* Imported `bland_manager` to call `close_client()` during shutdown within the `lifespan` manager.
-* Registered the `lifespan` manager with the `FastAPI` application instance.
-* Uncommented the import for `settings` from `app.core.config`.
-* Used `settings.PROJECT_NAME` for Logfire configuration and the root endpoint message.
-* Used `settings.API_V1_STR` for the API router prefix.
-* Removed the large block of commented-out placeholder endpoints previously defined directly in `main.py`.
-* Improved logging in exception handlers to include URL and meth
-"""

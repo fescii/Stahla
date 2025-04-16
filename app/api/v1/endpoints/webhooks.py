@@ -1,7 +1,7 @@
 # app/api/v1/endpoints/webhooks.py
 
 from fastapi import APIRouter, Request, HTTPException, status, Body
-from typing import Any, Dict, List, Literal, Optional # Added Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 import logfire
 
 # Import Pydantic models

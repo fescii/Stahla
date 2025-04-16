@@ -1,4 +1,4 @@
-# app/models/email_models.py
+# app/models/email.py
 
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
@@ -42,18 +42,3 @@ class EmailProcessingResult(BaseModel):
     classification_pending: bool = False
     details: Optional[Any] = None # For detailed results or errors
     message_id: Optional[str] = None # Include message ID where relevant
-
-"""
-**Instructions:**
-1.  Create a file named `email_models.py` inside the `app/models/` directory.
-2.  Paste this code into it.
-3.  **Crucially:** You **must** adapt the `EmailWebhookPayload` model to match the actual data structure provided by the service that sends email webhooks to your application. 
-  The fields here are common examples but will vary based on the service used (e.g., SendGrid, Mailgun, AWS SES).
-4.  Ensure you have the necessary dependencies installed for Pydantic and FastAPI.
-5.  Use this model in your email processing service to validate incoming webhook data.
-6.  Implement the logic to parse the email, check for missing fields, and trigger auto-replies as needed.
-7.  Integrate this model with your classification engine as necessary.
-8.  Test the webhook endpoint with sample payloads to ensure it works as expected.
-9.  Update your API documentation to reflect the new email processing capabilities.
-10.  Consider adding unit tests for the email processing logic to ensure robustness and reliability.
-"""
