@@ -41,22 +41,17 @@ logfire.instrument_pydantic() # Instrument Pydantic models
 # --- Lifespan Management ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Manages application startup and shutdown events.
-    Used here to gracefully close HTTP clients.
-    """
-    # Startup actions
-    logfire.info(f"Application startup: {settings.PROJECT_NAME} - v{app.version}")
-    # Initialize clients or connections if needed here (though singletons often init on import)
+    # Startup: Initialize connections, load models, etc.
+    logfire.info("Application startup: Initializing resources.")
+    # No explicit startup needed for managers using httpx.AsyncClient currently,
+    # as the client is initialized in their __init__ method.
+    # If they needed async initialization, it would go here.
     yield
-    # Shutdown actions
-    logfire.info("Application shutdown initiated.")
-    await bland_manager.close_client() # Close the BlandAI HTTP client
-    await hubspot_manager.close_client() # Close the HubSpot HTTP client
-    await email_manager.close_client() # Close the Email HTTP client
-    # Add other cleanup actions here if needed (e.g., closing DB connections)
-    logfire.info("Application shutdown complete.")
-
+    # Shutdown: Clean up resources
+    logfire.info("Application shutdown: Closing resources.")
+    await bland_manager.close_client()
+    await hubspot_manager.close_client()
+    await email_manager.close_client() # Add closing for email_manager
 
 # --- FastAPI Application Initialization ---
 app = FastAPI(
@@ -68,41 +63,32 @@ app = FastAPI(
     # openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# --- Logfire Middleware (if not using auto-instrumentation) ---
-# If fastapi_instrumentation=False or you need custom middleware logic
-# @app.middleware("http")
-# async def logfire_middleware(request: Request, call_next):
-#     # You can add custom spans or logging here if needed
-#     response = await call_next(request)
-#     return response
-
 # --- Exception Handlers ---
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handles request validation errors for cleaner responses."""
-    # Log the detailed validation error
-    logfire.error(f"Request Validation Error: {exc.errors()}", url=str(request.url), method=request.method, errors=exc.errors())
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
-    )
-
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handles unexpected server errors."""
-    # Log the generic exception
-    logfire.error(f"Unhandled Exception: {type(exc).__name__}: {exc}", url=str(request.url), method=request.method, exc_info=True)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """ Catch-all exception handler for unexpected errors."""
+    logfire.error(f"Unhandled exception: {exc}", exc_info=True, path=request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An internal server error occurred."},
     )
 
+# --- Middleware (Optional) ---
+# Example: Add CORS middleware if needed
+# from fastapi.middleware.cors import CORSMiddleware
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[\"*\"], # Adjust in production!
+#     allow_credentials=True,
+#     allow_methods=[\"*\"],
+#     allow_headers=[\"*\"],
+# )
+
 # --- API Routers ---
-# Include the API router for version 1
-# All routes defined in api_router_v1 will be prefixed with /api/v1
+# Include the API router
 app.include_router(api_router_v1, prefix=settings.API_V1_STR)
 
-# --- Root Endpoint (Optional) ---
+# --- Root Endpoint ---
 @app.get("/", summary="Root endpoint", tags=["General"])
 async def read_root():
     """Provides a simple response for the root path."""

@@ -7,7 +7,7 @@ Content-Type: application/json
   "firstname": "Jane",
   "lastname": "Doe",
   "email": "jane.doe@example.com",
-  "phone": "+15551234567",
+  "phone": "+254713253018",
   "company": "Example Corp",
   "product_interest": "Luxury Restroom Trailer",
   "event_location_description": "Central Park, near the fountain",

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from functools import lru_cache
 from typing import Optional, Literal
 from pydantic import EmailStr
+import logfire # Import logfire
 
 # Load environment variables from a .env file if it exists
 # Useful for local development
@@ -77,20 +78,21 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Returns the cached settings instance."""
     # Process environment variables that need special handling
+    logfire.debug("Loading and processing application settings.") # Add log
     
     # For BLAND_DEFAULT_VOICE_ID, convert to int if present and not empty
-    bland_voice_id = os.getenv("BLAND_DEFAULT_VOICE_ID")
-    if bland_voice_id and bland_voice_id.strip():
+    bland_voice_id_str = os.getenv("BLAND_DEFAULT_VOICE_ID")
+    bland_voice_id = None
+    if bland_voice_id_str and bland_voice_id_str.strip():
         try:
-            bland_voice_id = int(bland_voice_id)
+            bland_voice_id = int(bland_voice_id_str)
         except ValueError:
+            logfire.warn(f"Invalid BLAND_DEFAULT_VOICE_ID: '{bland_voice_id_str}'. Must be an integer. Using None.") # Add log
             bland_voice_id = None
-    else:
-        bland_voice_id = None
-        
+    
     # For EMAIL_FROM_ADDRESS, set to None if empty
-    email_from = os.getenv("EMAIL_FROM_ADDRESS", "")
-    if email_from == "":
+    email_from = os.getenv("EMAIL_FROM_ADDRESS")
+    if not email_from or not email_from.strip(): # Check if None or empty/whitespace
         email_from = None
     
     # Handle boolean conversion for N8N_ENABLED (in .env it might be "false" as a string)
@@ -100,53 +102,72 @@ def get_settings() -> Settings:
     email_sending_enabled = os.getenv("EMAIL_SENDING_ENABLED", "false").lower() == "true"
     
     # Handle SMTP_PORT conversion to int
-    smtp_port = os.getenv("SMTP_PORT")
-    if smtp_port and smtp_port.strip():
+    smtp_port_str = os.getenv("SMTP_PORT")
+    smtp_port = 587 # Default value
+    if smtp_port_str and smtp_port_str.strip():
         try:
-            smtp_port = int(smtp_port)
+            smtp_port = int(smtp_port_str)
         except ValueError:
-            smtp_port = 587
-    else:
-        smtp_port = 587
-    
-    return Settings(
-        # API Information
-        PROJECT_NAME=os.getenv("PROJECT_NAME", "Stahla AI SDR"),
-        API_V1_STR=os.getenv("API_V1_STR", "/api/v1"),
-        APP_BASE_URL=os.getenv("APP_BASE_URL", "http://localhost:8000"),
-        
-        # HubSpot Configuration
-        HUBSPOT_API_KEY=os.getenv("HUBSPOT_API_KEY", "YOUR_HUBSPOT_API_KEY_HERE"),
-        
-        # Bland.ai Configuration
-        BLAND_API_KEY=os.getenv("BLAND_API_KEY", "YOUR_BLAND_AI_KEY_HERE"),
-        BLAND_API_URL=os.getenv("BLAND_API_URL", "https://api.bland.ai"),
-        BLAND_DEFAULT_VOICE_ID=bland_voice_id,
-        
-        # Logfire Configuration
-        LOGFIRE_TOKEN=os.getenv("LOGFIRE_TOKEN"),
-        
-        # LLM Configuration
-        LLM_PROVIDER=os.getenv("LLM_PROVIDER", "marvin"),
-        OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"),
-        ANTHROPIC_API_KEY=os.getenv("ANTHROPIC_API_KEY"),
-        MARVIN_API_KEY=os.getenv("MARVIN_API_KEY", ""),
-        
-        # N8N Configuration
-        N8N_ENABLED=n8n_enabled,
-        N8N_WEBHOOK_URL_CLASSIFICATION_DONE=os.getenv("N8N_WEBHOOK_URL_CLASSIFICATION_DONE"),
-        
-        # Email Configuration
-        EMAIL_SENDING_ENABLED=email_sending_enabled,
-        SMTP_HOST=os.getenv("SMTP_HOST"),
-        SMTP_PORT=smtp_port,
-        SMTP_USER=os.getenv("SMTP_USER"),
-        SMTP_PASSWORD=os.getenv("SMTP_PASSWORD"),
-        EMAIL_FROM_ADDRESS=email_from,
-        
-        # Classification Settings
-        LOCAL_DISTANCE_THRESHOLD_MILES=int(os.getenv("LOCAL_DISTANCE_THRESHOLD_MILES", "50"))
-    )
+            logfire.warn(f"Invalid SMTP_PORT: '{smtp_port_str}'. Must be an integer. Using default {smtp_port}.") # Add log
+            smtp_port = 587 # Ensure default is set on error
+            
+    # Handle LOCAL_DISTANCE_THRESHOLD_MILES conversion to int
+    local_distance_str = os.getenv("LOCAL_DISTANCE_THRESHOLD_MILES", "50")
+    local_distance = 50 # Default value
+    try:
+        local_distance = int(local_distance_str)
+    except ValueError:
+        logfire.warn(f"Invalid LOCAL_DISTANCE_THRESHOLD_MILES: '{local_distance_str}'. Must be an integer. Using default {local_distance}.") # Add log
+        local_distance = 50 # Ensure default is set on error
+
+    # Create Settings instance using processed values
+    try:
+        settings_instance = Settings(
+            # API Information
+            PROJECT_NAME=os.getenv("PROJECT_NAME", "Stahla AI SDR"),
+            API_V1_STR=os.getenv("API_V1_STR", "/api/v1"),
+            APP_BASE_URL=os.getenv("APP_BASE_URL", "http://localhost:8000"),
+
+            # HubSpot Configuration
+            HUBSPOT_API_KEY=os.getenv("HUBSPOT_API_KEY", "YOUR_HUBSPOT_API_KEY_HERE"),
+
+            # Bland.ai Configuration
+            BLAND_API_KEY=os.getenv("BLAND_API_KEY", "YOUR_BLAND_AI_KEY_HERE"),
+            BLAND_API_URL=os.getenv("BLAND_API_URL", "https://api.bland.ai"),
+            BLAND_DEFAULT_VOICE_ID=bland_voice_id,
+
+            # Logfire Configuration
+            LOGFIRE_TOKEN=os.getenv("LOGFIRE_TOKEN"),
+
+            # LLM Configuration
+            LLM_PROVIDER=os.getenv("LLM_PROVIDER", "marvin"),
+            OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"),
+            ANTHROPIC_API_KEY=os.getenv("ANTHROPIC_API_KEY"),
+            MARVIN_API_KEY=os.getenv("MARVIN_API_KEY", ""),
+
+            # N8N Configuration
+            N8N_ENABLED=n8n_enabled,
+            N8N_WEBHOOK_URL_CLASSIFICATION_DONE=os.getenv("N8N_WEBHOOK_URL_CLASSIFICATION_DONE"),
+
+            # Email Configuration
+            EMAIL_SENDING_ENABLED=email_sending_enabled,
+            SMTP_HOST=os.getenv("SMTP_HOST"),
+            SMTP_PORT=smtp_port,
+            SMTP_USER=os.getenv("SMTP_USER"),
+            SMTP_PASSWORD=os.getenv("SMTP_PASSWORD"),
+            EMAIL_FROM_ADDRESS=email_from,
+
+            # Classification Settings
+            LOCAL_DISTANCE_THRESHOLD_MILES=local_distance
+        )
+        logfire.info("Application settings loaded successfully.") # Add log
+        return settings_instance
+    except Exception as e: # Catch potential validation errors from Pydantic itself
+        logfire.error(f"Failed to initialize Settings object: {e}", exc_info=True)
+        # Depending on severity, you might want to raise the exception
+        # or return a default/partially configured object, or exit.
+        # For now, re-raising to prevent startup with invalid config.
+        raise ValueError(f"Configuration error: {e}") from e
 
 # Create an instance accessible throughout the application
 settings = get_settings()

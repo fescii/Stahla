@@ -260,7 +260,7 @@ class MarvinClassificationManager:
         
         return rule_classification, rule_reasoning, owner_team
     
-    async def get_lead_classification(self, input_data: ClassificationInput) -> Tuple[LeadClassificationType, str, Optional[str]]:
+    async def get_lead_classification(self, input_data: ClassificationInput) -> Tuple[LeadClassificationType, str, str]:
         """
         Classify lead using Marvin AI and business rules.
         
@@ -274,32 +274,56 @@ class MarvinClassificationManager:
                     intended_use=input_data.intended_use,
                     product_interest=input_data.product_interest)
         
+        # Construct the prompt for Marvin classification
+        prompt = {
+            "intended_use": input_data.intended_use,
+            "product_interest": input_data.product_interest,
+            "required_stalls": input_data.required_stalls,
+            "duration_days": input_data.duration_days,
+            "is_local": input_data.is_local,
+            "event_location_description": input_data.event_location_description
+        }
+        
+        # Instructions for Marvin AI
+        instructions = "Classify the lead based on the provided information."
+
         try:
-            # Call Marvin AI function to get classification
-            ai_classification, ai_reasoning = await classify_lead_with_ai(
-                intended_use=input_data.intended_use,
-                product_interest=input_data.product_interest or [],
-                required_stalls=input_data.required_stalls,
-                duration_days=input_data.duration_days,
-                is_local=input_data.is_local,
-                event_location_description=input_data.event_location_description
+            logfire.info("Calling Marvin for classification.")
+            # Use marvin.classify_async for async operation
+            classification_result = await marvin.classify_async(
+                data=prompt, # Pass the constructed prompt
+                labels=LeadClassificationType, # Use the enum for classification labels
+                instructions=instructions
+                # Removed model_kwargs parameter as it's not supported
             )
-            
-            # Enhance classification with explicit rule checking
-            final_classification, final_reasoning, owner_team = self._enhance_classification_with_rules(
-                input_data, ai_classification, ai_reasoning
-            )
-            
-            logfire.info(f"Marvin classified lead as: {final_classification}", 
-                        reasoning=final_reasoning, 
-                        owner_team=owner_team)
-            
-            return final_classification, final_reasoning, owner_team
-            
+            logfire.info("Marvin classification successful.", result=classification_result)
+
+            # Determine reasoning and owner team based on Marvin's result
+            classification = classification_result
+            reasoning = f"Classified as {classification} by Marvin AI based on provided details."
+
+            # Assign owner team based on classification
+            if classification == LeadClassificationType.SERVICES:
+                owner_team = "Stahla Services Sales Team"
+            elif classification == LeadClassificationType.LOGISTICS:
+                owner_team = "Stahla Logistics Sales Team"
+            elif classification == LeadClassificationType.LEADS:
+                owner_team = "Stahla Leads Team"
+            else: # Disqualify
+                owner_team = "None"
+
+            return classification, reasoning, owner_team
+
         except Exception as e:
-            logfire.error(f"Error in Marvin classification: {str(e)}", exc_info=True)
-            # Fallback to Leads for manual review in case of errors
-            return "Leads", f"Error in AI classification: {str(e)}", "Stahla Leads Team"
+            # Handle all exceptions in a single block, including potential MarvinServerError
+            error_type = type(e).__name__
+            logfire.error(f"Error during Marvin classification: {e}", 
+                error_type=error_type, 
+                exc_info=True,
+                input_data=prompt  # Log the input data that caused the failure
+            )
+            reasoning = f"Error during classification: {e}. Defaulting to Leads."
+            return LeadClassificationType.LEADS, reasoning, "Stahla Leads Team"
 
 # Create a singleton instance of the manager
 marvin_classification_manager = MarvinClassificationManager()

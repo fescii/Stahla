@@ -3,6 +3,7 @@
 import httpx
 import logfire
 from typing import Dict, Any, Optional
+import re
 
 # Import models
 from app.models.bland import (
@@ -84,72 +85,90 @@ class BlandAIManager:
 
     def _extract_data_from_transcript(self, payload: BlandWebhookPayload) -> Dict[str, Any]:
         """
-        Placeholder function to extract structured data from the transcript.
-        This needs significant refinement based on the actual transcript format
-        and the specific information required by the call script.
-        Could involve regex, keyword spotting, or an LLM call.
+        Extracts structured data from the Bland webhook payload, primarily from the transcript.
+        Placeholder logic - requires robust implementation (e.g., LLM or regex).
         """
         extracted = {
-            "full_transcript": "\n".join([f"{msg.get('role', 'unknown')}: {msg.get('text', '')}" for msg in payload.messages or []]),
-            "summary": payload.summary or "Summary not provided.",
-            "recording_url": payload.recording_url,
-            # Attempt basic extraction (highly dependent on script/transcript structure)
             "firstname": None,
             "lastname": None,
+            "company": None,
+            "phone": None, # Usually the number called, but confirm if they provide another
             "email": None,
-            "phone": payload.to_number, # Caller ID might be available
             "product_interest": [],
+            "event_type": None,
             "event_location": None,
-            "duration_days": None,
             "guest_count": None,
+            "required_stalls": None,
+            "duration_days": None,
+            "start_date": None,
+            "end_date": None,
             "ada_required": None,
-            # ... add other fields from ClassificationInput based on call script questions ...
+            "budget_mentioned": None,
+            "power_available": None,
+            "water_available": None,
+            "comments": None, # Could be derived from summary or parts of transcript
+            "call_recording_url": getattr(payload, 'recording_url', None), # Get from payload if available
+            "call_summary": getattr(payload, 'summary', None), # Get from payload if available
+            "full_transcript": getattr(payload, 'transcript', None) # Get from payload if available
         }
 
-        # Example: Very basic keyword spotting (replace with robust parsing)
-        transcript_text = extracted["full_transcript"].lower()
-        if "restroom trailer" in transcript_text:
-            extracted["product_interest"].append("Restroom Trailer")
-        if "porta potty" in transcript_text or "portable toilet" in transcript_text:
-            extracted["product_interest"].append("Porta Potty")
-        if "wedding" in transcript_text:
-            extracted["event_type"] = "Wedding"
-        elif "construction" in transcript_text:
-            extracted["event_type"] = "Construction"
-
         # TODO: Implement robust parsing logic here based on the call script.
+        # This is critical for extracting accurate data from the conversation.
         # Consider using regex for patterns (email, phone numbers if not already present),
-        # or an LLM for more complex entity extraction.
+        # or an LLM (like Marvin, OpenAI, Claude) for more complex entity extraction.
+        # Example: If using an LLM, you might pass the transcript and ask it to fill a JSON schema.
+
+        transcript_text = extracted["full_transcript"]
+        if transcript_text:
+            transcript_text = transcript_text.lower()
+            # Example: Very basic keyword spotting (replace with robust parsing)
+            if "restroom trailer" in transcript_text:
+                extracted["product_interest"] = ["Restroom Trailer"]
+            elif "porta potty" in transcript_text or "portable toilet" in transcript_text:
+                extracted["product_interest"] = ["Porta Potty"]
+
+            if "wedding" in transcript_text:
+                extracted["event_type"] = "Wedding"
+            elif "construction" in transcript_text:
+                extracted["event_type"] = "Construction"
+
+            # Example: Extracting a number (needs better context checking)
+            match_stalls = re.search(r'(\\d+)\\s+(stalls?|units?)', transcript_text)
+            if match_stalls:
+                try:
+                    extracted["required_stalls"] = int(match_stalls.group(1))
+                except ValueError:
+                    pass # Ignore if not a valid number
+
         logfire.warn("Transcript data extraction is using placeholder logic.", call_id=payload.call_id)
 
         return extracted
 
     async def process_incoming_transcript(self, payload: BlandWebhookPayload) -> BlandProcessingResult:
         """
-        Processes the incoming transcript webhook from Bland.ai.
-        Extracts relevant information.
+        Processes the incoming transcript data from the Bland webhook.
         """
-        logfire.info("Processing incoming Bland transcript.", call_id=payload.call_id)
-
+        logfire.info("Processing incoming Bland transcript", call_id=payload.call_id)
         try:
+            # Extract data using the (placeholder) extraction method
             extracted_data = self._extract_data_from_transcript(payload)
 
-            # Combine with metadata if available (e.g., original form data)
-            if payload.metadata:
-                extracted_data["metadata"] = payload.metadata
+            # You might add validation or further processing here
 
-            logfire.info("Transcript data extracted.", call_id=payload.call_id, extracted_keys=list(extracted_data.keys()))
             return BlandProcessingResult(
                 status="success",
                 message="Transcript processed successfully.",
-                details={"extracted_data": extracted_data}
+                details={"extracted_data": extracted_data},
+                call_id=payload.call_id
             )
+
         except Exception as e:
-            logfire.error("Error processing Bland transcript.", call_id=payload.call_id, exc_info=True)
+            logfire.error(f"Error processing transcript: {str(e)}", call_id=payload.call_id, exc_info=True)
             return BlandProcessingResult(
                 status="error",
                 message=f"Failed to process transcript: {e}",
-                details={"error_type": type(e).__name__}
+                details={"error_type": type(e).__name__},
+                call_id=payload.call_id
             )
 
 # Create a singleton instance of the manager

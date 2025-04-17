@@ -111,14 +111,13 @@ class HubSpotManager:
 	async def create_or_update_contact(self, contact_data: HubSpotContactProperties) -> HubSpotContactResult:
 		"""
 		Creates a new contact or updates an existing one based on email.
-		Uses the v3 batch endpoint for potential future optimization, but currently sends one at a time.
+		Returns HubSpotContactResult consistently.
 		"""
 		if not contact_data.email:
 			logfire.error("Cannot create/update HubSpot contact without email.")
 			return HubSpotContactResult(status="error", message="Email is required to create or update contact.")
 
 		existing_contact_id = await self.search_contact_by_email(contact_data.email)
-
 		properties_payload = contact_data.model_dump(by_alias=True, exclude_none=True)
 
 		if existing_contact_id:
@@ -128,10 +127,20 @@ class HubSpotManager:
 			payload = {"properties": properties_payload}
 			result = await self._make_request("PATCH", endpoint, json_data=payload)
 			if result.status == "success":
-				# Use the existing contact ID
-				return HubSpotContactResult(status="success", message="Contact updated successfully.", id=existing_contact_id, properties=result.details.get("properties", {}))
+				return HubSpotContactResult(
+					status="success",
+					message="Contact updated successfully.",
+					id=existing_contact_id, # Use the existing ID
+					properties=result.details.get("properties", {})
+				)
 			else:
-				return HubSpotContactResult(status="error", message=f"Failed to update contact: {result.message}", details=result.details)
+				# Return HubSpotContactResult on error
+				return HubSpotContactResult(
+					status="error",
+					message=f"Failed to update contact: {result.message}",
+					details=result.details,
+					id=existing_contact_id # Still include the ID we tried to update
+				)
 		else:
 			# Create new contact
 			logfire.info("Creating new HubSpot contact.", email=contact_data.email)
@@ -140,50 +149,70 @@ class HubSpotManager:
 			result = await self._make_request("POST", endpoint, json_data=payload)
 			if result.status == "success":
 				new_contact_id = result.details.get("id")
-				# Pass 'id' instead of 'contact_id'
-				return HubSpotContactResult(status="success", message="Contact created successfully.", id=new_contact_id, properties=result.details.get("properties", {}))
+				return HubSpotContactResult(
+					status="success",
+					message="Contact created successfully.",
+					id=new_contact_id,
+					properties=result.details.get("properties", {})
+				)
 			else:
-				# Ensure 'id' is not expected on error, or handle appropriately
-				# Assuming error result doesn't need a valid 'id' per the model, but check HubSpotContactResult definition if needed
-				# If HubSpotContactResult *always* requires 'id', this error path might need adjustment
-				# For now, let's assume the error path doesn't instantiate HubSpotContactResult or handles it differently
-				# Based on the original code, it seems it *was* trying to instantiate HubSpotContactResult even on error,
-				# which might be problematic if 'id' is strictly required.
-				# Let's refine the error return to avoid the Pydantic error there too, maybe returning a different structure or None
-				# For simplicity, let's assume the original intent was to return the error status without a full HubSpotContactResult instance
-				# or that the model should allow optional id on error.
-				# Reverting to a simpler error return for now:
-				return HubSpotApiResult(status="error", message=f"Failed to create contact: {result.message}", details=result.details, entity_type="contact") # Using HubSpotApiResult for errors
+				# Return HubSpotContactResult on error
+				return HubSpotContactResult(
+					status="error",
+					message=f"Failed to create contact: {result.message}",
+					details=result.details,
+					id=None # No ID was created
+				)
+
 	async def create_deal(self, deal_data: HubSpotDealProperties, associated_contact_id: Optional[str] = None) -> HubSpotDealResult:
-		"""	Creates a new deal in HubSpot and optionally associates it with a contact. """
-		logfire.info("Creating new HubSpot deal.", deal_name=deal_data.dealname)
-		endpoint = "/crm/v3/objects/deals"
-		payload: Dict[str, Any] = {"properties": deal_data.model_dump(by_alias=True, exclude_none=True)}
+				"""
+				Creates a new deal in HubSpot and optionally associates it with a contact.
+				Returns HubSpotDealResult consistently.
+				"""
+				logfire.info("Creating new HubSpot deal.", deal_name=deal_data.dealname)
+				endpoint = "/crm/v3/objects/deals"
+				payload: Dict[str, Any] = {"properties": deal_data.model_dump(by_alias=True, exclude_none=True)}
 
-		if associated_contact_id:
-			# Correct association structure for V3 API
-			payload["associations"] = [
-				{
-					"to": {"id": associated_contact_id},
-					"types": [
-						{
-							"associationCategory": "HUBSPOT_DEFINED",
-							"associationTypeId": 3 # Deal to Contact association type ID
-						}
-					]
-				}
-			]
+				if associated_contact_id:
+						# Correct association structure for V3 API
+						payload["associations"] = [
+								{
+										"to": {"id": associated_contact_id},
+										"types": [
+												{
+														"associationCategory": "HUBSPOT_DEFINED",
+														# Verify this ID (3 = Deal to Contact) in your HubSpot instance
+														"associationTypeId": 3
+												}
+										]
+								}
+						]
 
-		result = await self._make_request("POST", endpoint, json_data=payload)
+				result = await self._make_request("POST", endpoint, json_data=payload)
 
-		if result.status == "success":
-			deal_id = result.details.get("id")
-			# Return HubSpotDealResult on success
-			return HubSpotDealResult(status="success", message="Deal created successfully.", id=deal_id, properties=result.details.get("properties", {}))
-		else:
-			logfire.error("Failed to create HubSpot deal.", error=result.message, details=result.details)
-			# Return HubSpotApiResult on error to avoid ValidationError
-			return HubSpotApiResult(status="error", message=f"Failed to create deal: {result.message}", details=result.details, entity_type="deal")
+				if result.status == "success":
+						deal_id = result.details.get("id")
+						return HubSpotDealResult(
+								status="success",
+								message="Deal created successfully.",
+								id=deal_id,
+								properties=result.details.get("properties", {})
+						)
+				else:
+						# Log both the error response and the payload that caused it
+						logfire.error("Failed to create HubSpot deal.", 
+								error=result.message, 
+								details=result.details,
+								payload=payload  # Include the payload that caused the error
+						)
+						# Return a different result type for error cases to avoid validation issues
+						return HubSpotApiResult(
+								status="error",
+								entity_type="deal",
+								message=f"Failed to create deal: {result.message}",
+								details=result.details,
+								hubspot_id=None # No ID was created
+						)
 
 	async def update_deal_pipeline_and_owner(self, deal_id: str, pipeline_id: str, stage_id: str, owner_id: Optional[str] = None) -> HubSpotApiResult:
 		"""
@@ -313,16 +342,5 @@ class HubSpotManager:
 				return None
 
 # Create a singleton instance of the manager
+# Ensure settings are loaded before this is instantiated
 hubspot_manager = HubSpotManager(api_key=settings.HUBSPOT_API_KEY)
-
-
-"""
-**Instructions:**
-	Replace the content of `app/services/hubspot.py` with this code. Key changes:
-	*   Uses `httpx.AsyncClient`.
-	*   Includes `close_client`.
-	*   Implements `create_or_update_contact` using email search and create/patch.
-	*   Implements `create_deal` with optional contact association.
-	*   Adds `update_deal_pipeline_and_owner` (requires internal IDs).
-	*   Includes placeholder methods for fetching pipeline/stage/owner IDs, which are crucial for robust pipeline/owner assignment and need implementation.
-"""
