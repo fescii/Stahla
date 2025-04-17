@@ -51,6 +51,8 @@ ehthumbs.db
 Thumbs.db
 
 # IDE specific files
+.idx
+.idx/
 .idea/
 .vscode/
 *.swp
