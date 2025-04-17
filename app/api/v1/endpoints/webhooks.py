@@ -1,312 +1,368 @@
 # app/api/v1/endpoints/webhooks.py
 
-from fastapi import APIRouter, Request, HTTPException, status, Body
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Tuple, Optional
 import logfire
+from fastapi import APIRouter, Body, HTTPException, BackgroundTasks, Depends
 
-# Import Pydantic models
-from app.models.webhook import FormPayload
-from app.models.bland import BlandWebhookPayload, BlandApiResult, BlandCallbackRequest
+# Import models
+from app.models.webhook import FormPayload # Corrected import
+from app.models.bland import BlandWebhookPayload, BlandCallbackRequest # Import BlandCallbackRequest
 from app.models.email import EmailWebhookPayload, EmailProcessingResult
 from app.models.classification import ClassificationInput, ClassificationResult, LeadClassificationType
-from app.models.hubspot import HubSpotContactProperties, HubSpotDealProperties, HubSpotContactResult, HubSpotDealResult # Added Result models
+from app.models.hubspot import HubSpotContactProperties, HubSpotDealProperties, HubSpotContactResult, HubSpotDealResult
 
-# Import Services
+# Import services
+from app.services.classification import classification_manager # Import the manager
 from app.services.bland import bland_manager
-from app.services.email import email_manager
-from app.services.classification import classification_manager
-from app.services.hubspot import hubspot_manager # Import HubSpot manager
+from app.services.hubspot import hubspot_manager
+from app.services.email import EmailManager # Keep import for type hinting if needed
+from app.services.email import email_manager # Import the singleton instance
 from app.core.config import settings
+
+# Import the new helper function
+from app.api.v1.endpoints.prepare_classification_input import prepare_classification_input
 
 router = APIRouter()
 
-def _prepare_classification_input(source: Literal["webform", "voice", "email"], raw_data: Dict, extracted_data: Dict) -> ClassificationInput:
-    """Helper function to create ClassificationInput model with all required fields for lead classification."""
-    # Map extracted data to ClassificationInput fields
-    # Extract product_interest from string to list if needed
-    product_interest = extracted_data.get("product_interest")
-    if isinstance(product_interest, str):
-        # Convert comma or semicolon separated string to list
-        product_interest = [p.strip() for p in product_interest.split(',')]
-    elif not isinstance(product_interest, list):
-        product_interest = []
-        
-    return ClassificationInput(
-        source=source,
-        raw_data=raw_data,
-        extracted_data=extracted_data,
-        # --- Map common fields ---
-        firstname=extracted_data.get("firstname") or extracted_data.get("first_name"),
-        lastname=extracted_data.get("lastname") or extracted_data.get("last_name"),
-        email=extracted_data.get("email"),
-        phone=extracted_data.get("phone") or extracted_data.get("phone_number"),
-        company=extracted_data.get("company"),
-        product_interest=product_interest,
-        required_stalls=extracted_data.get("required_stalls") or extracted_data.get("stalls"),
-        ada_required=extracted_data.get("ada_required"),
-        event_type=extracted_data.get("event_type"),
-        event_location_description=extracted_data.get("event_location") or extracted_data.get("location"),
-        duration_days=extracted_data.get("duration_days"),
-        start_date=extracted_data.get("start_date"),
-        end_date=extracted_data.get("end_date"),
-        guest_count=extracted_data.get("guest_count") or extracted_data.get("attendees"),
-        budget_mentioned=extracted_data.get("budget_mentioned"),
-        call_summary=extracted_data.get("summary"),
-        call_recording_url=extracted_data.get("recording_url"),
-        full_transcript=extracted_data.get("full_transcript"),
-        
-        # Additional fields from the call script
-        power_available=extracted_data.get("power_available"),
-        water_available=extracted_data.get("water_available"),
-        delivery_surface=extracted_data.get("delivery_surface"),
-        delivery_obstacles=extracted_data.get("delivery_obstacles"),
-        other_facilities_available=extracted_data.get("other_facilities_available"),
-        other_products_needed=extracted_data.get("other_products_needed", []),
-        decision_timeline=extracted_data.get("decision_timeline"),
-        quote_needed_by=extracted_data.get("quote_needed_by"),
-        
-        # Construction-specific fields
-        onsite_contact_different=extracted_data.get("onsite_contact_different"),
-        working_hours=extracted_data.get("working_hours"),
-        weekend_usage=extracted_data.get("weekend_usage"),
+# --- Helper Functions ---
+
+def _is_form_complete(payload: FormPayload) -> bool: # Updated type hint
+    """
+    Check if the form payload contains the minimum required information.
+    Based on PRD: phone, email, product_interest, event_location_description, event_type
+    """
+    required_fields = [
+        payload.phone,
+        payload.email,
+        payload.product_interest,
+        payload.event_location_description,
+        payload.event_type
+    ]
+    # Check if all required fields are present and not empty strings
+    return all(field is not None and field != "" for field in required_fields)
+
+async def _trigger_bland_call(payload: FormPayload): # Updated type hint
+    """
+    Triggers a Bland.ai call if the form is incomplete.
+    """
+    if not settings.BLAND_API_KEY:
+        logfire.warn("Bland API key not configured, skipping call.")
+        return
+
+    # Extract necessary info, providing defaults or empty strings if None
+    phone_number = payload.phone or ""
+    first_name = payload.firstname or "Lead"
+    # Create a task description based on available info
+    task_description = f"Follow up with {first_name} regarding their interest in {payload.product_interest or 'restroom solutions'}. "
+    task_description += f"They submitted an incomplete form from {payload.source_url or 'the website'}."
+    task_description += f"Key details provided: Event Type: {payload.event_type or 'N/A'}, Location: {payload.event_location_description or 'N/A'}."
+    task_description += "Goal is to gather missing details (like duration, guest count, specific needs) and qualify the lead."
+
+    if not phone_number:
+        logfire.error("Cannot trigger Bland call: Phone number is missing.", email=payload.email)
+        return
+
+    # Prepare metadata to pass to Bland, including original form data
+    metadata_to_pass = {
+        "form_submission_data": payload.model_dump(exclude_none=True)
+    }
+
+    # Create the request object for initiate_callback
+    # Build the webhook URL for Bland to call back with results
+    webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
+    
+    callback_request = BlandCallbackRequest(
+        phone_number=phone_number,
+        task=task_description,
+        # Pass optional parameters if needed/configured
+        first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental form you submitted. Is now a good time?",
+        wait_for_greeting=True,
+        record=True,
+        amd=True, # Enable Answering Machine Detection if desired
+        webhook=webhook_url, # Explicitly set the webhook URL to our ngrok address
+        metadata=metadata_to_pass
     )
 
-async def _handle_hubspot_update(classification_result: ClassificationResult) -> Tuple[Optional[str], Optional[str]]:
-    """Helper function to create/update contact and deal in HubSpot and send notification."""
-    if classification_result.status != "success" or not classification_result.classification:
-        logfire.warn("Classification failed or no output, skipping HubSpot update.")
-        return None, None # Indicate no HubSpot action taken
+    logfire.info(f"Triggering Bland call to {phone_number}", task=task_description)
+    try:
+        # Use initiate_callback instead of make_call
+        call_result = await bland_manager.initiate_callback(callback_request)
 
-    output = classification_result.classification
-    input_data = classification_result.input_data
-
-    if output.lead_type == "Disqualify":
-        logfire.info("Lead classified as Disqualify, skipping HubSpot deal creation.")
-        # Optionally, still create/update contact or update a specific property
-        # contact_props = HubSpotContactProperties(...) # Prepare contact data
-        # await hubspot_manager.create_or_update_contact(contact_props)
-        return None, None
-
-    logfire.info("Proceeding with HubSpot contact and deal update.", classification=output.lead_type)
-
-    # 1. Create/Update Contact
-    contact_props = HubSpotContactProperties(
-        email=input_data.email,
-        firstname=input_data.firstname,
-        lastname=input_data.lastname,
-        phone=input_data.phone,
-        stahla_lead_source=input_data.source,
-        stahla_lead_type=output.lead_type # Set custom property based on classification
-        # Add other relevant contact properties from input_data
-    )
-    contact_result = await hubspot_manager.create_or_update_contact(contact_props)
-    if contact_result.status != "success" or not contact_result.contact_id:
-        logfire.error("Failed to create or update HubSpot contact.", email=input_data.email, error=contact_result.message)
-        return None, None
-
-    contact_id = contact_result.contact_id
-    logfire.info("HubSpot contact created/updated successfully.", contact_id=contact_id)
-
-    # 2. Create Deal
-    deal_name = f"{input_data.firstname or 'Lead'} {input_data.lastname or ''} - {input_data.product_interest[0] if input_data.product_interest else 'Inquiry'} ({input_data.source})"
-
-    # --- Get Pipeline and Stage IDs --- #
-    pipeline_id: Optional[str] = None
-    stage_id: Optional[str] = None
-    default_initial_stage_name = "Lead In" # Initial stage name for newly created deals
-    
-    # Determine pipeline based on lead classification
-    pipeline_name = None
-    if output.lead_type == "Services":
-        pipeline_name = "Services Pipeline"
-    elif output.lead_type == "Logistics":
-        pipeline_name = "Logistics Pipeline"
-    elif output.lead_type == "Leads":
-        pipeline_name = "Leads Pipeline"
-    
-    if pipeline_name:
-        pipeline_id = await hubspot_manager.get_pipeline_id(pipeline_name)
-        if pipeline_id:
-            # Use the default initial stage name for newly created deals
-            stage_id = await hubspot_manager.get_stage_id(pipeline_id, default_initial_stage_name)
-            if not stage_id:
-                logfire.warn(f"Initial stage '{default_initial_stage_name}' not found in pipeline '{pipeline_name}' ({pipeline_id}). Deal will use pipeline default.")
+        # Check result based on BlandApiResult structure
+        if call_result.status == "success":
+            logfire.info("Bland call initiated successfully.", call_id=call_result.call_id)
         else:
-            logfire.warn(f"Pipeline '{pipeline_name}' not found. Deal will use HubSpot default.")
-    else:
-        logfire.warn("No pipeline determined from classification. Deal will use HubSpot default.")
-    # --------------------------------- #
+            logfire.error("Failed to initiate Bland call.", error=call_result.message, details=call_result.details)
+    except Exception as e:
+        logfire.exception("Error occurred while triggering Bland call")
 
-    deal_props = HubSpotDealProperties(
-        dealname=deal_name,
-        pipeline=pipeline_id, # Use fetched ID (or None)
-        dealstage=stage_id, # Use fetched ID (or None)
-        # --- Map custom properties --- #
-        stahla_product_interest=", ".join(input_data.product_interest) if input_data.product_interest else None,
-        stahla_event_location=input_data.event_location_description,
-        stahla_duration=f"{input_data.duration_days} days" if input_data.duration_days else None,
-        stahla_stall_count=input_data.required_stalls,
-        stahla_budget_info=input_data.budget_mentioned,
-        stahla_call_summary=input_data.call_summary,
-        stahla_call_recording_url=str(input_data.call_recording_url) if input_data.call_recording_url else None,
-        stahla_guest_count=input_data.guest_count,
-        stahla_event_type=input_data.event_type,
-        # Additional detailed properties from the call script
-        stahla_ada_required="Yes" if input_data.ada_required else "No",
-        stahla_power_available="Yes" if input_data.power_available else "No",
-        stahla_water_available="Yes" if input_data.water_available else "No",
-        stahla_delivery_surface=input_data.delivery_surface,
-        stahla_other_facilities=input_data.other_facilities_available,
-        stahla_decision_timeline=input_data.decision_timeline,
-        stahla_quote_urgency=input_data.quote_needed_by
+def _prepare_classification_input(source: str, raw_data: dict, extracted_data: dict) -> ClassificationInput:
+    """Safely prepares ClassificationInput from extracted data."""
+    logfire.debug(f"Preparing classification input from {source}", extracted_data=extracted_data)
+    try:
+        # Map extracted fields, providing defaults or None
+        input_obj = ClassificationInput(
+            source=source,
+            firstname=extracted_data.get("firstname"),
+            lastname=extracted_data.get("lastname"),
+            email=extracted_data.get("email"),
+            phone=extracted_data.get("phone"),
+            company=extracted_data.get("company"),
+            # Ensure product_interest is a list
+            product_interest=extracted_data.get("product_interest", []) if isinstance(extracted_data.get("product_interest"), list) else [extracted_data.get("product_interest")] if extracted_data.get("product_interest") else [],
+            event_type=extracted_data.get("event_type"),
+            event_location_description=extracted_data.get("event_location"), # Map from 'event_location'
+            duration_days=extracted_data.get("duration_days"),
+            start_date=extracted_data.get("start_date"),
+            end_date=extracted_data.get("end_date"),
+            guest_count=extracted_data.get("guest_count"),
+            required_stalls=extracted_data.get("required_stalls"),
+            ada_required=extracted_data.get("ada_required"),
+            budget_mentioned=extracted_data.get("budget_mentioned"),
+            comments=extracted_data.get("comments"), # May come from form metadata or voice extraction
+            power_available=extracted_data.get("power_available"),
+            water_available=extracted_data.get("water_available"),
+            source_url=extracted_data.get("source_url"), # May come from form metadata
+            call_recording_url=extracted_data.get("call_recording_url"), # Specific to voice
+            call_summary=extracted_data.get("call_summary"), # Specific to voice
+            raw_data=raw_data # Include raw payload for context
+        )
+        return input_obj
+    except Exception as e:
+        logfire.error("Error preparing classification input", exc_info=True, extracted_data=extracted_data)
+        # Return a minimal input object or re-raise depending on desired handling
+        # Returning minimal object to allow classification attempt with partial data
+        return ClassificationInput(
+            source=source,
+            email=extracted_data.get("email"), # Ensure at least email is present if possible
+            raw_data=raw_data,
+            comments=f"Error preparing input: {e}" # Add error note
+        )
+
+
+async def _handle_hubspot_update(
+    classification_result: ClassificationResult,
+    input_data: ClassificationInput
+) -> Tuple[Optional[str], Optional[str]]:
+    contact_id = None
+    deal_id = None
+
+    # --- Add detailed logging here ---
+    logfire.info(
+        "Entering _handle_hubspot_update",
+        input_email=input_data.email,
+        input_firstname=input_data.firstname,
+        input_source=input_data.source,
+        classification_lead_type=classification_result.classification.lead_type if classification_result.classification else "N/A"
     )
+    # ---------------------------------
 
-    deal_result = await hubspot_manager.create_deal(deal_props, associated_contact_id=contact_id)
+    try:
+        # Check if classification actually happened
+        classification_output = classification_result.classification
+        if not classification_output:
+            logfire.warn("Classification output missing, cannot determine lead type for HubSpot.", input_email=input_data.email)
+            # Decide how to handle - maybe skip deal creation or create with default type?
+            # For now, let's proceed but log the warning. stahla_lead_type will be None.
 
-    if deal_result.status != "success" or not deal_result.deal_id:
-        logfire.error("Failed to create HubSpot deal.", deal_name=deal_name, error=deal_result.message)
-        # Still send notification about the contact if it was created/updated
-        await email_manager.send_handoff_notification(classification_result, contact_result, None)
-        return contact_id, None
+        # 1. Create/Update Contact
+        # --- Add logging right before creating contact props ---
+        logfire.info(
+            "Preparing HubSpotContactProperties",
+            email_to_use=input_data.email,
+            is_email_present=bool(input_data.email)
+        )
+        # -----------------------------------------------------
+        contact_props = HubSpotContactProperties(
+            email=input_data.email,
+            firstname=input_data.firstname,
+            lastname=input_data.lastname,
+            phone=input_data.phone,
+            stahla_lead_source=input_data.source.upper(),
+            # Safely access lead_type
+            stahla_lead_type=classification_output.lead_type if classification_output else None
+        )
+        contact_result = await hubspot_manager.create_or_update_contact(contact_props)
 
-    deal_id = deal_result.deal_id
-    logfire.info("HubSpot deal created successfully.", deal_id=deal_id)
-
-    # 3. Assign Owner based on classification metadata
-    assigned_owner_team = output.metadata.get("assigned_owner_team")
-    if assigned_owner_team:
-        owner_id = await hubspot_manager.get_next_owner_id(assigned_owner_team)
-        if owner_id and pipeline_id and stage_id:
-            update_result = await hubspot_manager.update_deal_pipeline_and_owner(
-                deal_id, pipeline_id, stage_id, owner_id
+        if contact_result.status != "success" or not getattr(contact_result, 'id', None):
+            logfire.error(
+                "Failed to create or update HubSpot contact.",
+                email=input_data.email,
+                error=getattr(contact_result, 'message', 'Unknown error'),
+                details=getattr(contact_result, 'details', None)
             )
-            if update_result.status == "success":
-                logfire.info("Deal owner assigned successfully.", 
-                            deal_id=deal_id, team=assigned_owner_team, owner_id=owner_id)
-            else:
-                logfire.warn("Failed to assign deal owner.", 
-                            deal_id=deal_id, team=assigned_owner_team, error=update_result.message)
-        else:
-            logfire.warn("Could not assign deal owner due to missing ID.", 
-                        deal_id=deal_id, team=assigned_owner_team, 
-                        has_owner_id=bool(owner_id), has_pipeline_id=bool(pipeline_id), has_stage_id=bool(stage_id))
-    else:
-        logfire.info("No assigned owner team specified in classification metadata. Using default assignment.")
+            # --- Add specific log for email missing error ---
+            if not input_data.email:
+                logfire.critical("HubSpot contact failed specifically because input_data.email was missing!", input_data_dump=input_data.model_dump())
+            # ----------------------------------------------
+            return None, None # Exit early if contact fails
 
-    # --- Send Handoff Notification --- #
-    await email_manager.send_handoff_notification(classification_result, contact_result, deal_result)
-    # ------------------------------- #
+        contact_id = contact_result.id
+        logfire.info("HubSpot contact created/updated successfully.", contact_id=contact_id)
 
-    return contact_id, deal_id
+        # Check if this is an existing contact or new contact based on timestamps
+        # Use the presence of created_at and updated_at fields to determine if it's a new or existing contact
+        # If created_at and updated_at are very close in time, it's likely a new contact
+        # Otherwise, if updated_at is significantly later than created_at, it's an existing contact
+        created_at = getattr(contact_result, 'created_at', None)
+        updated_at = getattr(contact_result, 'updated_at', None)
+        
+        # Use the internal name values that HubSpot expects: "newbusiness" or "existingbusiness"
+        deal_type = "newbusiness"  # Default to "newbusiness" 
+        logfire.info(f"Setting deal type to {deal_type}", created_at=created_at, updated_at=updated_at)
 
-@router.post("/form", summary="Receive Web Form Submissions")
+        # 2. Create Deal (only if contact succeeded)
+        deal_name = f"{input_data.firstname or 'Lead'} {input_data.lastname or ''} - {input_data.product_interest[0] if input_data.product_interest else 'Inquiry'}".strip()
+        # Safely access estimated_deal_value from classification metadata
+        estimated_value = classification_output.metadata.get("estimated_value") if classification_output and classification_output.metadata else None
+
+        deal_props = HubSpotDealProperties(
+            dealname=deal_name,
+            # pipeline=settings.HUBSPOT_LEADS_PIPELINE_ID, # Use ID if configured
+            # dealstage=settings.HUBSPOT_NEW_LEAD_STAGE_ID, # Use ID if configured
+            amount=estimated_value, # Use safely accessed value
+            # closedate=... # Set if applicable
+            dealtype=deal_type,  # Set to "Existing Business" or "New Business" based on contact status
+            stahla_product_interest=", ".join(input_data.product_interest) if input_data.product_interest else None,
+            stahla_event_location=input_data.event_location_description,
+            stahla_duration=str(input_data.duration_days) if input_data.duration_days else None,
+            stahla_stall_count=input_data.required_stalls,
+            stahla_budget_info=input_data.budget_mentioned,
+            stahla_guest_count=input_data.guest_count,
+            stahla_event_type=input_data.event_type,
+        )
+
+        deal_result = await hubspot_manager.create_deal(deal_props, associated_contact_id=contact_id)
+
+        if deal_result.status != "success" or not getattr(deal_result, 'id', None):
+            logfire.error(
+                "Failed to create HubSpot deal.",
+                deal_name=deal_name,
+                error=getattr(deal_result, 'message', 'Unknown error'),
+                details=getattr(deal_result, 'details', None)
+            )
+            return contact_id, None # Exit early if deal fails
+
+        deal_id = deal_result.id
+        logfire.info("HubSpot deal created successfully.", deal_id=deal_id)
+
+
+        # 3. Assign Owner (Optional, if applicable)
+        # owner_id = classification_result.classification.suggested_owner_id
+        # if owner_id:
+        #     await hubspot_manager.assign_owner("deal", deal_id, owner_id)
+        #     await hubspot_manager.assign_owner("contact", contact_id, owner_id)
+
+        # --- Send Handoff Notification (Only if BOTH contact and deal succeeded) --- #
+        # Ensure classification_output exists before sending notification
+        if classification_output and classification_output.lead_type != "Disqualify":
+             logfire.info("Sending handoff notification.", contact_id=contact_id, deal_id=deal_id)
+             # Use the singleton email_manager instance
+             await email_manager.send_handoff_notification(
+                 classification_result,
+                 contact_result, # Pass the successful contact result object
+                 deal_result     # Pass the successful deal result object
+             )
+        elif not classification_output:
+             logfire.warn("Skipping handoff notification because classification output is missing.")
+        else: # Disqualified
+             logfire.info("Skipping handoff notification because lead was disqualified.")
+        # ------------------------------------------------------------------------- #
+
+        return contact_id, deal_id
+
+    except Exception as e:
+        logfire.exception("Unhandled error during HubSpot update process")
+        # Ensure we return None, None in case of unexpected errors before success
+        return contact_id, deal_id # Return whatever IDs were obtained before the error
+
+# --- Webhook Endpoints ---
+
+@router.post("/form", summary="Process Form Submissions")
 async def webhook_form(
-    payload: FormPayload = Body(...)
+    payload: FormPayload = Body(...), # Updated type hint
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     """
-    Handles incoming webhook submissions from the web form.
-    Checks if required data is present. If not, triggers a Bland.ai callback.
-    If complete, sends data for classification.
+    Receives form submission data, checks completeness, triggers classification,
+    and updates HubSpot. If incomplete, triggers a Bland.ai call.
     """
-    logfire.info("Received form webhook payload.", data=payload.model_dump())
-    payload_dict = payload.model_dump(exclude_none=True)
+    logfire.info("Received form webhook payload.", form_data=payload.model_dump(exclude_none=True))
 
-    # Define required fields for immediate classification (Goal: >=95% completeness)
-    # Based on PRD requirements for data completeness
-    required_fields_for_classification = [
-        "email", "phone", "product_interest", "event_location_description", 
-        "event_type", "duration_days", "guest_count", "required_stalls"
-    ]
+    # Check if the form has the minimum required data
+    if not _is_form_complete(payload):
+        logfire.warn("Form data incomplete. Triggering Bland.ai callback.")
+        # Trigger Bland.ai call in the background
+        background_tasks.add_task(_trigger_bland_call, payload)
+        # Return a response indicating the call is being made
+        return {"status": "incomplete", "message": "Form incomplete, initiating follow-up call."}
 
-    def check_form_completeness(form_data: Dict[str, Any]) -> bool:
-        missing = [field for field in required_fields_for_classification if not form_data.get(field)]
-        if missing:
-            logfire.info(f"Form data missing required fields for classification: {missing}", form_data=form_data)
-            return False
-        return True
+    logfire.info("Form data complete, proceeding to classification.")
 
-    is_complete = check_form_completeness(payload_dict)
+    # Correctly access potential extra fields like 'source_url' before creating ClassificationInput
+    source_url_value = getattr(payload, 'source_url', None)
+    source_url_for_input = str(source_url_value) if source_url_value is not None else None
 
-    if not is_complete:
-        logfire.info("Form data incomplete, initiating Bland callback.")
-        phone_number = payload.phone
-        if not phone_number:
-             logfire.error("Cannot initiate callback, phone number missing from form payload.", form_data=payload_dict)
-             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Phone number is required in form data to initiate callback.")
+    # Convert FormPayload to ClassificationInput
+    # Assuming FormPayload fields align well with ClassificationInput
+    raw_data = payload.model_dump(mode='json')  # Include raw data from the payload
+    
+    classification_input = ClassificationInput(
+        source="webform",  # Must be one of: "webform", "voice", or "email"
+        raw_data=raw_data,  # Include required raw_data field
+        # Map fields directly
+        firstname=payload.firstname,
+        lastname=payload.lastname,
+        email=payload.email,
+        phone=payload.phone,
+        company=payload.company,
+        product_interest=[payload.product_interest] if payload.product_interest else [], # Convert to list
+        event_type=payload.event_type,
+        event_location_description=payload.event_location_description,
+        event_state=payload.event_state,
+        duration_days=payload.duration_days,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        guest_count=payload.guest_count,
+        required_stalls=payload.required_stalls,
+        ada_required=payload.ada_required,
+        budget_mentioned=payload.budget_mentioned,
+        comments=payload.comments,
+        power_available=payload.power_available,
+        water_available=payload.water_available,
+        # Pass the extracted source_url
+        source_url=source_url_for_input
+    )
 
-        # Construct the task prompt dynamically based on missing info if possible
-        missing_fields = [field for field in required_fields_for_classification if not payload_dict.get(field)]
-        
-        # Create a tailored prompt based on the missing information
-        task_prompt = (
-            f"Hello, this is Stahla Assistant calling about the {payload.product_interest or 'restroom solution'} request you submitted on our website. "
-            f"To provide you with the best service, I need a few more details about your {payload.event_type or 'upcoming event or project'}. "
-        )
-        
-        # Add specific questions based on missing fields
-        if "event_type" in missing_fields:
-            task_prompt += "Could you tell me what type of event or project this is for? For example, is it a wedding, construction site, festival, or something else? "
-            
-        if "event_location_description" in missing_fields:
-            task_prompt += "What's the location or address where you would need our services? "
-            
-        if "duration_days" in missing_fields:
-            task_prompt += "How many days would you need our services? "
-            
-        if "guest_count" in missing_fields:
-            task_prompt += "Approximately how many people would be using the facilities? "
-            
-        if "required_stalls" in missing_fields:
-            task_prompt += "How many stalls or units would you need? "
-            
-        task_prompt += "This information will help us provide an accurate quote quickly."
+    # Trigger classification using the manager
+    classification_result = await classification_manager.classify_lead_data(classification_input)
+    logfire.info("Classification result received.", classification=classification_result.model_dump(exclude_none=True))
 
-        # Construct the full webhook URL for Bland to call back to
-        voice_webhook_url = f"{settings.APP_BASE_URL.strip('/')}{settings.API_V1_STR}/webhook/voice"
-
-        callback_request = BlandCallbackRequest(
-            phone_number=phone_number,
-            task=task_prompt,
-            voice_id=settings.BLAND_DEFAULT_VOICE_ID, # Use default from settings if set
-            wait_for_greeting=True,
-            record=True,
-            amd=True,
-            webhook=voice_webhook_url, # Ensure Bland sends the result back to our voice endpoint
-            metadata={
-                "original_source": "webform",
-                "form_submission_data": payload_dict # Pass original form data
-            }
-        )
-        callback_result = await bland_manager.initiate_callback(callback_request)
-
-        if callback_result.status == "error":
-            logfire.error("Failed to initiate Bland callback for incomplete form.", details=callback_result.details)
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to initiate follow-up call: {callback_result.message}")
-        else:
-            logfire.info("Bland callback initiated successfully.", call_id=callback_result.call_id)
-            return {"status": "received", "source": "form", "action": "callback_initiated", "call_id": callback_result.call_id}
+    # --- HubSpot Integration --- #
+    # Only call HubSpot if classification was successful and no error was detected
+    classification_output = classification_result.classification
+    if classification_output and not (
+        classification_output.metadata and 
+        classification_output.metadata.get("error_type")
+    ):
+        # Trigger HubSpot update in the background
+        background_tasks.add_task(_handle_hubspot_update, classification_result, classification_input)
+        hubspot_status = "initiated"
     else:
-        logfire.info("Form data complete, proceeding to classification.")
-        classification_input = _prepare_classification_input(
-            source="webform",
-            raw_data=payload_dict,
-            extracted_data=payload_dict
+        logfire.warn(
+            "Skipping HubSpot update due to classification errors or missing data",
+            errors=classification_output.metadata if classification_output else None,
+            input_email=classification_input.email
         )
-        classification_result = await classification_manager.classify_lead_data(classification_input)
-        logfire.info("Classification result received.", result=classification_result.model_dump(exclude={"input_data"}))
+        hubspot_status = "skipped"
+    # ------------------------- #
 
-        # --- HubSpot Integration --- #
-        contact_id, deal_id = await _handle_hubspot_update(classification_result)
-        # ------------------------- #
-
-        return {
-            "status": "received",
-            "source": "form",
-            "action": "classification_complete",
-            "classification": classification_result.output.model_dump() if classification_result.output else None,
-            "hubspot_contact_id": contact_id,
-            "hubspot_deal_id": deal_id
-        }
+    # Return classification result (or a success message)
+    return {
+        "status": "success", 
+        "message": "Form processed and classification initiated.",
+        "classification_result": classification_result.model_dump(exclude_none=True)
+    }
 
 
 @router.post(
@@ -339,28 +395,79 @@ async def webhook_voice(
     extracted_data = processing_result.details.get("extracted_data", {})
     raw_data = payload.model_dump(mode='json')
 
-    # If this call originated from a form, merge original form data from metadata
-    original_form_data = payload.metadata.get("form_submission_data", {}) if payload.metadata else {}
-    merged_data = {**original_form_data, **extracted_data} # Voice data overrides form data if keys conflict
+    # Debug what's available in the payload
+    logfire.info(
+        "Examining Bland.ai webhook payload structure",
+        has_metadata=bool(getattr(payload, 'metadata', None)),
+        has_variables=bool(getattr(payload, 'variables', None)),
+        metadata_keys=list(payload.metadata.keys()) if getattr(payload, 'metadata', None) else [],
+        variables_keys=list(payload.variables.keys()) if getattr(payload, 'variables', None) else []
+    )
 
-    classification_input = _prepare_classification_input(
+    # Extract email from ALL possible locations (both direct metadata and variables.metadata)
+    # Prioritize metadata form data OVER transcript extracted data for fields like email
+    merged_data = {}
+
+    # 1. Start with extracted data from transcript processing
+    merged_data.update(extracted_data) 
+    logfire.info("Initial merged_data from transcript extraction", data_keys=list(merged_data.keys()))
+
+    # 2. Check variables.metadata.form_submission_data (nested path) - OVERWRITE if present
+    if getattr(payload, 'variables', None) and isinstance(payload.variables, dict):
+        if payload.variables.get('metadata', None) and isinstance(payload.variables['metadata'], dict):
+            nested_form_data = payload.variables['metadata'].get('form_submission_data', {})
+            if nested_form_data:
+                logfire.info("Found form_submission_data in variables.metadata, updating merged_data", 
+                             has_email=bool(nested_form_data.get('email')),
+                             nested_form_data_keys=list(nested_form_data.keys()))
+                merged_data.update(nested_form_data) # Update, potentially overwriting transcript data
+
+    # 3. Check metadata.form_submission_data (direct path) - OVERWRITE if present (Highest priority)
+    if getattr(payload, 'metadata', None) and isinstance(payload.metadata, dict):
+        form_data = payload.metadata.get('form_submission_data', {})
+        if form_data:
+            logfire.info("Found form_submission_data in metadata, updating merged_data", 
+                         has_email=bool(form_data.get('email')),
+                         form_data_keys=list(form_data.keys()))
+            merged_data.update(form_data) # Update, potentially overwriting transcript & variables data
+    
+    # Add call-specific details to merged_data if available in payload
+    # Ensure these don't overwrite critical fields if keys conflict (unlikely for these keys)
+    merged_data.setdefault("call_recording_url", getattr(payload, 'recording_url', None))
+    merged_data.setdefault("call_summary", getattr(payload, 'summary', None))
+    
+    # Log the final data we're about to classify
+    logfire.info("Final data prepared for classification", 
+                has_email=bool(merged_data.get('email')),
+                email=merged_data.get('email'), # Log the actual email value
+                merged_data_keys=list(merged_data.keys()))
+
+    # Use the prepare_classification_input function
+    classification_input = prepare_classification_input(
         source="voice",
         raw_data=raw_data,
         extracted_data=merged_data
     )
 
+    # Log the email to debug AFTER prepare_classification_input
+    logfire.info("Created classification input for voice webhook", 
+                email=classification_input.email,
+                has_email=bool(classification_input.email))
+
+    # Use the singleton classification_manager instance
     classification_result = await classification_manager.classify_lead_data(classification_input)
     logfire.info("Classification result received.", result=classification_result.model_dump(exclude={"input_data"}))
 
     # --- HubSpot Integration --- #
-    contact_id, deal_id = await _handle_hubspot_update(classification_result)
+    # Ensure classification_input is passed here as well
+    contact_id, deal_id = await _handle_hubspot_update(classification_result, classification_input)
     # ------------------------- #
 
     return {
         "status": "received",
         "source": "voice",
         "action": "classification_complete",
-        "classification": classification_result.output.model_dump() if classification_result.output else None,
+        "classification": classification_result.classification.model_dump() if classification_result.classification else None,
         "hubspot_contact_id": contact_id,
         "hubspot_deal_id": deal_id
     }
@@ -393,22 +500,25 @@ async def webhook_email(
         extracted_data = processing_result.extracted_data or {}
         raw_data = payload.model_dump(mode='json')
 
-        classification_input = _prepare_classification_input(
+        # Use the new prepare_classification_input function instead of _prepare_classification_input
+        classification_input = prepare_classification_input(
             source="email",
             raw_data=raw_data,
             extracted_data=extracted_data
         )
 
+        # Use the singleton classification_manager instance
         classification_result = await classification_manager.classify_lead_data(classification_input)
         logfire.info("Classification result received.", result=classification_result.model_dump(exclude={"input_data"}))
 
         # --- HubSpot Integration --- #
-        contact_id, deal_id = await _handle_hubspot_update(classification_result)
+        # Ensure classification_input is passed here as well
+        contact_id, deal_id = await _handle_hubspot_update(classification_result, classification_input)
         # ------------------------- #
 
         # Update the processing result to include classification info and HubSpot IDs
         processing_result.details = {
-            "classification": classification_result.output.model_dump() if classification_result.output else None,
+            "classification": classification_result.classification.model_dump() if classification_result.classification else None,
             "hubspot_contact_id": contact_id,
             "hubspot_deal_id": deal_id
         }
@@ -416,12 +526,3 @@ async def webhook_email(
 
     # Return the result from the EmailManager (or updated result after classification/HubSpot)
     return processing_result
-
-
-"""
-This version includes:
-* Imports for `BlandWebhookPayload`, `BlandApiResult`, `BlandCallbackRequest`, and `bland_manager`.
-* The `/webhook/voice` endpoint now uses `BlandWebhookPayload` for input validation and calls `bland_manager.process_incoming_transcript`.
-* The `/webhook/form` endpoint includes an example structure showing how to check for completeness and potentially call `bland_manager.initiate_callback` if data is missing. Remember to replace the placeholder `check_form_completeness` function and customize the `BlandCallbackRequest` parameters.
-* The `/webhook/email` endpoint remains a placeholder, indicating the need for an `EmailProcessingManage
-"""

@@ -20,7 +20,7 @@ class HubSpotContactProperties(HubSpotBaseModel):
 	lastname: Optional[str] = None
 	phone: Optional[str] = None
 	# --- Stahla Custom Properties (Replace with actual internal names) ---
-	stahla_lead_source: Optional[str] = Field(None, alias="leadsource", description="Source of the lead (e.g., Webform, Phone, Email)") # Example standard field
+	stahla_lead_source: Optional[str] = Field(None, alias="stahla_lead_source", description="Source of the lead (e.g., Webform, Phone, Email)") # Example standard field
 	stahla_lead_type: Optional[str] = Field(None, alias="stahla_lead_type", description="Classification result (Services, Logistics, Leads, Disqualify)")
 	# Add other relevant contact properties if needed
 
@@ -48,6 +48,7 @@ class HubSpotDealProperties(HubSpotBaseModel):
 	dealstage: Optional[str] = None  # ID or name of the stage
 	amount: Optional[float] = None  # Deal amount (might be estimated initially)
 	closedate: Optional[str] = None  # Deal close date (YYYY-MM-DD)
+	dealtype: Optional[str] = None  # Whether this is "Existing Business" or "New Business"
 	# --- Stahla Custom Properties (Replace with actual internal names) ---
 	stahla_product_interest: Optional[str] = Field(None, alias="stahla_product_interest", description="Product(s) interested in (comma-separated string or specific property)")
 	stahla_event_location: Optional[str] = Field(None, alias="stahla_event_location", description="Delivery location details")
@@ -57,8 +58,8 @@ class HubSpotDealProperties(HubSpotBaseModel):
 	stahla_call_summary: Optional[str] = Field(None, alias="stahla_call_summary", description="Summary of the intake call")
 	stahla_call_recording_url: Optional[HttpUrl] = Field(None, alias="stahla_call_recording_url", description="Link to the call recording")
 	# Add other relevant deal properties (e.g., guest count, event type)
-	stahla_guest_count: Optional[int] = Field(None, alias="stahla_guest_count")
-	stahla_event_type: Optional[str] = Field(None, alias="stahla_event_type")
+	sstahla_guest_count: Optional[int] = Field(None, alias="stahla_guest_count", description="Number of guests attending the event")
+	stahla_event_type: Optional[str] = Field(None, alias="stahla_event_type", description="Type of the event")
 
 
 class HubSpotDealInput(HubSpotBaseModel):
@@ -84,13 +85,7 @@ class HubSpotDealResult(HubSpotBaseModel):
 class HubSpotApiResult(BaseModel):
 	"""Generic result structure for HubSpot operations."""
 	status: str  # e.g., "success", "error", "updated", "created"
-	entity_type: str  # e.g., "contact", "deal"
+	entity_type: Optional[str] = None  # e.g., "contact", "deal" - Made optional
 	hubspot_id: Optional[str] = None
 	message: Optional[str] = None
 	details: Optional[Any] = None  # For detailed results or errors
-
-
-"""
-**Instructions:**
-    Create a file named `hubspot_models.py` inside the `app/models/` directory and paste this code into it. You will need to customize the properties (`HubSpotContactProperties`, `HubSpotDealProperties`) to match the exact fields required by Stahla as per the project documentation
-"""

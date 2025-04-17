@@ -24,12 +24,29 @@ class ClassificationManager:
     Applies rules defined in the PRD and call script.
     """
 
-    def _determine_locality(self, location_description: Optional[str]) -> bool:
+    def _determine_locality(self, 
+                        location_description: Optional[str] = None,
+                        state_code: Optional[str] = None,
+                        city: Optional[str] = None,
+                        postal_code: Optional[str] = None) -> bool:
         """
         Determine if a location is local based on drive time from key service hubs.
         Local is defined as ≤ 3 hours from Omaha NE, Denver CO, or Kansas City KS.
+        
+        Args:
+            location_description: Text description of the location
+            state_code: Two-letter state code (e.g., 'NY', 'CO') if available
+            city: City name if available
+            postal_code: Postal/ZIP code if available
         """
-        return determine_locality_from_description(location_description)
+        # Import enhanced location utils that support all location fields
+        from app.utils.location_enhanced import determine_locality_from_description
+        return determine_locality_from_description(
+            location_description=location_description, 
+            state_code=state_code,
+            city=city, 
+            postal_code=postal_code
+        )
 
     def _estimate_deal_value(self, input_data: ClassificationInput) -> float:
         """

@@ -27,7 +27,7 @@ psutil>=5.9.0  # For system metrics in health check endpoint
 
 # Optional Dependencies
 # uncomment these as needed:
-# geopy>=2.3.0  # For geographical calculations if needed for location utilities
+geopy>=2.3.0  # For geographical calculations if needed for location utilities
 # html2text>=2020.1.16  # For better HTML to text conversion in email parsing
 # pandas>=2.0.0  # For data manipulation if needed
 
