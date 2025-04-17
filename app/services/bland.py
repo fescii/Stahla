@@ -75,7 +75,13 @@ class BlandAIManager:
         Initiates a callback using the Bland.ai /call endpoint.
         """
         endpoint = "/call"
+        # Convert the request data to a dict first, so we can modify it
         payload = request_data.model_dump(exclude_none=True)
+        
+        # Convert HttpUrl to string if present (fix for JSON serialization issue)
+        if "webhook" in payload and payload["webhook"] is not None:
+            payload["webhook"] = str(payload["webhook"])
+            
         logfire.info("Initiating Bland callback.", phone=request_data.phone_number)
         result = await self._make_request("POST", endpoint, json_data=payload)
         # Add call_id to the result details if available

@@ -48,6 +48,7 @@ class HubSpotDealProperties(HubSpotBaseModel):
 	dealstage: Optional[str] = None  # ID or name of the stage
 	amount: Optional[float] = None  # Deal amount (might be estimated initially)
 	closedate: Optional[str] = None  # Deal close date (YYYY-MM-DD)
+	dealtype: Optional[str] = None  # Whether this is "Existing Business" or "New Business"
 	# --- Stahla Custom Properties (Replace with actual internal names) ---
 	stahla_product_interest: Optional[str] = Field(None, alias="stahla_product_interest", description="Product(s) interested in (comma-separated string or specific property)")
 	stahla_event_location: Optional[str] = Field(None, alias="stahla_event_location", description="Delivery location details")
@@ -57,8 +58,8 @@ class HubSpotDealProperties(HubSpotBaseModel):
 	stahla_call_summary: Optional[str] = Field(None, alias="stahla_call_summary", description="Summary of the intake call")
 	stahla_call_recording_url: Optional[HttpUrl] = Field(None, alias="stahla_call_recording_url", description="Link to the call recording")
 	# Add other relevant deal properties (e.g., guest count, event type)
-	stahla_guest_count: Optional[int] = Field(None, alias="stahla_guest_count")
-	stahla_event_type: Optional[str] = Field(None, alias="stahla_event_type")
+	sstahla_guest_count: Optional[int] = Field(None, alias="stahla_guest_count", description="Number of guests attending the event")
+	stahla_event_type: Optional[str] = Field(None, alias="stahla_event_type", description="Type of the event")
 
 
 class HubSpotDealInput(HubSpotBaseModel):

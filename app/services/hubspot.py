@@ -115,7 +115,12 @@ class HubSpotManager:
 		"""
 		if not contact_data.email:
 			logfire.error("Cannot create/update HubSpot contact without email.")
-			return HubSpotContactResult(status="error", message="Email is required to create or update contact.")
+			return HubSpotContactResult(
+				status="error", 
+				message="Email is required to create or update contact.",
+				id="", 
+				properties={}
+			)
 
 		existing_contact_id = await self.search_contact_by_email(contact_data.email)
 		properties_payload = contact_data.model_dump(by_alias=True, exclude_none=True)

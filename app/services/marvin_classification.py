@@ -19,18 +19,57 @@ from app.models.classification import (
 )
 from app.core.config import settings
 
-# Configure Marvin with API key from settings
-# Check which API is available in the current Marvin version
-try:
-    # Try the newer Marvin configuration method first
-    marvin.settings.configure(api_key=settings.MARVIN_API_KEY)
-except AttributeError:
+# Configure Marvin with API keys from settings based on selected provider
+def configure_marvin():
+    """Configure Marvin based on the selected LLM provider in settings"""
+    provider = settings.LLM_PROVIDER.lower()
+    config_kwargs = {}
+    
+    # Set up configuration based on selected provider
+    if provider == "openai":
+        if settings.OPENAI_API_KEY:
+            config_kwargs["api_key"] = settings.OPENAI_API_KEY
+            if settings.MODEL_NAME:
+                config_kwargs["openai_model"] = settings.MODEL_NAME
+        else:
+            logfire.error("OpenAI selected as provider but API key is missing")
+            
+    elif provider == "anthropic":
+        if settings.ANTHROPIC_API_KEY:
+            config_kwargs["anthropic_api_key"] = settings.ANTHROPIC_API_KEY
+            if settings.MODEL_NAME:
+                config_kwargs["anthropic_model"] = settings.MODEL_NAME
+        else:
+            logfire.error("Anthropic selected as provider but API key is missing")
+            
+    elif provider == "gemini":
+        if settings.GEMINI_API_KEY:
+            config_kwargs["gemini_api_key"] = settings.GEMINI_API_KEY
+            if settings.MODEL_NAME:
+                config_kwargs["gemini_model"] = settings.MODEL_NAME
+        else:
+            logfire.error("Gemini selected as provider but API key is missing")
+            
+    # Default to Marvin's default configuration
+    if not config_kwargs and settings.MARVIN_API_KEY:
+        config_kwargs["api_key"] = settings.MARVIN_API_KEY
+    
+    # Apply configuration
     try:
-        # Fall back to the direct assignment method
-        marvin.settings.api_key = settings.MARVIN_API_KEY
-    except:
-        # Log the issue if neither method works
-        logfire.error("Failed to configure Marvin API key. Check Marvin library compatibility.")
+        # Try the newer Marvin configuration method
+        logfire.info(f"Configuring Marvin with provider: {provider}")
+        marvin.settings.configure(**config_kwargs)
+    except AttributeError:
+        try:
+            # Fall back to direct assignment
+            for key, value in config_kwargs.items():
+                setattr(marvin.settings, key, value)
+        except Exception as e:
+            logfire.error(f"Failed to configure Marvin: {str(e)}")
+            logfire.error("Check Marvin library compatibility and API key configuration")
+
+# Initialize Marvin with the selected provider
+configure_marvin()
 
 @marvin.fn # Changed from @marvin.ai_fn
 def classify_lead_with_ai(

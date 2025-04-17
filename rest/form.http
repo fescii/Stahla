@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8000 
+@baseUrl = https://nicely-thorough-monster.ngrok-free.app 
 
 POST {{baseUrl}}/api/v1/webhook/form
 Content-Type: application/json
@@ -11,6 +11,7 @@ Content-Type: application/json
   "company": "Example Corp",
   "product_interest": "Luxury Restroom Trailer",
   "event_location_description": "Central Park, near the fountain",
+  "event_state": "NY",
   "event_type": "Wedding Reception",
   "duration_days": 2,
   "start_date": "2025-07-15",
@@ -28,13 +29,14 @@ POST {{baseUrl}}/api/v1/webhook/form
 Content-Type: application/json
 
 {
-  "firstname": "Peter",
-  "lastname": "Jones",
-  "email": "peter.jones@example.net",
-  "phone": "+15559876543",
+  "firstname": "Fredrick",
+  "lastname": "Femar",
+  "email": "femar.fredrick@gmail.com",
+  "phone": "+254713253018",
   "company": "",
   "product_interest": "Standard Portable Toilet",
   "event_location_description": "", 
+  "event_state": "NE",
   "event_type": "Construction Site",
   "duration_days": null, 
   "start_date": "2025-05-01",

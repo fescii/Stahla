@@ -19,7 +19,14 @@ class FormPayload(BaseModel):
     product_interest: Optional[str] = Field(None, description="Product(s) the prospect is interested in (e.g., Restroom Trailer, Porta Potty)")
     lead_type_guess: Optional[str] = Field(None, description="Initial guess about lead type based on form data")
     event_type: Optional[str] = Field(None, description="Type of event or project (e.g., Wedding, Construction)")
+    
+    # Location information
     event_location_description: Optional[str] = Field(None, description="Address or general location of the event/project")
+    event_state: Optional[str] = Field(None, description="Two-letter state code where the event will take place (e.g., 'NY', 'NE')")
+    event_city: Optional[str] = Field(None, description="City where the event will take place")
+    event_postal_code: Optional[str] = Field(None, description="Postal/ZIP code of the event location")
+    
+    # Event details
     duration_days: Optional[int] = Field(None, description="Duration of the rental in days")
     start_date: Optional[str] = Field(None, description="Start/delivery date")
     end_date: Optional[str] = Field(None, description="End/pickup date")

@@ -19,6 +19,9 @@ from app.services.email import EmailManager # Keep import for type hinting if ne
 from app.services.email import email_manager # Import the singleton instance
 from app.core.config import settings
 
+# Import the new helper function
+from app.api.v1.endpoints.prepare_classification_input import prepare_classification_input
+
 router = APIRouter()
 
 # --- Helper Functions ---
@@ -65,6 +68,9 @@ async def _trigger_bland_call(payload: FormPayload): # Updated type hint
     }
 
     # Create the request object for initiate_callback
+    # Build the webhook URL for Bland to call back with results
+    webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
+    
     callback_request = BlandCallbackRequest(
         phone_number=phone_number,
         task=task_description,
@@ -73,7 +79,7 @@ async def _trigger_bland_call(payload: FormPayload): # Updated type hint
         wait_for_greeting=True,
         record=True,
         amd=True, # Enable Answering Machine Detection if desired
-        # webhook=settings.BLAND_WEBHOOK_URL, # Optionally override default webhook
+        webhook=webhook_url, # Explicitly set the webhook URL to our ngrok address
         metadata=metadata_to_pass
     )
 
@@ -141,6 +147,16 @@ async def _handle_hubspot_update(
     contact_id = None
     deal_id = None
 
+    # --- Add detailed logging here ---
+    logfire.info(
+        "Entering _handle_hubspot_update",
+        input_email=input_data.email,
+        input_firstname=input_data.firstname,
+        input_source=input_data.source,
+        classification_lead_type=classification_result.classification.lead_type if classification_result.classification else "N/A"
+    )
+    # ---------------------------------
+
     try:
         # Check if classification actually happened
         classification_output = classification_result.classification
@@ -150,6 +166,13 @@ async def _handle_hubspot_update(
             # For now, let's proceed but log the warning. stahla_lead_type will be None.
 
         # 1. Create/Update Contact
+        # --- Add logging right before creating contact props ---
+        logfire.info(
+            "Preparing HubSpotContactProperties",
+            email_to_use=input_data.email,
+            is_email_present=bool(input_data.email)
+        )
+        # -----------------------------------------------------
         contact_props = HubSpotContactProperties(
             email=input_data.email,
             firstname=input_data.firstname,
@@ -168,11 +191,25 @@ async def _handle_hubspot_update(
                 error=getattr(contact_result, 'message', 'Unknown error'),
                 details=getattr(contact_result, 'details', None)
             )
+            # --- Add specific log for email missing error ---
+            if not input_data.email:
+                logfire.critical("HubSpot contact failed specifically because input_data.email was missing!", input_data_dump=input_data.model_dump())
+            # ----------------------------------------------
             return None, None # Exit early if contact fails
 
         contact_id = contact_result.id
         logfire.info("HubSpot contact created/updated successfully.", contact_id=contact_id)
 
+        # Check if this is an existing contact or new contact based on timestamps
+        # Use the presence of created_at and updated_at fields to determine if it's a new or existing contact
+        # If created_at and updated_at are very close in time, it's likely a new contact
+        # Otherwise, if updated_at is significantly later than created_at, it's an existing contact
+        created_at = getattr(contact_result, 'created_at', None)
+        updated_at = getattr(contact_result, 'updated_at', None)
+        
+        # Use the internal name values that HubSpot expects: "newbusiness" or "existingbusiness"
+        deal_type = "newbusiness"  # Default to "newbusiness" 
+        logfire.info(f"Setting deal type to {deal_type}", created_at=created_at, updated_at=updated_at)
 
         # 2. Create Deal (only if contact succeeded)
         deal_name = f"{input_data.firstname or 'Lead'} {input_data.lastname or ''} - {input_data.product_interest[0] if input_data.product_interest else 'Inquiry'}".strip()
@@ -185,6 +222,7 @@ async def _handle_hubspot_update(
             # dealstage=settings.HUBSPOT_NEW_LEAD_STAGE_ID, # Use ID if configured
             amount=estimated_value, # Use safely accessed value
             # closedate=... # Set if applicable
+            dealtype=deal_type,  # Set to "Existing Business" or "New Business" based on contact status
             stahla_product_interest=", ".join(input_data.product_interest) if input_data.product_interest else None,
             stahla_event_location=input_data.event_location_description,
             stahla_duration=str(input_data.duration_days) if input_data.duration_days else None,
@@ -281,6 +319,7 @@ async def webhook_form(
         product_interest=[payload.product_interest] if payload.product_interest else [], # Convert to list
         event_type=payload.event_type,
         event_location_description=payload.event_location_description,
+        event_state=payload.event_state,
         duration_days=payload.duration_days,
         start_date=payload.start_date,
         end_date=payload.end_date,
@@ -356,20 +395,64 @@ async def webhook_voice(
     extracted_data = processing_result.details.get("extracted_data", {})
     raw_data = payload.model_dump(mode='json')
 
-    # If this call originated from a form, merge original form data from metadata
-    original_form_data = payload.metadata.get("form_submission_data", {}) if payload.metadata else {}
-    merged_data = {**original_form_data, **extracted_data} # Voice data overrides form data if keys conflict
+    # Debug what's available in the payload
+    logfire.info(
+        "Examining Bland.ai webhook payload structure",
+        has_metadata=bool(getattr(payload, 'metadata', None)),
+        has_variables=bool(getattr(payload, 'variables', None)),
+        metadata_keys=list(payload.metadata.keys()) if getattr(payload, 'metadata', None) else [],
+        variables_keys=list(payload.variables.keys()) if getattr(payload, 'variables', None) else []
+    )
 
+    # Extract email from ALL possible locations (both direct metadata and variables.metadata)
+    # Prioritize metadata form data OVER transcript extracted data for fields like email
+    merged_data = {}
+
+    # 1. Start with extracted data from transcript processing
+    merged_data.update(extracted_data) 
+    logfire.info("Initial merged_data from transcript extraction", data_keys=list(merged_data.keys()))
+
+    # 2. Check variables.metadata.form_submission_data (nested path) - OVERWRITE if present
+    if getattr(payload, 'variables', None) and isinstance(payload.variables, dict):
+        if payload.variables.get('metadata', None) and isinstance(payload.variables['metadata'], dict):
+            nested_form_data = payload.variables['metadata'].get('form_submission_data', {})
+            if nested_form_data:
+                logfire.info("Found form_submission_data in variables.metadata, updating merged_data", 
+                             has_email=bool(nested_form_data.get('email')),
+                             nested_form_data_keys=list(nested_form_data.keys()))
+                merged_data.update(nested_form_data) # Update, potentially overwriting transcript data
+
+    # 3. Check metadata.form_submission_data (direct path) - OVERWRITE if present (Highest priority)
+    if getattr(payload, 'metadata', None) and isinstance(payload.metadata, dict):
+        form_data = payload.metadata.get('form_submission_data', {})
+        if form_data:
+            logfire.info("Found form_submission_data in metadata, updating merged_data", 
+                         has_email=bool(form_data.get('email')),
+                         form_data_keys=list(form_data.keys()))
+            merged_data.update(form_data) # Update, potentially overwriting transcript & variables data
+    
     # Add call-specific details to merged_data if available in payload
-    merged_data["call_recording_url"] = getattr(payload, 'recording_url', None) # Adjust field name based on actual BlandWebhookPayload
-    merged_data["call_summary"] = getattr(payload, 'summary', None) # Adjust field name
+    # Ensure these don't overwrite critical fields if keys conflict (unlikely for these keys)
+    merged_data.setdefault("call_recording_url", getattr(payload, 'recording_url', None))
+    merged_data.setdefault("call_summary", getattr(payload, 'summary', None))
+    
+    # Log the final data we're about to classify
+    logfire.info("Final data prepared for classification", 
+                has_email=bool(merged_data.get('email')),
+                email=merged_data.get('email'), # Log the actual email value
+                merged_data_keys=list(merged_data.keys()))
 
-    # Use the new helper function
-    classification_input = _prepare_classification_input(
+    # Use the prepare_classification_input function
+    classification_input = prepare_classification_input(
         source="voice",
         raw_data=raw_data,
         extracted_data=merged_data
     )
+
+    # Log the email to debug AFTER prepare_classification_input
+    logfire.info("Created classification input for voice webhook", 
+                email=classification_input.email,
+                has_email=bool(classification_input.email))
 
     # Use the singleton classification_manager instance
     classification_result = await classification_manager.classify_lead_data(classification_input)
@@ -384,7 +467,7 @@ async def webhook_voice(
         "status": "received",
         "source": "voice",
         "action": "classification_complete",
-        "classification": classification_result.output.model_dump() if classification_result.output else None,
+        "classification": classification_result.classification.model_dump() if classification_result.classification else None,
         "hubspot_contact_id": contact_id,
         "hubspot_deal_id": deal_id
     }
@@ -417,8 +500,8 @@ async def webhook_email(
         extracted_data = processing_result.extracted_data or {}
         raw_data = payload.model_dump(mode='json')
 
-        # Use the new helper function
-        classification_input = _prepare_classification_input(
+        # Use the new prepare_classification_input function instead of _prepare_classification_input
+        classification_input = prepare_classification_input(
             source="email",
             raw_data=raw_data,
             extracted_data=extracted_data
@@ -435,7 +518,7 @@ async def webhook_email(
 
         # Update the processing result to include classification info and HubSpot IDs
         processing_result.details = {
-            "classification": classification_result.output.model_dump() if classification_result.output else None,
+            "classification": classification_result.classification.model_dump() if classification_result.classification else None,
             "hubspot_contact_id": contact_id,
             "hubspot_deal_id": deal_id
         }

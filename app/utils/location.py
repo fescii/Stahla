@@ -63,63 +63,158 @@ def is_location_local(lat: Optional[float], lon: Optional[float]) -> bool:
     logfire.info(f"Locality determined: {is_local}", min_drive_time_hours=min_drive_time, closest_hub=closest_hub, location_lat=lat, location_lon=lon)
     return is_local
 
-def geocode_location(location_description: str) -> Tuple[Optional[float], Optional[float]]:
+def geocode_location(location_description: str, state_code: Optional[str] = None) -> Tuple[Optional[float], Optional[float]]:
     """
     Convert a location description to coordinates using Nominatim.
-    Handles potential errors during geocoding.
+    Handles potential errors during geocoding with multiple fallback strategies.
+    
+    Args:
+        location_description: Text description of the location
+        state_code: Two-letter state code (e.g., 'NY', 'CO', 'NE') if available
+        
+    Returns:
+        Tuple containing (latitude, longitude) or (None, None) if geocoding fails
     """
-    logfire.info(f"Attempting to geocode location description: '{location_description}'")
-    try:
-        location = geolocator.geocode(location_description, timeout=10) # Add timeout
-        if location:
-            logfire.info(f"Geocoding successful: Found ({location.latitude}, {location.longitude})")
-            return location.latitude, location.longitude
-        else:
-            logfire.warn(f"Geocoding failed: No location found for '{location_description}'")
+    logfire.info(f"Attempting to geocode location description: '{location_description}'", state_code=state_code)
+    
+    if not location_description and not state_code:
+        logfire.warn("No location description or state code provided")
+        return None, None
+    
+    # If we only have state code but no description, geocode the state
+    if not location_description and state_code:
+        try:
+            state_query = f"state {state_code}, USA"
+            logfire.info(f"Geocoding state only: '{state_query}'")
+            location = geolocator.geocode(state_query, timeout=10, exactly_one=True)
+            if location:
+                logfire.info(f"State geocoding successful: Found ({location.latitude}, {location.longitude})")
+                return location.latitude, location.longitude
+        except (GeocoderTimedOut, GeocoderServiceError, Exception) as e:
+            logfire.warn(f"State geocoding failed: {str(e)}")
             return None, None
-    except GeocoderTimedOut:
-        logfire.error(f"Geocoding failed: Service timed out for '{location_description}'")
-        return None, None
-    except GeocoderServiceError as e:
-        logfire.error(f"Geocoding failed: Service error for '{location_description}': {e}")
-        return None, None
-    except Exception as e:
-        logfire.exception(f"Unexpected error during geocoding for '{location_description}'")
-        return None, None
+    
+    # Try direct geocoding with state code if provided
+    if state_code:
+        try:
+            enhanced_query = f"{location_description}, {state_code}, USA"
+            logfire.info(f"Trying geocoding with state: '{enhanced_query}'")
+            location = geolocator.geocode(enhanced_query, timeout=10, exactly_one=True)
+            if location:
+                logfire.info(f"State-enhanced geocoding successful: Found ({location.latitude}, {location.longitude})")
+                return location.latitude, location.longitude
+        except (GeocoderTimedOut, GeocoderServiceError, Exception) as e:
+            logfire.warn(f"State-enhanced geocoding failed: {str(e)}")
+    
+    # Try direct geocoding first (without state)
+    try:
+        location = geolocator.geocode(location_description, timeout=10, exactly_one=True)
+        if location:
+            logfire.info(f"Direct geocoding successful: Found ({location.latitude}, {location.longitude})")
+            return location.latitude, location.longitude
+    except (GeocoderTimedOut, GeocoderServiceError, Exception) as e:
+        logfire.warn(f"Initial geocoding attempt failed: {str(e)}")
+    
+    # If direct geocoding failed, try with common city contexts
+    common_contexts = [
+        "New York, NY", 
+        "USA",
+        "United States"
+    ]
+    
+    for context in common_contexts:
+        enhanced_query = f"{location_description}, {context}"
+        try:
+            logfire.info(f"Trying enhanced query: '{enhanced_query}'")
+            location = geolocator.geocode(enhanced_query, timeout=10, exactly_one=True)
+            if location:
+                logfire.info(f"Enhanced geocoding successful: Found ({location.latitude}, {location.longitude})")
+                return location.latitude, location.longitude
+        except (GeocoderTimedOut, GeocoderServiceError, Exception) as e:
+            logfire.warn(f"Enhanced geocoding attempt failed for '{enhanced_query}': {str(e)}")
+    
+    # Try with more permissive structured query
+    try:
+        # Extract likely place name from the description
+        place_terms = location_description.split(',')[0].strip()
+        logfire.info(f"Trying structured query with place: '{place_terms}'")
+        location = geolocator.geocode({"q": place_terms}, timeout=10, exactly_one=False, limit=1)
+        
+        if location and len(location) > 0:
+            first_match = location[0]
+            logfire.info(f"Structured geocoding successful: Found ({first_match.latitude}, {first_match.longitude})")
+            return first_match.latitude, first_match.longitude
+    except (GeocoderTimedOut, GeocoderServiceError, Exception) as e:
+        logfire.warn(f"Structured geocoding attempt failed: {str(e)}")
+    
+    # All attempts failed
+    logfire.warn(f"Geocoding failed: No location found for '{location_description}'", state_code=state_code)
+    return None, None
 
-def determine_locality_from_description(location_description: Optional[str]) -> bool:
+def determine_locality_from_description(location_description: Optional[str], state_code: Optional[str] = None) -> bool:
     """
     Determine if a location description refers to a local area using geocoding.
     Falls back to keyword matching if geocoding fails or description is missing.
+    
+    Args:
+        location_description: Text description of the location
+        state_code: Two-letter state code (e.g., 'NY', 'CO') if available
+        
+    Returns:
+        bool: True if local, False if not, defaults to True if description is None
     """
-    if not location_description:
-        logfire.info("No location description provided, defaulting to local.")
+    # If we only have state code but no description
+    if not location_description and state_code:
+        state_lower = state_code.lower()
+        # Check if state matches any of our service hub states
+        if state_lower in ["ne", "co", "ks", "mo"]:
+            logfire.info(f"State code '{state_code}' indicates local area.")
+            return True
+    
+    if not location_description and not state_code:
+        logfire.info("No location description or state code provided, defaulting to local.")
         return True  # Default to local if no description provided
-
-    # Step 1: Try to geocode the location
-    lat, lon = geocode_location(location_description)
+    
+    # Step 1: Try to geocode the location with state information
+    lat, lon = geocode_location(location_description, state_code)
 
     if lat is not None and lon is not None:
         # Step 2: If geocoding succeeded, check drive time
         return is_location_local(lat, lon)
     else:
         # Step 3: Fallback to simple keyword matching if geocoding failed
-        logfire.warn(f"Geocoding failed for '{location_description}', falling back to keyword matching.")
-        location_lower = location_description.lower()
+        logfire.warn(f"Geocoding failed for '{location_description}', falling back to keyword matching.", state_code=state_code)
+        
+        # If we have state code but geocoding failed, use state for determination
+        if state_code:
+            state_lower = state_code.lower()
+            local_state_codes = ["ne", "co", "ks", "mo"]
+            if state_lower in local_state_codes:
+                logfire.info(f"State code '{state_code}' keyword match indicates local.")
+                return True
+            # Non-local states
+            non_local_state_codes = ["ny", "ca", "fl", "tx", "wa", "or", "az", "nm", "ut", "id", "mt", "nd", "sd", "mn", "ia", "wi", "il", "in", "oh", "mi", "ky", "tn", "ms", "al", "ga", "sc", "nc", "va", "wv", "md", "de", "nj", "pa", "ct", "ri", "ma", "vt", "nh", "me", "ak", "hi", "dc", "pr", "vi", "gu", "mp", "as", "fm", "mh", "pw"]
+            if state_lower in non_local_state_codes and state_lower not in local_state_codes:
+                logfire.info(f"State code '{state_code}' keyword match indicates non-local.")
+                return False
+        
+        # Location description matching (if available)
+        if location_description:
+            location_lower = location_description.lower()
+            
+            # Check for mentions of the hub cities or states
+            local_keywords = ["omaha", "nebraska", "ne", "denver", "colorado", "co",
+                            "kansas city", "kansas", "ks", "missouri", "mo"]
+            if any(keyword in location_lower for keyword in local_keywords):
+                logfire.info("Keyword match indicates local.")
+                return True
 
-        # Check for mentions of the hub cities or states
-        local_keywords = ["omaha", "nebraska", "ne", "denver", "colorado", "co",
-                         "kansas city", "kansas", "ks", "missouri", "mo"]
-        if any(keyword in location_lower for keyword in local_keywords):
-            logfire.info("Keyword match indicates local.")
-            return True
-
-        # Check for explicit mentions of being far away
-        non_local_keywords = ["far away", "distant", "remote", "out of state",
-                             "not local", "overseas", "international"]
-        if any(keyword in location_lower for keyword in non_local_keywords):
-            logfire.info("Keyword match indicates non-local.")
-            return False
+            # Check for explicit mentions of being far away
+            non_local_keywords = ["far away", "distant", "remote", "out of state",
+                                "not local", "overseas", "international"]
+            if any(keyword in location_lower for keyword in non_local_keywords):
+                logfire.info("Keyword match indicates non-local.")
+                return False
 
         # Default to local if keyword matching is inconclusive
         logfire.info("Keyword matching inconclusive, defaulting to local.")

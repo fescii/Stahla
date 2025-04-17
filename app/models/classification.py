@@ -45,6 +45,9 @@ class ClassificationInput(BaseModel):
     # Event/Project Details
     event_type: Optional[str] = Field(None, description="Type of event or project (e.g., Wedding, Construction, Festival, Disaster Relief)")
     event_location_description: Optional[str] = Field(None, description="Delivery address or general location description")
+    event_state: Optional[str] = Field(None, description="Two-letter state code where the event will take place (e.g., 'NY', 'NE')")
+    event_city: Optional[str] = Field(None, description="City where the event will take place")
+    event_postal_code: Optional[str] = Field(None, description="Postal/ZIP code of the event location")
     event_location_type: Optional[Literal["business", "residence", "other"]] = Field(None, description="Type of delivery location")
     delivery_surface: Optional[Literal["cement", "gravel", "dirt", "grass"]] = Field(None, description="Surface type at placement location")
     delivery_obstacles: Optional[str] = Field(None, description="Description of potential delivery obstacles (e.g., low trees)")
