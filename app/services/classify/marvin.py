@@ -202,9 +202,9 @@ class MarvinClassificationManager:
     For now, using hardcoded values as a placeholder.
     """
     teams = {
-        "Stahla Services Sales Team": ["alice@stahla.com", "bob@stahla.com", "charlie@stahla.com"],
-        "Stahla Logistics Sales Team": ["dave@stahla.com", "eve@stahla.com", "frank@stahla.com"],
-        "Stahla Leads Team": ["grace@stahla.com", "henry@stahla.com"]
+        "Stahla Leads Team": ["isfescii@gmail.com", "femar.fredrick@gmail.com"],
+        "Stahla Services Sales Team": ["femar.fredrick@gmail.com"],
+        "Stahla Logistics Sales Team": ["femar.fredrick@gmail.com"],
     }
     return teams.get(team, [])
 

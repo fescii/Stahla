@@ -1,8 +1,8 @@
 # app/api/v1/endpoints/webhooks.py
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Body, status # Import status
 from typing import Tuple, Optional
 import logfire
-from fastapi import APIRouter, Body, HTTPException, BackgroundTasks, Depends
 
 # Import models
 from app.models.webhook import FormPayload  # Corrected import
@@ -19,7 +19,10 @@ from app.services.bland import bland_manager
 from app.services.hubspot import hubspot_manager
 # Keep import for type hinting if needed
 from app.services.email import EmailManager
-from app.services.email import email_manager  # Import the singleton instance
+# Keep for now if used elsewhere, or remove if not
+from app.services.email import email_manager
+# Import the new n8n function
+from app.services.n8n import trigger_n8n_handoff_automation
 from app.core.config import settings
 
 # Import the new helper function
@@ -278,24 +281,25 @@ async def _handle_hubspot_update(
     #     await hubspot_manager.assign_owner("deal", deal_id, owner_id)
     #     await hubspot_manager.assign_owner("contact", contact_id, owner_id)
 
-    # --- Send Handoff Notification (Only if BOTH contact and deal succeeded) --- #
+    # --- Send Handoff Data to n8n (Replaces Email Notification) --- #
     # Ensure classification_output exists before sending notification
     if classification_output and classification_output.lead_type != "Disqualify":
-      logfire.info("Sending handoff notification.",
+      logfire.info("Sending handoff data to n8n.",
                    contact_id=contact_id, deal_id=deal_id)
-      # Use the singleton email_manager instance
-      await email_manager.send_handoff_notification(
+      # Call the n8n trigger function, passing all required arguments
+      await trigger_n8n_handoff_automation(
           classification_result,
+          input_data,      # Pass the input_data received by this function
           contact_result,  # Pass the successful contact result object
           deal_result     # Pass the successful deal result object
       )
     elif not classification_output:
       logfire.warn(
-          "Skipping handoff notification because classification output is missing.")
+          "Skipping n8n handoff because classification output is missing.")
     else:  # Disqualified
       logfire.info(
-          "Skipping handoff notification because lead was disqualified.")
-    # ------------------------------------------------------------------------- #
+          "Skipping n8n handoff because lead was disqualified.")
+    # ------------------------------------------------------------------ #
 
     return contact_id, deal_id
 
