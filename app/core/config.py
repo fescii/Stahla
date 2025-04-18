@@ -28,6 +28,16 @@ class Settings(BaseSettings):
   # HubSpot Configuration
   HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE"  # Default is just a placeholder
   HUBSPOT_PORTAL_ID: Optional[str] = None  # Add HubSpot Portal ID
+  # HubSpot Pipeline/Stage IDs (Replace with your actual IDs)
+  HUBSPOT_LEADS_PIPELINE_ID: str = "default"
+  HUBSPOT_NEW_LEAD_STAGE_ID: str = "appointmentscheduled"  # Example: Replace
+  HUBSPOT_HOT_LEAD_STAGE_ID: str = "qualifiedtobuy"  # Example: Replace
+  HUBSPOT_WARM_LEAD_STAGE_ID: str = "presentationscheduled"  # Example: Replace
+  HUBSPOT_COLD_LEAD_STAGE_ID: str = "decisionmakerboughtin"  # Example: Replace
+  HUBSPOT_DISQUALIFIED_STAGE_ID: str = "closedlost"  # Example: Replace
+  # Example: Stage for manual review
+  HUBSPOT_NEEDS_REVIEW_STAGE_ID: str = "appointmentscheduled"
+  # HUBSPOT_REVIEW_OWNER_ID: Optional[str] = None # Optional: Assign leads needing review to specific owner
 
   # Bland.ai Configuration
   BLAND_API_KEY: str = "YOUR_BLAND_AI_KEY_HERE"  # Add your Bland AI API Key
