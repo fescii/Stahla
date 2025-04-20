@@ -46,30 +46,35 @@ async def webhook_form(
   # Convert FormPayload to ClassificationInput
   raw_data = payload.model_dump(mode='json')
 
+  # Map FormPayload fields to the updated ClassificationInput fields
   classification_input = ClassificationInput(
       source="webform",
       raw_data=raw_data,
+      extracted_data=payload.model_dump(),  # Pass form data as extracted
+      # Map fields directly using updated names
       firstname=payload.firstname,
       lastname=payload.lastname,
       email=payload.email,
       phone=payload.phone,
       company=payload.company,
+      message=payload.message,  # Added
+      text_consent=payload.text_consent,  # Added
       product_interest=[
           payload.product_interest] if payload.product_interest else [],
-      event_type=payload.event_type,
-      event_location_description=payload.event_location_description,
-      event_state=payload.event_state,
-      duration_days=payload.duration_days,
-      start_date=payload.start_date,
-      end_date=payload.end_date,
-      guest_count=payload.guest_count,
-      required_stalls=payload.required_stalls,
+      service_needed=payload.service_needed,  # Renamed
+      stall_count=payload.stall_count,  # Renamed
       ada_required=payload.ada_required,
-      budget_mentioned=payload.budget_mentioned,
-      comments=payload.comments,
-      power_available=payload.power_available,
-      water_available=payload.water_available,
-      source_url=source_url_for_input
+      event_type=payload.event_type,
+      event_address=payload.event_address,  # Renamed
+      event_state=payload.event_state,
+      event_city=payload.event_city,
+      event_postal_code=payload.event_postal_code,
+      duration_days=payload.duration_days,
+      event_start_date=payload.event_start_date,  # Renamed
+      event_end_date=payload.event_end_date,  # Renamed
+      guest_count=payload.guest_count,
+      # Add other relevant mappings if FormPayload has them
+      # ...
   )
 
   # Trigger classification using the manager
@@ -83,7 +88,7 @@ async def webhook_form(
       classification_output.metadata and
       classification_output.metadata.get("error_type")
   ):
-    # Trigger HubSpot update in the background
+    # Trigger HubSpot update (create contact/deal) in the background
     background_tasks.add_task(_handle_hubspot_update,
                               classification_result, classification_input)
     hubspot_status = "initiated"

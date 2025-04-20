@@ -80,13 +80,13 @@ configure_marvin()
 def classify_lead_with_ai(
     intended_use: Optional[str],
     product_interest: List[str],
-    required_stalls: Optional[int],
+    stall_count: Optional[int],
     duration_days: Optional[int],
     is_local: Optional[bool],
-    event_location_description: Optional[str]
+    event_address: Optional[str]
 ) -> Tuple[LeadClassificationType, str]:
   """
-  Classify a lead based on the detailed business rules and determine if it belongs to 
+  Classify a lead based on the detailed business rules and determine if it belongs to
   Services, Logistics, Leads, or Disqualify categories.
 
   Classification Rules:
@@ -105,7 +105,7 @@ def classify_lead_with_ai(
       Duration: ≥ 5 days
       -> Services (Local) or Logistics (Not Local)
 
-  Small Event / Trailer / Local 
+  Small Event / Trailer / Local
       Intended Use = Small Event
       Product Type: Any "specialty trailer"
       Stalls < 8
@@ -145,7 +145,7 @@ def classify_lead_with_ai(
       Location ≤ 3 hours from omaha, ne; denver, co; kansas city, ks
       -> Services
 
-  Disaster Relief / Trailer / Not Local 
+  Disaster Relief / Trailer / Not Local
       Intended Use = Disaster Relief
       Product Type= ANY "specialty trailer"
       Duration < 180 days
@@ -234,7 +234,7 @@ class MarvinClassificationManager:
     """
     intended_use = input_data.intended_use
     product_interest = input_data.product_interest or []
-    stalls = input_data.required_stalls or 0
+    stalls = input_data.stall_count or 0
     duration_days = input_data.duration_days or 0
     is_local = input_data.is_local or False
 
@@ -319,14 +319,14 @@ class MarvinClassificationManager:
                  intended_use=input_data.intended_use,
                  product_interest=input_data.product_interest)
 
-    # Construct the prompt for Marvin classification
+    # Construct the prompt for Marvin classification using updated field names
     prompt = {
         "intended_use": input_data.intended_use,
         "product_interest": input_data.product_interest,
-        "required_stalls": input_data.required_stalls,
+        "stall_count": input_data.stall_count,
         "duration_days": input_data.duration_days,
         "is_local": input_data.is_local,
-        "event_location_description": input_data.event_location_description
+        "event_address": input_data.event_address
     }
 
     # Instructions for Marvin AI

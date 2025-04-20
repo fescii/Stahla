@@ -98,20 +98,43 @@ async def webhook_hubspot(
               "Cannot proceed with classification as initial deal creation failed.", contact_id=contact_id)
           continue
 
-        # Prepare ClassificationInput
+        # Prepare ClassificationInput using updated field names
         classification_input = prepare_classification_input(
-            source="hubspot_form",
+            source="hubspot_form",  # Or "hubspot_deal" if handling deal.creation
             raw_data={"hubspot_contact": contact_properties,
-                      "hubspot_deal_id": deal_id},
+                      "hubspot_deal_id": deal_id},  # Include context
+            # Map HubSpot properties to ClassificationInput fields
+            # Use the confirmed internal names from Kevin
             extracted_data={
                 "firstname": contact_properties.get("firstname"),
                 "lastname": contact_properties.get("lastname"),
                 "email": contact_properties.get("email"),
                 "phone": contact_properties.get("phone"),
                 "company": contact_properties.get("company"),
-                "product_interest": [contact_properties.get("stahla_product_interest")] if contact_properties.get("stahla_product_interest") else [],
+                "message": contact_properties.get("message"),  # Added
+                # Added
+                "text_consent": contact_properties.get("stahla_text_consent"),
+                # Assuming service_needed is stored on contact
+                # Renamed
+                "service_needed": contact_properties.get("stahla_service_needed"),
+                # Assuming stall count is stored on contact
+                # Renamed
+                "stall_count": contact_properties.get("how_many_portable_toilet_stalls_"),
+                # ada_required might need specific mapping
+                # Assuming custom field
+                "ada_required": contact_properties.get("stahla_ada_required"),
+                # Assuming custom field
                 "event_type": contact_properties.get("stahla_event_type"),
-                "event_location": contact_properties.get("stahla_event_location"),
+                # Renamed
+                "event_address": contact_properties.get("event_or_job_address"),
+                "event_city": contact_properties.get("city"),
+                "event_postal_code": contact_properties.get("zip"),
+                # Renamed
+                "event_start_date": contact_properties.get("stahla_event_start_date"),
+                # Renamed
+                "event_end_date": contact_properties.get("stahla_event_end_date"),
+                # Add other relevant mappings based on your HubSpot properties
+                # guest_count, power_available etc. might come from Deal or later calls
             }
         )
 

@@ -4,79 +4,92 @@ from typing import Dict, Any
 import logfire
 from app.models.classification import ClassificationInput
 
-def prepare_classification_input(source: str, raw_data: Dict[str, Any], extracted_data: Dict[str, Any]) -> ClassificationInput:
-    """
-    Prepares a ClassificationInput object from various sources of data.
-    
-    Args:
-        source: The source of the data (webform, voice, email)
-        raw_data: The raw payload data for context
-        extracted_data: Extracted data from the payload, may include nested form_submission_data
-        
-    Returns:
-        A ClassificationInput object with all available data mapped correctly
-    """
-    try:
-        # Process special case: check if form_submission_data exists within extracted_data
-        # This typically happens in Bland.ai webhooks where original form data is in metadata
-        form_data = extracted_data.get('form_submission_data', {})
-        
-        # If both main extracted_data and form_data have fields, prioritize extracted_data
-        # but use form_data as fallback for missing fields
-        combined_data = {**form_data, **extracted_data}
-        
-        # Debug logging
-        logfire.debug("Preparing classification input", 
-                    source=source, 
-                    has_email=bool(combined_data.get("email")),
-                    has_form_data=bool(form_data))
-        
-        # Build the ClassificationInput object with all available fields
-        input_obj = ClassificationInput(
-            source=source,
-            firstname=combined_data.get("firstname"),
-            lastname=combined_data.get("lastname"),
-            email=combined_data.get("email"),
-            phone=combined_data.get("phone"),
-            company=combined_data.get("company"),
-            # Ensure product_interest is a list
-            product_interest=combined_data.get("product_interest", []) if isinstance(combined_data.get("product_interest"), list) else [combined_data.get("product_interest")] if combined_data.get("product_interest") else [],
-            event_type=combined_data.get("event_type"),
-            # Map from either specific field name
-            event_location_description=combined_data.get("event_location_description", combined_data.get("event_location")),
-            duration_days=combined_data.get("duration_days"),
-            start_date=combined_data.get("start_date"),
-            end_date=combined_data.get("end_date"),
-            guest_count=combined_data.get("guest_count"),
-            required_stalls=combined_data.get("required_stalls"),
-            ada_required=combined_data.get("ada_required"),
-            budget_mentioned=combined_data.get("budget_mentioned"),
-            comments=combined_data.get("comments"),
-            power_available=combined_data.get("power_available"),
-            water_available=combined_data.get("water_available"),
-            source_url=combined_data.get("source_url"),
-            call_recording_url=combined_data.get("call_recording_url"),
-            call_summary=combined_data.get("call_summary"),
-            raw_data=raw_data,
-            extracted_data=combined_data  # Include the full combined data in extracted_data field
-        )
-        
-        # Log success
-        logfire.info("Successfully prepared classification input", 
-                    email=input_obj.email, 
-                    first_name=input_obj.firstname,
-                    source=source)
-        
-        return input_obj
-    except Exception as e:
-        logfire.error("Error preparing classification input", 
-                    exc_info=True, 
-                    extracted_data_fields=list(extracted_data.keys()) if extracted_data else None)
-        
-        # Return a minimal input object to allow classification attempt with partial data
-        return ClassificationInput(
-            source=source,
-            email=extracted_data.get("email") or form_data.get("email") if 'form_data' in locals() else None,
-            raw_data=raw_data,
-            comments=f"Error preparing input: {e}"  # Add error note
-        )
+
+def prepare_classification_input(source: str, raw_data: dict, extracted_data: dict) -> ClassificationInput:
+  """Safely prepares ClassificationInput from extracted data."""
+  logfire.debug(
+      f"Preparing classification input from {source}", extracted_data=extracted_data)
+  try:
+    # Map extracted fields, providing defaults or None
+    input_obj = ClassificationInput(
+        source=source,
+        raw_data=raw_data,  # Include raw payload for context
+        extracted_data=extracted_data,  # Keep extracted data for reference
+
+        # Contact Info
+        firstname=extracted_data.get("firstname"),
+        lastname=extracted_data.get("lastname"),
+        email=extracted_data.get("email"),
+        phone=extracted_data.get("phone"),
+        company=extracted_data.get("company"),
+        message=extracted_data.get("message"),  # Added
+        text_consent=extracted_data.get("text_consent"),  # Added
+
+        # Lead & Product Details
+        product_interest=extracted_data.get("product_interest", []) if isinstance(extracted_data.get("product_interest"), list) else [
+            extracted_data.get("product_interest")] if extracted_data.get("product_interest") else [],
+        service_needed=extracted_data.get(
+            "service_needed"),  # Renamed from lead_type_guess
+        # Renamed from required_stalls
+        stall_count=extracted_data.get("stall_count"),
+        ada_required=extracted_data.get("ada_required"),
+
+        # Event/Project Details
+        event_type=extracted_data.get("event_type"),
+        # Renamed from event_location_description
+        event_address=extracted_data.get("event_address"),
+        event_state=extracted_data.get("event_state"),
+        event_city=extracted_data.get("event_city"),
+        event_postal_code=extracted_data.get("event_postal_code"),
+        event_location_type=extracted_data.get("event_location_type"),
+        delivery_surface=extracted_data.get("delivery_surface"),
+        delivery_obstacles=extracted_data.get("delivery_obstacles"),
+        duration_days=extracted_data.get("duration_days"),
+        duration_hours_per_day=extracted_data.get("duration_hours_per_day"),
+        event_start_date=extracted_data.get(
+            "event_start_date"),  # Renamed from start_date
+        event_end_date=extracted_data.get(
+            "event_end_date"),  # Renamed from end_date
+        guest_count=extracted_data.get("guest_count"),
+        other_facilities_available=extracted_data.get(
+            "other_facilities_available"),
+        onsite_contact_different=extracted_data.get(
+            "onsite_contact_different"),
+        working_hours=extracted_data.get("working_hours"),
+        weekend_usage=extracted_data.get("weekend_usage"),
+
+        # Site Requirements
+        power_available=extracted_data.get("power_available"),
+        power_distance_feet=extracted_data.get("power_distance_feet"),
+        power_cord_ramps_needed=extracted_data.get("power_cord_ramps_needed"),
+        generator_needed=extracted_data.get("generator_needed"),
+        water_available=extracted_data.get("water_available"),
+        water_distance_feet=extracted_data.get("water_distance_feet"),
+        water_hose_ramps_needed=extracted_data.get("water_hose_ramps_needed"),
+
+        # Other
+        budget_mentioned=extracted_data.get("budget_mentioned"),
+        decision_timeline=extracted_data.get("decision_timeline"),
+        quote_needed_by=extracted_data.get("quote_needed_by"),
+        other_products_needed=extracted_data.get("other_products_needed", []) if isinstance(extracted_data.get("other_products_needed"), list) else [
+            extracted_data.get("other_products_needed")] if extracted_data.get("other_products_needed") else [],
+        call_summary=extracted_data.get("call_summary"),
+        call_recording_url=extracted_data.get("call_recording_url"),
+        full_transcript=extracted_data.get("full_transcript"),
+        call_duration_seconds=extracted_data.get(
+            "call_duration_seconds")  # Added
+    )
+    return input_obj
+  except Exception as e:
+    logfire.error("Error preparing classification input",
+                  exc_info=True, extracted_data=extracted_data)
+    # Return a minimal input object or re-raise depending on desired handling
+    # Returning minimal object to allow classification attempt with partial data
+    return ClassificationInput(
+        source=source,
+        raw_data=raw_data,
+        extracted_data=extracted_data,
+        # Ensure at least email is present if possible
+        email=extracted_data.get("email"),
+        comments=f"Error preparing input: {e}"  # Add error note
+    )

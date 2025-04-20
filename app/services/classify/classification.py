@@ -36,7 +36,7 @@ class ClassificationManager:
     Local is defined as ≤ 3 hours from Omaha NE, Denver CO, or Kansas City KS.
 
     Args:
-        location_description: Text description of the location
+        location_description: Text description of the location (e.g., event_address)
         state_code: Two-letter state code (e.g., 'NY', 'CO') if available
         city: City name if available
         postal_code: Postal/ZIP code if available
@@ -54,6 +54,7 @@ class ClassificationManager:
     """
     Estimate deal value based on product type, stalls, and duration.
     Used for prioritization and routing decisions.
+    NOTE: Call script advises against estimating budget. This estimation is internal.
     """
     value = 0.0
 
@@ -79,13 +80,14 @@ class ClassificationManager:
         value += 300  # Base value for handwashing station
 
     # Scale by quantity and duration
-    if input_data.required_stalls:
+    # Use stall_count (renamed from required_stalls)
+    if input_data.stall_count:
       # Higher stall counts increase value proportionally
-      if input_data.required_stalls >= 20:
+      if input_data.stall_count >= 20:
         value *= 2.5  # Significant increase for large quantities
-      elif input_data.required_stalls >= 10:
+      elif input_data.stall_count >= 10:
         value *= 1.8  # Moderate increase for medium quantities
-      elif input_data.required_stalls >= 5:
+      elif input_data.stall_count >= 5:
         value *= 1.4  # Small increase for smaller quantities
 
     if input_data.duration_days:
@@ -99,24 +101,9 @@ class ClassificationManager:
       elif input_data.duration_days >= 3:
         value *= 1.2  # Weekend rental factor
 
-    # Consider explicitly mentioned budget if available
-    if input_data.budget_mentioned:
-      try:
-        # Extract numeric part from budget string
-        numeric_part = ''.join(
-            c for c in input_data.budget_mentioned if c.isdigit() or c == '.')
-        if numeric_part:
-          mentioned_value = float(numeric_part)
-          # Use mentioned budget if it's reasonable (not too low)
-          if mentioned_value > value * 0.7:
-            value = max(value, mentioned_value)
-      except (ValueError, TypeError):
-        # Ignore parsing errors for budget
-        pass
-
     logfire.info(f"Estimated deal value: ${value:.2f}",
                  product_interest=input_data.product_interest,
-                 stalls=input_data.required_stalls,
+                 stalls=input_data.stall_count,  # Updated field name
                  duration=input_data.duration_days)
 
     return value
@@ -128,10 +115,11 @@ class ClassificationManager:
     logfire.info("Starting lead classification.",
                  input_source=input_data.source)
 
-    # If intended_use is not explicitly set, try to infer it from lead_type_guess or event_type
-    if not input_data.intended_use and (input_data.lead_type_guess or input_data.event_type):
+    # If intended_use is not explicitly set, try to infer it from service_needed or event_type
+    # Use service_needed (renamed from lead_type_guess)
+    if not input_data.intended_use and (input_data.service_needed or input_data.event_type):
       source_text = (
-          input_data.lead_type_guess or input_data.event_type or "").lower()
+          input_data.service_needed or input_data.event_type or "").lower()
 
       # Simple mapping based on keywords (could be more sophisticated)
       if "small" in source_text and "event" in source_text:
@@ -151,7 +139,11 @@ class ClassificationManager:
     # Determine locality if not already set
     if input_data.is_local is None:
       input_data.is_local = self._determine_locality(
-          input_data.event_location_description)
+          location_description=input_data.event_address,  # Use event_address
+          state_code=input_data.event_state,
+          city=input_data.event_city,
+          postal_code=input_data.event_postal_code
+      )
 
     try:
       # Use Marvin for classification if enabled in settings
@@ -187,23 +179,35 @@ class ClassificationManager:
       if not input_data.product_interest:
         confidence -= 0.15
         requires_review = True
-      if not input_data.required_stalls:
+      # Use stall_count (renamed from required_stalls)
+      if not input_data.stall_count:
         confidence -= 0.05
       if not input_data.duration_days:
         confidence -= 0.05
       if input_data.is_local is None:
         confidence -= 0.05
 
-      # Estimate deal value
+      # Estimate deal value (internal use only, not setting HubSpot 'amount')
       estimated_value = self._estimate_deal_value(input_data)
 
       # Store additional metadata
       metadata = {
           "assigned_owner_team": owner_team,
-          "estimated_value": estimated_value,
+          "estimated_value": estimated_value,  # Keep internal estimate
           "is_local": input_data.is_local,
           "intended_use": input_data.intended_use,
-          "has_complete_info": confidence > 0.8
+          "has_complete_info": confidence > 0.8,
+          # Add other relevant fields from input_data to metadata if needed for HubSpot update
+          "qualification_notes": reasoning,  # Example: Use reasoning as qualification notes
+          "stall_count": input_data.stall_count,
+          "event_duration_days": input_data.duration_days,
+          "guest_count": input_data.guest_count,
+          "ada_required": input_data.ada_required,
+          "power_available": input_data.power_available,
+          "water_available": input_data.water_available,
+          "call_recording_url": str(input_data.call_recording_url) if input_data.call_recording_url else None,
+          "call_summary": input_data.call_summary,
+          "call_duration_seconds": input_data.call_duration_seconds
       }
 
       # Prepare output
