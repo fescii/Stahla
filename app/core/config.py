@@ -63,7 +63,7 @@ class Settings(BaseSettings):
   MODEL_NAME: Optional[str] = None  # e.g., "gpt-4", "claude-3-opus-20240229"
 
   # N8N Configuration
-  N8N_WEBHOOK_URL: Optional[HttpUrl] = None
+  N8N_WEBHOOK_URL: Optional[str] = None
   N8N_API_KEY: Optional[str] = None
 
   # Classification Method

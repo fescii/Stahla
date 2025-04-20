@@ -27,8 +27,8 @@ load_dotenv()
 logfire_config = {
     "send_to_logfire": True, # Send logs to Logfire cloud
     "service_name": settings.PROJECT_NAME, # Use project name from settings
-    # "pydantic_plugin": logfire.PydanticPlugin(), # Removed deprecated argument
-    # "fastapi_instrumentation": True
+    "pydantic_plugin": logfire.PydanticPlugin(), # Removed deprecated argument
+
 }
 
 # Only set console=False if DEV is False, otherwise rely on the default (True)

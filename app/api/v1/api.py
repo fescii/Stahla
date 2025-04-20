@@ -9,7 +9,7 @@ from .endpoints import health, classify, hubspot  # Removed webhooks import
 from .endpoints.webhooks import form as webhooks_form
 from .endpoints.webhooks import hubspot as webhooks_hubspot
 from .endpoints.webhooks import voice as webhooks_voice
-from .endpoints.webhooks import email as webhooks_email
+# Removed email webhook import
 
 
 # Create the main router for API v1
@@ -25,8 +25,6 @@ api_router_v1.include_router(
     webhooks_hubspot.router, prefix="/webhook", tags=["Webhooks"])
 api_router_v1.include_router(
     webhooks_voice.router, prefix="/webhook", tags=["Webhooks"])
-api_router_v1.include_router(
-    webhooks_email.router, prefix="/webhook", tags=["Webhooks"])
 api_router_v1.include_router(
     classify.router, prefix="/classify", tags=["Classification"])
 api_router_v1.include_router(
