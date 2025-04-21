@@ -79,9 +79,9 @@ The foundational components and primary workflows of the AI SDR system are imple
 *   **Core Logic:**
     *   `POST /classify`: Endpoint for direct lead data classification.
 *   **Data Intake Webhooks:**
-    *   `POST /webhooks/form`: Handles web form submissions.
-    *   `POST /webhooks/email`: Handles inbound email data.
-    *   `POST /webhooks/voice`: Handles Bland.ai call completion data.
+    *   `POST /webhook/form`: Handles web form submissions.
+    *   `POST /webhook/email`: Handles inbound email data.
+    *   `POST /webhook/voice`: Handles Bland.ai call completion data.
 *   **Direct HubSpot Interaction (Placeholders):**
     *   `POST /hubspot/contact`: Placeholder for direct contact management.
     *   `POST /hubspot/deal`: Placeholder for direct deal management.

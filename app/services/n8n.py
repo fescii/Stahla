@@ -72,8 +72,6 @@ async def trigger_n8n_handoff_automation(
     return False
 
   # --- Determine Team Email ---
-  # Example mapping (adjust emails as needed)
-  # Store emails as lists
   team_email_map = {
       "Stahla Leads Team": ["isfescii@gmail.com", "femar.fredrick@gmail.com"],
       "Stahla Services Sales Team": ["femar.fredrick@gmail.com"],
@@ -83,11 +81,19 @@ async def trigger_n8n_handoff_automation(
 
   assigned_team = classification_output.metadata.get(
       "assigned_owner_team") if classification_output.metadata else None
-  # Get the list of emails, defaulting to the default_email_list
   team_email_list = team_email_map.get(
       assigned_team, default_email_list) if assigned_team else default_email_list
 
-  # --- Prepare the structured payload for n8n using updated field names ---
+  # --- Prepare the structured payload for n8n --- 
+  extracted_metadata = classification_output.metadata or {}
+  contact_id = contact_result.id if contact_result else None
+  deal_id = deal_result.id if deal_result else None
+  portal_id = settings.HUBSPOT_PORTAL_ID
+
+  # Construct URLs if portal_id and object IDs are available
+  contact_url = f"https://app.hubspot.com/contacts/{portal_id}/contact/{contact_id}" if portal_id and contact_id else None
+  deal_url = f"https://app.hubspot.com/contacts/{portal_id}/deal/{deal_id}" if portal_id and deal_id else None
+
   payload = {
       "lead_details": {
           "first_name": input_data.firstname,
@@ -95,70 +101,61 @@ async def trigger_n8n_handoff_automation(
           "email": input_data.email,
           "phone": input_data.phone,
           "company": input_data.company,
-          "message": input_data.message,  # Added
-          "text_consent": input_data.text_consent,  # Added
-          # source_url might not be in ClassificationInput anymore, check definition
-          # "source_url": str(input_data.source_url) if input_data.source_url else None,
+          "message": input_data.message,
+          "text_consent": input_data.text_consent
       },
       "event_details": {
-          # Join list if product_interest is a list, otherwise use as is
-          "product_interest": ', '.join(input_data.product_interest) if isinstance(input_data.product_interest, list) else input_data.product_interest,
-          "service_needed": input_data.service_needed,  # Renamed
-          "event_type": input_data.event_type,
-          "location": input_data.event_address,  # Renamed
-          "state": input_data.event_state,
-          "city": input_data.event_city,  # Added
-          "postal_code": input_data.event_postal_code,  # Added
-          "duration_days": input_data.duration_days,
-          # Renamed
-          "start_date": str(input_data.event_start_date) if input_data.event_start_date else None,
-          # Renamed
-          "end_date": str(input_data.event_end_date) if input_data.event_end_date else None,
-          "guest_count": input_data.guest_count,
-          "required_stalls": input_data.stall_count,  # Renamed
-          "ada_required": input_data.ada_required,
-          "budget_mentioned": input_data.budget_mentioned,
-          "comments": input_data.message,  # Map message to comments for n8n?
-          "power_available": input_data.power_available,  # Added
-          "water_available": input_data.water_available,  # Added
+          # Consistently use extracted_metadata from AI classification
+          "product_interest": extracted_metadata.get("product_interest"),
+          "service_needed": extracted_metadata.get("service_needed"), # Use extracted value if available
+          "event_type": extracted_metadata.get("event_type"),
+          "location": extracted_metadata.get("location"),
+          "state": extracted_metadata.get("state"), # Use extracted value if available
+          "city": extracted_metadata.get("city"), # Use extracted value if available
+          "postal_code": extracted_metadata.get("postal_code"), # Use extracted value if available
+          "duration_days": extracted_metadata.get("duration_days"),
+          "start_date": extracted_metadata.get("start_date"),
+          "end_date": extracted_metadata.get("end_date"),
+          "guest_count": extracted_metadata.get("guest_count"),
+          "required_stalls": extracted_metadata.get("required_stalls"),
+          "ada_required": extracted_metadata.get("ada_required"),
+          "budget_mentioned": extracted_metadata.get("budget_mentioned"),
+          "comments": extracted_metadata.get("comments"),
+          "power_available": extracted_metadata.get("power_available"),
+          "water_available": extracted_metadata.get("water_available")
       },
       "classification": {
           "lead_type": classification_output.lead_type,
           "routing_suggestion": classification_output.routing_suggestion,
           "confidence": classification_output.confidence,
           "reasoning": classification_output.reasoning,
-          # Use the specific metadata field for estimated value
-          "estimated_value": classification_output.metadata.get("estimated_value") if classification_output.metadata else None,
-          # Added
-          "is_local": classification_output.metadata.get("is_local") if classification_output.metadata else None,
-          # Added
-          "intended_use": classification_output.metadata.get("intended_use") if classification_output.metadata else None,
-          "requires_human_review": classification_output.requires_human_review,  # Added
-          # Added
-          "qualification_notes": classification_output.metadata.get("qualification_notes") if classification_output.metadata else None,
+          "estimated_value": extracted_metadata.get("estimated_value", 0),
+          "is_local": extracted_metadata.get("is_local"),
+          "intended_use": extracted_metadata.get("intended_use"),
+          "requires_human_review": classification_output.requires_human_review,
+          "qualification_notes": extracted_metadata.get("comments")
       },
-      "call_details": {  # Added section for call info
-          "call_summary": input_data.call_summary,
-          "call_recording_url": str(input_data.call_recording_url) if input_data.call_recording_url else None,
-          "call_duration_seconds": input_data.call_duration_seconds,
+      "call_details": {
+          "call_summary": extracted_metadata.get("call_summary"),
+          "call_recording_url": extracted_metadata.get("call_recording_url"),
+          "call_duration_seconds": extracted_metadata.get("call_duration_seconds")
       },
       "routing": {
           "assigned_team": assigned_team,
-          "team_email": team_email_list  # Assign the list directly
+          "team_email": team_email_list
       },
       "hubspot": {
-          "contact_id": contact_result.id if contact_result else None,
-          "deal_id": deal_result.id if deal_result else None,
+          "contact_id": contact_id,
+          "deal_id": deal_id,
           "deal_name": deal_result.properties.get("dealname") if deal_result and deal_result.properties else None,
-          "portal_id": settings.HUBSPOT_PORTAL_ID  # Add portal ID from settings
+          "portal_id": portal_id,
+          "contact_url": contact_url,
+          "deal_url": deal_url
       }
   }
 
-  # Remove top-level keys if their value is None (optional, keeps payload cleaner)
-  # payload = {k: v for k, v in payload.items() if v is not None}
-
-  logfire.info("Triggering n8n handoff automation with structured payload.")
-  return await send_to_n8n_webhook(payload=payload, api_key=settings.N8N_API_KEY)
+  # Send the payload to n8n
+  await send_to_n8n_webhook(payload=payload)
 
 
 # Optional: Add a function to close the client gracefully if needed

@@ -105,7 +105,7 @@ class BlandCallbackRequest(BaseModel):
       None, description="Whether to record the call.")
   amd: Optional[bool] = Field(
       None, description="Enable answering machine detection.")
-  webhook: Optional[HttpUrl] = Field(
+  webhook: Optional[str] = Field(
       None, description="Webhook URL to send call results to (overrides default).")
   metadata: Optional[Dict[str, Any]] = Field(
       None, description="Custom data to associate with the call.")

@@ -76,7 +76,7 @@ async def _trigger_bland_call(payload: FormPayload):
   # Create the request object for initiate_callback
   # Build the webhook URL for Bland to call back with results
   # NOTE: Ensure the path is correct (/voice, not /webhook/voice)
-  webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhooks/voice"
+  webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
 
   callback_request = BlandCallbackRequest(
       phone_number=phone_number,
@@ -285,7 +285,9 @@ async def _handle_hubspot_update(
         final_owner_id = await hubspot_manager.get_next_owner_id()  # Example
       elif classification_output.lead_type == "Leads":
         final_pipeline_id = settings.HUBSPOT_LEADS_PIPELINE_ID
-        final_stage_id = settings.HUBSPOT_LEADS_NEW_STAGE_ID  # Assumes you add this
+        # --- Corrected Setting Name ---
+        final_stage_id = settings.HUBSPOT_NEW_LEAD_STAGE_ID  # Use the defined setting
+        # --- End Correction ---
         # Maybe assign to a specific lead queue owner?
       elif classification_output.lead_type == "Disqualify":
         # Or a specific disqualified pipeline
@@ -303,7 +305,7 @@ async def _handle_hubspot_update(
         )
 
     # 4. Trigger n8n Handoff (if not disqualified)
-    if classification_output and classification_output.lead_type != LeadClassificationType.DISQUALIFY:
+    if classification_output and classification_output.lead_type != "Disqualify":
       logfire.info("Sending handoff data to n8n for new deal.",
                    contact_id=contact_id, deal_id=deal_id)
       # Ensure deal_result is the correct type
@@ -405,7 +407,7 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, deal_id: str, contact
       # "initial_service_needed": service_needed
   }
 
-  webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhooks/voice"
+  webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
 
   callback_request = BlandCallbackRequest(
       phone_number=phone_number,
@@ -458,71 +460,73 @@ async def _update_hubspot_deal_after_classification(
 
   try:
     # 1. Prepare Deal Properties to Update using confirmed/suggested internal names
-    properties_to_update = {
-        # Map classification results to custom deal properties
-        "stahla_ai_lead_type": classification_output.lead_type,
-        "stahla_ai_reasoning": classification_output.reasoning,
-        "stahla_ai_confidence": classification_output.confidence,
-        "stahla_ai_routing_suggestion": classification_output.routing_suggestion,
-        "stahla_ai_requires_review": classification_output.requires_human_review,
-        # Map metadata fields
-        "stahla_ai_is_local": classification_output.metadata.get("is_local"),
-        "stahla_ai_intended_use": classification_output.metadata.get("intended_use"),
-        "stahla_ai_qualification_notes": classification_output.metadata.get("qualification_notes"),
-        "stahla_call_recording_url": classification_output.metadata.get("call_recording_url"),
-        "stahla_call_summary": classification_output.metadata.get("call_summary"),
-        "stahla_call_duration_seconds": classification_output.metadata.get("call_duration_seconds"),
-        "stahla_stall_count": classification_output.metadata.get("stall_count"),
-        "stahla_event_duration_days": classification_output.metadata.get("event_duration_days"),
-        "stahla_guest_count": classification_output.metadata.get("guest_count"),
-        "stahla_ada_required": classification_output.metadata.get("ada_required"),
-        "stahla_power_available": classification_output.metadata.get("power_available"),
-        "stahla_water_available": classification_output.metadata.get("water_available"),
-        # Update standard deal fields if necessary (use with caution)
-        # "dealname": f"{input_data.firstname or 'Lead'} ..." # Example: Update deal name
-        # "start_date": input_data.event_start_date, # Update if gathered from call
-        # "end_date": input_data.event_end_date,
-        # "deal_address": input_data.event_address,
-    }
-    # Remove None values to avoid overwriting existing HubSpot data with null
-    properties_to_update = {k: v for k,
-                            v in properties_to_update.items() if v is not None}
+    # classification_result.classification holds the ClassificationOutput model
+    classification_output = classification_result.classification 
+
+    properties_to_update = {}
+    if classification_output: # Check if classification_output is not None
+        # Extract details from the metadata dictionary within ClassificationOutput
+        extracted_metadata = classification_output.metadata or {}
+
+        properties_to_update = {
+            # Map classification results to custom deal properties
+            "stahla_ai_lead_type": classification_output.lead_type, # Use lead_type directly
+            "stahla_ai_reasoning": classification_output.reasoning, # Use reasoning directly
+            "stahla_ai_confidence": classification_output.confidence,
+            "stahla_ai_routing_suggestion": classification_output.routing_suggestion,
+            "stahla_ai_requires_review": classification_output.requires_human_review,
+            
+            # --- Map Extracted Details from Metadata to HubSpot Properties --- 
+            "stahla_guest_count": extracted_metadata.get("guest_count"),
+            "stahla_stall_count": extracted_metadata.get("required_stalls"), # Map required_stalls
+            "stahla_ada_required": extracted_metadata.get("ada_required"),
+            # "stahla_budget_mentioned": extracted_metadata.get("budget_mentioned"), # No specific HubSpot field yet
+            "stahla_ai_qualification_notes": extracted_metadata.get("comments"), # Map comments
+            "stahla_power_available": extracted_metadata.get("power_available"),
+            "stahla_water_available": extracted_metadata.get("water_available"),
+            "stahla_event_type": extracted_metadata.get("event_type"),
+            "deal_address": extracted_metadata.get("location"), # Map location
+            "start_date": extracted_metadata.get("start_date"),
+            "end_date": extracted_metadata.get("end_date"),
+            "stahla_event_duration_days": extracted_metadata.get("duration_days"),
+            # Add other relevant metadata fields if needed
+            "stahla_call_recording_url": extracted_metadata.get("call_recording_url"),
+            "stahla_call_summary": extracted_metadata.get("call_summary"),
+            "stahla_call_duration_seconds": extracted_metadata.get("call_duration_seconds"),
+            "stahla_ai_is_local": extracted_metadata.get("is_local"),
+            "stahla_ai_intended_use": extracted_metadata.get("intended_use"),
+            # --- End Map Extracted Details --- 
+        }
+        # Remove None values to avoid overwriting existing HubSpot data with null
+        properties_to_update = {k: v for k,
+                                v in properties_to_update.items() if v is not None}
+    else:
+        logfire.warn("Classification output object is None, cannot populate properties_to_update.")
 
     # 2. Determine Pipeline/Stage/Owner based on classification
-    # ADD LOGIC TO GET ACTUAL PIPELINE/STAGE IDs FROM SETTINGS/HUBSPOT
-    # Example: Fetch IDs based on names stored in classification_output.routing_suggestion
-    # pipeline_id = await hubspot_manager.get_pipeline_id(classification_output.routing_suggestion)
-    # stage_id = await hubspot_manager.get_stage_id(pipeline_id, "New Lead Stage Name") # Replace with actual stage name
-
-    # Placeholder logic using settings - REPLACE with dynamic lookup or confirmed IDs
     final_pipeline_id = None
     final_stage_id = None
     final_owner_id = None
 
-    if classification_output.lead_type == "Services":
-      # Assumes you add this to config
-      final_pipeline_id = settings.HUBSPOT_SERVICES_PIPELINE_ID
-      final_stage_id = settings.HUBSPOT_SERVICES_NEW_STAGE_ID  # Assumes you add this
-      final_owner_id = await hubspot_manager.get_next_owner_id()  # Example
-    elif classification_output.lead_type == "Logistics":
-      final_pipeline_id = settings.HUBSPOT_LOGISTICS_PIPELINE_ID  # Assumes you add this
-      final_stage_id = settings.HUBSPOT_LOGISTICS_NEW_STAGE_ID  # Assumes you add this
-      final_owner_id = await hubspot_manager.get_next_owner_id()  # Example
-    elif classification_output.lead_type == "Leads":
-      final_pipeline_id = settings.HUBSPOT_LEADS_PIPELINE_ID
-      final_stage_id = settings.HUBSPOT_LEADS_NEW_STAGE_ID  # Assumes you add this
-    elif classification_output.lead_type == "Disqualify":
-      # Or a specific disqualified pipeline
-      final_pipeline_id = settings.HUBSPOT_LEADS_PIPELINE_ID
-      final_stage_id = settings.HUBSPOT_DISQUALIFIED_STAGE_ID
+    if classification_output:
+        classification_type = classification_output.lead_type # Get classification from the object
+        # Determine target pipeline/stage/owner based on classification
+        if classification_type == "Services":
+            final_pipeline_id = settings.HUBSPOT_SERVICES_PIPELINE_ID
+            final_stage_id = settings.HUBSPOT_SERVICES_NEW_STAGE_ID
+            final_owner_id = await hubspot_manager.get_next_owner_id()  # Example
+        elif classification_type == "Logistics":
+            final_pipeline_id = settings.HUBSPOT_LOGISTICS_PIPELINE_ID
+            final_stage_id = settings.HUBSPOT_LOGISTICS_NEW_STAGE_ID
+            final_owner_id = await hubspot_manager.get_next_owner_id()  # Example
+        elif classification_type == "Leads":
+            final_pipeline_id = settings.HUBSPOT_LEADS_PIPELINE_ID
+            final_stage_id = settings.HUBSPOT_NEW_LEAD_STAGE_ID
+        elif classification_type == "Disqualify":
+            final_pipeline_id = settings.HUBSPOT_LEADS_PIPELINE_ID # Or specific disqualified pipeline
+            final_stage_id = settings.HUBSPOT_DISQUALIFIED_STAGE_ID
 
-    if final_pipeline_id and final_stage_id:
-      properties_to_update["pipeline"] = final_pipeline_id
-      properties_to_update["dealstage"] = final_stage_id
-    if final_owner_id:
-      properties_to_update["hubspot_owner_id"] = final_owner_id
-
-    # 3. Update Deal Properties in HubSpot
+    # 3. Update Deal Properties and Pipeline/Stage/Owner
     if properties_to_update:
       update_result = await hubspot_manager.update_deal_properties(deal_id, properties_to_update)
       if update_result.status == "success":
@@ -535,31 +539,43 @@ async def _update_hubspot_deal_after_classification(
       logfire.warn("No properties to update for HubSpot deal.",
                    deal_id=deal_id)
 
-    # 4. Trigger n8n Handoff (if not disqualified)
-    if classification_output.lead_type != LeadClassificationType.DISQUALIFY:
-      logfire.info("Sending updated handoff data to n8n.",
-                   contact_id=contact_id, deal_id=deal_id)
-      # Fetch latest contact/deal data for n8n
-      contact_result_for_n8n = await hubspot_manager.get_contact_by_id(contact_id)
-      deal_result_for_n8n = await hubspot_manager.get_deal_by_id(deal_id)
-
-      if contact_result_for_n8n.status == "success" and isinstance(deal_result_for_n8n, HubSpotDealResult):
-        await trigger_n8n_handoff_automation(
-            classification_result,
-            input_data,
-            contact_result_for_n8n,
-            deal_result_for_n8n
+    if final_pipeline_id and final_stage_id:
+        logfire.info(f"Updating pipeline/stage for deal {deal_id}",
+                     pipeline=final_pipeline_id, stage=final_stage_id, owner=final_owner_id)
+        await hubspot_manager.update_deal_pipeline_and_owner(
+            deal_id=deal_id,
+            pipeline_id=final_pipeline_id,
+            stage_id=final_stage_id,
+            owner_id=final_owner_id
         )
+
+    # 4. Trigger n8n Handoff (if not disqualified)
+    if classification_output and classification_output.lead_type != "Disqualify": # Use lead_type from ClassificationOutput
+      logfire.info("Sending handoff data to n8n for updated deal.",
+                   contact_id=contact_id, deal_id=deal_id)
+      # Need to fetch the updated contact and deal objects to send to n8n
+      contact_result = await hubspot_manager.get_contact_by_id(contact_id)
+      deal_result = await hubspot_manager.get_deal_by_id(deal_id)
+
+      if isinstance(contact_result, HubSpotContactResult) and isinstance(deal_result, HubSpotDealResult):
+          # Pass the ExtractedCallDetails model within classification_result
+          await trigger_n8n_handoff_automation(
+              classification_result, # Contains ExtractedCallDetails
+              input_data, # Pass the original input data
+              contact_result, # Pass fetched contact
+              deal_result # Pass fetched deal
+          )
       else:
-        logfire.error("Failed to fetch updated contact/deal details for n8n notification.",
-                      contact_id=contact_id, deal_id=deal_id,
-                      contact_error=getattr(
-                          contact_result_for_n8n, 'message', 'N/A'),
-                      deal_error=getattr(deal_result_for_n8n, 'message', 'N/A'))
-    else:
+          logfire.error("Failed to fetch updated contact/deal for n8n handoff",
+                        contact_id=contact_id, deal_id=deal_id)
+
+    elif not classification_output:
+      logfire.warn(
+          "Skipping n8n handoff because classification output is missing.")
+    else: # Lead type is "Disqualify"
       logfire.info(
-          "Skipping n8n handoff because lead was disqualified.", deal_id=deal_id)
+          "Skipping n8n handoff because lead was disqualified.")
 
   except Exception as e:
-    logfire.exception("Unhandled error during HubSpot deal update process",
-                      contact_id=contact_id, deal_id=deal_id)
+    logfire.exception(
+        f"Unhandled error during HubSpot deal update process for deal {deal_id}")

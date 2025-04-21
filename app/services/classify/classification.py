@@ -148,8 +148,13 @@ class ClassificationManager:
     try:
       # Use Marvin for classification if enabled in settings
       if settings.LLM_PROVIDER.lower() == "marvin" and settings.MARVIN_API_KEY:
-        # Call the Marvin-based classification engine
-        classification, reasoning, owner_team = await marvin_classification_manager.get_lead_classification(input_data)
+        # --- Update call to handle ClassificationOutput --- 
+        classification_output: ClassificationOutput = await marvin_classification_manager.get_lead_classification(input_data)
+        classification = classification_output.lead_type
+        reasoning = classification_output.reasoning
+        # Extract owner_team from metadata if present
+        owner_team = classification_output.metadata.get("assigned_owner_team", "None") 
+        # --- End Update --- 
         logfire.info("Using Marvin for lead classification",
                      classification=classification)
       else:
@@ -191,6 +196,7 @@ class ClassificationManager:
       estimated_value = self._estimate_deal_value(input_data)
 
       # Store additional metadata
+      # --- Update metadata creation to use classification_output --- 
       metadata = {
           "assigned_owner_team": owner_team,
           "estimated_value": estimated_value,  # Keep internal estimate
@@ -209,6 +215,10 @@ class ClassificationManager:
           "call_summary": input_data.call_summary,
           "call_duration_seconds": input_data.call_duration_seconds
       }
+      # Merge metadata from Marvin classification if it exists
+      if classification_output and classification_output.metadata:
+          metadata.update(classification_output.metadata)
+      # --- End Update --- 
 
       # Prepare output
       output = ClassificationOutput(
@@ -221,14 +231,27 @@ class ClassificationManager:
       )
 
     except Exception as e:
-      logfire.error("Error during classification.", exc_info=True,
-                    input_data=input_data.model_dump(exclude={"raw_data"}))
+      # --- Add more specific error logging --- 
+      error_type = type(e).__name__
+      error_message = str(e)
+      logfire.error(
+          "Error caught during classification process", 
+          error_type=error_type, 
+          error_message=error_message, 
+          exc_info=True, # Ensure traceback is logged
+          input_data_summary={f: getattr(input_data, f, None) for f in [
+              'source', 'email', 'phone', 'intended_use', 'is_local', 
+              'product_interest', 'stall_count', 'duration_days'
+          ]} # Log key input fields
+      ) # --- End specific error logging ---
+      
+      # Default output on error
       output = ClassificationOutput(
           lead_type="Leads",  # Default to Leads on error for human review
-          reasoning=f"Error during classification: {str(e)}",
+          reasoning=f"Error during classification: {error_message}", # Use captured message
           confidence=0.3,  # Low confidence when error occurs
           requires_human_review=True,
-          metadata={"error": str(e), "error_type": type(e).__name__}
+          metadata={"error": error_message, "error_type": error_type}
       )
 
     logfire.info("Classification complete.",

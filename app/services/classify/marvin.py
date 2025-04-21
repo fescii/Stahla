@@ -15,7 +15,9 @@ from app.models.classification import (
     ClassificationInput,
     LeadClassificationType,
     IntendedUseType,
-    ProductType
+    ProductType,
+    ExtractedCallDetails,
+    ClassificationOutput # Added import
 )
 from app.core.config import settings
 
@@ -72,24 +74,27 @@ def configure_marvin():
           "Check Marvin library compatibility and API key configuration")
 
 
-# Initialize Marvin with the selected provider
-configure_marvin()
+# Initialize Marvin ONLY if it's the selected provider
+if settings.LLM_PROVIDER == "marvin":
+  configure_marvin()
+else:
+  logfire.info(f"Skipping Marvin configuration as LLM_PROVIDER is set to '{settings.LLM_PROVIDER}'")
 
 
-@marvin.fn  # Changed from @marvin.ai_fn
+@marvin.fn
 def classify_lead_with_ai(
-    intended_use: Optional[str],
-    product_interest: List[str],
-    stall_count: Optional[int],
-    duration_days: Optional[int],
-    is_local: Optional[bool],
-    event_address: Optional[str]
-) -> Tuple[LeadClassificationType, str]:
+    call_summary_or_transcript: str
+) -> ExtractedCallDetails: # Return type is correct here
   """
-  Classify a lead based on the detailed business rules and determine if it belongs to
-  Services, Logistics, Leads, or Disqualify categories.
+  Analyze the provided call summary or transcript based on the detailed business rules below.
+  Extract the relevant details into the ExtractedCallDetails structure.
+  Determine the final classification (Services, Logistics, Leads, or Disqualify) and provide reasoning.
 
-  Classification Rules:
+  **Input:** A summary or transcript of a sales call.
+
+  **Output:** An ExtractedCallDetails object containing the classification, reasoning, and extracted details.
+
+  **Classification Rules:**
 
   Event / Porta Potty
       Intended Use = Small Event
@@ -180,12 +185,13 @@ def classify_lead_with_ai(
   - If information is clearly incorrect or nonsensical
   - If the service requested is not something Stahla provides
   - If the information suggests a scam or spam inquiry
+  - If the caller explicitly states they are not interested or it's the wrong number.
 
-  Return a tuple of (classification_type, detailed_reasoning)
+  **Extraction Guidelines:**
+  - Extract specific details mentioned in the call (event type, location, dates, guest count, stalls, ADA needs, budget, comments, power available, water available).
+  - Provide brief reasoning for the chosen classification based *only* on the rules and the call content.
   """
-  # The AI will use the context and documentation to determine the classification
-  # and provide reasoning based on the business rules.
-  pass  # Marvin will implement this function using AI
+  pass # Marvin implements this
 
 
 class MarvinClassificationManager:
@@ -305,71 +311,96 @@ class MarvinClassificationManager:
 
     return rule_classification, rule_reasoning, owner_team
 
-  async def get_lead_classification(self, input_data: ClassificationInput) -> Tuple[LeadClassificationType, str, str]:
+  async def get_lead_classification(self, input_data: ClassificationInput) -> ClassificationOutput:
     """
-    Classify lead using Marvin AI and business rules.
+    Classify lead using Marvin AI based on call summary/transcript and business rules.
 
     Args:
-        input_data: The classification input data
+        input_data: The classification input data, expected to contain call details
+                    in extracted_data (e.g., 'call_summary' or 'full_transcript').
 
     Returns:
-        Tuple containing (classification, reasoning, owner_team)
+        A ClassificationOutput object containing the results.
     """
-    logfire.info("Starting Marvin-based classification",
-                 intended_use=input_data.intended_use,
-                 product_interest=input_data.product_interest)
+    logfire.info("Starting Marvin-based classification using call data")
 
-    # Construct the prompt for Marvin classification using updated field names
-    prompt = {
-        "intended_use": input_data.intended_use,
-        "product_interest": input_data.product_interest,
-        "stall_count": input_data.stall_count,
-        "duration_days": input_data.duration_days,
-        "is_local": input_data.is_local,
-        "event_address": input_data.event_address
-    }
-
-    # Instructions for Marvin AI
-    instructions = "Classify the lead based on the provided information."
+    # --- Extract Call Summary or Transcript --- 
+    call_text = input_data.extracted_data.get("call_summary")
+    if not call_text:
+        call_text = input_data.extracted_data.get("full_transcript")
+    if not call_text:
+        if isinstance(input_data.raw_data, dict):
+             call_text = input_data.raw_data.get("summary") or input_data.raw_data.get("concatenated_transcript")
+    
+    if not call_text:
+        logfire.error("Could not find call summary or transcript in input_data for Marvin classification.")
+        reasoning = "Error: Missing call summary/transcript for classification. Defaulting to Leads."
+        # Return a default ClassificationOutput on error
+        return ClassificationOutput(lead_type="Leads", reasoning=reasoning, requires_human_review=True)
+    # --- End Extraction ---
 
     try:
-      logfire.info("Calling Marvin for classification.")
-      # Use marvin.classify_async for async operation
-      classification_result = await marvin.classify_async(
-          data=prompt,  # Pass the constructed prompt
-          labels=LeadClassificationType,  # Use the enum for classification labels
-          instructions=instructions
-          # Removed model_kwargs parameter as it's not supported
-      )
+      logfire.info("Calling Marvin for classification with call text.")
+      extracted_details: ExtractedCallDetails = classify_lead_with_ai(call_summary_or_transcript=call_text)
+      
+      classification = extracted_details.classification
+      reasoning = extracted_details.reasoning or f"Classified as {classification} by Marvin AI based on call summary/transcript."
+      
       logfire.info("Marvin classification successful.",
-                   result=classification_result)
+                   classification=classification,
+                   extracted_details=extracted_details.model_dump())
 
-      # Determine reasoning and owner team based on Marvin's result
-      classification = classification_result
-      reasoning = f"Classified as {classification} by Marvin AI based on provided details."
-
+      # --- Determine Owner Team --- 
       # Assign owner team based on classification
-      if classification == LeadClassificationType.SERVICES:
+      owner_team = "None" # Default
+      if classification == "Services":
         owner_team = "Stahla Services Sales Team"
-      elif classification == LeadClassificationType.LOGISTICS:
+      elif classification == "Logistics":
         owner_team = "Stahla Logistics Sales Team"
-      elif classification == LeadClassificationType.LEADS:
+      elif classification == "Leads":
         owner_team = "Stahla Leads Team"
-      else:  # Disqualify
-        owner_team = "None"
+      else:  # Disqualify or unexpected result
+        owner_team = "None" # Default to None or Leads team for review
+        if classification != "Disqualify":
+            logfire.warn(f"Unexpected classification result from Marvin: {classification}")
+            # --- Safer Reasoning Update (Corrected) ---
+            base_reasoning = reasoning if reasoning is not None else f"Classified as {classification} by Marvin AI."
+            reasoning = base_reasoning + f" (Unexpected result: {classification})"
+            # --- End Safer Reasoning Update ---
 
-      return classification, reasoning, owner_team
+      # --- Log values before creating ClassificationOutput ---
+      logfire.debug("Preparing ClassificationOutput",
+                    lead_type_value=classification,
+                    reasoning_value=reasoning)
+      # --- End Log ---
+
+      # --- Create ClassificationOutput with metadata --- 
+      # Temporarily create output without metadata to test serialization
+      output = ClassificationOutput(
+          lead_type=classification,
+          reasoning=reasoning,
+          requires_human_review=True # Default to needing review after AI call?
+          # metadata=extracted_details.model_dump(exclude_none=True) # Temporarily commented out
+      )
+      # Add owner team to metadata if determined
+      # if owner_team != "None":
+      #     # Ensure metadata exists before adding to it
+      #     if output.metadata is None: output.metadata = {}
+      #     output.metadata["assigned_owner_team"] = owner_team
+      # --- End Create ClassificationOutput --- 
+
+      return output
 
     except Exception as e:
-      # Handle all exceptions in a single block, including potential MarvinServerError
       error_type = type(e).__name__
       logfire.error(f"Error during Marvin classification: {e}",
                     error_type=error_type,
                     exc_info=True,
-                    input_data=prompt  # Log the input data that caused the failure
+                    input_text=call_text[:500]
                     )
       reasoning = f"Error during classification: {e}. Defaulting to Leads."
-      return LeadClassificationType.LEADS, reasoning, "Stahla Leads Team"
+      # Return default ClassificationOutput on error
+      return ClassificationOutput(lead_type="Leads", reasoning=reasoning, requires_human_review=True)
 
 
 # Create a singleton instance of the manager

@@ -151,6 +151,18 @@ class ClassificationResult(BaseModel):
   message: Optional[str] = None  # For errors or additional info
 
 
-"""
-**Instructions:** Create a file named `classification_models.py` inside the `app/models/` directory and paste this code into it. You'll need to significantly customize `ClassificationInput` with the actual fields Stahla uses to classify learn
-"""
+class ExtractedCallDetails(BaseModel):
+  """Structured details extracted from a call summary/transcript by AI."""
+  classification: LeadClassificationType = Field(..., description="The overall classification: Services, Logistics, Leads, or Disqualify.")
+  product_interest: Optional[List[str]] = Field(None, description="Specific products mentioned (e.g., 'Restroom Trailer', 'Porta Potty').")
+  event_type: Optional[str] = Field(None, description="Type of event (e.g., 'Wedding', 'Construction', 'Festival').")
+  location: Optional[str] = Field(None, description="Mentioned event location (city, state, or address).")
+  start_date: Optional[str] = Field(None, description="Mentioned start date.")
+  end_date: Optional[str] = Field(None, description="Mentioned end date.")
+  duration_days: Optional[int] = Field(None, description="Mentioned duration in days.")
+  guest_count: Optional[int] = Field(None, description="Mentioned number of guests or attendees.")
+  required_stalls: Optional[int] = Field(None, description="Mentioned number of stalls or units needed.")
+  ada_required: Optional[bool] = Field(None, description="Was an ADA requirement mentioned? (True/False)")
+  budget_mentioned: Optional[str] = Field(None, description="Any mention of budget.")
+  comments: Optional[str] = Field(None, description="Any other specific comments, questions, or key details mentioned.")
+  reasoning: Optional[str] = Field(None, description="Brief reasoning for the classification based on the rules.")

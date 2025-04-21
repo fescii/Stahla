@@ -27,9 +27,9 @@ class Settings(BaseSettings):
 
   # HubSpot Configuration
   HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE"  # Default is just a placeholder
-  HUBSPOT_PORTAL_ID: Optional[str] = None  # Add HubSpot Portal ID
+  HUBSPOT_PORTAL_ID: Optional[str] = None  # Ensure this is defined
   # HubSpot Pipeline/Stage IDs (Replace with your actual IDs)
-  HUBSPOT_LEADS_PIPELINE_ID: str = "default"
+  HUBSPOT_LEADS_PIPELINE_ID: str = "default" # Example: Default pipeline ID
   HUBSPOT_NEW_LEAD_STAGE_ID: str = "appointmentscheduled"  # Example: Replace
   HUBSPOT_HOT_LEAD_STAGE_ID: str = "qualifiedtobuy"  # Example: Replace
   HUBSPOT_WARM_LEAD_STAGE_ID: str = "presentationscheduled"  # Example: Replace
@@ -37,11 +37,17 @@ class Settings(BaseSettings):
   HUBSPOT_DISQUALIFIED_STAGE_ID: str = "closedlost"  # Example: Replace
   # Example: Stage for manual review
   HUBSPOT_NEEDS_REVIEW_STAGE_ID: str = "appointmentscheduled"
+  # --- Add Missing Pipeline/Stage IDs ---
+  HUBSPOT_SERVICES_PIPELINE_ID: str = "default" # Placeholder - Set in .env
+  HUBSPOT_SERVICES_NEW_STAGE_ID: str = "appointmentscheduled" # Placeholder - Set in .env
+  HUBSPOT_LOGISTICS_PIPELINE_ID: str = "default" # Placeholder - Set in .env
+  HUBSPOT_LOGISTICS_NEW_STAGE_ID: str = "appointmentscheduled" # Placeholder - Set in .env
+  # --- End Add Missing --- 
   # HUBSPOT_REVIEW_OWNER_ID: Optional[str] = None # Optional: Assign leads needing review to specific owner
 
   # Bland.ai Configuration
-  BLAND_API_KEY: str = "YOUR_BLAND_AI_KEY_HERE"  # Add your Bland AI API Key
-  BLAND_API_URL: str = "https://api.bland.ai"  # Default Bland API base URL
+  BLAND_API_KEY: str = "YOUR_BLAND_AI_KEY_HERE"
+  BLAND_API_URL: str = "https://api.bland.ai"
   # Default Bland Voice ID (optional, can be overridden in requests)
   BLAND_DEFAULT_VOICE_ID: Optional[int] = None
 
