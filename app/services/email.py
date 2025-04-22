@@ -10,7 +10,7 @@ from datetime import datetime
 # Import models
 from app.models.email import EmailWebhookPayload, EmailProcessingResult, EmailAttachment
 from app.models.classification import ClassificationInput, ClassificationResult, LeadClassificationType
-from app.models.hubspot import HubSpotContactResult, HubSpotDealResult
+from app.models.hubspot import HubSpotContactResult, HubSpotApiResult
 from app.core.config import settings
 
 class EmailManager:
@@ -358,11 +358,12 @@ class EmailManager:
         self,
         classification_result: ClassificationResult,
         contact_result: Optional[HubSpotContactResult],
-        deal_result: Optional[HubSpotDealResult]
+        lead_result: Optional[HubSpotApiResult]
     ):
         """
         Send an email notification to the relevant sales team
         after a lead has been classified and processed in HubSpot.
+        Handles Lead information instead of Deal.
         """
         if not settings.EMAIL_SENDING_ENABLED:
             logfire.warn("Email sending is disabled, skipping handoff notification")
@@ -375,7 +376,6 @@ class EmailManager:
         try:
             # Get the classification output and input data
             output = classification_result.classification
-            input_data = classification_result.input_data
             
             # Skip notification for disqualified leads
             if output.lead_type == "Disqualify":
@@ -396,42 +396,48 @@ class EmailManager:
                 return False
                 
             # Construct base email content
-            if deal_result and deal_result.properties and 'dealname' in deal_result.properties:
-                deal_name = deal_result.properties['dealname']
-            else:
-                # Create a deal name from available data
-                name_part = f"{input_data.firstname or ''} {input_data.lastname or ''}".strip() or "New Lead"
-                product_part = input_data.product_interest[0] if input_data.product_interest else "Inquiry"
-                deal_name = f"{name_part} - {product_part}"
+            # Leads don't have a standard 'leadname'. Construct from contact info.
+            contact_props = contact_result.details.get('properties', {}) if contact_result and contact_result.details else {}
+            lead_name_part = f"{contact_props.get('firstname', '')} {contact_props.get('lastname', '')}".strip() or "New Lead"
+            # Use service needed or a default if not available
+            service_part = (output.metadata.get("service_needed") or 
+                            contact_props.get("what_service_do_you_need_") or 
+                            "Inquiry")
+            lead_name = f"{lead_name_part} - {service_part}"
                 
             # Create subject line
-            subject = f"New {output.lead_type} Lead: {deal_name}"
+            subject = f"New {output.lead_type} Lead: {lead_name}"
             
             # Build the email body with a clear summary and next steps
+            lead_id = lead_result.hubspot_id if lead_result else 'Not created'
+            contact_id = contact_result.hubspot_id if contact_result else 'Not created'
+            
+            # Extract details from classification metadata or contact properties
+            extracted_metadata = output.metadata or {}
+            
             body_parts = [
                 f"A new lead has been classified as: {output.lead_type}",
                 f"Classification confidence: {output.confidence:.0%}",
-                f"Source: {input_data.source.upper()}",
                 "",
                 "--- LEAD SUMMARY ---",
-                f"Contact: {input_data.firstname or 'Unknown'} {input_data.lastname or ''}",
-                f"Email: {input_data.email or 'Not provided'}",
-                f"Phone: {input_data.phone or 'Not provided'}",
-                f"Product Interest: {', '.join(input_data.product_interest) if input_data.product_interest else 'Not specified'}",
-                f"Event/Project Type: {input_data.event_type or 'Not specified'}",
-                f"Location: {input_data.event_location_description or 'Not specified'}",
-                f"Duration: {input_data.duration_days or 'Unknown'} days",
-                f"Stalls Required: {input_data.required_stalls or 'Unknown'}",
-                f"Guest Count: {input_data.guest_count or 'Unknown'}",
+                f"Contact: {contact_props.get('firstname', 'Unknown')} {contact_props.get('lastname', '')}",
+                f"Email: {contact_props.get('email', 'Not provided')}",
+                f"Phone: {contact_props.get('phone', 'Not provided')}",
+                f"Product Interest: {extracted_metadata.get('product_interest') or 'Not specified'}",
+                f"Event/Project Type: {extracted_metadata.get('event_type') or 'Not specified'}",
+                f"Location: {extracted_metadata.get('location') or contact_props.get('event_or_job_address') or 'Not specified'}",
+                f"Duration: {extracted_metadata.get('duration_days') or 'Unknown'} days",
+                f"Stalls Required: {extracted_metadata.get('required_stalls') or contact_props.get('how_many_portable_toilet_stalls_') or 'Unknown'}",
+                f"Guest Count: {extracted_metadata.get('guest_count') or 'Unknown'}",
                 "",
                 "--- SITE DETAILS ---",
-                f"ADA Required: {'Yes' if input_data.ada_required else 'No' if input_data.ada_required is not None else 'Unknown'}",
-                f"Power Available: {'Yes' if input_data.power_available else 'No' if input_data.power_available is not None else 'Unknown'}",
-                f"Water Available: {'Yes' if input_data.water_available else 'No' if input_data.water_available is not None else 'Unknown'}",
+                f"ADA Required: {'Yes' if extracted_metadata.get('ada_required') else 'No' if extracted_metadata.get('ada_required') is not None else 'Unknown'}",
+                f"Power Available: {'Yes' if extracted_metadata.get('power_available') else 'No' if extracted_metadata.get('power_available') is not None else 'Unknown'}",
+                f"Water Available: {'Yes' if extracted_metadata.get('water_available') else 'No' if extracted_metadata.get('water_available') is not None else 'Unknown'}",
                 "",
                 "--- HUBSPOT INFO ---",
-                f"HubSpot Contact ID: {contact_result.contact_id if contact_result else 'Not created'}",
-                f"HubSpot Deal ID: {deal_result.deal_id if deal_result else 'Not created'}",
+                f"HubSpot Contact ID: {contact_id}",
+                f"HubSpot Lead ID: {lead_id}",
                 "",
                 "--- NEXT STEPS ---",
                 "1. Review lead details in HubSpot",
@@ -440,20 +446,17 @@ class EmailManager:
             ]
             
             # Add call recording URL if available
-            if input_data.call_recording_url:
+            call_recording_url = extracted_metadata.get("call_recording_url") or contact_props.get("call_recording_url")
+            if call_recording_url:
                 body_parts.append("")
-                body_parts.append(f"Call Recording: {input_data.call_recording_url}")
+                body_parts.append(f"Call Recording: {call_recording_url}")
             
             # Join all parts with line breaks
             body = "\n".join(body_parts)
             
             # Send notification email to team
-            # In production, this would use your email service
             logfire.info("Sending handoff notification", team=team_name, subject=subject)
-            
-            # For demonstration, log notification content
             logfire.info(f"Notification content: {body}")
-            
             return True
             
         except Exception as e:

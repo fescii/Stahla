@@ -6,7 +6,8 @@ from typing import Optional, Dict, Any
 from app.core.config import settings
 # Import ClassificationInput
 from app.models.classification import ClassificationResult, ClassificationInput
-from app.models.hubspot import HubSpotContactResult, HubSpotDealResult
+# Updated imports: Use HubSpotApiResult as the service layer now returns this
+from app.models.hubspot import HubSpotApiResult
 
 # Use a shared httpx client for efficiency
 _client = httpx.AsyncClient(timeout=10.0)
@@ -52,15 +53,21 @@ async def send_to_n8n_webhook(
     return False
 
 
+# Updated function signature and logic for Leads
 async def trigger_n8n_handoff_automation(
     classification_result: ClassificationResult,
     input_data: ClassificationInput,
-    contact_result: Optional[HubSpotContactResult],
-    deal_result: Optional[HubSpotDealResult]
+    contact_result: Optional[HubSpotApiResult], # Changed type hint
+    lead_result: Optional[HubSpotApiResult] # Changed type hint and name
 ):
   """
   Prepares a structured payload and sends the handoff data to the n8n webhook.
+  Handles Lead information instead of Deal information.
   """
+  logfire.info("Classification result received:", classification_result=classification_result)
+  logfire.info("Input data received:", input_data=input_data)
+  logfire.info("Contact result received:", contact_result=contact_result)
+  logfire.info("Lead result received:", lead_result=lead_result)
   if not classification_result.classification:
     logfire.info("No classification output available, skipping n8n handoff.")
     return False
@@ -71,7 +78,7 @@ async def trigger_n8n_handoff_automation(
     logfire.info("Lead classified as Disqualify, skipping n8n handoff.")
     return False
 
-  # --- Determine Team Email ---
+  # --- Determine Team Email (remains the same) ---
   team_email_map = {
       "Stahla Leads Team": ["isfescii@gmail.com", "femar.fredrick@gmail.com"],
       "Stahla Services Sales Team": ["femar.fredrick@gmail.com"],
@@ -86,13 +93,15 @@ async def trigger_n8n_handoff_automation(
 
   # --- Prepare the structured payload for n8n --- 
   extracted_metadata = classification_output.metadata or {}
-  contact_id = contact_result.id if contact_result else None
-  deal_id = deal_result.id if deal_result else None
+  # Extract IDs from HubSpotApiResult
+  contact_id = contact_result.hubspot_id if contact_result else None
+  lead_id = lead_result.hubspot_id if lead_result else None # Changed from deal_id
   portal_id = settings.HUBSPOT_PORTAL_ID
 
   # Construct URLs if portal_id and object IDs are available
   contact_url = f"https://app.hubspot.com/contacts/{portal_id}/contact/{contact_id}" if portal_id and contact_id else None
-  deal_url = f"https://app.hubspot.com/contacts/{portal_id}/deal/{deal_id}" if portal_id and deal_id else None
+  # Construct lead_url instead of deal_url (assuming standard object 'leads')
+  lead_url = f"https://app.hubspot.com/contacts/{portal_id}/record/0-5/{lead_id}" if portal_id and lead_id else None # Check HubSpot URL structure for leads (0-5 is an example objectTypeId for leads)
 
   payload = {
       "lead_details": {
@@ -105,14 +114,14 @@ async def trigger_n8n_handoff_automation(
           "text_consent": input_data.text_consent
       },
       "event_details": {
-          # Consistently use extracted_metadata from AI classification
+          # Fields moved back from classification section
           "product_interest": extracted_metadata.get("product_interest"),
-          "service_needed": extracted_metadata.get("service_needed"), # Use extracted value if available
+          "service_needed": extracted_metadata.get("service_needed"),
           "event_type": extracted_metadata.get("event_type"),
           "location": extracted_metadata.get("location"),
-          "state": extracted_metadata.get("state"), # Use extracted value if available
-          "city": extracted_metadata.get("city"), # Use extracted value if available
-          "postal_code": extracted_metadata.get("postal_code"), # Use extracted value if available
+          "state": extracted_metadata.get("state"),
+          "city": extracted_metadata.get("city"),
+          "postal_code": extracted_metadata.get("postal_code"),
           "duration_days": extracted_metadata.get("duration_days"),
           "start_date": extracted_metadata.get("start_date"),
           "end_date": extracted_metadata.get("end_date"),
@@ -133,7 +142,8 @@ async def trigger_n8n_handoff_automation(
           "is_local": extracted_metadata.get("is_local"),
           "intended_use": extracted_metadata.get("intended_use"),
           "requires_human_review": classification_output.requires_human_review,
-          "qualification_notes": extracted_metadata.get("comments")
+          "qualification_notes": extracted_metadata.get("comments") # Keep original qualification_notes
+          # Removed fields moved back to event_details
       },
       "call_details": {
           "call_summary": extracted_metadata.get("call_summary"),
@@ -144,13 +154,14 @@ async def trigger_n8n_handoff_automation(
           "assigned_team": assigned_team,
           "team_email": team_email_list
       },
+      # Updated hubspot section for Leads
       "hubspot": {
           "contact_id": contact_id,
-          "deal_id": deal_id,
-          "deal_name": deal_result.properties.get("dealname") if deal_result and deal_result.properties else None,
+          "lead_id": lead_id, # Changed from deal_id
+          # "deal_name": lead_result.details.get('properties', {}).get("leadname") if lead_result and lead_result.details else None, # Leads don't have a standard name property like deals
           "portal_id": portal_id,
           "contact_url": contact_url,
-          "deal_url": deal_url
+          "lead_url": lead_url # Changed from deal_url
       }
   }
 

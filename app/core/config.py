@@ -50,6 +50,8 @@ class Settings(BaseSettings):
   BLAND_API_URL: str = "https://api.bland.ai"
   # Default Bland Voice ID (optional, can be overridden in requests)
   BLAND_DEFAULT_VOICE_ID: Optional[int] = None
+  # Add setting for phone prefix
+  BLAND_PHONE_PREFIX: Optional[str] = Field(None, validation_alias="BLAND_PHONE_PREFIX")
 
   # Logfire Configuration
   LOGFIRE_TOKEN: Optional[str] = Field(None, validation_alias="LOGFIRE_TOKEN")

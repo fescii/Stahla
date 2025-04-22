@@ -12,8 +12,6 @@ from app.models.classification import (
     IntendedUseType,
     ProductType
 )
-# Needed for pipeline/owner logic
-from app.models.hubspot import HubSpotDealProperties
 from app.core.config import settings  # Import settings for threshold
 from app.services.classify.rules import classify_lead
 from app.services.classify.marvin import marvin_classification_manager

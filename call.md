@@ -1,22 +1,4 @@
 AUTOMATED PHONE CALL SCRIPT:
-TABLE OF CONTENTS
-• Main Flow.
-• Call Back Flow.
-• PATHS.
-• SUBFLOWS (S).
-• PROCESSES.
-• PRODUCTS PATHS.
-• PRODUCTS QUESTIONS.
-• OBJECTION HANDLING & FAQ.
-• VALUE PROPOSITION & ELEVATOR PITCH.
-• PERSONALIZATION & RAPPORT BUILDING.
-• CLEAR NEXT STEPS & FOLLOW‑UP.
-• DATA PRIVACY & COMPLIANCE.
-• SCRIPT FLEXIBILITY & ADAPTABILITY.
-• CALL METRICS & QUALITY CONTROL.
-• TONAL GUIDELINES & VALUE ALIGNMENT.
-• Identified Issues & Suggested Corrections.
-
 MAIN FLOW.
 Call In
 • Warm Greeting:
@@ -389,5 +371,3 @@ queries arise.
 navigate the script.
 – Encourage prompt documentation in HubSpot for timely follow‑up and continuous
 performance improvement.
-
-**Note on AI Estimation (`stahla_ai_estimated_value`):** While the script avoids asking for the customer's budget directly, the information collected (Lead Type, Stall Count, Duration, Attendance/Capacity, ADA needs, Power/Water for trailers) should provide the AI with sufficient data points to potentially generate an estimated value if required by the client's chosen process.

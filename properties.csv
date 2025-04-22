@@ -1,0 +1,57 @@
+Object,Internal Name,Label,Field Type,Mandatory,Status,Description
+Contact,what_service_do_you_need_,What services do you need?,Multiple checkboxes:,,Already Created,
+Contact,how_many_restroom_stalls_,How Many Restroom Stalls?,Number,,Already Created,
+Contact,how_many_shower_stalls_,How Many Shower Stalls?,Number,,Already Created,
+Contact,how_many_laundry_units_,How many laundry Units?,Number,,Already Created,
+Contact,your_message,Tell us how we can help,Multi-line text,,Already Created,
+Contact,do_you_have_water_access_onsite_,Do you have water access available onsite?,Single-line text,,Already Created,
+Contact,do_you_have_power_access_onsite_,Do you have power access available onsite?,Single-line text,,Already Created,
+Contact,ada,Check this box if you need the Americans with Disabilities Act (ADA) standards for accessibility.,Single Checkbox,,Already Created,
+Contact,how_many_portable_toilet_stalls_,How Many Portable Toilet Stalls?,Number,,Already Created,
+Contact,event_or_job_address,Event or Job Address,Single-line text,Yes,Already Created,
+Contact,zip,Postal code,Single line text,,Already Created,
+Contact,city,City,Single-line text,,Already Created,
+Contact,address,Street Address,Single line text,,Already Created,
+Contact,event_start_date,Event start date,Date Picker,Yes,Already Created,
+Contact,event_end_date,Event end date,Date Picker,,Already Created,
+Contact,firstname,First name,Single-line text,Yes,Already Created,
+Contact,lastname,Last name,Single-line text,Yes,Already Created,
+Contact,phone,Phone number,Phone number,Yes,Already Created,
+Contact,email,Email,Single line text,Yes,Already Created,
+Contact,message,Message,Multi-line text,,Already Created,
+Contact,by_submitting_this_form_you_consent_to_receive_texts,I consent to receive texts on the phone number provided,Single checkbox,,Already Created,
+Lead,project_category,Project Category,Single line text,Yes,Needs to be Created,"Type of inquiry or project (e.g. Event, Construction, Facility, Disaster Relief, Other) for this lead; used to tailor qualification flow and branching logic."
+Lead,units_needed,Units Needed (Description),Multi-line text,Yes,Needs to be Created,Summary of quantity and type of units required (e.g.: “2-stall restroom trailer and 10 portable toilets”).
+Lead,expected_attendance,Expected Attendance/Users,Number,No,Needs to be Created,Number of people the facilities need to support (for events or project capacity).
+Lead,ada_required,ADA Accessible Required,Single checkbox,Yes,Needs to be Created,Indicates if ADA-compliant (handicap accessible) facilities are needed.
+Lead,additional_services_needed,Additional Services Needed,Multi-line text,No,Needs to be Created,"Other services or equipment needed beyond core rentals (e.g. tent, fencing, generator, water supply, dumpster)."
+Lead,onsite_facilities,Other Facilities On-site,Single checkbox,No,Needs to be Created,Whether there are existing facilities at the site.
+Lead,rental_start_date,Rental Start Date,Date picker,No,Needs to be Created,When the unit(s) will be needed on site.
+Lead,rental_end_date,Rental End Date,Date picker,No,Needs to be Created,Expected end date or pickup date for the rental.
+Lead,site_working_hours,Site Working Hours,Single-line text,No,Needs to be Created,Working hours or access times at the site.
+Lead,weekend_service_needed,Weekend Service Needed,Single checkbox,No,Needs to be Created,Indicates if service is required over the weekend.
+Lead,cleaning_service_needed,Cleaning/Restocking Needed,Single checkbox,No,Needs to be Created,Indicates prospect needs cleaning or restocking service.
+Lead,onsite_contact_name,On-site Contact Name,Single-line text,No,Needs to be Created,Alternate on-site contact name for coordination.
+Lead,onsite_contact_phone,On-site Contact Phone,Phone number,No,Needs to be Created,Phone number for the on-site contact.
+Lead,site_ground_type,Site Ground Surface Type,Single-line text,No,Needs to be Created,"Ground/terrain at the drop-off location (e.g. Concrete, Gravel, Grass)."
+Lead,site_obstacles,Site Obstacles/Access Notes,Multi-line text,No,Needs to be Created,Notes on access limitations or obstacles at the site.
+Lead,water_source_distance,Distance to Water Source (ft),Number,No,Needs to be Created,Approximate distance from unit location to nearest water source.
+Lead,power_source_distance,Distance to Power Source (ft),Number,No,Needs to be Created,Approximate distance from unit location to nearest power source.
+Lead,within_local_service_area,Within Local Service Area,Single checkbox,Yes,Needs to be Created,Checked if location is within ~3 hours of a service hub.
+Lead,partner_referral_consent,Consent to Partner Referral,Single checkbox,No,Needs to be Created,Indicates if prospect agreed to share info with partner companies.
+Lead,needs_human_follow_up,Needs Human Follow-Up,Single checkbox,No,Needs to be Created,Flag for AI to escalate leads needing human clarification.
+Lead,quote_urgency,Quote Urgency,Single line text,Yes,Needs to be Created,How quickly the prospect wants a quote or follow-up.
+Contact,ai_call_summary,AI Call Summary,Multi-line text,Yes,Needs to be Created,Summary of the AI-qualified call details.
+Contact,ai_call_sentiment,AI Call Sentiment,Sigle line text,No,Needs to be Created,Assessment of prospect sentiment/tone.
+Lead,ai_lead_type,AI Lead Type,Single line text,No,Needs to be Created,"AI‑determined category of the lead (e.g. Event, Construction, etc.)"
+Lead,ai_classification_reasoning,AI Classification Reasoning,Multi‑line text,No,Needs to be Created,Explanation of the AI’s logic in classifying this lead
+Lead,ai_classification_confidence,AI Classification Confidence,Number (decimal),No,Needs to be Created,Confidence score (0–1) for the AI’s classification
+Lead,ai_routing_suggestion,AI Routing Suggestion,Single‑line text,No,Needs to be Created,Pipeline or stage the AI recommends routing this lead into
+Lead,ai_intended_use,AI Intended Use,Sigle line text,No,Needs to be Created,AI‑identified intended purpose for this inquiry
+Lead,ai_qualification_notes,AI Qualification Notes,Multi‑line text,No,Needs to be Created,Key notes from the AI’s qualification assessment
+Contact,call_recording_url,Call Recording URL,Single‑line text,No,Needs to be Created,URL link to the recorded call
+Contact,call_summary,Call Summary,Multi‑line text,No,Needs to be Created,AI‑generated summary of what was discussed on the call
+Lead,number_of_stalls,Number of Stalls (from Call/Form),Number (integer),No,Needs to be Created,How many stalls were requested (from call or form)
+Lead,event_duration_days,Event Duration Days (from Call/Form),Number (integer),No,Needs to be Created,Number of days the prospect needs the units
+Lead,guest_count_estimate,Guest Count Estimate (from Call/Form),Number (integer),No,Needs to be Created,Estimated attendee count (optional)
+Lead,ai_estimated_value,AI Estimated Value,Number (currency),No,Needs to be Created,AI‑calculated estimate of deal value

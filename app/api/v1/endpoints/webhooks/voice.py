@@ -11,12 +11,12 @@ from app.models.classification import ClassificationInput
 # Import services
 from app.services.bland import bland_manager
 from app.services.classify.classification import classification_manager
-from app.services.hubspot import hubspot_manager # Added missing import
+from app.services.hubspot import hubspot_manager
 
 # Import helpers
 from .helpers import (
     _handle_hubspot_update,
-    _update_hubspot_deal_after_classification,
+    _update_hubspot_lead_after_classification,
     prepare_classification_input
 )
 
@@ -59,7 +59,7 @@ async def webhook_voice(
 
   # Check for HubSpot IDs in Metadata
   hubspot_contact_id: Optional[str] = None
-  hubspot_deal_id: Optional[str] = None
+  hubspot_lead_id: Optional[str] = None
   metadata = {}
   # Check both payload.variables.metadata and payload.metadata
   if getattr(payload, 'variables', None) and isinstance(payload.variables, dict) and \
@@ -72,20 +72,34 @@ async def webhook_voice(
 
   if metadata:
     hubspot_contact_id = metadata.get("hubspot_contact_id")
-    hubspot_deal_id = metadata.get("hubspot_deal_id")
+    hubspot_lead_id = metadata.get("hubspot_lead_id")
     logfire.info("Found metadata in Bland payload.",
-                 contact_id=hubspot_contact_id, deal_id=hubspot_deal_id)
+                 contact_id=hubspot_contact_id, lead_id=hubspot_lead_id)
     
     # --- Fetch HubSpot Contact Details --- 
     if hubspot_contact_id:
         logfire.info(f"Fetching HubSpot contact details for ID: {hubspot_contact_id}")
         contact_result = await hubspot_manager.get_contact_by_id(hubspot_contact_id)
-        if contact_result.status == "success" and contact_result.properties:
-            contact_properties_from_hubspot = contact_result.properties
-            logfire.info("Successfully fetched HubSpot contact properties.")
+        
+        # Check status first
+        if contact_result.status == "success":
+            # Check if 'details' attribute exists and is a dictionary
+            if contact_result.details and isinstance(contact_result.details, dict):
+                # Check if 'properties' key exists within 'details' and is not None/empty
+                fetched_properties = contact_result.details.get('properties')
+                if fetched_properties and isinstance(fetched_properties, dict):
+                    contact_properties_from_hubspot = fetched_properties
+                    logfire.info("Successfully fetched HubSpot contact properties.", properties=contact_properties_from_hubspot)
+                else:
+                    logfire.warn("HubSpot contact details fetched, but 'properties' key is missing or empty.", contact_id=hubspot_contact_id, details=contact_result.details)
+            else:
+                # Status was success, but 'details' attribute was missing or not a dict
+                logfire.warn("HubSpot contact fetch successful, but no valid details data found.", contact_id=hubspot_contact_id, raw_details=contact_result.details)
         else:
+            # Status was not "success"
+            error_message = getattr(contact_result, 'message', 'Unknown error') # Safely get error message
             logfire.warn("Failed to fetch HubSpot contact details from voice webhook.", 
-                         contact_id=hubspot_contact_id, error=contact_result.message)
+                         contact_id=hubspot_contact_id, error=error_message)
     # --- End Fetch --- 
 
     form_data = metadata.get('form_submission_data', {})
@@ -164,48 +178,46 @@ async def webhook_voice(
   # --- End Update --- 
 
   # HubSpot Integration (Update or Create)
-  # Pass the UPDATED classification_input to the helper functions
   final_contact_id: Optional[str] = None
-  final_deal_id: Optional[str] = None
+  final_lead_id: Optional[str] = None
 
-  if hubspot_deal_id and hubspot_contact_id:
-    logfire.info("Updating existing HubSpot deal via /voice webhook.",
-                 contact_id=hubspot_contact_id, deal_id=hubspot_deal_id)
-    # Update existing deal in background
+  if hubspot_lead_id and hubspot_contact_id:
+    logfire.info("Updating existing HubSpot lead via /voice webhook.",
+                 contact_id=hubspot_contact_id, lead_id=hubspot_lead_id)
+    # Update existing lead in background
     background_tasks.add_task(
-        _update_hubspot_deal_after_classification,
+        _update_hubspot_lead_after_classification,
         classification_result,
         classification_input, # Pass updated input
         hubspot_contact_id,
-        hubspot_deal_id
+        hubspot_lead_id
     )
     final_contact_id = hubspot_contact_id
-    final_deal_id = hubspot_deal_id
+    final_lead_id = hubspot_lead_id
   else:
     logfire.info(
-        "No existing HubSpot deal ID found in metadata, creating new contact/deal.")
-    # Create new contact/deal in background
+        "No existing HubSpot lead ID found in metadata, creating new contact/lead.")
+    # Create new contact/lead in background
 
     async def _run_handle_hubspot_update_in_background():
-      nonlocal final_contact_id, final_deal_id
-      c_id, d_id = await _handle_hubspot_update(classification_result, classification_input) # Pass updated input
+      nonlocal final_contact_id, final_lead_id
+      c_id, l_id = await _handle_hubspot_update(classification_result, classification_input)
       final_contact_id = c_id
-      final_deal_id = d_id
+      final_lead_id = l_id
       logfire.info("Background HubSpot update completed (create/update)",
-                   contact_id=c_id, deal_id=d_id)
+                   contact_id=c_id, lead_id=l_id)
 
     background_tasks.add_task(_run_handle_hubspot_update_in_background)
     # IDs will be None in the immediate response
     final_contact_id = None
-    final_deal_id = None
+    final_lead_id = None
 
   # Return response
-  # The classification object in the response already comes from classification_result
   return {
       "status": "received",
       "source": "voice",
       "action": "classification_complete",
       "classification": classification_result.classification.model_dump() if classification_result.classification else None,
-      "hubspot_contact_id": final_contact_id,  # May be None if backgrounded
-      "hubspot_deal_id": final_deal_id      # May be None if backgrounded
+      "hubspot_contact_id": final_contact_id,
+      "hubspot_lead_id": final_lead_id
   }

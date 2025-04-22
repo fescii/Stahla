@@ -188,7 +188,9 @@ def classify_lead_with_ai(
   - If the caller explicitly states they are not interested or it's the wrong number.
 
   **Extraction Guidelines:**
-  - Extract specific details mentioned in the call (event type, location, dates, guest count, stalls, ADA needs, budget, comments, power available, water available).
+  - Extract specific details mentioned in the call: product_interest, service_needed, event_type, location (full address if possible), city, state (2-letter code if possible), postal_code, start_date, end_date, duration_days, guest_count, required_stalls, ada_required, power_available (True/False), water_available (True/False).
+  - For budget_mentioned: Extract the specific amount mentioned (e.g., '$2500', '$10k') or 'none' if no budget is mentioned or explicitly stated as none. Do not include surrounding text.
+  - For comments: Capture any other specific comments, questions, or key details mentioned that aren't covered by other fields.
   - Provide brief reasoning for the chosen classification based *only* on the rules and the call content.
   """
   pass # Marvin implements this
@@ -375,18 +377,18 @@ class MarvinClassificationManager:
       # --- End Log ---
 
       # --- Create ClassificationOutput with metadata --- 
-      # Temporarily create output without metadata to test serialization
+      # Create the final output including the extracted metadata
       output = ClassificationOutput(
           lead_type=classification,
           reasoning=reasoning,
-          requires_human_review=True # Default to needing review after AI call?
-          # metadata=extracted_details.model_dump(exclude_none=True) # Temporarily commented out
+          requires_human_review=True, # Default to needing review after AI call?
+          metadata=extracted_details.model_dump(exclude_none=True) # Add extracted details to metadata
       )
       # Add owner team to metadata if determined
-      # if owner_team != "None":
-      #     # Ensure metadata exists before adding to it
-      #     if output.metadata is None: output.metadata = {}
-      #     output.metadata["assigned_owner_team"] = owner_team
+      if owner_team != "None":
+          # Ensure metadata exists before adding to it (it should, as we just created it)
+          if output.metadata is None: output.metadata = {}
+          output.metadata["assigned_owner_team"] = owner_team
       # --- End Create ClassificationOutput --- 
 
       return output

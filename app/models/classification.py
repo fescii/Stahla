@@ -152,17 +152,23 @@ class ClassificationResult(BaseModel):
 
 
 class ExtractedCallDetails(BaseModel):
-  """Structured details extracted from a call summary/transcript by AI."""
-  classification: LeadClassificationType = Field(..., description="The overall classification: Services, Logistics, Leads, or Disqualify.")
-  product_interest: Optional[List[str]] = Field(None, description="Specific products mentioned (e.g., 'Restroom Trailer', 'Porta Potty').")
-  event_type: Optional[str] = Field(None, description="Type of event (e.g., 'Wedding', 'Construction', 'Festival').")
-  location: Optional[str] = Field(None, description="Mentioned event location (city, state, or address).")
-  start_date: Optional[str] = Field(None, description="Mentioned start date.")
-  end_date: Optional[str] = Field(None, description="Mentioned end date.")
-  duration_days: Optional[int] = Field(None, description="Mentioned duration in days.")
-  guest_count: Optional[int] = Field(None, description="Mentioned number of guests or attendees.")
-  required_stalls: Optional[int] = Field(None, description="Mentioned number of stalls or units needed.")
-  ada_required: Optional[bool] = Field(None, description="Was an ADA requirement mentioned? (True/False)")
-  budget_mentioned: Optional[str] = Field(None, description="Any mention of budget.")
-  comments: Optional[str] = Field(None, description="Any other specific comments, questions, or key details mentioned.")
-  reasoning: Optional[str] = Field(None, description="Brief reasoning for the classification based on the rules.")
+    """Structured details extracted from a call summary/transcript by AI."""
+    classification: LeadClassificationType = Field(..., description="The overall classification: Services, Logistics, Leads, or Disqualify.")
+    product_interest: Optional[List[str]] = Field(None, description="Specific products mentioned (e.g., 'Restroom Trailer', 'Porta Potty').")
+    service_needed: Optional[str] = Field(None, description="Specific service mentioned (e.g., 'rental', 'purchase', 'service only').") # Added
+    event_type: Optional[str] = Field(None, description="Type of event (e.g., 'Wedding', 'Construction', 'Festival').")
+    location: Optional[str] = Field(None, description="Mentioned event location (full address if possible, otherwise general area).")
+    city: Optional[str] = Field(None, description="Mentioned city.") # Added
+    state: Optional[str] = Field(None, description="Mentioned state (2-letter code if possible).") # Added
+    postal_code: Optional[str] = Field(None, description="Mentioned postal/ZIP code.") # Added
+    start_date: Optional[str] = Field(None, description="Mentioned start date.")
+    end_date: Optional[str] = Field(None, description="Mentioned end date.")
+    duration_days: Optional[int] = Field(None, description="Mentioned duration in days.")
+    guest_count: Optional[int] = Field(None, description="Mentioned number of guests or attendees.")
+    required_stalls: Optional[int] = Field(None, description="Mentioned number of stalls or units needed.")
+    ada_required: Optional[bool] = Field(None, description="Was an ADA requirement mentioned? (True/False)")
+    budget_mentioned: Optional[str] = Field(None, description="Any mention of budget (extract amount like '$2500' or 'none').")
+    power_available: Optional[bool] = Field(None, description="Was power availability mentioned? (True/False)") # Added
+    water_available: Optional[bool] = Field(None, description="Was water availability mentioned? (True/False)") # Added
+    comments: Optional[str] = Field(None, description="Any other specific comments, questions, or key details mentioned.")
+    reasoning: Optional[str] = Field(None, description="Brief reasoning for the classification based on the rules.")

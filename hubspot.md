@@ -42,77 +42,68 @@ Yes
 
 *Properties marked with `*` are likely relevant inputs for the API based on the form.*
 
-| Property                       | Internal name                         | Notes / Confirmation Needed?                                  |
-| :----------------------------- | :------------------------------------ | :------------------------------------------------------------ |
-| *First Name                    | `firstname`                           | Standard                                                      |
-| *Last Name                     | `lastname`                            | Standard                                                      |
-| *Phone Number                  | `phone`                               | Standard                                                      |
-| *City                          | `city`                                | Standard                                                      |
-| Company Name                   | `company`                             | Standard                                                      |
-| Company Size                   | `company_size`                        | Standard                                                      |
-| Lifecycle stage                | `lifecyclestage`                      | Standard (Radio Select)                                       |
-| *Event Or Job Address          | `event_or_job_address`                | Custom? Confirm name.                                         |
-| Lead Status                    | `hs_lead_status`                      | Standard (Radio Select)                                       |
-| Original Traffic Source        | `hs_analytics_source`                 | Standard                                                      |
-| Latest Traffic Source          | `hs_latest_source`                    | Standard                                                      |
-| Record source                  | `hs_object_source_label`              | Standard (Dropdown select)                                    |
-| How Many Shower Stalls?        | `how_many_shower_stalls_`             | Custom? Confirm name. (Relevant if selected in Service Needed)|
-| How Many Restroom Stalls?      | `how_many_restroom_stalls_`           | Custom? Confirm name. (Relevant if selected in Service Needed)|
-| How many laundry Units?        | `how_many_laundry_units_`             | Custom? Confirm name. (Relevant if selected in Service Needed)|
-| How Many ADA Restroom Stalls?  | `how_many_ada_restroom_stalls_`       | Custom? Confirm name. (Relevant if selected in Service Needed)|
-| How many ADA Compliant Showers?| `how_many_ada_compliant_showers_`     | Custom? Confirm name. (Relevant if selected in Service Needed)|
-| *How Many Portable Toilet Stalls?| `how_many_portable_toilet_stalls_`    | Custom? Confirm name.                                         |
-| *Email                         | `email`                               | Standard                                                      |
-| *Postal Code                   | `zip`                                 | Standard? Confirm name.                                       |
-| *Message                       | `message`                             | Standard? Confirm name.                                       |
-| *Service Needed                | `stahla_service_needed`               | **Custom - Needs Creation/Confirmation**                      |
-| *Event Start Date              | `stahla_event_start_date`             | **Custom - Needs Creation/Confirmation** (Date Type)          |
-| *Event End Date                | `stahla_event_end_date`               | **Custom - Needs Creation/Confirmation** (Date Type)          |
-| *Text Consent                  | `stahla_text_consent`                 | **Custom - Needs Creation/Confirmation** (Boolean Type)       |
+| Property                                                     | Internal Name                                          | Notes / Confirmation Needed?                                                                                                                               |
+| :----------------------------------------------------------- | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| *What services do you need?                                  | `what_service_do_you_need_`                            | Multiple checkboxes. Options: Restroom Trailer, Shower Trailer, Laundry Trailer, Porta Potty, Trailer Repair / Pump Out, Other. Status: Already Created. |
+| How Many Restroom Stalls?                                    | `how_many_restroom_stalls_`                            | Number. Status: Already Created.                                                                                                                           |
+| How Many Shower Stalls?                                      | `how_many_shower_stalls_`                              | Number. Status: Already Created.                                                                                                                           |
+| How many laundry Units?                                      | `how_many_laundry_units_`                              | Number. Status: Already Created.                                                                                                                           |
+| Tell us how we can help                                      | `your_message`                                         | Multi-line text. Status: Already Created.                                                                                                                  |
+| Do you have water access available onsite?                   | `do_you_have_water_access_onsite_`                     | Single-line text. Status: Already Created.                                                                                                                 |
+| Do you have power access available onsite?                   | `do_you_have_power_access_onsite_`                     | Single-line text. Status: Already Created.                                                                                                                 |
+| Check this box if you need the ADA standards                 | `ada`                                                  | Single Checkbox. Status: Already Created.                                                                                                                  |
+| *How Many Portable Toilet Stalls?                            | `how_many_portable_toilet_stalls_`                     | Number. Status: Already Created.                                                                                                                           |
+| *Event or Job Address                                        | `event_or_job_address`                                 | Single-line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
+| *Postal code                                                 | `zip`                                                  | Single line text. Status: Already Created.                                                                                                                 |
+| *City                                                        | `city`                                                 | Single-line text. Status: Already Created.                                                                                                                 |
+| Street Address                                               | `address`                                              | Single line text. Status: Already Created.                                                                                                                 |
+| *Event start date                                            | `event_start_date`                                     | Date Picker. Mandatory: Yes. Status: Already Created.                                                                                                      |
+| Event end date                                               | `event_end_date`                                       | Date Picker. Status: Already Created.                                                                                                                      |
+| *First name                                                  | `firstname`                                            | Single-line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
+| *Last name                                                   | `lastname`                                             | Single-line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
+| *Phone number                                                | `phone`                                                | Phone number. Mandatory: Yes. Status: Already Created.                                                                                                     |
+| *Email                                                       | `email`                                                | Single line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
+| *Message                                                     | `message`                                              | Multi-line text. Status: Already Created.                                                                                                                  |
+| *I consent to receive texts on the phone number provided     | `by_submitting_this_form_you_consent_to_receive_texts` | Single checkbox. Status: Already Created.                                                                                                                  |
+| AI Call Summary                                              | `ai_call_summary`                                      | Multi-line text. Mandatory: Yes. Status: Needs to be Created. Description: Summary of the AI-qualified call details.                                      |
+| AI Call Sentiment                                            | `ai_call_sentiment`                                    | Single line text. Status: Needs to be Created. Description: Assessment of prospect sentiment/tone.                                                         |
+| Call Recording URL                                           | `call_recording_url`                                   | Single-line text. Status: Needs to be Created. Description: URL link to the recorded call                                                                  |
+| Call Summary                                                 | `call_summary`                                         | Multi-line text. Status: Needs to be Created. Description: AI-generated summary of what was discussed on the call                                          |
 
 ---
 
-**Deal Properties:**
+**Lead Properties:**
 
-*Properties marked with `*` are likely set/updated by the API.*
-*Properties marked with `**` are suggested new properties for AI/Call results.*
-
-| Property                             | Internal name                         | Notes / Confirmation Needed?                                  |
-| :----------------------------------- | :------------------------------------ | :------------------------------------------------------------ |
-| Deal Name                            | `dealname`                            | Standard - Set by Workflow/API                                |
-| Amount                               | `amount`                              | Standard - *See Note Below Re: Budget Estimation*             |
-| Close Date                           | `closedate`                           | Standard - Potentially set by API based on end date?          |
-| *Pipeline                            | `pipeline`                            | Standard (Radio Select) - Set by API/Workflow                 |
-| Deal Owner                           | `hubspot_owner_id`                    | Standard - Set by API/Workflow                                |
-| Commercial/Event                     | `commercial_event`                    | Custom? (Dropdown Select) - Potentially set by API?           |
-| *Deal Stage                          | `dealstage`                           | Standard (Radio Select) - Set by API/Workflow                 |
-| *Start Date                          | `start_date`                          | Standard (Date Type) - Copied from Contact Property           |
-| *End Date                            | `end_date`                            | Standard (Date Type) - Copied from Contact Property           |
-| Deal Duration                        | `deal_duration`                       | Standard? Calculated?                                         |
-| *Deal Address                        | `deal_address`                        | Standard? Copied from Contact Property                        |
-| Last Contacted                       | `notes_last_contacted`                | Standard - Updated by HubSpot                                 |
-| Deal Type                            | `dealtype`                            | Standard (Radio Select) - Set by API/Workflow                 |
-| Priority                             | `hs_priority`                         | Standard (Dropdown select) - Potentially set by API?          |
-| Lead Status                          | `hs_lead_status`                      | Standard (Radio Select) - Potentially set by API?             |
-| **AI Lead Type                       | `stahla_ai_lead_type`                 | **Custom - Needs Creation** (Text/Dropdown)                   |
-| **AI Classification Reasoning        | `stahla_ai_reasoning`                 | **Custom - Needs Creation** (Text - Multi-line)               |
-| **AI Classification Confidence       | `stahla_ai_confidence`                | **Custom - Needs Creation** (Number - Float)                  |
-| **AI Routing Suggestion (Pipeline)   | `stahla_ai_routing_suggestion`        | **Custom - Needs Creation** (Text)                            |
-| **AI Requires Human Review           | `stahla_ai_requires_review`           | **Custom - Needs Creation** (Boolean)                         |
-| **AI Is Local                        | `stahla_ai_is_local`                  | **Custom - Needs Creation** (Boolean)                         |
-| **AI Intended Use                    | `stahla_ai_intended_use`              | **Custom - Needs Creation** (Text/Dropdown)                   |
-| **AI Qualification Notes             | `stahla_ai_qualification_notes`       | **Custom - Needs Creation** (Text - Multi-line)               |
-| **Call Recording URL                 | `stahla_call_recording_url`           | **Custom - Needs Creation** (Text - URL)                      |
-| **Call Summary                       | `stahla_call_summary`                 | **Custom - Needs Creation** (Text - Multi-line)               |
-| **Call Duration (Seconds)            | `stahla_call_duration_seconds`        | **Custom - Needs Creation** (Number - Integer, Optional)      |
-| **Number of Stalls (from Call/Form)  | `stahla_stall_count`                  | **Custom - Needs Creation** (Number - Integer)                |
-| **Event Duration Days (from Call/Form)| `stahla_event_duration_days`          | **Custom - Needs Creation** (Number - Integer)                |
-| **Guest Count (from Call)            | `stahla_guest_count`                  | **Custom - Needs Creation** (Number - Integer)                |
-| **ADA Required (from Call/Form)      | `stahla_ada_required`                 | **Custom - Needs Creation** (Boolean)                         |
-| **Power Available (from Call)        | `stahla_power_available`              | **Custom - Needs Creation** (Boolean)                         |
-| **Water Available (from Call)        | `stahla_water_available`              | **Custom - Needs Creation** (Boolean)                         |
-| **AI Estimated Value (Optional)      | `stahla_ai_estimated_value`           | **Custom - Needs Creation** (Number - Currency, Optional)     |
-
-**Note on Budget/Amount:** The call script advises against estimating budget. The current classification code *does* estimate a value. Recommend discussing with the client whether to:
-a) Remove the estimation logic and not set the standard `amount` property.
-b) Keep the estimation but store it in the suggested custom property `stahla_ai_estimated_value` instead of `amount`.
+| Property                             | Internal Name                         | Notes / Confirmation Needed?                                                                                                                               |
+| :----------------------------------- | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project Category                     | `project_category`                    | Single line text. Mandatory: Yes. Status: Needs to be Created. Description: Type of inquiry or project (e.g. Event, Construction, Facility, Disaster Relief, Other) for this lead; used to tailor qualification flow and branching logic. |
+| Units Needed (Description)           | `units_needed`                        | Multi-line text. Mandatory: Yes. Status: Needs to be Created. Description: Summary of quantity and type of units required (e.g.: “2-stall restroom trailer and 10 portable toilets”). |
+| Expected Attendance/Users            | `expected_attendance`                 | Number. Status: Needs to be Created. Description: Number of people the facilities need to support (for events or project capacity).                         |
+| ADA Accessible Required              | `ada_required`                        | Single checkbox. Mandatory: Yes. Status: Needs to be Created. Description: Indicates if ADA-compliant (handicap accessible) facilities are needed.         |
+| Additional Services Needed           | `additional_services_needed`          | Multi-line text. Status: Needs to be Created. Description: Other services or equipment needed beyond core rentals (e.g. tent, fencing, generator, water supply, dumpster). |
+| Other Facilities On-site             | `onsite_facilities`                   | Single checkbox. Status: Needs to be Created. Description: Whether there are existing facilities at the site.                                              |
+| Rental Start Date                    | `rental_start_date`                   | Date picker. Status: Needs to be Created. Description: When the unit(s) will be needed on site.                                                            |
+| Rental End Date                      | `rental_end_date`                     | Date picker. Status: Needs to be Created. Description: Expected end date or pickup date for the rental.                                                    |
+| Site Working Hours                   | `site_working_hours`                  | Single-line text. Status: Needs to be Created. Description: Working hours or access times at the site.                                                     |
+| Weekend Service Needed               | `weekend_service_needed`              | Single checkbox. Status: Needs to be Created. Description: Indicates if service is required over the weekend.                                              |
+| Cleaning/Restocking Needed           | `cleaning_service_needed`             | Single checkbox. Status: Needs to be Created. Description: Indicates prospect needs cleaning or restocking service.                                        |
+| On-site Contact Name                 | `onsite_contact_name`                 | Single-line text. Status: Needs to be Created. Description: Alternate on-site contact name for coordination.                                               |
+| On-site Contact Phone                | `onsite_contact_phone`                | Phone number. Status: Needs to be Created. Description: Phone number for the on-site contact.                                                              |
+| Site Ground Surface Type             | `site_ground_type`                    | Single-line text. Status: Needs to be Created. Description: Ground/terrain at the drop-off location (e.g. Concrete, Gravel, Grass).                         |
+| Site Obstacles/Access Notes          | `site_obstacles`                      | Multi-line text. Status: Needs to be Created. Description: Notes on access limitations or obstacles at the site.                                           |
+| Distance to Water Source (ft)        | `water_source_distance`               | Number. Status: Needs to be Created. Description: Approximate distance from unit location to nearest water source.                                         |
+| Distance to Power Source (ft)        | `power_source_distance`               | Number. Status: Needs to be Created. Description: Approximate distance from unit location to nearest power source.                                         |
+| Within Local Service Area            | `within_local_service_area`           | Single checkbox. Mandatory: Yes. Status: Needs to be Created. Description: Checked if location is within ~3 hours of a service hub.                         |
+| Consent to Partner Referral          | `partner_referral_consent`            | Single checkbox. Status: Needs to be Created. Description: Indicates if prospect agreed to share info with partner companies.                                |
+| Needs Human Follow-Up                | `needs_human_follow_up`               | Single checkbox. Status: Needs to be Created. Description: Flag for AI to escalate leads needing human clarification.                                      |
+| Quote Urgency                        | `quote_urgency`                       | Single line text. Mandatory: Yes. Status: Needs to be Created. Description: How quickly the prospect wants a quote or follow-up.                           |
+| AI Lead Type                         | `ai_lead_type`                        | Single line text. Status: Needs to be Created. Description: AI‑determined category of the lead (e.g. Event, Construction, etc.)                             |
+| AI Classification Reasoning          | `ai_classification_reasoning`         | Multi-line text. Status: Needs to be Created. Description: Explanation of the AI’s logic in classifying this lead                                          |
+| AI Classification Confidence         | `ai_classification_confidence`        | Number (decimal). Status: Needs to be Created. Description: Confidence score (0–1) for the AI’s classification                                             |
+| AI Routing Suggestion                | `ai_routing_suggestion`               | Single-line text. Status: Needs to be Created. Description: Pipeline or stage the AI recommends routing this lead into                                     |
+| AI Intended Use                      | `ai_intended_use`                     | Single line text. Status: Needs to be Created. Description: AI‑identified intended purpose for this inquiry                                                |
+| AI Qualification Notes               | `ai_qualification_notes`              | Multi-line text. Status: Needs to be Created. Description: Key notes from the AI’s qualification assessment                                                |
+| Number of Stalls (from Call/Form)    | `number_of_stalls`                    | Number (integer). Status: Needs to be Created. Description: How many stalls were requested (from call or form)                                             |
+| Event Duration Days (from Call/Form) | `event_duration_days`                 | Number (integer). Status: Needs to be Created. Description: Number of days the prospect needs the units                                                    |
+| Guest Count Estimate (from Call/Form)| `guest_count_estimate`                | Number (integer). Status: Needs to be Created. Description: Estimated attendee count (optional)                                                            |
+| AI Estimated Value                   | `ai_estimated_value`                  | Number (currency). Status: Needs to be Created. Description: AI‑calculated estimate of deal value                                                          |

@@ -1,7 +1,7 @@
 # app/models/webhook_models.py
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 
 
 class FormPayload(BaseModel):
@@ -85,9 +85,86 @@ class HubSpotWebhookEvent(BaseModel):
 
 
 class HubSpotWebhookPayload(BaseModel):
-  # HubSpot sends a list
-  events: List[HubSpotWebhookEvent] = Field(..., alias='_events')
+  # HubSpot sends a list - This model remains for potential future use
+  # with standard event webhooks, but is not used by the endpoint anymore.
+  events: List[HubSpotWebhookEvent]
 
   model_config = {
       "populate_by_name": True
   }
+
+
+# --- New Models for Direct Contact Data Payload ---
+
+class HubSpotPropertyVersion(BaseModel):
+  value: Any
+  source_type: Optional[str] = Field(None, alias='source-type')
+  source_id: Optional[str] = Field(None, alias='source-id')
+  source_label: Optional[str] = Field(None, alias='source-label')
+  timestamp: int
+  # Add other potential fields if needed, allowing extras
+  class Config:
+      extra = 'allow'
+      populate_by_name = True
+
+
+class HubSpotPropertyDetail(BaseModel):
+  value: Any
+  versions: List[HubSpotPropertyVersion]
+  class Config:
+      extra = 'allow'
+
+
+class HubSpotIdentity(BaseModel):
+  type: str
+  value: str
+  timestamp: int
+  is_primary: Optional[bool] = Field(None, alias='is-primary')
+  source: Optional[str] = None
+  class Config:
+      extra = 'allow'
+      populate_by_name = True
+
+
+class HubSpotIdentityProfile(BaseModel):
+  vid: int
+  identities: List[HubSpotIdentity]
+  # Add other potential fields if needed, allowing extras
+  class Config:
+      extra = 'allow'
+
+
+class HubSpotAssociatedCompanyPropertyDetail(BaseModel):
+    value: Any
+    # Simplified for now, assuming we only need the value
+    class Config:
+        extra = 'allow'
+
+class HubSpotAssociatedCompany(BaseModel):
+    company_id: int = Field(..., alias='company-id')
+    portal_id: int = Field(..., alias='portal-id')
+    properties: Dict[str, HubSpotAssociatedCompanyPropertyDetail]
+    class Config:
+        extra = 'allow'
+        populate_by_name = True
+
+
+class HubSpotContactDataPayload(BaseModel):
+  """
+  Pydantic model for the direct contact data payload received.
+  """
+  vid: int
+  canonical_vid: int = Field(..., alias='canonical-vid')
+  merged_vids: List[int] = Field(..., alias='merged-vids')
+  portal_id: int = Field(..., alias='portal-id')
+  is_contact: bool = Field(..., alias='is-contact')
+  properties: Dict[str, Optional[HubSpotPropertyDetail]] # Make detail optional as some props might be null
+  form_submissions: List[Any] = Field(..., alias='form-submissions')
+  list_memberships: List[Any] = Field(..., alias='list-memberships')
+  identity_profiles: List[HubSpotIdentityProfile] = Field(..., alias='identity-profiles')
+  merge_audits: List[Any] = Field(..., alias='merge-audits')
+  associated_company: Optional[HubSpotAssociatedCompany] = Field(None, alias='associated-company')
+
+  class Config:
+    extra = 'allow' # Allow fields not explicitly defined
+    populate_by_name = True # Allow using aliases like 'portal-id'
