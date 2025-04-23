@@ -1,4 +1,10 @@
-# app/services/classification_rules.py
+# ---
+# CLASSIFICATION RULES FOR STAHLACALLS
+#
+# IMPORTANT: The canonical source for all call flow, lead type, process, and subflow logic is call.md in the project root.
+# All classification rules and logic in this file MUST match the current instructions and flow in call.md.
+# If you update call.md, you must update this file to match, and vice versa.
+# ---
 
 """
 Classification rules engine for Stahla.
@@ -48,150 +54,96 @@ def is_porta_potty(product_types: List[str]) -> bool:
 
 
 def classify_lead(input_data: ClassificationInput) -> Tuple[LeadClassificationType, str, str]:
-  """
-  Classifies a lead based on the rules defined in the PRD.
-  Returns the classification, reasoning, and suggested owner team.
-  """
-  logfire.debug("Applying rule-based classification",
-                input_data=input_data.model_dump(exclude={"raw_data", "extracted_data"}))
+    """
+    Classifies a lead based on the rules defined in the current call.md script.
+    - All lead type, process, and subflow logic must match call.md exactly.
+    - Refer to call.md for the latest MAIN FLOW, PATHS, SUBFLOWS, and PROCESS definitions.
+    - If you change call.md, update this function to match.
+    """
+    logfire.debug("Applying rule-based classification",
+                  input_data=input_data.model_dump(exclude={"raw_data", "extracted_data"}))
 
-  # --- Input Data Extraction and Defaults ---
-  intended_use = input_data.intended_use
-  product_interest = [p.lower(
-  ) for p in input_data.product_interest] if input_data.product_interest else []
-  # Safely get numeric values, defaulting to 0 or appropriate value if None or invalid
-  try:
-    # Use stall_count instead of required_stalls
-    stalls = int(
-        input_data.stall_count) if input_data.stall_count is not None else 0
-  except (ValueError, TypeError):
-    stalls = 0
-    logfire.warn("Invalid or missing stall_count, defaulting to 0.",
-                 input_stalls=input_data.stall_count)
+    # --- Input Data Extraction and Defaults ---
+    intended_use = input_data.intended_use
+    product_interest = [p.lower() for p in input_data.product_interest] if input_data.product_interest else []
+    try:
+        stalls = int(input_data.stall_count) if input_data.stall_count is not None else 0
+    except (ValueError, TypeError):
+        stalls = 0
+        logfire.warn("Invalid or missing stall_count, defaulting to 0.", input_stalls=input_data.stall_count)
+    try:
+        duration = int(input_data.duration_days) if input_data.duration_days is not None else 0
+    except (ValueError, TypeError):
+        duration = 0
+        logfire.warn("Invalid or missing duration_days, defaulting to 0.", input_duration=input_data.duration_days)
+    is_local = input_data.is_local
+    budget = input_data.budget if hasattr(input_data, 'budget') and input_data.budget is not None else 0
 
-  try:
-    duration = int(
-        input_data.duration_days) if input_data.duration_days is not None else 0
-  except (ValueError, TypeError):
-    duration = 0
-    logfire.warn("Invalid or missing duration_days, defaulting to 0.",
-                 input_duration=input_data.duration_days)
+    # Product type helpers
+    is_trailer = any("trailer" in p for p in product_interest)
+    is_porta_potty = any("portable toilet" in p or "porta potty" in p for p in product_interest)
+    is_handwashing = any("handwashing" in p or "hand wash" in p for p in product_interest)
 
-  is_local = input_data.is_local  # Assumes this is determined beforehand
-  # Use event_address instead of event_location_description
-  location_desc = input_data.event_address
+    # --- Path A: Lead Type Classification ---
+    # Case a: Event | Porta Potty (Process: PA, Subflow: SA)
+    if intended_use == "Event" and is_porta_potty and not is_trailer:
+        return "Services", "Event | Porta Potty: Subflow SA, Process PA", "Stahla Services Sales Team"
 
-  # Determine primary product type for easier rule matching
-  is_trailer = any("trailer" in p for p in product_interest)
-  is_porta_potty = any(
-      "portable toilet" in p or "porta potty" in p for p in product_interest)
-  is_handwashing = any(
-      "handwashing" in p or "hand wash" in p for p in product_interest)
+    # Case b: Construction | Porta Potty (Process: PA if local, PB if not, Subflow: SB)
+    if intended_use == "Construction" and is_porta_potty and not is_trailer:
+        if is_local:
+            return "Services", "Construction | Porta Potty: Subflow SB, Process PA", "Stahla Services Sales Team"
+        else:
+            return "Logistics", "Construction | Porta Potty: Subflow SB, Process PB", "Stahla Logistics Sales Team"
 
-  reasoning = "Initial assessment based on input data."
-  owner_team = "Stahla Services Sales Team"  # Default team
+    # Case c: Small Event | Trailer | Local (<$10,000) (Process: PC, Subflow: SA)
+    if intended_use == "Small Event" and is_trailer and is_local and budget < 10000:
+        return "Leads", "Small Event | Trailer | Local: Subflow SA, Process PC", "Stahla Leads Team"
 
-  # --- Rule Implementation based on PRD --- #
+    # Case d: Small Event | Trailer | Not Local (<$10,000) (Process: PA, Subflow: SA)
+    if intended_use == "Small Event" and is_trailer and not is_local and budget < 10000:
+        return "Services", "Small Event | Trailer | Not Local: Subflow SA, Process PA", "Stahla Services Sales Team"
 
-  # Rule: Event / Porta Potty
-  if intended_use == "Small Event" and (is_porta_potty or is_handwashing) and not is_trailer:
-    if stalls < 20 and duration < 5:
-      reasoning = "Small Event, Porta Potty/Handwash only, <20 stalls, <5 days duration."
-      return "Services", reasoning, owner_team  # Handled by Services
+    # Case e: Large Event | Trailer | Local (≥$10,000) (Process: PA, Subflow: SA)
+    if intended_use == "Large Event" and is_trailer and is_local and budget >= 10000:
+        return "Services", "Large Event | Trailer | Local: Subflow SA, Process PA", "Stahla Services Sales Team"
 
-  # Rule: Construction / Porta Potty
-  if intended_use == "Construction" and (is_porta_potty or is_handwashing) and not is_trailer:
-    if stalls < 20 and duration >= 5:
-      reasoning = "Construction, Porta Potty/Handwash only, <20 stalls, >=5 days duration."
-      # Decide if local/non-local matters for porta potty construction
-      owner_team = "Stahla Services Sales Team" if is_local else "Stahla Logistics Sales Team"
-      return "Services" if is_local else "Logistics", reasoning, owner_team
+    # Case f: Large Event | Trailer | Not Local (>$10,000) (Process: PB, Subflow: SA)
+    if intended_use == "Large Event" and is_trailer and not is_local and budget > 10000:
+        return "Logistics", "Large Event | Trailer | Not Local: Subflow SA, Process PB", "Stahla Logistics Sales Team"
 
-  # Rule: Small Event / Trailer / Local
-  if intended_use == "Small Event" and is_trailer:
-    if stalls < 8 and duration > 5 and is_local:
-      reasoning = "Small Event, Trailer, <8 stalls, >5 days duration, Local."
-      owner_team = "Stahla Leads Team"  # Sent to Leads per Path A logic (PC)
-      return "Leads", reasoning, owner_team
+    # Case g: Disaster Relief | Trailer | Local (>$10,000) (Process: PA, Subflow: SB)
+    if intended_use == "Disaster Relief" and is_trailer and is_local and budget > 10000:
+        return "Services", "Disaster Relief | Trailer | Local: Subflow SB, Process PA", "Stahla Services Sales Team"
 
-  # Rule: Small Event / Trailer / Not Local
-  if intended_use == "Small Event" and is_trailer:
-    if stalls < 8 and duration > 5 and not is_local:
-      reasoning = "Small Event, Trailer, <8 stalls, >5 days duration, Not Local."
-      # Sent to Services per Path A logic (PA)
-      owner_team = "Stahla Services Sales Team"
-      return "Services", reasoning, owner_team
+    # Case h: Disaster Relief | Trailer | Not Local (>$10,000) (Process: PB, Subflow: SB)
+    if intended_use == "Disaster Relief" and is_trailer and not is_local and budget > 10000:
+        return "Logistics", "Disaster Relief | Trailer | Not Local: Subflow SB, Process PB", "Stahla Logistics Sales Team"
 
-  # Rule: Large Event / Trailer / Local
-  if intended_use == "Large Event":
-    if (is_trailer and stalls >= 7) or (is_porta_potty and stalls >= 20):
-      if duration > 5 and is_local:
-        reasoning = "Large Event, High Capacity (Trailer >=7 or Porta >=20), >5 days, Local."
-        owner_team = "Stahla Services Sales Team"  # PA
-        return "Services", reasoning, owner_team
+    # Case i: Construction Company | Trailer | Local (>$5,000) (Process: PA, Subflow: SB)
+    if intended_use == "Construction" and is_trailer and is_local and budget > 5000:
+        return "Services", "Construction Company | Trailer | Local: Subflow SB, Process PA", "Stahla Services Sales Team"
 
-  # Rule: Large Event / Trailer / Not Local
-  if intended_use == "Large Event":
-    if (is_trailer and stalls >= 7) or (is_porta_potty and stalls >= 20):
-      if duration > 5 and not is_local:
-        reasoning = "Large Event, High Capacity (Trailer >=7 or Porta >=20), >5 days, Not Local."
-        owner_team = "Stahla Logistics Sales Team"  # PB
-        return "Logistics", reasoning, owner_team
+    # Case j: Construction Company | Trailer | Not Local (>$5,000) (Process: PB, Subflow: SB)
+    if intended_use == "Construction" and is_trailer and not is_local and budget > 5000:
+        return "Logistics", "Construction Company | Trailer | Not Local: Subflow SB, Process PB", "Stahla Logistics Sales Team"
 
-  # Rule: Disaster Relief / Trailer / Local
-  if intended_use == "Disaster Relief":
-    if is_trailer or (is_porta_potty and stalls >= 20):
-      if duration < 180 and is_local:
-        reasoning = "Disaster Relief, High Capacity, <180 days, Local."
-        owner_team = "Stahla Services Sales Team"  # PA
-        return "Services", reasoning, owner_team
+    # Case k: Facility | Trailer | Local (>$10,000) (Process: PA, Subflow: SB)
+    if intended_use == "Facility" and is_trailer and is_local and budget > 10000:
+        return "Services", "Facility | Trailer | Local: Subflow SB, Process PA", "Stahla Services Sales Team"
 
-  # Rule: Disaster Relief / Trailer / Not Local
-  if intended_use == "Disaster Relief":
-    if is_trailer:  # PRD only mentions trailer for non-local disaster
-      if duration < 180 and not is_local:
-        reasoning = "Disaster Relief, Trailer, <180 days, Not Local."
-        owner_team = "Stahla Logistics Sales Team"  # PB
-        return "Logistics", reasoning, owner_team
+    # Case l: Facility | Trailer | Not Local (>$10,000) (Process: PB, Subflow: SB)
+    if intended_use == "Facility" and is_trailer and not is_local and budget > 10000:
+        return "Logistics", "Facility | Trailer | Not Local: Subflow SB, Process PB", "Stahla Logistics Sales Team"
 
-  # Rule: Construction / Company Trailer / Local
-  if intended_use == "Construction" and is_trailer:
-    if is_local:
-      reasoning = "Construction, Trailer, Local."
-      owner_team = "Stahla Services Sales Team"  # PA
-      return "Services", reasoning, owner_team
-
-  # Rule: Construction / Company Trailer / Not Local
-  if intended_use == "Construction" and is_trailer:
+    # --- Fallbacks and Disqualification ---
+    # If outside service area and not a fit for above, assign to Leads (Process PC)
     if not is_local:
-      reasoning = "Construction, Trailer, Not Local."
-      owner_team = "Stahla Logistics Sales Team"  # PB
-      return "Logistics", reasoning, owner_team
+        return "Leads", "Outside service area: Process PC", "Stahla Leads Team"
 
-  # Rule: Facility / Trailer / Local
-  if intended_use == "Facility" and is_trailer:
-    if is_local:
-      reasoning = "Facility, Trailer, Local."
-      owner_team = "Stahla Services Sales Team"  # PA
-      return "Services", reasoning, owner_team
+    # Disqualify if insufficient info or very small request
+    if stalls < 1 and not is_trailer:
+        return "Disqualify", "Insufficient information or very small scale (stalls < 1, no trailer).", "None"
 
-  # Rule: Facility / Trailer / Not Local
-  if intended_use == "Facility" and is_trailer:
-    if not is_local:
-      reasoning = "Facility, Trailer, Not Local."
-      owner_team = "Stahla Logistics Sales Team"  # PB
-      return "Logistics", reasoning, owner_team
-
-  # --- Fallback / Disqualification --- #
-  # If none of the specific rules match, consider it for Leads or Disqualify
-  # Basic disqualification: Very small request, unclear info
-  if stalls < 1 and not is_trailer:
-    reasoning = "Insufficient information or very small scale (stalls < 1, no trailer). Considered for disqualification."
-    return "Disqualify", reasoning, "None"
-
-  # Default to Leads if no other rule fits but seems potentially valid
-  reasoning = "Lead does not fit standard Services/Logistics criteria based on rules. Forwarding to Leads."
-  owner_team = "Stahla Leads Team"
-  logfire.info("Rule-based classification defaulted to Leads.",
-               final_reasoning=reasoning)
-  return "Leads", reasoning, owner_team
+    # Default to Leads if no other rule fits
+    return "Leads", "Lead does not fit standard Services/Logistics criteria based on rules. Forwarding to Leads.", "Stahla Leads Team"
