@@ -3,6 +3,7 @@
 import httpx
 import logfire
 from typing import Dict, Any, Optional
+import os # Import os module
 
 # Import models
 from app.models.bland import (
@@ -17,6 +18,13 @@ from app.core.config import settings
 # --- Bland AI Manager ---
 # Define the BlandAIManager class
 
+# Define the path to the call script relative to this file's location or project root
+# Assuming the script is in app/assets/call_script.md and this file is in app/services/bland.py
+# Go up one level from services, then into assets
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR)) # Go up two levels
+CALL_SCRIPT_PATH = os.path.join(_PROJECT_ROOT, "app", "assets", "call_script.md")
+
 
 class BlandAIManager:
   """	A class to manage interactions with the Bland.ai API.
@@ -27,6 +35,7 @@ class BlandAIManager:
   def __init__(self, api_key: str, base_url: str):
     self.api_key = api_key
     self.base_url = base_url
+    self.call_script = self._load_call_script() # Load script on initialization
     # Use httpx.AsyncClient for asynchronous requests
     # Set headers common to all requests
     headers = {
@@ -41,6 +50,21 @@ class BlandAIManager:
         timeout=10.0
     )
 
+  def _load_call_script(self) -> str:
+    """Loads the call script from the predefined file path."""
+    try:
+      with open(CALL_SCRIPT_PATH, 'r') as f:
+        script_content = f.read()
+        logfire.info(f"Successfully loaded call script from {CALL_SCRIPT_PATH}")
+        return script_content
+    except FileNotFoundError:
+      logfire.error(f"Call script file not found at {CALL_SCRIPT_PATH}. Using default task.")
+      return "Default task: Qualify the lead based on their inquiry." # Fallback task
+    except Exception as e:
+      logfire.error(f"Error loading call script from {CALL_SCRIPT_PATH}: {e}", exc_info=True)
+      return "Default task: Qualify the lead based on their inquiry." # Fallback task
+
+
   async def close_client(self):
     """Gracefully closes the HTTP client."""
     await self._client.aclose()
@@ -49,7 +73,8 @@ class BlandAIManager:
   async def _make_request(self, method: str, endpoint: str, json_data: Optional[Dict] = None) -> BlandApiResult:
     """Helper method to make requests to the Bland API."""
     url = f"{self.base_url.strip('/')}/{endpoint.lstrip('/')}"
-    logfire.debug(f"Making Bland API request: {method} {url}", data=json_data)
+    # Log the full payload being sent for debugging purposes
+    logfire.debug(f"Making Bland API request: {method} {url}", payload=json_data)
     try:
       response = await self._client.request(method, endpoint, json=json_data)
       response.raise_for_status()  # Raise exception for 4xx/5xx errors
@@ -81,10 +106,21 @@ class BlandAIManager:
   async def initiate_callback(self, request_data: BlandCallbackRequest) -> BlandApiResult:
     """
     Initiates a callback using the Bland.ai /call endpoint.
+    Uses the loaded call script as the primary task instruction.
+    Includes metadata from the request.
     """
     endpoint = "/call"
     # Convert the request data to a dict first, so we can modify it
     payload = request_data.model_dump(exclude_none=True)
+
+    # Override the 'task' field with the loaded call script
+    # The script itself instructs the AI to use metadata.
+    payload["task"] = self.call_script
+
+    # Ensure metadata from the request is present (it's already part of model_dump)
+    # Log the metadata being sent
+    logfire.debug("Metadata being sent to Bland API", metadata=payload.get("metadata"))
+
 
     # Convert HttpUrl to string if present (fix for JSON serialization issue)
     if "webhook" in payload and payload["webhook"] is not None:

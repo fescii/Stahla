@@ -39,7 +39,7 @@ All endpoints are prefixed with `/api/v1`.
     *   **Request Body:** `EmailWebhookPayload` JSON object (see `app/models/email.py`).
     *   **Response:** `EmailProcessingResult` JSON object detailing the processing status, message, extracted data, whether classification is pending, and potentially HubSpot IDs.
 
-*   **`POST /webhook/voice`**:
+*   **`POST /webhooks/voice`**:
     *   **Summary:** Receive voice call results (transcripts, summaries) from Bland.ai.
     *   **Description:** Handles webhook calls from Bland.ai after an inbound call or a form follow-up call completes (expects `BlandWebhookPayload`). Processes the transcript and any generated summary, extracts relevant information, triggers classification, and updates HubSpot (including attaching call summary/recording links).
     *   **Request Body:** `BlandWebhookPayload` JSON object (see `app/models/bland.py`).

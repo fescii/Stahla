@@ -18,18 +18,19 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 2.  **Classification & Routing:** Determines the appropriate business unit (Services, Logistics, Leads, or Disqualify) based on lead data and assigns the deal in HubSpot.
 3.  **Human Handoff:** Provides reps with summaries and context for quick quoting or disqualification.
 4.  **Extensible Framework:** Built for future agent additions (pricing, vendor sourcing, etc.).
-5.  **(Future) Integration Layer:** Consider tools like n8n for managing webhooks, retries, and complex workflows if needed post-v1.
+5.  **Integration Layer:** Uses n8n for managing specific webhook workflows (e.g., lead processing trigger).
 
 ## Key Technologies
 
 *   **Backend Framework:** FastAPI
 *   **CRM:** HubSpot
 *   **Voice AI:** Bland.ai
-*   **Language Model (Optional):** Marvin AI
+*   **Language Model (Optional):** Marvin AI (or others like OpenAI, Anthropic, Gemini)
+*   **Workflow Automation:** n8n
 *   **Data Validation:** Pydantic
 *   **Logging:** Logfire
 *   **Containerization:** Docker, Docker Compose
-*   **Language:** Python 3.11+
+*   **Language:** Python 3.13+
 
 ## Core Features (v1)
 
@@ -41,26 +42,66 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 *   **Human-in-the-Loop Handoff:** Sends email notifications to reps with summaries, checklists, and action links.
 *   **Configuration & Monitoring:** Via `.env`, Pydantic settings, and health check endpoints.
 *   **Logging:** Structured logging via Logfire.
+*   **Workflow Integration:** Connects with n8n for specific automation tasks.
 
 *(See `docs/features.md` for more details)*
 
 ## Project Structure
 
 ```
+.
 ├── app/                  # Main application code
 │   ├── api/              # API endpoint definitions (FastAPI routers)
+│   │   └── v1/           # API version 1
+│   │       ├── api.py    # Aggregates v1 routers
+│   │       └── endpoints/ # Specific endpoint logic
+│   │           ├── classify.py
+│   │           ├── health.py
+│   │           ├── hubspot.py
+│   │           ├── prepare.py
+│   │           └── webhooks/ # Webhook endpoints
+│   │               ├── form.py
+│   │               ├── helpers.py
+│   │               ├── hubspot.py
+│   │               └── voice.py
+│   ├── assets/           # Static assets (e.g., call scripts)
 │   ├── core/             # Configuration loading (settings)
-│   ├── models/           # Pydantic data models
-│   ├── services/         # Business logic (classification, HubSpot, Bland, Email)
-│   ├── utils/            # Utility functions
+│   ├── models/           # Pydantic data models (requests, responses, internal)
+│   │   ├── bland.py
+│   │   ├── classification.py
+│   │   ├── common.py
+│   │   ├── email.py
+│   │   ├── hubspot.py
+│   │   └── webhook.py
+│   ├── services/         # Business logic services
+│   │   ├── classify/     # Classification engine (rules, AI)
+│   │   │   ├── classification.py
+│   │   │   ├── marvin.py
+│   │   │   └── rules.py
+│   │   ├── bland.py      # Bland.ai interaction service
+│   │   ├── email.py      # Email processing/sending service
+│   │   ├── hubspot.py    # HubSpot interaction service
+│   │   └── n8n.py        # n8n interaction service
+│   ├── utils/            # Utility functions (e.g., location)
+│   │   ├── location.py
+│   │   └── location_enhanced.py
+│   ├── __init__.py
 │   └── main.py           # FastAPI application entry point
 ├── docs/                 # Project documentation
 │   ├── api_usage.md
 │   ├── features.md
-│   └── progress.md
-├── tests/                # Unit/Integration tests (to be added)
-├── .env                  # Local environment variables (copy from .env.example)
+│   ├── progress.md
+│   └── status.md
+├── info/                 # Informational files (e.g., data mappings)
+│   ├── hubspot.md
+│   ├── properties.csv
+│   └── services.csv
+├── rest/                 # Example REST client requests (e.g., .http files)
+│   └── form.http
+├── tests/                # Unit/Integration tests (currently placeholder)
+├── .env                  # Local environment variables (DO NOT COMMIT)
 ├── .env.example          # Example environment variables
+├── .gitignore
 ├── requirements.txt      # Python dependencies
 ├── Dockerfile            # Docker image definition
 ├── docker-compose.yml    # Docker Compose configuration
@@ -72,8 +113,9 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 1.  **Clone the repository.**
 2.  **Create and configure `.env`:**
     *   Copy `.env.example` to `.env`.
-    *   Fill in your API keys for `HUBSPOT_API_KEY`, `BLAND_API_KEY`, `LOGFIRE_TOKEN`, and `MARVIN_API_KEY` (if using Marvin).
+    *   Fill in your API keys for `HUBSPOT_API_KEY`, `BLAND_API_KEY`, `LOGFIRE_TOKEN`, and your chosen `LLM_PROVIDER`'s key (e.g., `MARVIN_API_KEY`).
     *   Configure `APP_BASE_URL` to the publicly accessible URL where this API will run (needed for webhooks).
+    *   If using n8n (`N8N_ENABLED=true`), configure `N8N_WEBHOOK_URL` and `N8N_API_KEY`.
     *   Adjust other settings like `EMAIL_SENDING_ENABLED` and SMTP details if needed.
 3.  **Install dependencies:**
     ```bash
@@ -92,11 +134,13 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 
 ## API Documentation
 
-Once the application is running, interactive API documentation (Swagger UI) is available at `/docs` (e.g., `http://localhost:8000/docs`).
+Once the application is running:
 
-ReDoc documentation is available at `/redoc` (e.g., `http://localhost:8000/redoc`).
+*   Interactive API documentation (Swagger UI) is available at `/docs` (e.g., `http://localhost:8000/docs`).
+*   Alternative API documentation (ReDoc) is available at `/redoc` (e.g., `http://localhost:8000/redoc`).
+*   Project documentation files (from the `/docs` directory, e.g., `features.md`) are served as HTML pages under `/api/v1/docs/` (e.g., `http://localhost:8000/api/v1/docs/features` or `http://localhost:8000/api/v1/docs/features.md`).
 
-See `docs/api_usage.md` for a summary of endpoints.
+See `docs/api_usage.md` (also available rendered as HTML at `/api/v1/docs/api_usage.md` when running) for a summary of endpoints.
 
 ## Future Considerations (Post-v1)
 

@@ -25,7 +25,7 @@ from app.services.n8n import trigger_n8n_handoff_automation
 from app.core.config import settings
 
 # Import the prepare_classification_input function
-from app.api.v1.endpoints.prepare_classification_input import prepare_classification_input
+from app.api.v1.endpoints.prepare import prepare_classification_input
 
 
 # --- Form Webhook Helpers ---
@@ -76,15 +76,15 @@ async def _trigger_bland_call(payload: FormPayload):
     return
 
   # Prepare metadata to pass to Bland, including original form data
-  metadata_to_pass = {
-      "form_submission_data": payload.model_dump(exclude_none=True)
-  }
+  # Flatten the payload into the metadata for easier access by the AI script
+  metadata_to_pass = payload.model_dump(exclude_none=True)
+  metadata_to_pass["source"] = "web_form_incomplete" # Add source identifier
 
   webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
 
   callback_request = BlandCallbackRequest(
       phone_number=phone_number,
-      task=task_description,
+      # task=task_description, # Task is now loaded from script in BlandAIManager
       first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental form you submitted. Is now a good time?",
       wait_for_greeting=True,
       record=True,
@@ -94,7 +94,7 @@ async def _trigger_bland_call(payload: FormPayload):
   )
 
   logfire.info(
-      f"Triggering Bland call to {phone_number}", task=task_description)
+      f"Triggering Bland call to {phone_number}", metadata=metadata_to_pass) # Log the metadata
   try:
     call_result = await bland_manager.initiate_callback(callback_request)
     if call_result.status == "success":
@@ -440,16 +440,16 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, contact_properties: d
   task_description += f"Key details provided: Event Address: {event_address}. "
   task_description += "Goal is to gather missing details (like duration, guest count, quote urgency, specific needs) and qualify the lead."
 
-  metadata_to_pass = {
-      "source": "hubspot_incomplete_contact", # Updated source name
-      "hubspot_contact_id": contact_id,
-  }
+  # Pass all fetched contact properties as metadata
+  metadata_to_pass = contact_properties.copy() # Start with all contact properties
+  metadata_to_pass["source"] = "hubspot_incomplete_contact" # Add source identifier
+  metadata_to_pass["hubspot_contact_id"] = contact_id # Ensure contact ID is included
 
   webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
 
   callback_request = BlandCallbackRequest(
       phone_number=formatted_phone_number, # Use formatted number
-      task=task_description,
+      # task=task_description, # Task is now loaded from script in BlandAIManager
       first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental inquiry you submitted through our website. Is now a good time?",
       wait_for_greeting=True,
       record=True,
@@ -460,7 +460,7 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, contact_properties: d
 
   logfire.info(
       f"Triggering Bland call for HubSpot contact {contact_id} to {formatted_phone_number}", # Updated log message
-      task=task_description
+      metadata=metadata_to_pass # Log the full metadata
   )
   try:
     call_result = await bland_manager.initiate_callback(callback_request)

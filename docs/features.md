@@ -19,7 +19,7 @@ This document highlights the main features of the Stahla AI SDR application, bas
 
 ## 3. Classification & Routing Engine
 
-*   **Lead Classification:** Determines lead category (`Services`, `Logistics`, `Leads`, or `Disqualify`) based on product type, size, geography, budget, etc., using a configurable engine (rule-based or AI like Marvin).
+*   **Lead Classification:** Determines lead category (`Services`, `Logistics`, `Leads`, or `Disqualify`) based on product type, size, geography, budget, etc., using a configurable engine (rule-based or AI like Marvin) located in `app/services/classify/`.
 *   **Pipeline Assignment:** Pushes the created/updated HubSpot Deal to the correct pipeline (Services, Logistics, Leads) based on classification.
 *   **Owner Assignment:** Assigns deal ownership using a round-robin mechanism within the designated business unit/team.
 
@@ -44,4 +44,3 @@ This document highlights the main features of the Stahla AI SDR application, bas
 *   Automated price quoting.
 *   Full analytics dashboard (relies on HubSpot reporting).
 *   SMS intake channel.
-*   Dedicated integration/orchestration layer (like n8n) - This might be considered post-v1 if workflow complexity increases significantly.

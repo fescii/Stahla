@@ -23,7 +23,7 @@ The v1 solution comprises a FastAPI backend orchestrating several key components
 
 1.  **AI Intake Agent:** Utilizes Bland.ai for handling inbound voice calls and initiating automated follow-up calls for incomplete web forms. Employs dynamic, context-aware questioning strategies. Leverages LLM capabilities (via Marvin, optionally) for parsing inbound emails.
 2.  **Multi-Channel Webhooks:** Dedicated API endpoints (`/api/v1/webhooks/...`) receive data from web forms, emails (via forwarding), and Bland.ai voice interactions.
-3.  **Classification & Routing Engine:** A core service (`app/services/classification.py`) analyzes lead data using configurable business rules (`classification_rules.py`) or AI (`marvin_classification.py`) to determine the appropriate category (Services, Logistics, Leads, Disqualify).
+3.  **Classification & Routing Engine:** A core service (`app/services/classify/`) analyzes lead data using configurable business rules (`app/services/classify/rules.py`) or AI (`app/services/classify/marvin.py`) to determine the appropriate category (Services, Logistics, Leads, Disqualify).
 4.  **HubSpot Integration:** A dedicated service (`app/services/hubspot.py`) interacts with the HubSpot API to create/update Contact and Deal records, populate standard and custom properties, associate call data (summaries/recordings), and assign records to the correct pipeline and owner (via round-robin).
 5.  **Automated Communication:** Services manage automated email replies for incomplete email submissions (`app/services/email.py`) and trigger internal handoff notifications upon successful processing.
 6.  **Configuration & Monitoring:** System behavior is managed via environment variables (`.env`) and Pydantic settings (`app/core/config.py`). Observability is facilitated through Logfire integration and dedicated health check endpoints (`/api/v1/health`).
@@ -79,14 +79,14 @@ The foundational components and primary workflows of the AI SDR system are imple
 *   **Core Logic:**
     *   `POST /classify`: Endpoint for direct lead data classification.
 *   **Data Intake Webhooks:**
-    *   `POST /webhook/form`: Handles web form submissions.
-    *   `POST /webhook/email`: Handles inbound email data.
-    *   `POST /webhook/voice`: Handles Bland.ai call completion data.
+    *   `POST /webhooks/form`: Handles web form submissions.
+    *   `POST /webhooks/email`: Handles inbound email data.
+    *   `POST /webhooks/voice`: Handles Bland.ai call completion data.
 *   **Direct HubSpot Interaction (Placeholders):**
     *   `POST /hubspot/contact`: Placeholder for direct contact management.
     *   `POST /hubspot/deal`: Placeholder for direct deal management.
 
-*(Refer to `docs/api_usage.md` for detailed specifications)*
+*(Refer to `docs/api.md` for detailed specifications)*
 
 ## 9. Critical Next Steps & TODOs (To Meet v1 Objectives)
 

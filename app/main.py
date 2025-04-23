@@ -1,22 +1,22 @@
 # app/main.py
 
 import os
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from dotenv import load_dotenv
-import logfire # Import logfire
-from contextlib import asynccontextmanager # Import for lifespan management
-
+from fastapi import FastAPI, Request, HTTPException # Added Request, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse # Added HTMLResponse
+from contextlib import asynccontextmanager
+import markdown # Added markdown import
 # --- Project Structure Imports ---
-# Import the main API router from api/v1/api.py
-from app.api.v1.api import api_router_v1
 # Import settings from core/config.py
 from app.core.config import settings
-# Import service managers needed for lifespan events (e.g., closing clients)
-from app.services.bland import bland_manager
-from app.services.hubspot import hubspot_manager # Import HubSpot manager
-from app.services.email import email_manager # Import Email manager
+# Correctly import the router from app.api.v1.api
+from app.api.v1.api import api_router_v1
+# Import service managers using the correct class names
+from app.services.bland import BlandAIManager # Corrected class name
+from app.services.hubspot import HubSpotManager
+from app.services.email import EmailManager
+import logfire
+from dotenv import load_dotenv # Make sure python-dotenv is in requirements.txt
 
 # --- Logfire Configuration ---
 # Load environment variables (especially for LOGFIRE_TOKEN if set)
@@ -43,61 +43,58 @@ logfire.instrument_pydantic() # Instrument Pydantic models
 async def lifespan(app: FastAPI):
     # Startup: Initialize connections, load models, etc.
     logfire.info("Application startup: Initializing resources.")
-    # No explicit startup needed for managers using httpx.AsyncClient currently,
-    # as the client is initialized in their __init__ method.
-    # If they needed async initialization, it would go here.
+    # Instantiate managers using correct class name and store them in app state
+    app.state.bland_manager = BlandAIManager(api_key=settings.BLAND_API_KEY, base_url=settings.BLAND_API_URL)
+    # Provide the required api_key from settings
+    app.state.hubspot_manager = HubSpotManager(api_key=settings.HUBSPOT_API_KEY)
+    app.state.email_manager = EmailManager()
+    # If managers needed async initialization, it would go here.
     yield
     # Shutdown: Clean up resources
     logfire.info("Application shutdown: Closing resources.")
-    await bland_manager.close_client()
-    await hubspot_manager.close_client()
-    await email_manager.close_client() # Add closing for email_manager
+    # Access managers from app state and close clients
+    await app.state.bland_manager.close_client()
+    await app.state.hubspot_manager.close_client()
+    await app.state.email_manager.close_client()
 
 # --- FastAPI Application Initialization ---
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="API for automating lead intake, classification, and HubSpot integration.",
-    version="1.0.0", # Consider making version dynamic or part of settings
-    lifespan=lifespan, # Register the lifespan context manager
-    # You can configure the docs URL based on settings if needed
-    # openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url="/docs", # Default Swagger UI
+    redoc_url="/redoc", # Default ReDoc
+    lifespan=lifespan
 )
 
-# --- Exception Handlers ---
-@app.exception_handler(Exception)
-async def generic_exception_handler(request: Request, exc: Exception):
-    """ Catch-all exception handler for unexpected errors."""
-    logfire.error(f"Unhandled exception: {exc}", exc_info=True, path=request.url.path)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An internal server error occurred."},
-    )
+# Mount the API router
+app.include_router(api_router_v1, prefix=settings.API_V1_STR)
 
-# --- Middleware (Optional) ---
-# Example: Add CORS middleware if needed
+# --- Remove Static File Mounting for /static-docs ---
+# Use the path defined by the docker-compose volume mount
+# static_docs_path = "/static_docs"
+# app.mount("/static-docs", StaticFiles(directory=static_docs_path, html=True), name="static_docs")
+
+# --- Remove Endpoint to Serve Markdown Docs as HTML ---
+# This logic has been moved to app/api/v1/endpoints/documentation.py
+# _MAIN_PY_DIR = os.path.dirname(os.path.abspath(__file__))
+# _PROJECT_ROOT = os.path.dirname(_MAIN_PY_DIR)
+# DOCS_DIR = os.path.join(_PROJECT_ROOT, "docs")
+# logfire.info(f"Serving static docs from calculated path: {DOCS_DIR}")
+# @app.get("/static-docs/{filename:path}", response_class=HTMLResponse, tags=["Documentation"])
+# async def get_static_doc(filename: str):
+#     ...
+
+# Root endpoint (optional)
+@app.get("/", tags=["Root"])
+async def read_root():
+    return {"message": f"Welcome to {settings.PROJECT_NAME}"}
+
+# Add other middleware if needed (e.g., CORS)
 # from fastapi.middleware.cors import CORSMiddleware
 # app.add_middleware(
 #     CORSMiddleware,
-#     allow_origins=[\"*\"], # Adjust in production!
+#     allow_origins=["*"],  # Adjust in production!
 #     allow_credentials=True,
-#     allow_methods=[\"*\"],
-#     allow_headers=[\"*\"],
+#     allow_methods=["*"],
+#     allow_headers=["*"],
 # )
-
-# --- API Routers ---
-# Include the API router
-app.include_router(api_router_v1, prefix=settings.API_V1_STR)
-
-# --- Root Endpoint ---
-@app.get("/", summary="Root endpoint", tags=["General"])
-async def read_root():
-    """Provides a simple response for the root path."""
-    logfire.info("Root endpoint accessed.")
-    return {"message": f"Welcome to the {settings.PROJECT_NAME} API"}
-
-# --- Run Instruction (for local debugging without uvicorn command) ---
-# if __name__ == "__main__":
-#     import uvicorn
-#     # Note: Lifespan events might not trigger correctly when running this way
-#     # compared to running directly with `uvicorn app.main:app` command.
-#     uvicorn.run(app, host="0.0.0.0", port=8000)

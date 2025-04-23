@@ -92,7 +92,7 @@ class BlandWebhookPayload(BlandBaseModel):
 class BlandCallbackRequest(BaseModel):
   """Data needed to initiate an outbound callback via Bland.ai API."""
   phone_number: str = Field(..., description="The phone number to call.")
-  task: str = Field(..., description="A description or prompt for the AI agent's task during the call.")
+  task: Optional[str] = Field(None, description="A description or prompt for the AI agent's task during the call. Will be overridden by BlandAIManager if script is loaded.")
   # Define other parameters required by Bland's /call endpoint
   # See https://docs.bland.ai/api-reference/endpoint/call
   voice_id: Optional[int] = Field(

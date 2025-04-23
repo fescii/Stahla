@@ -25,6 +25,10 @@ python-dateutil>=2.8.2  # For date parsing and manipulation
 # System Monitoring
 psutil>=5.9.0  # For system metrics in health check endpoint
 
+# Markdown Rendering (for serving docs as HTML)
+markdown>=3.4.0
+pymdown-extensions>=9.0
+
 # Optional Dependencies
 # uncomment these as needed:
 geopy>=2.3.0  # For geographical calculations if needed for location utilities
