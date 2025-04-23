@@ -129,13 +129,11 @@ def get_settings() -> Settings:
   Returns the cached settings instance.
   Relies on pydantic-settings to load from .env and environment variables.
   """
-  logfire.debug("Loading application settings using pydantic-settings.")
   try:
     # Pydantic-settings automatically reads from .env and environment variables
     # based on the Settings class definition and its Config.
     # It handles type conversions and aliases.
     settings_instance = Settings()
-    logfire.info("Application settings loaded successfully.")
     # Log a few key settings to verify
     logfire.info(
         f"LLM Provider: {settings_instance.LLM_PROVIDER}, Classification Method: {settings_instance.CLASSIFICATION_METHOD}")

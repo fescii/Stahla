@@ -1,6 +1,5 @@
 # app/main.py
 
-import os
 from fastapi import FastAPI, Request, HTTPException # Added Request, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse # Added HTMLResponse
@@ -27,8 +26,6 @@ load_dotenv()
 logfire_config = {
     "send_to_logfire": True, # Send logs to Logfire cloud
     "service_name": settings.PROJECT_NAME, # Use project name from settings
-    "pydantic_plugin": logfire.PydanticPlugin(), # Removed deprecated argument
-
 }
 
 # Only set console=False if DEV is False, otherwise rely on the default (True)
@@ -68,21 +65,6 @@ app = FastAPI(
 
 # Mount the API router
 app.include_router(api_router_v1, prefix=settings.API_V1_STR)
-
-# --- Remove Static File Mounting for /static-docs ---
-# Use the path defined by the docker-compose volume mount
-# static_docs_path = "/static_docs"
-# app.mount("/static-docs", StaticFiles(directory=static_docs_path, html=True), name="static_docs")
-
-# --- Remove Endpoint to Serve Markdown Docs as HTML ---
-# This logic has been moved to app/api/v1/endpoints/documentation.py
-# _MAIN_PY_DIR = os.path.dirname(os.path.abspath(__file__))
-# _PROJECT_ROOT = os.path.dirname(_MAIN_PY_DIR)
-# DOCS_DIR = os.path.join(_PROJECT_ROOT, "docs")
-# logfire.info(f"Serving static docs from calculated path: {DOCS_DIR}")
-# @app.get("/static-docs/{filename:path}", response_class=HTMLResponse, tags=["Documentation"])
-# async def get_static_doc(filename: str):
-#     ...
 
 # Root endpoint (optional)
 @app.get("/", tags=["Root"])
