@@ -7,14 +7,14 @@ services:
     ports:
       - "8000:8000" # Map host port 8000 to container port 8000
     volumes:
-      - ./app:/app # Mount the app directory for live code changes
-      - ./assets:/app/assets # Mount assets if needed by the app
-      - ./info:/app/info # Mount info if needed by the app
+      - ./app:/code/app # Mount the app directory to the new location
+      - ./assets:/code/app/assets # Mount assets relative to the new app location
+      - ./info:/code/app/info # Mount info relative to the new app location
       - ./docs:/static_docs # Mount the docs directory into the container
     env_file:
       - .env # Load environment variables from .env file
     # Command to run the FastAPI app using Uvicorn with reload
-    # Adjust 'app.main:app' if your FastAPI app instance is located differently
+    # Use app.main:app as the target, matching the new structure
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # You can add other services like databases, Redis, etc. here if needed

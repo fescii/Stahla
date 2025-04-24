@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import markdown # Added markdown import
 # --- Project Structure Imports ---
 # Import settings from core/config.py
+# Use absolute imports now that WORKDIR is /code
 from app.core.config import settings
 # Correctly import the router from app.api.v1.api
 from app.api.v1.api import api_router_v1
