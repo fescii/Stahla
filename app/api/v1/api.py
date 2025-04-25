@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 # Import endpoint routers
 # These files need to be created in the endpoints directory
-from .endpoints import health, classify, hubspot, documentation # Added documentation import
+from .endpoints import health, classify, hubspot, documentation, pricing # Added pricing import
 # Import individual webhook routers
 from .endpoints.webhooks import form as webhooks_form
 from .endpoints.webhooks import hubspot as webhooks_hubspot
@@ -31,3 +31,5 @@ api_router_v1.include_router(
     hubspot.router, prefix="/hubspot", tags=["HubSpot"])
 # Include the documentation router (no prefix needed as path is defined within it)
 api_router_v1.include_router(documentation.router, tags=["Documentation"])
+# Include the pricing router
+api_router_v1.include_router(pricing.router, prefix="/pricing", tags=["Pricing"])
