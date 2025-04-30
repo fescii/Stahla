@@ -52,6 +52,8 @@ class Settings(BaseSettings):
   BLAND_DEFAULT_VOICE_ID: Optional[int] = None
   # Add setting for phone prefix
   BLAND_PHONE_PREFIX: Optional[str] = Field(None, validation_alias="BLAND_PHONE_PREFIX")
+  # Add setting for Conversation Pathway ID
+  BLAND_PATHWAY_ID: Optional[str] = Field(None, validation_alias="BLAND_PATHWAY_ID")
 
   # Logfire Configuration
   LOGFIRE_TOKEN: Optional[str] = Field(None, validation_alias="LOGFIRE_TOKEN")

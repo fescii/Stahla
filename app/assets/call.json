@@ -1,0 +1,543 @@
+{
+  "name": "Natural_FollowUp_Quote_Flow_v12",
+  "description": "Collect/verify lead data conversationally based on call_script.md v3, check service area, get consent, recap, set expectation for team quote, offer follow-up.",
+  "nodes": [
+    {
+      "id": "greeting",
+      "type": "Default",
+      "data": {
+        "name": "greeting",
+        "text": "Hi {{firstname}}, this is Alex, a virtual assistant calling from Stahla Services regarding your recent inquiry. This call may be recorded for quality assurance. Is now a good time for a quick chat to confirm some details for your quote?",
+        "isStart": true
+      }
+    },
+    {
+      "id": "ask_name",
+      "type": "Default",
+      "data": {
+        "name": "ask_name",
+        "text": "Great. Just to confirm, the name for the contact person is {{firstname}} {{lastname}}, is that correct? Or should I use a different name?",
+        "variable": "contact_name",
+        "expected_response": ["Yes, that's correct.", "No, use a different name: {name}"]
+      }
+    },
+    {
+      "id": "ask_company_name",
+      "type": "Default",
+      "data": {
+        "name": "ask_company_name",
+        "text": "Got it. And is there a company name associated with this request?",
+        "variable": "company_name",
+        "expected_response": ["Yes, the company is {company_name}.", "No, there's no company name."]
+      }
+    },
+    {
+      "id": "confirm_email",
+      "type": "Default",
+      "data": {
+        "name": "confirm_email",
+        "text": "Okay. And just to confirm, the best email to send the quote to is {{email}} - is that spelled correctly?",
+        "variable": "contact_email",
+        "expected_response": ["Yes, that spelling is correct.", "No, the correct email is {email_address}"]
+      }
+    },
+    {
+      "id": "set_expectations",
+      "type": "Default",
+      "data": {
+        "name": "set_expectations",
+        "text": "Great, {{contact_name | default: 'thanks'}}. I'm here to gather some details about your needs so we can get you the right information or quote. I'll ask a few questions about the project, timing, and importantly, some specifics about the delivery location like access and utilities. Then we can figure out the best next steps. Sound good?"
+      }
+    },
+    {
+      "id": "ask_project_category",
+      "type": "Default",
+      "data": {
+        "name": "ask_project_category",
+        "text": "Thanks. To make sure I understand your needs, could you tell me a bit about what you'll be using the rental for? For instance, is it for a special event like a wedding or festival, a construction site, supplementing facilities at a building, disaster relief, or something else?",
+        "variable": "project_category",
+        "expected_response": ["Construction", "Special Event", "Facility Supplement", "Disaster Relief", "Other: {specify}"]
+      }
+    },
+    {
+      "id": "ask_product_type",
+      "type": "Default",
+      "data": {
+        "name": "ask_product_type",
+        "text": "Okay, and what type of product are you primarily interested in? Portable toilets, restroom trailers, shower trailers, or something else? We started with {{what_service_do_you_need_}} in your request.",
+        "variable": "product_type_interest",
+        "expected_response": ["Portable Toilets", "Restroom Trailers", "Shower Trailers", "Other: {specify}"]
+      }
+    },
+    {
+      "id": "ask_units_needed",
+      "type": "Default",
+      "data": {
+        "name": "ask_units_needed",
+        "text": "Got it. How many units or stalls do you think you'll need? Your initial request mentioned {{how_many_portable_toilet_stalls_}}. Is that still accurate, or do you have a different number or maybe an expected attendance count?",
+        "variable": "units_needed",
+        "expected_response": ["Use the initial number: {{how_many_portable_toilet_stalls_}}", "Need {number} units/stalls", "Expecting {number} people"]
+      }
+    },
+    {
+      "id": "ask_ada_required",
+      "type": "Default",
+      "data": {
+        "name": "ask_ada_required",
+        "text": "Will you require any ADA-compliant units?",
+        "variable": "ada_required",
+        "expected_response": ["Yes", "No"]
+      }
+    },
+    {
+      "id": "ask_shower_required",
+      "type": "Default",
+      "data": {
+        "name": "ask_shower_required",
+        "text": "Do you need any units with showers?",
+        "variable": "shower_required",
+        "expected_response": ["Yes", "No"]
+      }
+    },
+    {
+      "id": "ask_handwashing_needed",
+      "type": "Default",
+      "data": {
+        "name": "ask_handwashing_needed",
+        "text": "And will you need handwashing stations or sinks, either inside the units or standalone?",
+        "variable": "handwashing_needed",
+        "expected_response": ["Yes", "No"]
+      }
+    },
+    {
+      "id": "ask_additional_services",
+      "type": "Default",
+      "data": {
+        "name": "ask_additional_services",
+        "text": "Are there any other services you might need, like holding tanks, fresh water systems, or regular servicing?",
+        "variable": "additional_services_needed",
+        "expected_response": ["Yes: {specify services}", "No, that's all."]
+      }
+    },
+    {
+      "id": "ask_start_date",
+      "type": "Default",
+      "data": {
+        "name": "ask_start_date",
+        "text": "Thanks for clarifying the details. When are you looking to start the rental, and for how long will you need it? I have it noted as starting on {{rental_start_date}} and ending on {{rental_end_date}}.",
+        "variable": ["rental_start_date", "rental_end_date"]
+      }
+    },
+    {
+      "id": "check_metadata_address",
+      "type": "Default",
+      "data": {
+        "name": "check_metadata_address",
+        "text": "Thanks! And where will you need the rental delivered? Is the service address still {{event_or_job_address | default: 'the one provided earlier'}}?"
+      }
+    },
+    {
+      "id": "capture_address_confirmation",
+      "type": "Default", 
+      "data": {
+        "name": "capture_address_confirmation",
+        "variable": "address_confirmed_temp"
+      }
+    },
+    {
+      "id": "collect_address",
+      "type": "Default", 
+      "data": {
+        "name": "collect_address",
+        "text": "Okay, could you please provide the full delivery address, including street, city, state, and zip code?",
+        "variable": "service_address"
+      }
+    },
+    {
+      "id": "extract_state_from_address",
+      "type": "Default", 
+      "data": {
+        "name": "extract_state_from_address"
+      }
+    },
+    {
+      "id": "check_service_area",
+      "type": "Default", 
+      "data": {
+        "name": "check_service_area"
+      }
+    },
+    {
+      "id": "handle_out_of_service_area",
+      "type": "Default", 
+      "data": {
+        "name": "handle_out_of_service_area",
+        "text": "Okay, it looks like the address provided, {{service_address}}, is outside our standard service area. Unfortunately, we wouldn't be able to deliver our trailers there directly."
+      }
+    },
+    {
+      "id": "offer_referral",
+      "type": "Default", 
+      "data": {
+        "name": "offer_referral",
+        "text": "However, we do sometimes partner with other providers. Would you like me to see if we can refer you to someone who might be able to help in your area?",
+        "variable": "referral_accepted"
+      }
+    },
+    {
+      "id": "capture_referral_acceptance",
+      "type": "Default", 
+      "data": {
+        "name": "capture_referral_acceptance"
+      }
+    },
+    {
+      "id": "closing_oos_referral",
+      "type": "End Call", 
+      "data": {
+        "name": "closing_oos_referral",
+        "text": "Okay, I've noted that. We'll check for potential partners and reach out if we find a suitable referral. Thank you for contacting Stahla Services. Have a great day!"
+      }
+    },
+    {
+      "id": "closing_oos_no_referral",
+      "type": "End Call", 
+      "data": {
+        "name": "closing_oos_no_referral",
+        "text": "Understood. Sorry we couldn't assist directly this time. Thank you for considering Stahla Services. Have a great day!"
+      }
+    },
+    {
+      "id": "ask_address_type",
+      "type": "Default", 
+      "data": {
+        "name": "ask_address_type",
+        "text": "Great, that's in our service area. Now, just a few questions about the delivery site itself. Is the delivery location a residence, business, event venue, construction site, or something else?",
+        "variable": "address_type"
+      }
+    },
+    {
+      "id": "ask_site_ground_level",
+      "type": "Default", 
+      "data": {
+        "name": "ask_site_ground_level",
+        "text": "Will the trailer be placed on level ground?",
+        "variable": "site_ground_level"
+      }
+    },
+    {
+      "id": "ask_site_ground_type",
+      "type": "Default", 
+      "data": {
+        "name": "ask_site_ground_type",
+        "text": "And what type of surface will it be placed on? Like grass, gravel, asphalt, concrete, or something else?",
+        "variable": "site_ground_type"
+      }
+    },
+    {
+      "id": "ask_site_obstacles",
+      "type": "Default", 
+      "data": {
+        "name": "ask_site_obstacles",
+        "text": "Are there any potential obstacles for delivery, like narrow gates, low-hanging branches, tight turns, or steep inclines?",
+        "variable": "site_obstacles"
+      }
+    },
+    {
+      "id": "ask_water_available",
+      "type": "Default", 
+      "data": {
+        "name": "ask_water_available",
+        "text": "Okay, regarding utilities. Will there be a standard garden hose water hookup available on site?",
+        "variable": "water_available"
+      }
+    },
+    {
+      "id": "ask_water_distance",
+      "type": "Default", 
+      "data": {
+        "name": "ask_water_distance",
+        "text": "Roughly how far is the water source from where the trailer will be placed? For example, less than 50 feet, 50 to 100 feet, 100 to 200, or over 200 feet?",
+        "variable": "water_source_distance"
+      }
+    },
+    {
+      "id": "ask_water_path",
+      "type": "Default", 
+      "data": {
+        "name": "ask_water_path",
+        "text": "And would the water hose need to cross over a walking or driving path?",
+        "variable": "water_path_cross"
+      }
+    },
+    {
+      "id": "ask_power_available",
+      "type": "Default", 
+      "data": {
+        "name": "ask_power_available",
+        "text": "Now for power - is there power available on site that could be used for the trailer?",
+        "variable": "power_available"
+      }
+    },
+    {
+      "id": "ask_power_distance",
+      "type": "Default", 
+      "data": {
+        "name": "ask_power_distance",
+        "text": "Okay. And about how far would you estimate the power source is from the placement spot? For instance, less than 50 feet, 50 to 100 feet, 100 to 200, or over 200 feet?",
+        "variable": "power_source_distance"
+      }
+    },
+    {
+      "id": "ask_power_path",
+      "type": "Default", 
+      "data": {
+        "name": "ask_power_path",
+        "text": "Would the power cord need to be placed over a walking or driving path?",
+        "variable": "power_path_cross"
+      }
+    },
+    {
+      "id": "ask_contact_consent",
+      "type": "Default", 
+      "data": {
+        "name": "ask_contact_consent",
+        "text": "Almost done with the details! Lastly, for privacy reasons, do I have your permission to use the details we discussed to prepare your quote and to contact you via email or phone with that information and related follow-ups? We take your privacy seriously.",
+        "variable": "contact_consent_given"
+      }
+    },
+    {
+      "id": "recap_details",
+      "type": "Default", 
+      "data": {
+        "name": "recap_details",
+        "text": "Okay, {{contact_name | default: 'there'}}, thanks for providing all those details! Just to quickly recap: You're calling from {{company_name | default: 'your organization'}} and need info sent to {{contact_email | default: 'your email'}}. You're looking for {{units_needed | default: 'details on'}} {{product_type_interest | default: 'our services'}} (potentially needing ADA: {{ada_required}}, Showers: {{shower_required}}, Handwashing: {{handwashing_needed}}) for a {{project_category | default: 'project/event'}} in {{service_address | default: 'your area'}}, starting around {{rental_start_date | default: 'unspecified date'}} for about {{rental_end_date | default: 'unspecified duration'}}. You mentioned potentially needing {{additional_services_needed | default: 'no additional services'}}. We noted the site details regarding ground, obstacles, water availability as {{water_available | default: 'unspecified'}}, and power availability as {{power_available | default: 'unspecified'}}. Does that all sound correct?"
+      }
+    },
+    {
+      "id": "capture_recap_confirmation",
+      "type": "Default", 
+      "data": {
+        "name": "capture_recap_confirmation"
+      }
+    },
+    {
+      "id": "ask_quote_urgency",
+      "type": "Default", 
+      "data": {
+        "name": "ask_quote_urgency",
+        "text": "Excellent, thank you for confirming. To help our team prioritize, how soon were you hoping to receive the quote?",
+        "variable": "quote_urgency"
+      }
+    },
+    {
+      "id": "ask_decision_timing",
+      "type": "Default", 
+      "data": {
+        "name": "ask_decision_timing",
+        "text": "Got it. And roughly when do you anticipate making a decision on the rental?",
+        "variable": "decision_timing"
+      }
+    },
+    {
+      "id": "check_quote_readiness",
+      "type": "Default", 
+      "data": {
+        "name": "check_quote_readiness"
+      }
+    },
+    {
+      "id": "get_quote_webhook",
+      "type": "Webhook", 
+      "data": {
+        "name": "get_quote_webhook",
+        "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/pricing/quote",
+        "method": "POST",
+        "headers": { "Content-Type": "application/json" },
+        "body": {
+          "request_id": "{{call_id}}",
+          "product_type": "{{product_type_interest}}",
+          "num_units": "{{units_needed}}",
+          "usage_type": "{{project_category}}",
+          "rental_duration_days": "{{rental_duration_days}}",
+          "start_date": "{{rental_start_date}}",
+          "delivery_location_description": "{{service_address}}",
+          "is_local": "{{is_in_service_area}}",
+          "site_surface": "{{site_ground_type}}",
+          "ground_level": "{{site_ground_level}}",
+          "obstacles_present": "{{site_obstacles}}",
+          "power_available": "{{power_available}}",
+          "water_available": "{{water_available}}",
+          "power_distance_feet": "{{power_source_distance}}",
+          "water_distance_feet": "{{water_source_distance}}",
+          "requires_ada": "{{ada_required}}",
+          "requires_shower": "{{shower_required}}",
+          "requires_handwashing": "{{handwashing_needed}}",
+          "attendee_count": "{{expected_attendance}}",
+          "other_products_mentioned": "{{additional_services_needed}}",
+          "decision_timeline": "{{decision_timing}}",
+          "quote_needed_by": "{{quote_urgency}}"
+        },
+        "settings": {
+            "timeout_ms": 4500,
+            "speech_while_waiting": "Okay, let me just pull up those quote details for you now..."
+        },
+        "output_variable": "quote_api_response"
+      }
+    },
+    {
+      "id": "convey_quote",
+      "type": "Default", 
+      "data": {
+        "name": "convey_quote",
+        "text": "Alright, the estimated quote based on those details comes out to approximately ${{quote_details.total_amount}} including delivery and setup. We'll also email this information along with more details to {{contact_email | default: 'your email address'}}. Would you find it helpful to schedule a brief follow-up call for tomorrow or the next day to go over the details together?"
+      }
+    },
+    {
+      "id": "cannot_quote_no_consent",
+      "type": "Default", 
+      "data": {
+        "name": "cannot_quote_no_consent",
+        "text": "Okay, I understand. Since I don't have permission to send the quote details via email or phone, I can't generate it right now. However, I've noted all the details we discussed for our team. Was there anything else I could help you with?"
+      }
+    },
+    {
+      "id": "cannot_quote_missing_info",
+      "type": "Default", 
+      "data": {
+        "name": "cannot_quote_missing_info",
+        "text": "It looks like I'm missing some key site or project details needed to generate an accurate quote right now. I've saved everything we discussed for our team, and they will prepare a quote and email it to {{contact_email | default: 'your email address'}} shortly. Was there anything else I could help you with?"
+      }
+    },
+    {
+      "id": "api_error",
+      "type": "Default", 
+      "data": {
+        "name": "api_error",
+        "text": "Hmm, I encountered an issue trying to retrieve the quote details just now. Not to worry, I've saved your information, and our team will prepare and email the detailed quote information to {{contact_email | default: 'your email address'}}. Would you still like to schedule a brief follow-up call for tomorrow or the next day just to ensure you get the information and discuss it?"
+      }
+    },
+    {
+      "id": "capture_followup_preference",
+      "type": "Default", 
+      "data": {
+        "name": "capture_followup_preference",
+        "variable": "followup_preference_temp"
+      }
+    },
+    {
+      "id": "handle_followup_scheduling",
+      "type": "Default", 
+      "data": {
+        "name": "handle_followup_scheduling",
+        "text": "Okay, great! I've made a note for our team to reach out and schedule that follow-up call with you for tomorrow or the next day."
+      }
+    },
+    {
+      "id": "ask_final_questions",
+      "type": "Default", 
+      "data": {
+        "name": "ask_final_questions",
+        "text": "Before we wrap up, do you have any other questions for me right now about our services or the process?"
+      }
+    },
+    {
+      "id": "capture_final_questions",
+      "type": "Default", 
+      "data": {
+        "name": "capture_final_questions"
+      }
+    },
+    {
+      "id": "final_closing_logic",
+      "type": "Default", 
+      "data": {
+        "name": "final_closing_logic"
+      }
+    },
+    {
+      "id": "closing_with_followup",
+      "type": "End Call", 
+      "data": {
+        "name": "closing_with_followup",
+        "text": "Okay then! Thank you again for your time, {{contact_name | default: 'there'}}. Our team will be in touch soon to schedule that follow-up and send over the quote details to {{contact_email | default: 'your email'}}. Have a great day! Goodbye."
+      }
+    },
+    {
+      "id": "closing_without_followup",
+      "type": "End Call", 
+      "data": {
+        "name": "closing_without_followup",
+        "text": "Alright. Thank you very much for providing those details, {{contact_name | default: 'there'}}. We'll get that quote emailed over to {{contact_email | default: 'your email'}} shortly. Have a wonderful day! Goodbye."
+      }
+    },
+    {
+      "id": "end_call_speak",
+      "type": "End Call", 
+      "data": {
+        "name": "end_call_speak",
+        "text": "Okay, thank you for your time! Have a great day. Goodbye."
+      }
+    }
+  ],
+  "edges": [
+    { "id": "edge-greeting-ask_name", "source": "greeting", "target": "ask_name", "label": "continue" },
+    { "id": "edge-greeting-end_call_speak", "source": "greeting", "target": "end_call_speak", "label": "hangup" },
+    { "id": "edge-ask_name-ask_company_name", "source": "ask_name", "target": "ask_company_name", "label": "next" },
+    { "id": "edge-ask_company_name-confirm_email", "source": "ask_company_name", "target": "confirm_email", "label": "next" },
+    { "id": "edge-confirm_email-set_expectations", "source": "confirm_email", "target": "set_expectations", "label": "next" },
+    { "id": "edge-set_expectations-ask_project_category", "source": "set_expectations", "target": "ask_project_category", "label": "next" },
+    { "id": "edge-ask_project_category-ask_product_type", "source": "ask_project_category", "target": "ask_product_type", "label": "next" },
+    { "id": "edge-ask_product_type-ask_units_needed", "source": "ask_product_type", "target": "ask_units_needed", "label": "next" },
+    { "id": "edge-ask_units_needed-ask_ada_required", "source": "ask_units_needed", "target": "ask_ada_required", "label": "next" },
+    { "id": "edge-ask_ada_required-ask_shower_required", "source": "ask_ada_required", "target": "ask_shower_required", "label": "next" },
+    { "id": "edge-ask_shower_required-ask_handwashing_needed", "source": "ask_shower_required", "target": "ask_handwashing_needed", "label": "next" },
+    { "id": "edge-ask_handwashing_needed-ask_additional_services", "source": "ask_handwashing_needed", "target": "ask_additional_services", "label": "next" },
+    { "id": "edge-ask_additional_services-ask_start_date", "source": "ask_additional_services", "target": "ask_start_date", "label": "next" },
+    { "id": "edge-ask_start_date-check_metadata_address", "source": "ask_start_date", "target": "check_metadata_address", "label": "next" },
+    { "id": "edge-check_metadata_address-capture_address_confirmation", "source": "check_metadata_address", "target": "capture_address_confirmation", "label": "{{event_or_job_address}} != null" },
+    { "id": "edge-check_metadata_address-collect_address", "source": "check_metadata_address", "target": "collect_address", "label": "true" }, 
+    { "id": "edge-capture_address_confirmation-extract_state_from_address", "source": "capture_address_confirmation", "target": "extract_state_from_address", "label": "confirmed_yes" },
+    { "id": "edge-capture_address_confirmation-collect_address", "source": "capture_address_confirmation", "target": "collect_address", "label": "true" }, 
+    { "id": "edge-collect_address-extract_state_from_address", "source": "collect_address", "target": "extract_state_from_address", "label": "next" }, 
+    { "id": "edge-extract_state_from_address-check_service_area", "source": "extract_state_from_address", "target": "check_service_area", "label": "next" }, 
+    { "id": "edge-check_service_area-ask_address_type", "source": "check_service_area", "target": "ask_address_type", "label": "{{is_in_service_area}} == true" },
+    { "id": "edge-check_service_area-handle_out_of_service_area", "source": "check_service_area", "target": "handle_out_of_service_area", "label": "true" }, 
+    { "id": "edge-handle_out_of_service_area-offer_referral", "source": "handle_out_of_service_area", "target": "offer_referral", "label": "next" }, 
+    { "id": "edge-offer_referral-capture_referral_acceptance", "source": "offer_referral", "target": "capture_referral_acceptance", "label": "next" }, 
+    { "id": "edge-capture_referral_acceptance-closing_oos_referral", "source": "capture_referral_acceptance", "target": "closing_oos_referral", "label": "{{referral_accepted}} == true" },
+    { "id": "edge-capture_referral_acceptance-closing_oos_no_referral", "source": "capture_referral_acceptance", "target": "closing_oos_no_referral", "label": "true" }, 
+    { "id": "edge-ask_address_type-ask_site_ground_level", "source": "ask_address_type", "target": "ask_site_ground_level", "label": "next" }, 
+    { "id": "edge-ask_site_ground_level-ask_site_ground_type", "source": "ask_site_ground_level", "target": "ask_site_ground_type", "label": "next" }, 
+    { "id": "edge-ask_site_ground_type-ask_site_obstacles", "source": "ask_site_ground_type", "target": "ask_site_obstacles", "label": "next" }, 
+    { "id": "edge-ask_site_obstacles-ask_water_available", "source": "ask_site_obstacles", "target": "ask_water_available", "label": "next" }, 
+    { "id": "edge-ask_water_available-ask_water_distance", "source": "ask_water_available", "target": "ask_water_distance", "label": "{{water_available}} == true" },
+    { "id": "edge-ask_water_available-ask_power_available", "source": "ask_water_available", "target": "ask_power_available", "label": "true" }, 
+    { "id": "edge-ask_water_distance-ask_water_path", "source": "ask_water_distance", "target": "ask_water_path", "label": "next" }, 
+    { "id": "edge-ask_water_path-ask_power_available", "source": "ask_water_path", "target": "ask_power_available", "label": "next" }, 
+    { "id": "edge-ask_power_available-ask_power_distance", "source": "ask_power_available", "target": "ask_power_distance", "label": "{{power_available}} == true" },
+    { "id": "edge-ask_power_available-ask_contact_consent", "source": "ask_power_available", "target": "ask_contact_consent", "label": "true" }, 
+    { "id": "edge-ask_power_distance-ask_power_path", "source": "ask_power_distance", "target": "ask_power_path", "label": "next" }, 
+    { "id": "edge-ask_power_path-ask_contact_consent", "source": "ask_power_path", "target": "ask_contact_consent", "label": "next" }, 
+    { "id": "edge-ask_contact_consent-recap_details", "source": "ask_contact_consent", "target": "recap_details", "label": "next" }, 
+    { "id": "edge-recap_details-capture_recap_confirmation", "source": "recap_details", "target": "capture_recap_confirmation", "label": "next" }, 
+    { "id": "edge-capture_recap_confirmation-ask_quote_urgency", "source": "capture_recap_confirmation", "target": "ask_quote_urgency", "label": "next" }, 
+    { "id": "edge-ask_quote_urgency-ask_decision_timing", "source": "ask_quote_urgency", "target": "ask_decision_timing", "label": "next" }, 
+    { "id": "edge-ask_decision_timing-check_quote_readiness", "source": "ask_decision_timing", "target": "check_quote_readiness", "label": "next" }, 
+    { "id": "edge-check_quote_readiness-get_quote_webhook", "source": "check_quote_readiness", "target": "get_quote_webhook", "label": "{{is_in_service_area}} == true && {{service_address}} != null && {{water_available}} != null && {{power_available}} != null && {{site_ground_type}} != null && {{site_obstacles}} != null && {{contact_consent_given}} == true" },
+    { "id": "edge-check_quote_readiness-cannot_quote_no_consent", "source": "check_quote_readiness", "target": "cannot_quote_no_consent", "label": "{{is_in_service_area}} == true && {{contact_consent_given}} != true" },
+    { "id": "edge-check_quote_readiness-cannot_quote_missing_info", "source": "check_quote_readiness", "target": "cannot_quote_missing_info", "label": "true" }, 
+    { "id": "edge-get_quote_webhook-convey_quote", "source": "get_quote_webhook", "target": "convey_quote", "label": "{{quote_api_response.status_code >= 200 && quote_api_response.status_code < 300 && quote_api_response.body.total_amount != null}}" },
+    { "id": "edge-get_quote_webhook-api_error", "source": "get_quote_webhook", "target": "api_error", "label": "true" }, 
+    { "id": "edge-convey_quote-capture_followup_preference", "source": "convey_quote", "target": "capture_followup_preference", "label": "next" }, 
+    { "id": "edge-cannot_quote_no_consent-ask_final_questions", "source": "cannot_quote_no_consent", "target": "ask_final_questions", "label": "next" }, 
+    { "id": "edge-cannot_quote_missing_info-ask_final_questions", "source": "cannot_quote_missing_info", "target": "ask_final_questions", "label": "next" }, 
+    { "id": "edge-api_error-capture_followup_preference", "source": "api_error", "target": "capture_followup_preference", "label": "next" }, 
+    { "id": "edge-capture_followup_preference-ask_final_questions", "source": "capture_followup_preference", "target": "ask_final_questions", "label": "next" }, 
+    { "id": "edge-handle_followup_scheduling-ask_final_questions", "source": "handle_followup_scheduling", "target": "ask_final_questions", "label": "next" }, 
+    { "id": "edge-ask_final_questions-capture_final_questions", "source": "ask_final_questions", "target": "capture_final_questions", "label": "next" }, 
+    { "id": "edge-capture_final_questions-final_closing_logic", "source": "capture_final_questions", "target": "final_closing_logic", "label": "next" }, 
+    { "id": "edge-final_closing_logic-closing_with_followup", "source": "final_closing_logic", "target": "closing_with_followup", "label": "{{follow_up_call_scheduled}} == true" },
+    { "id": "edge-final_closing_logic-closing_without_followup", "source": "final_closing_logic", "target": "closing_without_followup", "label": "true" } 
+  ]
+}

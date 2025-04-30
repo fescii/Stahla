@@ -4,9 +4,7 @@ import logfire
 from typing import Optional, Dict, Any
 
 from app.core.config import settings
-# Import ClassificationInput
 from app.models.classification import ClassificationResult, ClassificationInput
-# Updated imports: Use HubSpotApiResult as the service layer now returns this
 from app.models.hubspot import HubSpotApiResult
 
 # Use a shared httpx client for efficiency
@@ -56,117 +54,137 @@ async def send_to_n8n_webhook(
 # Updated function signature and logic for Leads
 async def trigger_n8n_handoff_automation(
     classification_result: ClassificationResult,
-    input_data: ClassificationInput,
-    contact_result: Optional[HubSpotApiResult], # Changed type hint
-    lead_result: Optional[HubSpotApiResult] # Changed type hint and name
+    input_data: ClassificationInput, # This now contains many fields from call.json
+    contact_result: Optional[HubSpotApiResult],
+    lead_result: Optional[HubSpotApiResult]
 ):
-  """
-  Prepares a structured payload and sends the handoff data to the n8n webhook.
-  Handles Lead information instead of Deal information.
-  """
-  logfire.info("Classification result received:", classification_result=classification_result)
-  logfire.info("Input data received:", input_data=input_data)
-  logfire.info("Contact result received:", contact_result=contact_result)
-  logfire.info("Lead result received:", lead_result=lead_result)
-  if not classification_result.classification:
-    logfire.info("No classification output available, skipping n8n handoff.")
-    return False
+    """
+    Prepares a structured payload and sends the handoff data to the n8n webhook.
+    Pulls data primarily from input_data (ClassificationInput) which reflects call variables.
+    """
+    logfire.info("Classification result received:", classification_result=classification_result)
+    logfire.info("Input data received:", input_data=input_data)
+    logfire.info("Contact result received:", contact_result=contact_result)
+    logfire.info("Lead result received:", lead_result=lead_result)
+    if not classification_result.classification:
+        logfire.info("No classification output available, skipping n8n handoff.")
+        return False
 
-  classification_output = classification_result.classification
+    classification_output = classification_result.classification
 
-  if classification_output.lead_type == "Disqualify":
-    logfire.info("Lead classified as Disqualify, skipping n8n handoff.")
-    return False
+    if classification_output.lead_type == "Disqualify":
+        logfire.info("Lead classified as Disqualify, skipping n8n handoff.")
+        return False
 
-  # --- Determine Team Email (remains the same) ---
-  team_email_map = {
-      "Stahla Leads Team": ["isfescii@gmail.com", "femar.fredrick@gmail.com"],
-      "Stahla Services Sales Team": ["femar.fredrick@gmail.com"],
-      "Stahla Logistics Sales Team": ["femar.fredrick@gmail.com"],
-  }
-  default_email_list = ["isfescii@gmail.com"]  # Fallback email list
+    # --- Determine Team Email (remains the same) ---
+    team_email_map = {
+        "Stahla Leads Team": ["isfescii@gmail.com", "femar.fredrick@gmail.com"],
+        "Stahla Services Sales Team": ["femar.fredrick@gmail.com"],
+        "Stahla Logistics Sales Team": ["femar.fredrick@gmail.com"],
+    }
+    default_email_list = ["isfescii@gmail.com"]  # Fallback email list
 
-  assigned_team = classification_output.metadata.get(
-      "assigned_owner_team") if classification_output.metadata else None
-  team_email_list = team_email_map.get(
-      assigned_team, default_email_list) if assigned_team else default_email_list
+    assigned_team = classification_output.metadata.get(
+        "assigned_owner_team") if classification_output.metadata else None
+    team_email_list = team_email_map.get(
+        assigned_team, default_email_list) if assigned_team else default_email_list
 
-  # --- Prepare the structured payload for n8n --- 
-  extracted_metadata = classification_output.metadata or {}
-  # Extract IDs from HubSpotApiResult
-  contact_id = contact_result.hubspot_id if contact_result else None
-  lead_id = lead_result.hubspot_id if lead_result else None # Changed from deal_id
-  portal_id = settings.HUBSPOT_PORTAL_ID
+    # --- Prepare the structured payload for n8n --- 
+    # Extract IDs from HubSpotApiResult
+    contact_id = contact_result.hubspot_id if contact_result else None
+    lead_id = lead_result.hubspot_id if lead_result else None
+    portal_id = settings.HUBSPOT_PORTAL_ID
 
-  # Construct URLs if portal_id and object IDs are available
-  contact_url = f"https://app.hubspot.com/contacts/{portal_id}/contact/{contact_id}" if portal_id and contact_id else None
-  # Construct lead_url instead of deal_url (assuming standard object 'leads')
-  lead_url = f"https://app.hubspot.com/contacts/{portal_id}/record/0-5/{lead_id}" if portal_id and lead_id else None # Check HubSpot URL structure for leads (0-5 is an example objectTypeId for leads)
+    # Construct URLs if portal_id and object IDs are available
+    contact_url = f"https://app.hubspot.com/contacts/{portal_id}/contact/{contact_id}" if portal_id and contact_id else None
+    # Assuming 0-5 is the correct objectTypeId for Leads in HubSpot URLs
+    lead_url = f"https://app.hubspot.com/contacts/{portal_id}/record/0-5/{lead_id}" if portal_id and lead_id else None
 
-  payload = {
-      "lead_details": {
-          "first_name": input_data.firstname,
-          "last_name": input_data.lastname,
-          "email": input_data.email,
-          "phone": input_data.phone,
-          "company": input_data.company,
-          "message": input_data.message,
-          "text_consent": input_data.text_consent
-      },
-      "event_details": {
-          # Fields moved back from classification section
-          "product_interest": extracted_metadata.get("product_interest"),
-          "service_needed": extracted_metadata.get("service_needed"),
-          "event_type": extracted_metadata.get("event_type"),
-          "location": extracted_metadata.get("location"),
-          "state": extracted_metadata.get("state"),
-          "city": extracted_metadata.get("city"),
-          "postal_code": extracted_metadata.get("postal_code"),
-          "duration_days": extracted_metadata.get("duration_days"),
-          "start_date": extracted_metadata.get("start_date"),
-          "end_date": extracted_metadata.get("end_date"),
-          "guest_count": extracted_metadata.get("guest_count"),
-          "required_stalls": extracted_metadata.get("required_stalls"),
-          "ada_required": extracted_metadata.get("ada_required"),
-          "budget_mentioned": extracted_metadata.get("budget_mentioned"),
-          "comments": extracted_metadata.get("comments"),
-          "power_available": extracted_metadata.get("power_available"),
-          "water_available": extracted_metadata.get("water_available")
-      },
-      "classification": {
-          "lead_type": classification_output.lead_type,
-          "routing_suggestion": classification_output.routing_suggestion,
-          "confidence": classification_output.confidence,
-          "reasoning": classification_output.reasoning,
-          "estimated_value": extracted_metadata.get("estimated_value", 0),
-          "is_local": extracted_metadata.get("is_local"),
-          "intended_use": extracted_metadata.get("intended_use"),
-          "requires_human_review": classification_output.requires_human_review,
-          "qualification_notes": extracted_metadata.get("comments") # Keep original qualification_notes
-          # Removed fields moved back to event_details
-      },
-      "call_details": {
-          "call_summary": extracted_metadata.get("call_summary"),
-          "call_recording_url": extracted_metadata.get("call_recording_url"),
-          "call_duration_seconds": extracted_metadata.get("call_duration_seconds")
-      },
-      "routing": {
-          "assigned_team": assigned_team,
-          "team_email": team_email_list
-      },
-      # Updated hubspot section for Leads
-      "hubspot": {
-          "contact_id": contact_id,
-          "lead_id": lead_id, # Changed from deal_id
-          # "deal_name": lead_result.details.get('properties', {}).get("leadname") if lead_result and lead_result.details else None, # Leads don't have a standard name property like deals
-          "portal_id": portal_id,
-          "contact_url": contact_url,
-          "lead_url": lead_url # Changed from deal_url
-      }
-  }
+    # Use direct fields from input_data where available, fallback to metadata if needed
+    payload = {
+        "lead_details": {
+            # Use verified/collected data first, fallback to metadata
+            "contact_name": input_data.contact_name or f"{input_data.firstname or ''} {input_data.lastname or ''}".strip(),
+            "first_name": input_data.firstname, # Original metadata
+            "last_name": input_data.lastname, # Original metadata
+            "email": input_data.contact_email or input_data.email, # Verified email preferred
+            "phone": input_data.phone, # Original metadata phone
+            "company_name": input_data.company_name or input_data.company, # Verified company preferred
+            "message": input_data.message, # Original message from metadata if any
+            "text_consent": input_data.by_submitting_this_form_you_consent_to_receive_texts, # From metadata
+            "contact_consent_given": input_data.contact_consent_given # Explicit consent from call
+        },
+        "event_details": {
+            "project_category": input_data.project_category, # From call
+            "product_type_interest": input_data.product_type_interest, # From call
+            "what_service_do_you_need": input_data.what_service_do_you_need_, # From metadata
+            "units_needed": input_data.units_needed, # From call (string)
+            "required_stalls": input_data.required_stalls, # Parsed number if available
+            "how_many_portable_toilets": input_data.how_many_portable_toilet_stalls_, # From metadata
+            "expected_attendance": input_data.expected_attendance, # From call
+            "ada_required": input_data.ada_required, # From call
+            "shower_required": input_data.shower_required, # From call
+            "handwashing_needed": input_data.handwashing_needed, # From call
+            "additional_services_needed": input_data.additional_services_needed, # From call
+            "rental_start_date": input_data.rental_start_date, # From call
+            "rental_end_date": input_data.rental_end_date, # From call
+            "event_start_date_metadata": input_data.start_date, # Original metadata
+            "event_end_date_metadata": input_data.end_date, # Original metadata
+            "duration_days": input_data.duration_days, # Calculated if available
+            "service_address": input_data.service_address, # From call
+            "event_or_job_address_metadata": input_data.event_location_description, # Original metadata
+            "state": input_data.state, # From call (extracted)
+            "city": input_data.event_city, # From classification input if parsed
+            "postal_code": input_data.event_postal_code, # From classification input if parsed
+            "address_type": input_data.address_type, # From call
+            "site_ground_level": input_data.site_ground_level, # From call
+            "site_ground_type": input_data.site_ground_type, # From call
+            "site_obstacles": input_data.site_obstacles, # From call
+            "power_available": input_data.power_available, # From call
+            "power_source_distance": input_data.power_source_distance, # From call (string)
+            "power_path_cross": input_data.power_path_cross, # From call
+            "water_available": input_data.water_available, # From call
+            "water_source_distance": input_data.water_source_distance, # From call (string)
+            "water_path_cross": input_data.water_path_cross, # From call
+            "quote_urgency": input_data.quote_urgency, # From call
+            "decision_timing": input_data.decision_timing, # From call
+            "follow_up_call_scheduled": input_data.follow_up_call_scheduled, # From call
+            "referral_accepted": input_data.referral_accepted # From call
+        },
+        "classification": {
+            # Fields generated by the classification process
+            "lead_type": classification_output.lead_type,
+            "routing_suggestion": classification_output.routing_suggestion,
+            "confidence": classification_output.confidence,
+            "reasoning": classification_output.reasoning,
+            "estimated_value": classification_output.metadata.get("estimated_value", 0) if classification_output.metadata else 0,
+            "is_local": input_data.is_local, # Use field from input if available
+            "is_in_service_area": input_data.is_in_service_area, # From call logic
+            "intended_use": input_data.intended_use, # Use field from input if available
+            "requires_human_review": classification_output.requires_human_review,
+            "qualification_notes": classification_output.metadata.get("comments") if classification_output.metadata else None # Keep original qualification_notes source
+        },
+        "call_details": {
+            # Use direct fields if available, fallback to metadata
+            "call_summary": input_data.call_summary or (classification_output.metadata.get("call_summary") if classification_output.metadata else None),
+            "call_recording_url": str(input_data.call_recording_url) if input_data.call_recording_url else (classification_output.metadata.get("call_recording_url") if classification_output.metadata else None),
+            "call_duration_seconds": classification_output.metadata.get("call_duration_seconds") if classification_output.metadata else None # Assuming this comes from metadata
+        },
+        "routing": {
+            "assigned_team": assigned_team,
+            "team_email": team_email_list
+        },
+        "hubspot": {
+            "contact_id": contact_id,
+            "lead_id": lead_id,
+            "portal_id": portal_id,
+            "contact_url": contact_url,
+            "lead_url": lead_url
+        }
+    }
 
-  # Send the payload to n8n
-  await send_to_n8n_webhook(payload=payload)
+    # Send the payload to n8n
+    await send_to_n8n_webhook(payload=payload)
 
 
 # Optional: Add a function to close the client gracefully if needed

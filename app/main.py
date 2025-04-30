@@ -12,7 +12,8 @@ from app.core.config import settings
 # Correctly import the router from app.api.v1.api
 from app.api.v1.api import api_router_v1
 # Import service managers using the correct class names
-from app.services.bland import BlandAIManager # Corrected class name
+# Ensure the sync function and manager are imported
+from app.services.bland import bland_manager, sync_bland_pathway_on_startup
 from app.services.hubspot import HubSpotManager
 from app.services.email import EmailManager
 import logfire
@@ -41,12 +42,15 @@ logfire.instrument_pydantic() # Instrument Pydantic models
 async def lifespan(app: FastAPI):
     # Startup: Initialize connections, load models, etc.
     logfire.info("Application startup: Initializing resources.")
-    # Instantiate managers using correct class name and store them in app state
-    app.state.bland_manager = BlandAIManager(api_key=settings.BLAND_API_KEY, base_url=settings.BLAND_API_URL)
+    # Use the singleton instance directly
+    app.state.bland_manager = bland_manager
     # Provide the required api_key from settings
     app.state.hubspot_manager = HubSpotManager(api_key=settings.HUBSPOT_API_KEY)
     app.state.email_manager = EmailManager()
-    # If managers needed async initialization, it would go here.
+
+    # Call the sync function during startup (Re-added)
+    await sync_bland_pathway_on_startup()
+
     yield
     # Shutdown: Clean up resources
     logfire.info("Application shutdown: Closing resources.")

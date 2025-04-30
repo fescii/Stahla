@@ -12,10 +12,10 @@ Content-Type: application/json
   "City": "New York",
   "Event start date": "2025-05-25",
   "Event end date": "2025-05-25",
-  "First name": "Fredrick",
-  "Last name": "Femar",
+  "First name": "Pau",
+  "Last name": "Melody",
   "Phone number": "713253018",
-  "Email": "isfescii@gmail.com",
+  "Email": "paumelodies@gmail.com",
   "I consent to receive texts on the phone number provided": true
 }
 

@@ -1,0 +1,655 @@
+{
+  "name": "Comprehensive_FollowUp_Quote_Flow_v14_Webhook",
+  "description": "Comprehensive conversational flow based on call_script.md v3. Collects detailed data, checks service area, branches for product logistics (PAQ/PBQ), gets consent, recaps, calls quote API, conveys result/error, offers follow-up.",
+  "knowledge_base": {
+    "id": "stahla_kb_main",
+    "source_description": "Stahla Services Company Information",
+    "content": "Stahla Services (Stahla Rentals) - Knowledge Base\\nSummary\\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\\nCompany Overview\\nLegal Name: Stahla Services, LLC\\nFounded: 2014\\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\\nServices Offered\\nRestroom Trailer Rentals: Designed for upscale events or long-term use on job sites. Feature climate-controlled interiors, flushing toilets, and LED lighting. Options range from 2-stall to 10-stall configurations.\\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors. Maintain the same upscale features as standard trailers.\\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Ideal for disaster relief, construction crews, or festivals. Equipped with HVAC, onboard water tanks, and changing areas.\\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers. Designed to support extended operations in remote areas. Useful for military sites, emergency management, or camps.\\nSelfie Trailer Rentals: Unique units with high-end finishes and mirrors for social-media-friendly settings. Popular for weddings, VIP events, or branded activations.\\nCombo Trailer Rentals: Combine restrooms and showers in one unit for greater utility. Perfect for remote job sites or events requiring multiple sanitation services.\\nDecontamination Trailer Rentals: Tailored for industrial sites, hazmat response, or biohazard control. Include multiple stages for containment, showering, and safe exit.\\nPorta Potty Rentals: Standard, budget-friendly option for large outdoor events or construction. Available in basic, deluxe, or handwashing-equipped models.\\nService Area\\nServes 17 U.S. states: Arkansas, Colorado, Illinois, Iowa, Kansas, Louisiana, Minnesota, Montana, Nebraska, New Mexico, North Dakota, Oklahoma, South Dakota, Wisconsin, Wyoming, Missouri, Texas\\nHeadquarters and Locations\\nPrimary HQ: Omaha, Nebraska\\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\\nOther Office Locations:\\nLincoln, NE – 420 W A St, Suite 200\\nGretna, NE – 21824 Williams Circle\\nSmithville, MO – 17609 HH Lake Road\\nDenver, CO – 1340 Umatilla St\\nContact Information\\nPhone: (844) 900-3190\\nEmail: [email protected]\\nBusiness Hours:\\nMon–Fri: 8 AM–5 PM\\nSat: 8 AM–5 PM\\nSun: Closed\\nWebsite: https://stahla.com/"
+  },
+  "variables": [
+    // --- Metadata ---
+    { "name": "what_service_do_you_need_", "type": "STRING" },
+    { "name": "how_many_portable_toilet_stalls_", "type": "NUMBER" },
+    { "name": "event_or_job_address", "type": "STRING" },
+    { "name": "zip", "type": "STRING" },
+    { "name": "city", "type": "STRING" },
+    { "name": "event_start_date", "type": "DATE" }, // Use rental_start_date instead
+    { "name": "event_end_date", "type": "DATE" },   // Use rental_end_date instead
+    { "name": "firstname", "type": "STRING" },
+    { "name": "lastname", "type": "STRING" },
+    { "name": "phone", "type": "STRING" },
+    { "name": "email", "type": "STRING" }, // Metadata email
+    { "name": "by_submitting_this_form_you_consent_to_receive_texts", "type": "BOOLEAN" },
+
+    // --- Collected/Verified Variables (Aligned with Script & Subflows) ---
+    { "name": "contact_name", "type": "STRING"},
+    { "name": "recording_consent_given", "type": "BOOLEAN"}, // Implicitly true by proceeding
+    { "name": "contact_consent_given", "type": "BOOLEAN"}, // Explicit consent for follow-up
+    { "name": "project_category", "type": "STRING" }, // Event, Construction, Facility, Disaster Relief, Other
+    { "name": "product_type_interest", "type": "STRING"}, // Restroom Trailer, Shower Trailer, Porta Potty, Combo, Other
+    { "name": "expected_attendance", "type": "NUMBER" },
+    { "name": "units_needed", "type": "STRING" }, // e.g., "3 stalls", "1 large trailer"
+    { "name": "ada_required", "type": "BOOLEAN" },
+    { "name": "shower_required", "type": "BOOLEAN" },
+    { "name": "handwashing_needed", "type": "BOOLEAN" },
+    { "name": "additional_services_needed", "type": "STRING"}, // Tent, fencing, generator, dumpster, water supply, servicing etc.
+    { "name": "rental_start_date", "type": "DATE" },
+    { "name": "rental_end_date", "type": "DATE" },
+    { "name": "event_duration_days", "type": "NUMBER"}, // Calculated from dates
+    { "name": "event_total_hours", "type": "NUMBER"}, // Asked if duration > 1 day
+    { "name": "needs_extra_event_services", "type": "BOOLEAN"}, // Flag based on duration/hours
+    { "name": "onsite_facilities_exist", "type": "BOOLEAN"}, // Subflow SA/SB
+    { "name": "onsite_contact_name", "type": "STRING"}, // Subflow SB
+    { "name": "onsite_contact_phone", "type": "STRING"}, // Subflow SB
+    { "name": "site_working_hours", "type": "STRING"}, // Subflow SB
+    { "name": "weekend_service_needed", "type": "BOOLEAN"}, // Subflow SB
+    { "name": "cleaning_service_needed", "type": "BOOLEAN"}, // Subflow SB
+    { "name": "service_address", "type": "STRING" },
+    { "name": "state", "type": "STRING"},
+    { "name": "is_in_service_area", "type": "BOOLEAN"},
+    { "name": "address_type", "type": "STRING"}, // Business, Residence, Event Venue, Construction Site, Other
+    { "name": "site_ground_level", "type": "BOOLEAN" },
+    { "name": "site_ground_type", "type": "STRING" }, // Cement, Gravel, Dirt, Grass, Other
+    { "name": "site_obstacles", "type": "STRING" }, // Description or None
+    { "name": "power_available", "type": "BOOLEAN" },
+    { "name": "power_source_distance", "type": "STRING" }, // <50, 50-100, 100-200, >200 ft
+    { "name": "power_path_cross", "type": "BOOLEAN"},
+    { "name": "generator_needed", "type": "BOOLEAN"}, // Asked if power_available is false (PAQ)
+    { "name": "water_available", "type": "BOOLEAN" },
+    { "name": "water_source_distance", "type": "STRING" }, // <50, 50-100, 100-200, >200 ft
+    { "name": "water_path_cross", "type": "BOOLEAN"},
+    { "name": "water_delivery_needed", "type": "BOOLEAN"}, // Implied if water_available is false (PAQ)
+    { "name": "company_name", "type": "STRING"},
+    { "name": "contact_email", "type": "STRING"}, // Verified/Collected Email
+    { "name": "quote_urgency", "type": "STRING"}, // How soon needed
+    { "name": "decision_timing", "type": "STRING"}, // When decision made
+    { "name": "follow_up_call_scheduled", "type": "BOOLEAN"},
+    { "name": "referral_accepted", "type": "BOOLEAN"},
+
+    // API Output
+    { "name": "quote_details", "type": "STRING"} // Populated by webhook
+  ],
+  "nodes": [
+    // --- Greeting & Initial Info ---
+    {
+      "id": "greeting",
+      "type": "SPEAK",
+      "text": "Hi {{firstname}}, this is Alex calling from Stahla Services on a recorded line. I see you requested a quote online. Is now still a good time to quickly confirm a few details to get you that quote?",
+      "next_node_id": "ask_name"
+    },
+    {
+      "id": "ask_name",
+      "type": "QUESTION",
+      "text": "Great. Just to confirm, the name for the contact person is {{firstname}} {{lastname}}, is that correct? Or should I use a different name?",
+      "variable": "contact_name",
+      "next_node_id": "ask_company_name"
+    },
+    {
+      "id": "ask_company_name",
+      "type": "QUESTION",
+      "text": "Got it. And is there a company name associated with this request?",
+      "variable": "company_name",
+      "next_node_id": "confirm_email"
+    },
+    {
+      "id": "confirm_email",
+      "type": "QUESTION",
+      "text": "Okay. And the best email to send the quote to is {{email}}, correct?",
+      "variable": "contact_email",
+      "next_node_id": "ask_project_category"
+    },
+    // --- Qualification Questions ---
+    {
+      "id": "ask_project_category",
+      "type": "QUESTION",
+      "text": "Thanks. To make sure I understand your needs, could you tell me if this is for a construction site, a special event, supplementing facilities, disaster relief, or something else?",
+      "variable": "project_category", // NLU maps to: Event, Construction, Facility, Disaster Relief, Other
+      "next_node_id": "ask_product_type"
+    },
+    {
+      "id": "ask_product_type",
+      "type": "QUESTION",
+      "text": "Okay, and what type of product are you primarily interested in? Portable toilets, restroom trailers, shower trailers, or maybe a combo unit? We started with {{what_service_do_you_need_}} in your request.",
+      "variable": "product_type_interest", // NLU maps to: Porta Potty, Restroom Trailer, Shower Trailer, Combo, Other
+      "next_node_id": "ask_attendance" // Ask attendance before units
+    },
+    {
+       "id": "ask_attendance",
+       "type": "QUESTION",
+       "text": "Got it. To help estimate the number of units needed, roughly how many people might be using the facilities on a peak day?",
+       "variable": "expected_attendance",
+       "next_node_id": "ask_units_needed"
+    },
+    {
+      "id": "ask_units_needed",
+      "type": "QUESTION",
+      "text": "Thanks. Based on about {{expected_attendance | default: 'some'}} people, how many units or stalls do you think you'll need? Your initial request mentioned {{how_many_portable_toilet_stalls_}}. Is that still accurate?",
+      "variable": "units_needed",
+      "next_node_id": "ask_ada_required"
+    },
+    {
+      "id": "ask_ada_required",
+      "type": "QUESTION",
+      "text": "Will you require any ADA-compliant (handicap accessible) units?",
+      "variable": "ada_required",
+      "next_node_id": "check_product_for_shower_question" // Check if trailer before asking shower
+    },
+    {
+      "id": "check_product_for_shower_question",
+      "type": "LOGIC",
+      "branch": [
+          // Ask shower question only if product type is likely a trailer
+          {"condition": "{{product_type_interest.includes('Trailer') || product_type_interest.includes('Combo')}}", "next_node_id": "ask_shower_required"},
+          {"condition": "true", "next_node_id": "check_product_for_handwashing_question"} // Skip shower if not trailer
+      ]
+    },
+    {
+      "id": "ask_shower_required",
+      "type": "QUESTION",
+      "text": "And will you need units with showers?",
+      "variable": "shower_required",
+      "next_node_id": "check_product_for_handwashing_question" // Always check handwashing next
+    },
+     {
+      "id": "check_product_for_handwashing_question",
+      "type": "LOGIC",
+      "branch": [
+          // Ask handwashing question if product type is Porta Potty
+          {"condition": "{{product_type_interest.includes('Potty')}}", "next_node_id": "ask_handwashing_needed"},
+          {"condition": "true", "next_node_id": "ask_additional_services"} // Skip if not porta potty (trailers usually have sinks)
+      ]
+    },
+    {
+      "id": "ask_handwashing_needed",
+      "type": "QUESTION",
+      "text": "And will you need separate handwashing stations?",
+      "variable": "handwashing_needed",
+      "next_node_id": "ask_additional_services"
+    },
+    {
+      "id": "ask_additional_services",
+      "type": "QUESTION",
+      // Combined question inspired by SA/SB
+      "text": "Besides the main units, are there any other services or equipment you might need? For example, things like temporary fencing, generators, dumpsters, holding tanks, fresh water delivery, or regular servicing during the rental?",
+      "variable": "additional_services_needed", // NLU extracts list/description
+      "next_node_id": "ask_start_date"
+    },
+    {
+      "id": "ask_start_date",
+      "type": "QUESTION",
+      "text": "Thanks for clarifying the details. When are you looking to start the rental? And for approximately how long will you need it?",
+      "variable": ["rental_start_date", "rental_end_date"], // NLU extracts dates/duration
+      "next_node_id": "check_project_category_for_subflow" // Check category before asking subflow questions
+    },
+
+    // --- Subflow Question Branching ---
+    {
+      "id": "check_project_category_for_subflow",
+      "type": "LOGIC",
+      "branch": [
+          {"condition": "{{project_category == 'Event'}}", "next_node_id": "ask_event_duration_hours"}, // Go to Event Subflow (SA)
+          {"condition": "{{project_category == 'Construction' || project_category == 'Facility'}}", "next_node_id": "ask_onsite_contact"}, // Go to Construction/Facility Subflow (SB)
+          {"condition": "true", "next_node_id": "check_metadata_address"} // Skip subflow questions for Disaster Relief/Other
+      ]
+    },
+    // --- Event Subflow (SA) Nodes ---
+    {
+      "id": "ask_event_duration_hours", // Part of SA.a logic
+      "type": "QUESTION",
+      // Calculate duration first if possible, or ask directly
+      // Assuming event_duration_days is calculated from rental_start_date and rental_end_date
+      "text": "Okay, for your event running from {{rental_start_date}} to {{rental_end_date}}, will the units be needed for more than 8 hours total across those days?",
+      "variable": "needs_extra_event_services", // NLU extracts boolean intent
+      "next_node_id": "ask_onsite_facilities_event" // SA.c
+    },
+    {
+      "id": "ask_onsite_facilities_event", // SA.c
+      "type": "QUESTION",
+      "text": "Are there any other restroom facilities already available at the event site?",
+      "variable": "onsite_facilities_exist",
+      "next_node_id": "check_metadata_address" // Merge back before address check
+    },
+    // --- Construction/Facility Subflow (SB) Nodes ---
+    {
+      "id": "ask_onsite_contact", // SB.a
+      "type": "QUESTION",
+      "text": "For delivery and servicing, are you the main contact person who will be on site, or should we coordinate with someone else?",
+      "variable": "onsite_contact_name", // NLU extracts name or confirms self
+      "next_node_id": "ask_site_working_hours" // SB.b.I
+    },
+    {
+      "id": "ask_site_working_hours", // SB.b.I
+      "type": "QUESTION",
+      "text": "What are the typical working hours or access times at the project location?",
+      "variable": "site_working_hours",
+      "next_node_id": "ask_weekend_service" // SB.b.II
+    },
+     {
+      "id": "ask_weekend_service", // SB.b.II
+      "type": "QUESTION",
+      "text": "Will you have people on site needing the units over the weekend?",
+      "variable": "weekend_service_needed",
+      "next_node_id": "ask_onsite_facilities_construction" // SB.e
+    },
+     {
+      "id": "ask_onsite_facilities_construction", // SB.e
+      "type": "QUESTION",
+      "text": "Are there any other restroom facilities already available on the site to supplement?",
+      "variable": "onsite_facilities_exist",
+      "next_node_id": "ask_cleaning_service" // SB.h
+    },
+    {
+      "id": "ask_cleaning_service", // SB.h
+      "type": "QUESTION",
+      "text": "Regarding cleaning and restocking of the units during the rental, is that something you need us to handle, or do you have a team onsite that will take care of that?",
+      "variable": "cleaning_service_needed",
+      "next_node_id": "check_metadata_address" // Merge back before address check
+    },
+
+    // --- Location & Service Area Check (Common Path) ---
+    {
+      "id": "check_metadata_address",
+      "type": "SPEAK",
+      "text": "Thanks! Now for the delivery location. Is the service address still {{event_or_job_address | default: 'the one provided earlier'}}?",
+       "branch": [
+          {"condition": "{{event_or_job_address}} != null", "next_node_id": "capture_address_confirmation"},
+          {"condition": "true", "next_node_id": "collect_address"}
+      ]
+    },
+    {
+        "id": "capture_address_confirmation",
+        "type": "LISTEN",
+        "variable": "address_confirmed_temp",
+         "branch": [
+          {"condition": "confirmed_yes", "pre_actions": [{"type": "SET_VARIABLE", "name": "service_address", "value": "{{event_or_job_address}}"}], "next_node_id": "extract_state_from_address"},
+          {"condition": "true", "next_node_id": "collect_address"}
+        ]
+    },
+    {
+      "id": "collect_address",
+      "type": "QUESTION",
+      "text": "Okay, could you please provide the full delivery address, including street, city, state, and zip code?",
+      "variable": "service_address",
+      "next_node_id": "extract_state_from_address"
+    },
+    {
+      "id": "extract_state_from_address",
+      "type": "LOGIC",
+      "pre_actions": [
+         {"type": "EXTRACT_STATE", "address_variable": "service_address", "output_variable": "state"}
+      ],
+      "next_node_id": "check_service_area"
+    },
+    {
+      "id": "check_service_area",
+      "type": "LOGIC",
+      "service_area_states": ["AR", "CO", "IL", "IA", "KS", "LA", "MN", "MT", "NE", "NM", "ND", "OK", "SD", "WI", "WY", "MO", "TX"],
+      "pre_actions": [
+        {"type": "SET_VARIABLE", "name": "is_in_service_area", "value": "{{state in service_area_states}}"}
+      ],
+      "branch": [
+        // If in service area, branch to PAQ or PBQ logistics based on product type
+        {"condition": "{{is_in_service_area}} == true", "next_node_id": "determine_logistics_path"},
+        {"condition": "true", "next_node_id": "handle_out_of_service_area"}
+      ]
+    },
+     { // Out of Service Area Path
+      "id": "handle_out_of_service_area",
+      "type": "SPEAK",
+      "text": "Okay, it looks like the address provided, {{service_address}}, is outside our standard service area. Unfortunately, we wouldn't be able to deliver our units there directly.",
+      "next_node_id": "offer_referral"
+    },
+    {
+      "id": "offer_referral",
+      "type": "QUESTION",
+      "text": "However, we do sometimes partner with other providers. Would you like me to see if we can refer you to someone who might be able to help in your area?",
+      "variable": "referral_accepted",
+      "next_node_id": "capture_referral_acceptance"
+    },
+    {
+      "id": "capture_referral_acceptance",
+      "type": "LOGIC",
+       "branch": [
+          {"condition": "{{referral_accepted}} == true", "next_node_id": "closing_oos_referral"},
+          {"condition": "true", "next_node_id": "closing_oos_no_referral"}
+      ]
+    },
+    {
+      "id": "closing_oos_referral",
+      "type": "SPEAK",
+      "text": "Okay, I've noted that. We'll check for potential partners and reach out if we find a suitable referral. Thank you for contacting Stahla Services. Have a great day!",
+      "next_node_id": "end_call_speak"
+    },
+     {
+      "id": "closing_oos_no_referral",
+      "type": "SPEAK",
+      "text": "Understood. Sorry we couldn't assist directly this time. Thank you for considering Stahla Services. Have a great day!",
+      "next_node_id": "end_call_speak"
+    },
+
+    // --- Branch based on Product Type for Logistics Questions ---
+    {
+      "id": "determine_logistics_path",
+      "type": "LOGIC",
+      "branch": [
+        // If product is likely a trailer (needs PAQ)
+        {
+          "condition": "{{product_type_interest.includes('Trailer') || product_type_interest.includes('Combo')}}",
+          "next_node_id": "ask_address_type_paq" // Go to PAQ path
+        },
+        // Default to PBQ path (Porta Potty)
+        {
+          "condition": "true",
+          "next_node_id": "ask_address_type_pbq" // Go to PBQ path
+        }
+      ]
+    },
+
+    // --- PAQ Path (Trailers - Detailed Logistics) ---
+    {
+      "id": "ask_address_type_paq",
+      "type": "QUESTION",
+      "text": "Great, that's in our service area. Now, just a few questions about the delivery site for the trailer. Is the delivery location a residence, business, event venue, construction site, or something else?",
+      "variable": "address_type",
+      "next_node_id": "ask_site_ground_level_paq"
+    },
+    {
+      "id": "ask_site_ground_level_paq",
+      "type": "QUESTION",
+      "text": "Will the trailer be placed on level ground?",
+      "variable": "site_ground_level",
+      "next_node_id": "ask_site_ground_type_paq"
+    },
+    {
+      "id": "ask_site_ground_type_paq",
+      "type": "QUESTION",
+      "text": "And what type of surface will it be placed on? Like grass, gravel, asphalt, concrete, or something else?",
+      "variable": "site_ground_type",
+      "next_node_id": "ask_site_obstacles_paq"
+    },
+    {
+      "id": "ask_site_obstacles_paq",
+      "type": "QUESTION",
+      "text": "Are there any potential obstacles for delivery, like narrow gates, low-hanging branches (below 13 feet), tight turns, or steep inclines?",
+      "variable": "site_obstacles",
+      "next_node_id": "ask_water_available_paq"
+    },
+    {
+      "id": "ask_water_available_paq",
+      "type": "QUESTION",
+      "text": "Okay, regarding utilities. Will there be a standard garden hose water hookup available on site?",
+      "variable": "water_available",
+       "branch": [
+          {"condition": "{{water_available}} == true", "next_node_id": "ask_water_distance_paq"},
+          {"condition": "true", "next_node_id": "ask_power_available_paq"} // Skip water details if not available
+      ]
+    },
+    {
+      "id": "ask_water_distance_paq",
+      "type": "QUESTION",
+      "text": "Roughly how far is the water source from where the trailer will be placed? For example, less than 50 feet, 50 to 100 feet, 100 to 200, or over 200 feet?",
+      "variable": "water_source_distance",
+      "next_node_id": "ask_water_path_paq"
+    },
+    {
+      "id": "ask_water_path_paq",
+      "type": "QUESTION",
+      "text": "And would the water hose need to cross over a walking or driving path?",
+      "variable": "water_path_cross",
+      "next_node_id": "ask_power_available_paq" // Ask power next
+    },
+    {
+      "id": "ask_power_available_paq",
+      "type": "QUESTION",
+      "text": "Now for power - is there power available on site that could be used for the trailer?",
+      "variable": "power_available",
+       "branch": [
+          {"condition": "{{power_available}} == true", "next_node_id": "ask_power_distance_paq"},
+          // If no power, ask about generator (PAQ specific)
+          {"condition": "true", "next_node_id": "ask_generator_needed_paq"}
+      ]
+    },
+     {
+      "id": "ask_power_distance_paq",
+      "type": "QUESTION",
+      "text": "Okay. And about how far would you estimate the power source is from the placement spot? For instance, less than 50 feet, 50 to 100 feet, 100 to 200, or over 200 feet?",
+      "variable": "power_source_distance",
+      "next_node_id": "ask_power_path_paq"
+    },
+    {
+      "id": "ask_power_path_paq",
+      "type": "QUESTION",
+      "text": "Would the power cord need to be placed over a walking or driving path?",
+      "variable": "power_path_cross",
+      "next_node_id": "ask_contact_consent" // Converge before consent
+    },
+    {
+      "id": "ask_generator_needed_paq", // Specific to PAQ if no power
+      "type": "QUESTION",
+      "text": "Okay, since power isn't available, would you like us to provide options for renting a generator?",
+      "variable": "generator_needed",
+      "next_node_id": "ask_contact_consent" // Converge before consent
+    },
+
+    // --- PBQ Path (Portable Toilets - Simpler Logistics) ---
+    {
+      "id": "ask_address_type_pbq",
+      "type": "QUESTION",
+      "text": "Great, that's in our service area. Now, just a couple quick questions about the delivery site for the portable toilet(s). Is this being delivered to a business, residence, event venue, construction site, or another type of location?",
+      "variable": "address_type",
+      "next_node_id": "ask_site_ground_level_pbq"
+    },
+    {
+      "id": "ask_site_ground_level_pbq",
+      "type": "QUESTION",
+      "text": "Thinking about where the unit(s) will be placed: Is the ground fairly level (flat)?",
+      "variable": "site_ground_level",
+      "next_node_id": "ask_site_ground_type_pbq"
+    },
+    {
+      "id": "ask_site_ground_type_pbq",
+      "type": "QUESTION",
+      "text": "And what kind of surface is it – cement, gravel, grass, or dirt?",
+      "variable": "site_ground_type",
+      "next_node_id": "ask_site_obstacles_pbq"
+    },
+    {
+      "id": "ask_site_obstacles_pbq",
+      "type": "QUESTION",
+      "text": "Are there any low-hanging branches or other obstacles on the path where the unit(s) will need to be placed?",
+      "variable": "site_obstacles",
+      // PBQ path skips detailed water/power questions and converges before consent
+      "next_node_id": "ask_contact_consent"
+    },
+
+    // --- Consent, Recap, Urgency, Timing (Common Path) ---
+    {
+        "id": "ask_contact_consent",
+        "type": "QUESTION",
+        "text": "Almost done with the details! Lastly, for privacy reasons, do I have your permission to use the details we discussed to prepare your quote and to contact you via email or phone with that information and related follow-ups? We take your privacy seriously.",
+        "variable": "contact_consent_given",
+        "next_node_id": "recap_details"
+    },
+    {
+        "id": "recap_details",
+        "type": "SPEAK",
+        // Updated recap to include more details
+        "text": "Okay, {{contact_name | default: 'there'}}, thanks for providing all those details! Just to quickly recap: You're calling from {{company_name | default: 'your organization'}} and need info sent to {{contact_email | default: 'your email'}}. You're looking for {{units_needed | default: 'details on'}} {{product_type_interest | default: 'our services'}} (potentially needing ADA: {{ada_required}}, Showers: {{shower_required}}, Handwashing: {{handwashing_needed}}) for a {{project_category | default: 'project/event'}} in {{service_address | default: 'your area'}}, starting around {{rental_start_date | default: 'unspecified date'}} for about {{rental_end_date | default: 'unspecified duration'}}. You mentioned potentially needing {{additional_services_needed | default: 'no additional services'}}. We noted the site details regarding ground level: {{site_ground_level}}, surface: {{site_ground_type}}, obstacles: {{site_obstacles}}, water availability as {{water_available | default: 'unspecified'}}, and power availability as {{power_available | default: 'unspecified'}}. Does that all sound correct?",
+        "next_node_id": "capture_recap_confirmation"
+    },
+    {
+        "id": "capture_recap_confirmation",
+        "type": "LISTEN",
+        "next_node_id": "ask_quote_urgency"
+    },
+    {
+        "id": "ask_quote_urgency",
+        "type": "QUESTION",
+        "text": "Excellent, thank you for confirming. To help our team prioritize, how soon were you hoping to receive the quote?",
+        "variable": "quote_urgency",
+        "next_node_id": "ask_decision_timing"
+    },
+    {
+        "id": "ask_decision_timing",
+        "type": "QUESTION",
+        "text": "Got it. And roughly when do you anticipate making a decision on the rental?",
+        "variable": "decision_timing",
+        "next_node_id": "check_quote_readiness" // Transition to check before API call
+    },
+
+    // --- Quote API Call Section (Common Path) ---
+    {
+      "id": "check_quote_readiness", // Check if ready for API call
+      "type": "LOGIC",
+      "branch": [
+        { // Check includes service area, consent, and key site details
+          // Note: Required fields might differ slightly for PAQ vs PBQ, adjust condition if needed
+          "condition": "{{is_in_service_area}} == true && {{service_address}} != null && {{site_ground_type}} != null && {{site_obstacles}} != null && {{contact_consent_given}} == true",
+          "next_node_id": "get_quote_webhook" // Proceed to webhook
+        },
+        { // Handle missing consent separately
+          "condition": "{{is_in_service_area}} == true && {{contact_consent_given}} != true",
+           "next_node_id": "cannot_quote_no_consent"
+        },
+        { // General case for missing info (already handled OOS)
+          "condition": "true",
+          "next_node_id": "cannot_quote_missing_info"
+        }
+      ]
+    },
+    { // Webhook call node
+      "id": "get_quote_webhook",
+      "type": "WEBHOOK",
+      "url": "https://api.example.com/quote", // Placeholder URL
+      "method": "POST",
+      "headers": { "Content-Type": "application/json" },
+      "body": { // Sending all collected data
+        "contact_name": "{{contact_name}}",
+        "company_name": "{{company_name}}",
+        "contact_email": "{{contact_email}}",
+        "phone": "{{phone}}",
+        "address": "{{service_address}}",
+        "address_type": "{{address_type}}",
+        "project_category": "{{project_category}}",
+        "product_type": "{{product_type_interest}}",
+        "units": "{{units_needed}}",
+        "ada": "{{ada_required}}",
+        "shower": "{{shower_required}}",
+        "handwashing": "{{handwashing_needed}}",
+        "additional_services": "{{additional_services_needed}}",
+        "start_date": "{{rental_start_date}}",
+        "end_date": "{{rental_end_date}}",
+        "attendance": "{{expected_attendance}}",
+        "ground_level": "{{site_ground_level}}",
+        "ground_type": "{{site_ground_type}}",
+        "obstacles": "{{site_obstacles}}",
+        "water_available": "{{water_available}}",
+        "water_distance": "{{water_source_distance}}",
+        "water_path_cross": "{{water_path_cross}}",
+        "power_available": "{{power_available}}",
+        "power_distance": "{{power_source_distance}}",
+        "power_path_cross": "{{power_path_cross}}",
+        "generator_needed": "{{generator_needed}}", // Include generator need if asked
+        "quote_urgency": "{{quote_urgency}}",
+        "decision_timing": "{{decision_timing}}"
+        // Add any other relevant collected variables:
+        // event_duration_days, event_total_hours, needs_extra_event_services,
+        // onsite_facilities_exist, onsite_contact_name, onsite_contact_phone,
+        // site_working_hours, weekend_service_needed, cleaning_service_needed
+      },
+      "settings": {
+          "timeout_ms": 4500,
+          "speech_while_waiting": "Okay, let me just pull up those quote details for you now..."
+      },
+      "output_variable": "quote_api_response", // Store API response
+      "branch": [
+          { // On success
+              "condition": "{{quote_api_response.status}} == 'success' && {{quote_api_response.data.quote_details}} != null",
+              "set_variables": {"quote_details": "{{quote_api_response.data.quote_details}}"},
+              "next_node_id": "convey_quote"
+          },
+          { // On failure or error
+              "condition": "true",
+              "next_node_id": "api_error"
+          }
+      ]
+    },
+
+    // --- Outcome Section (Handling Webhook Results) ---
+    {
+      "id": "convey_quote", // If API call succeeded
+      "type": "SPEAK",
+      "text": "Alright, the estimated quote based on those details is: {{quote_details}}. We'll also email this information along with more details to {{contact_email | default: 'your email address'}}. Would you find it helpful to schedule a brief follow-up call for tomorrow or the next day to go over the details together?",
+      "next_node_id": "capture_followup_preference"
+    },
+     {
+      "id": "cannot_quote_no_consent", // If consent was missing
+      "type": "SPEAK",
+      "text": "Okay, I understand. Since I don't have permission to send the quote details via email or phone, I can't proceed with generating the quote request right now. However, I've noted all the details we discussed for our team. Was there anything else I could help you with?",
+      "next_node_id": "ask_final_questions"
+    },
+    {
+      "id": "cannot_quote_missing_info", // If required info was missing before API check
+      "type": "SPEAK",
+      "text": "It looks like I'm missing some key site or project details needed to generate an accurate quote right now. I've saved everything we discussed for our team, and they will prepare a quote and email it to {{contact_email | default: 'your email address'}} shortly. Was there anything else I could help you with?",
+      "next_node_id": "ask_final_questions"
+    },
+    {
+      "id": "api_error", // If API call failed
+      "type": "SPEAK",
+      "text": "Hmm, I encountered an issue trying to retrieve the quote details just now. Not to worry, I've saved your information, and our team will prepare and email the detailed quote information to {{contact_email | default: 'your email address'}}. Would you still like to schedule a brief follow-up call for tomorrow or the next day just to ensure you get the information and discuss it?",
+      "next_node_id": "capture_followup_preference"
+    },
+
+    // --- Follow-up and Closing Logic ---
+    {
+        "id": "capture_followup_preference",
+        "type": "LISTEN",
+        "variable": "followup_preference_temp",
+         "branch": [
+            {"condition": "agreed_to_followup", "pre_actions": [{"type": "SET_VARIABLE", "name": "follow_up_call_scheduled", "value": true}], "next_node_id": "handle_followup_scheduling"},
+            {"condition": "true", "next_node_id": "ask_final_questions"}
+        ]
+    },
+     {
+        "id": "handle_followup_scheduling",
+        "type": "SPEAK",
+        "text": "Okay, great! I've made a note for our team to reach out and schedule that follow-up call with you for tomorrow or the next day.",
+        "next_node_id": "ask_final_questions"
+    },
+    {
+        "id": "ask_final_questions",
+        "type": "QUESTION",
+        "text": "Before we wrap up, do you have any other questions for me right now about our services or the process?",
+        "next_node_id": "capture_final_questions"
+    },
+    {
+        "id": "capture_final_questions",
+        "type": "LISTEN",
+        "next_node_id": "final_closing_logic"
+    },
+     {
+        "id": "final_closing_logic",
+        "type": "LOGIC",
+         "branch": [
+            {"condition": "{{follow_up_call_scheduled}} == true", "next_node_id": "closing_with_followup"},
+            {"condition": "true", "next_node_id": "closing_without_followup"}
+        ]
+    },
+    {
+      "id": "closing_with_followup",
+      "type": "SPEAK",
+      "text": "Okay then! Thank you again for your time, {{contact_name | default: 'there'}}. Our team will be in touch soon to schedule that follow-up and send over the quote details to {{contact_email | default: 'your email'}}. Have a great day! Goodbye."
+    },
+     {
+      "id": "closing_without_followup",
+      "type": "SPEAK",
+      "text": "Alright. Thank you very much for providing those details, {{contact_name | default: 'there'}}. We'll get that quote emailed over to {{contact_email | default: 'your email'}} shortly. Have a wonderful day! Goodbye."
+    },
+    {
+      "id": "end_call_speak", // Fallback end for OOS cases
+      "type": "SPEAK",
+      "text": "Okay, thank you for your time! Have a great day. Goodbye."
+    }
+  ]
+}
