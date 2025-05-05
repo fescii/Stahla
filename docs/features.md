@@ -39,8 +39,35 @@ This document highlights the main features of the Stahla AI SDR application, bas
 *   **Health Checks:** Provides `/health` and `/ping` endpoints.
 *   **Logging:** Integrates with Logfire for observability.
 
+## 7. Real-time Pricing Agent (Integrated)
+
+*   **Quote Webhook (`/api/v1/webhook/pricing/quote`):**
+    *   Provides real-time price quotes based on trailer type, duration, usage, extras, and delivery location.
+    *   Uses cached pricing data synced from Google Sheets.
+    *   Calculates delivery cost based on distance to the nearest branch (dynamically loaded) and configured rates/tiers.
+    *   Secured via API Key.
+*   **Location Lookup Webhook (`/api/v1/webhook/pricing/location_lookup`):**
+    *   Triggers asynchronous calculation and caching of the distance between a delivery location and the nearest branch using Google Maps.
+    *   Designed to be called early to optimize quote generation latency.
+    *   Secured via API Key.
+*   **Dynamic Configuration:**
+    *   Pricing rules, delivery configuration, seasonal multipliers, and branch locations are synced dynamically from Google Sheets and cached in Redis.
+
+## 8. Operational Dashboard API (Backend)
+
+*   **Monitoring Endpoints (`/api/v1/dashboard/overview`, etc.):**
+    *   Provides API endpoints to retrieve status information about quote requests, location lookups, cache performance (size, key counts), external service status (sync timestamp, Maps API counts), aggregated error summaries, and recent request logs.
+    *   Data is sourced from Redis counters and logs populated asynchronously by background tasks.
+*   **Management Endpoints (`/api/v1/dashboard/sync/trigger`, `/api/v1/dashboard/cache/...`):**
+    *   Provides API endpoints to manually trigger Google Sheet synchronization.
+    *   Allows searching, viewing, and clearing specific cache keys (pricing catalog, individual maps results, maps results by pattern).
+*   **Authentication:** Includes placeholder authentication for dashboard access.
+
 ## Non-Goals (for v1)
 
 *   Automated price quoting.
 *   Full analytics dashboard (relies on HubSpot reporting).
 *   SMS intake channel.
+*   Fully implemented frontend for the Operational Dashboard.
+*   Advanced metrics requiring external monitoring systems (e.g., P95 latency, historical trends, cache hit/miss ratios).
+*   Automated alerting based on dashboard metrics.

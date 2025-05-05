@@ -1,44 +1,55 @@
 # Project Progress & TODOs (Aligned with AI SDR PRD v1)
 
-## Current Status (as of April 16, 2025)
+## Current Status (as of May 5, 2025)
 
-The project provides a FastAPI backend implementing the core logic for the Stahla AI SDR v1, as defined in the PRD. Key components are functional:
+The project provides a FastAPI backend implementing the core logic for the Stahla AI SDR v1, including the integrated Pricing Agent and a backend API structure for an operational dashboard.
 
-*   **API Endpoints:** Core endpoints under `/api/v1/` handle health checks, lead classification, and webhooks for form, email, and Bland.ai voice interactions.
-*   **Lead Intake:** Webhooks receive data from forms, emails, and Bland.ai transcripts.
-*   **Classification:** The engine (`app/services/classify/`) processes leads using configurable rule-based or AI (Marvin) logic to categorize them (Services, Logistics, Leads, Disqualify).
-*   **HubSpot Integration:** The service (`app/services/hubspot.py`) creates/updates contacts and deals, including initial logic for pipeline and owner assignment based on classification.
-*   **Bland.ai Integration:** The service (`app/services/bland.py`) initiates callbacks for incomplete forms and processes incoming call transcripts/summaries.
-*   **Email Processing:** The service (`app/services/email.py`) parses emails, checks completeness, sends auto-replies for missing info, and triggers handoff notifications.
-*   **Configuration:** Settings managed via `.env` and `app/core/config.py`.
-*   **Models:** Pydantic models (`app/models/`) define data structures.
+*   **API Endpoints:** Core endpoints handle health checks, lead classification, webhooks (form, email, voice), **real-time pricing (quote, location lookup)**, and **dashboard operations (overview, cache management, sync trigger)**.
+*   **Lead Intake & Classification:** Functionality remains as previously described.
+*   **HubSpot Integration:** Functionality remains as previously described.
+*   **Bland.ai Integration:** Functionality remains as previously described.
+*   **Email Processing:** Functionality remains as previously described.
+*   **Pricing Agent:**
+    *   Services implemented for quoting (`quote.py`), location lookups (`location.py`), Redis caching (`redis.py`), and Google Sheet synchronization (`sync.py`).
+    *   Pricing logic uses data parsed from sheets (products, generators, config) and cached in Redis.
+    *   Branch locations are dynamically loaded from sheets via Redis.
+    *   Delivery cost calculation includes basic tiering and seasonal multiplier logic (requires configuration in sheet).
+    *   Endpoints `/pricing/quote` and `/pricing/location_lookup` are functional with API key security.
+*   **Dashboard Backend:**
+    *   API endpoints (`/dashboard/...`) provide access to monitoring data and management functions.
+    *   Service layer (`dash/dashboard.py`) fetches data from Redis (counters, logs) and interacts with other services (Redis, Sync).
+    *   Background tasks (`dash/background.py`) handle asynchronous logging of requests, errors, and metric increments to Redis.
+*   **Configuration:** Settings include API keys, Google Sheet IDs/Ranges, Redis URL, etc.
+*   **Models:** Pydantic models define data structures for all components.
 
 ## TODOs / Future Work (Based on PRD & Current Implementation)
 
+*   **Pricing Agent (`app/services/quote/`):**
+    *   **Critical:** Verify and refine pricing calculation logic (`quote.py`) to exactly match all nuances of Appendix A & B and business rules (e.g., specific event tier selection logic, detailed prorating rules).
+    *   **Critical:** Define and implement the exact structure and source for Delivery Pricing rules (free miles, per-mile rate, base fee) within the Google Sheet `Config` tab and ensure `sync.py` parses it correctly.
+    *   Implement parsing for all seasonal multiplier tiers (Premium Plus, Platinum) in `sync.py`.
+*   **Dashboard (`app/services/dash/`, `app/api/v1/endpoints/dash/`):**
+    *   Implement robust authentication/authorization for dashboard endpoints.
+    *   Implement tracking and display for metrics requiring external systems or more complex logic (P95 latency, cache hit/miss ratios, historical trends).
+    *   Refine error logging and aggregation for better insights.
+    *   Consider adding more granular monitoring data points as needed.
+    *   Develop the frontend UI for the dashboard.
 *   **HubSpot Service (`app/services/hubspot.py`):**
-    *   **Critical:** Implement dynamic fetching of HubSpot internal IDs for pipelines, stages, and owners to ensure reliable assignment and avoid hardcoding (aligns with PRD routing goal).
-    *   Implement writing call summary & recording URL to the designated HubSpot location (custom object or activity).
-    *   Refine round-robin owner assignment logic.
+    *   (Previous TODOs remain relevant: Dynamic IDs, call data persistence, owner assignment refinement).
 *   **HubSpot Endpoints (`app/api/v1/endpoints/hubspot.py`):**
-    *   Replace placeholder logic with actual calls to the `HubSpotManager` service.
-    *   Define specific Pydantic models for direct contact/deal creation/update request bodies if these endpoints are kept.
-    *   Implement robust error handling for all HubSpot API interactions.
+    *   (Previous TODOs remain relevant).
 *   **Bland.ai Integration (`app/services/bland.py`):**
-    *   Ensure dynamic questioning logic is robust and correctly handles various scenarios to meet the ≥95% data completeness goal.
-    *   Verify callback initiation happens within the target timeframe (<1 min).
+    *   (Previous TODOs remain relevant).
 *   **Email Processing (`app/services/email.py`):**
-    *   Refine LLM parsing prompts and logic for accuracy.
-    *   Ensure auto-reply mechanism correctly identifies and requests *only* the missing fields.
+    *   (Previous TODOs remain relevant).
 *   **Handoff Notifications (`app/services/email.py`):**
-    *   Finalize content and formatting of notification emails, ensuring inclusion of TL;DR, checklist, and links per PRD.
+    *   (Previous TODOs remain relevant).
 *   **General:**
-    *   **Testing:** Expand unit and integration tests significantly to cover key flows and edge cases.
-    *   **Observability:** Refine Logfire logging for better monitoring of key performance indicators (response times, classification accuracy, HubSpot success rates).
-    *   **Error Handling:** Enhance error handling and reporting across all services.
-    *   **Security:** Conduct security review.
-    *   **Documentation:** Add detailed inline code comments.
+    *   **Middleware:** Refine `LoggingMiddleware` dependency injection (e.g., using `app.state`).
+    *   **Testing:** Add tests specifically for Pricing Agent logic and Dashboard API functionality.
+    *   (Previous TODOs remain relevant: Observability, Error Handling, Security, Documentation).
 
 ## Future Considerations (Post-v1, per PRD)
 
 *   SMS intake channel (Twilio integration).
-*   Automated price quoting.
+*   (Pricing Agent is now part of v1 scope).

@@ -5,9 +5,10 @@ import logfire  # Added logfire import
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 from functools import lru_cache
-from typing import Optional, Literal, Any  # Added Any
+from typing import Optional, Literal, Any, List, Dict, Union  # Added Any, List, Dict, Union
+import json
 # Import specific types from pydantic, NOT BaseSettings
-from pydantic import EmailStr, HttpUrl, AnyHttpUrl, Field, validator
+from pydantic import EmailStr, HttpUrl, AnyHttpUrl, Field, validator, ValidationInfo
 
 
 class Settings(BaseSettings):
@@ -27,6 +28,7 @@ class Settings(BaseSettings):
 
   # HubSpot Configuration
   HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE"  # Default is just a placeholder
+  HUBSPOT_CLIENT_SECRET: Optional[str] = None
   HUBSPOT_PORTAL_ID: Optional[str] = None  # Ensure this is defined
   # HubSpot Pipeline/Stage IDs (Replace with your actual IDs)
   HUBSPOT_LEADS_PIPELINE_ID: str = "default" # Example: Default pipeline ID
@@ -110,6 +112,24 @@ class Settings(BaseSettings):
   LOCAL_DISTANCE_THRESHOLD_MILES: int = Field(
       # Default 180 miles (approx 3 hours)
       180, validation_alias="LOCAL_DISTANCE_THRESHOLD_MILES")
+
+  # Redis Configuration
+  REDIS_URL: str = "redis://localhost:6379/0"
+
+  # Google Maps Configuration
+  GOOGLE_MAPS_API_KEY: str = "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+
+  # Pricing Agent Configuration
+  PRICING_WEBHOOK_API_KEY: str = "YOUR_PRICING_WEBHOOK_API_KEY_HERE"
+  GOOGLE_SHEET_ID: str = "YOUR_GOOGLE_SHEET_ID_HERE"
+  GOOGLE_SHEET_PRODUCTS_TAB_NAME: str = "products"
+  GOOGLE_SHEET_GENERATORS_TAB_NAME: str = "generators"
+  # Add setting for branches range, default assumes 'Locations' tab
+  GOOGLE_SHEET_BRANCHES_RANGE: str = "Locations!A2:B"
+  # Add setting for config range
+  GOOGLE_SHEET_CONFIG_RANGE: str = "Config!A1:B10"
+  # Optional: Path to Google Service Account credentials
+  GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 
   class Config:
     # Specifies the prefix for environment variables (optional)

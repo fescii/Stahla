@@ -16,8 +16,13 @@ from app.api.v1.api import api_router_v1
 from app.services.bland import bland_manager, sync_bland_pathway_on_startup
 from app.services.hubspot import HubSpotManager
 from app.services.email import EmailManager
+from app.services.redis.redis import RedisService, get_redis_service # Update import path
+from app.services.quote.sync import lifespan_startup as sheet_sync_startup # Update import path
+from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown # Update import path
+from app.services.n8n import close_n8n_client # Import the close function
 import logfire
 from dotenv import load_dotenv # Make sure python-dotenv is in requirements.txt
+from app.core.middleware import LoggingMiddleware # Import the middleware
 
 # --- Logfire Configuration ---
 # Load environment variables (especially for LOGFIRE_TOKEN if set)
@@ -48,6 +53,18 @@ async def lifespan(app: FastAPI):
     app.state.hubspot_manager = HubSpotManager(api_key=settings.HUBSPOT_API_KEY)
     app.state.email_manager = EmailManager()
 
+    # Initialize Redis pool
+    try:
+        await RedisService.get_pool()
+        logfire.info("Redis connection pool initialized.")
+        # Initialize and start Sheet Sync Service
+        redis_service_instance = await get_redis_service() # Uses updated import
+        await sheet_sync_startup(redis_service_instance) # Uses updated import
+    except Exception as e:
+        logfire.exception("Error during startup initialization (Redis or Sheet Sync)", exc_info=e)
+        # Consider raising the exception if Redis/Sync is critical
+        # raise
+
     # Call the sync function during startup (Re-added)
     await sync_bland_pathway_on_startup()
 
@@ -58,6 +75,10 @@ async def lifespan(app: FastAPI):
     await app.state.bland_manager.close_client()
     await app.state.hubspot_manager.close_client()
     await app.state.email_manager.close_client()
+    await close_n8n_client() # Add call to close n8n client
+    await sheet_sync_shutdown() # Uses updated import
+    await RedisService.close_pool()
+    logfire.info("Redis connection pool closed.")
 
 # --- FastAPI Application Initialization ---
 app = FastAPI(
@@ -67,6 +88,14 @@ app = FastAPI(
     redoc_url="/redoc", # Default ReDoc
     lifespan=lifespan
 )
+
+# --- Add Middleware --- 
+# IMPORTANT: Add middleware BEFORE routes are included
+app.add_middleware(LoggingMiddleware)
+# Add other middleware like CORS if needed AFTER logging middleware
+# from fastapi.middleware.cors import CORSMiddleware
+# app.add_middleware(CORSMiddleware, ...)
+# --- End Middleware --- 
 
 # Mount the API router
 app.include_router(api_router_v1, prefix=settings.API_V1_STR)
