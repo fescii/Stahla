@@ -157,7 +157,6 @@ class QuoteService:
 
             # Apply seasonal multiplier to the determined base cost
             cost = base_cost * rate_multiplier
-            description_suffix += season_desc
             logger.info(f"Applied seasonal multiplier {rate_multiplier}. Final cost: ${cost:.2f}")
 
         # Final check if cost calculation failed
@@ -187,6 +186,9 @@ class QuoteService:
         free_tier_miles = delivery_config.get('free_miles_threshold', 25) # Default to 25 if not in config
         per_mile_rate = delivery_config.get('per_mile_rate', 0)
         base_fee = delivery_config.get('base_fee', 0)
+
+        # Log the inputs before calculation
+        logger.info(f"Calculating delivery: Distance={distance_miles:.2f} mi, BaseFee=${base_fee:.2f}, PerMile=${per_mile_rate:.2f}, Multiplier={rate_multiplier:.2f}")
 
         if distance_miles <= free_tier_miles:
             cost = 0.0 # Free if within threshold
@@ -317,6 +319,8 @@ class QuoteService:
         distance_result = await self.location_service.get_distance_to_nearest_branch(request.delivery_location)
         if not distance_result:
             raise ValueError(f"Could not determine delivery distance for location: {request.delivery_location}")
+        # Log the obtained distance result
+        logger.info(f"Distance result obtained: Branch='{distance_result.nearest_branch.name}', Miles={distance_result.distance_miles:.2f}")
 
         # 3. Calculate Trailer Rental Cost - Pass start date and seasonal config
         seasonal_config = catalog.get("seasonal_multipliers", {})
@@ -343,11 +347,15 @@ class QuoteService:
         subtotal += trailer_cost
 
         # 4. Calculate Delivery Cost - Pass seasonal multiplier and description
+        # Determine seasonal multiplier and description AGAIN here, or pass from trailer calc
+        # Re-determining is safer if trailer calc might change it
+        rate_multiplier, season_desc = self._determine_seasonal_multiplier(request.rental_start_date, seasonal_config)
+        
         delivery_cost, delivery_tier = self._calculate_delivery_cost(
             distance_result, 
             catalog,
-            trailer_cost_result[0], # Pass multiplier determined for trailer
-            trailer_desc_suffix      # Pass season description determined for trailer
+            rate_multiplier, # Pass the correctly determined multiplier
+            season_desc      # Pass the correctly determined season description
         )
         if delivery_cost is not None and delivery_tier is not None:
             line_items.append(LineItem(

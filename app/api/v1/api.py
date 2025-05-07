@@ -9,8 +9,11 @@ from .endpoints.webhooks import form as webhooks_form
 from .endpoints.webhooks import hubspot as webhooks_hubspot
 from .endpoints.webhooks import voice as webhooks_voice
 from .endpoints.webhooks import pricing as webhooks_pricing
+from .endpoints.webhooks import bland as webhooks_bland
 # Import the new dashboard router
 from .endpoints.dash import dashboard as dashboard_router
+# Import auth router
+from .endpoints.auth import auth as auth_endpoints
 
 
 # Create the main router for API v1
@@ -28,9 +31,13 @@ webhook_router.include_router(webhooks_form.router) # Path defined in form.route
 webhook_router.include_router(webhooks_hubspot.router) # Path defined in hubspot.router
 webhook_router.include_router(webhooks_voice.router)   # Path defined in voice.router
 webhook_router.include_router(webhooks_pricing.router) # Paths /location_lookup and /quote are relative to this
+webhook_router.include_router(webhooks_bland.router, prefix="/bland") # Path defined in bland.router
 
 # Include the webhook_router under /webhook prefix
 api_router_v1.include_router(webhook_router, prefix="/webhook", tags=["Webhooks"])
 
 # Include the dashboard router
 api_router_v1.include_router(dashboard_router.router, prefix="/dashboard", tags=["Dashboard"])
+
+# Include auth router
+api_router_v1.include_router(auth_endpoints.router, prefix="/auth", tags=["Authentication"])

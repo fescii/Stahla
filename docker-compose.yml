@@ -16,6 +16,26 @@ services:
     # Command to run the FastAPI app using Uvicorn with reload
     # Use app.main:app as the target, matching the new structure
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      - mongo # Add dependency on mongo
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    environment:
+      # Use values from .env for initial root user setup
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-mongoadmin} # Provide defaults if not in .env
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secret}
+    volumes:
+      - mongo_data:/data/db # Persist data
+    # Optional: Add a healthcheck
+    # healthcheck:
+    #   test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+    #   interval: 10s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 40s
 
 # You can add other services like databases, Redis, etc. here if needed
 # Example for a PostgreSQL database:
@@ -31,5 +51,5 @@ services:
 #    ports:
 #      - "5432:5432"
 
-# volumes:
-#  postgres_data: # Define the volume for PostgreSQL data persistence
+volumes:
+  mongo_data: # Add mongo_data volume definition

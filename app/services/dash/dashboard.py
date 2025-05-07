@@ -1,12 +1,12 @@
 import logging
-from typing import Any, Dict, Optional, List
-from datetime import datetime
 import json # For previewing JSON values
+from typing import Any, Dict, Optional, List
 from collections import Counter # For error aggregation
 
 from fastapi import Depends
 
 from app.services.redis.redis import RedisService, get_redis_service
+from app.services.mongo.mongo import MongoService, get_mongo_service # Import Mongo
 from app.services.quote.sync import SheetSyncService, PRICING_CATALOG_CACHE_KEY, BRANCH_LIST_CACHE_KEY
 # Access the running SheetSyncService instance (use with caution)
 from app.services.quote.sync import _sheet_sync_service_instance
@@ -21,146 +21,114 @@ from app.models.quote import QuoteRequest, QuoteResponse
 
 # Import background task constants
 from app.services.dash.background import (
-    RECENT_REQUESTS_KEY, RECENT_ERRORS_KEY, MAX_LOG_ENTRIES,
-    TOTAL_QUOTE_REQUESTS_KEY, SUCCESS_QUOTE_REQUESTS_KEY, ERROR_QUOTE_REQUESTS_KEY,
+    TOTAL_QUOTE_REQUESTS_KEY,
+    SUCCESS_QUOTE_REQUESTS_KEY,
+    ERROR_QUOTE_REQUESTS_KEY,
     TOTAL_LOCATION_LOOKUPS_KEY,
-    GMAPS_API_CALLS_KEY, GMAPS_API_ERRORS_KEY # Add maps keys
+    GMAPS_API_CALLS_KEY,
+    GMAPS_API_ERRORS_KEY,
+    SHEET_SYNC_SUCCESS_KEY, # Add missing import
+    SHEET_SYNC_ERRORS_KEY   # Add missing import
 )
 
 logger = logging.getLogger(__name__)
 
+# Placeholder constants to resolve NameError - Review if these Redis keys/limits are still needed
+MAX_LOG_ENTRIES = 100 
+RECENT_REQUESTS_KEY = "dash:requests:recent" 
+
 class DashboardService:
     """Service layer for dashboard operations."""
 
-    def __init__(self, redis_service: RedisService):
-        self.redis_service = redis_service
+    def __init__(self, redis_service: RedisService, mongo_service: MongoService): # Add mongo_service
+        self.redis = redis_service
+        self.mongo = mongo_service # Store mongo_service
         self.sync_service: Optional[SheetSyncService] = _sheet_sync_service_instance
 
     # --- Monitoring Features ---
 
     async def get_dashboard_overview(self) -> DashboardOverview:
-        """Gathers data for the main dashboard overview from Redis."""
-        logger.info("Fetching dashboard overview data from Redis.")
+        """Gathers data for the main dashboard overview from Redis and MongoDB."""
+        logger.info("Fetching dashboard overview data from Redis and MongoDB.")
 
-        # Use pipeline for efficiency
-        async with self.redis_service.client.pipeline(transaction=False) as pipe:
-            # 1. Cache Stats
-            pipe.get(PRICING_CATALOG_CACHE_KEY)
-            pipe.get("sync:last_successful_timestamp") # Example key for last sync
-            pipe.scan(cursor=0, match="maps:distance:*", count=5000) # Scan for maps keys
+        overview_data = {}
 
-            # 2. Counters
-            pipe.get(TOTAL_QUOTE_REQUESTS_KEY)
-            pipe.get(SUCCESS_QUOTE_REQUESTS_KEY)
-            pipe.get(ERROR_QUOTE_REQUESTS_KEY)
-            pipe.get(TOTAL_LOCATION_LOOKUPS_KEY)
-            # Add Google Maps counters
-            pipe.get(GMAPS_API_CALLS_KEY)
-            pipe.get(GMAPS_API_ERRORS_KEY)
+        # --- Fetch Summary from MongoDB --- 
+        report_summary = await self.mongo.get_report_summary()
+        overview_data['report_summary'] = report_summary
+        logger.debug(f"MongoDB Report Summary: {report_summary}")
 
-            # 3. Logs
-            pipe.lrange(RECENT_ERRORS_KEY, 0, MAX_LOG_ENTRIES - 1)
-            pipe.lrange(RECENT_REQUESTS_KEY, 0, MAX_LOG_ENTRIES - 1)
+        # --- Fetch Counters from Redis (Optional - can be derived from Mongo summary too) ---
+        # Decide whether to keep Redis counters or rely solely on MongoDB aggregation.
+        # Keeping Redis counters can be faster for very high frequency increments.
+        # Relying on MongoDB simplifies logic but aggregation might be slower under extreme load.
+        # Example: Fetching from Redis
+        try:
+            keys_to_fetch = [
+                TOTAL_QUOTE_REQUESTS_KEY,
+                SUCCESS_QUOTE_REQUESTS_KEY,
+                ERROR_QUOTE_REQUESTS_KEY,
+                TOTAL_LOCATION_LOOKUPS_KEY,
+                GMAPS_API_CALLS_KEY,
+                GMAPS_API_ERRORS_KEY,
+                SHEET_SYNC_SUCCESS_KEY,
+                SHEET_SYNC_ERRORS_KEY
+            ]
+            results = await self.redis.mget(keys_to_fetch)
+            
+            # Process Redis results (handle None values)
+            redis_counters = {}
+            for key, value in zip(keys_to_fetch, results):
+                # Use short key names for the model
+                short_key = key.split(':')[-1] # e.g., 'total', 'success', 'error'
+                if key.startswith("dash:requests:quote:"):
+                    group = "quote_requests"
+                elif key.startswith("dash:requests:location:"):
+                    group = "location_lookups"
+                elif key.startswith("dash:gmaps:"):
+                    group = "gmaps_api"
+                elif key.startswith("dash:sync:sheets:"):
+                    group = "sheet_sync"
+                else:
+                    group = "other"
+                
+                if group not in redis_counters:
+                    redis_counters[group] = {}
+                redis_counters[group][short_key] = int(value) if value is not None else 0
 
-            # Execute pipeline
-            results = await pipe.execute()
+            overview_data['redis_counters'] = redis_counters
+            logger.debug(f"Redis Counters: {redis_counters}")
 
-        # --- Process Pipeline Results ---
-        # Be careful with indices matching the pipeline order
-        res_idx = 0
+        except Exception as e:
+            logger.error(f"Failed to fetch counters from Redis: {e}", exc_info=True)
+            overview_data['redis_counters'] = {} # Default to empty if Redis fails
 
-        # 1. Cache Stats
-        pricing_catalog_json = results[res_idx]; res_idx += 1
-        pricing_last_updated = results[res_idx]; res_idx += 1
-        maps_scan_cursor, maps_keys = results[res_idx]; res_idx += 1 # SCAN returns cursor and keys
-        # Note: SCAN might require multiple calls for large datasets, this is simplified
-        maps_cache_key_count = len(maps_keys)
-        pricing_cache_size_kb = len(pricing_catalog_json.encode('utf-8')) / 1024 if pricing_catalog_json else 0
+        # --- Fetch Recent Reports/Logs from MongoDB --- 
+        try:
+            # Fetch last 10 error reports of any type
+            recent_errors = await self.mongo.get_recent_reports(limit=10) # Fetch all types, rely on success=False implicitly if needed or adjust get_recent_reports
+            overview_data['recent_errors'] = recent_errors
+            logger.debug(f"Recent Errors (MongoDB): {len(recent_errors)} fetched")
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch recent reports from MongoDB: {e}", exc_info=True)
+            overview_data['recent_errors'] = []
 
-        cache_stats = CacheStats(
-            pricing_cache_last_updated=pricing_last_updated,
-            pricing_cache_size_kb=round(pricing_cache_size_kb, 2),
-            maps_cache_key_count=maps_cache_key_count
-        )
-
-        # 2. Counters
-        total_quotes_raw = results[res_idx]; res_idx += 1
-        success_quotes_raw = results[res_idx]; res_idx += 1
-        error_quotes_raw = results[res_idx]; res_idx += 1
-        total_lookups_raw = results[res_idx]; res_idx += 1
-        # Add Google Maps counters
-        gmaps_calls_raw = results[res_idx]; res_idx += 1
-        gmaps_errors_raw = results[res_idx]; res_idx += 1
-
-        def safe_int(val: Optional[str]) -> Optional[int]:
-            try: return int(val) if val is not None else 0 # Default to 0 if None
-            except (ValueError, TypeError): return 0 # Default to 0 on parse error
-
-        total_quotes = safe_int(total_quotes_raw)
-        success_quotes = safe_int(success_quotes_raw)
-        error_quotes = safe_int(error_quotes_raw)
-        total_lookups = safe_int(total_lookups_raw)
-        gmaps_calls = safe_int(gmaps_calls_raw)
-        gmaps_errors = safe_int(gmaps_errors_raw)
-
-        # 3. External Service Status
-        sync_running = False
-        if self.sync_service and self.sync_service._sync_task:
-            sync_running = not self.sync_service._sync_task.done()
-        sync_status = SyncStatus(
-            last_successful_sync_timestamp=pricing_last_updated,
-            is_sync_task_running=sync_running,
-        )
-        # Add Maps stats to external services
-        external_services = ExternalServiceStatus(
-            google_sheet_sync=sync_status,
-            google_maps_api_calls=gmaps_calls,
-            google_maps_api_errors=gmaps_errors
-        )
-
-        # 4. Error Summary (with Aggregation)
-        error_log_entries_raw = []
-        raw_errors = results[res_idx]; res_idx += 1
-        if raw_errors:
-             for err_json in raw_errors:
-                 try: error_log_entries_raw.append(ErrorLogEntry.model_validate_json(err_json))
-                 except Exception as e: logger.warning(f"Failed to parse error log entry from Redis: {e}")
-        
-        # Aggregate errors by type
-        error_summary_aggregated: List[ErrorLogEntry] = []
-        if error_log_entries_raw:
-            error_counts = Counter(err.error_type for err in error_log_entries_raw)
-            # Create aggregated entries using the most recent example of each type
-            processed_types = set()
-            for entry in sorted(error_log_entries_raw, key=lambda x: x.timestamp, reverse=True):
-                if entry.error_type not in processed_types:
-                    entry.count = error_counts[entry.error_type]
-                    error_summary_aggregated.append(entry)
-                    processed_types.add(entry.error_type)
-            # Sort aggregated summary by count descending
-            error_summary_aggregated.sort(key=lambda x: x.count, reverse=True)
-
-        # 5. Recent Requests
-        recent_request_entries = []
-        raw_requests = results[res_idx]; res_idx += 1
-        if raw_requests:
-             for req_json in raw_requests:
-                 try: recent_request_entries.append(RequestLogEntry.model_validate_json(req_json))
-                 except Exception as e: logger.warning(f"Failed to parse request log entry from Redis: {e}")
-
-        # --- Assemble Overview --- 
-        overview = DashboardOverview(
-            cache_stats=cache_stats,
-            external_services=external_services,
-            error_summary=error_summary_aggregated, # Use aggregated list
-            recent_requests=recent_request_entries,
-            quote_requests_total=total_quotes,
-            quote_requests_success=success_quotes,
-            quote_requests_error=error_quotes,
-            location_lookups_total=total_lookups,
-            quote_latency_p95_ms=None, # Requires dedicated tracking
-        )
-        return overview
+        # Construct the Pydantic model
+        # Adapt DashboardOverview model if necessary based on fetched data structure
+        try:
+            # Ensure all expected keys for DashboardOverview are present
+            overview_data.setdefault('report_summary', {})
+            overview_data.setdefault('redis_counters', {})
+            overview_data.setdefault('recent_errors', [])
+            
+            dashboard_model = DashboardOverview(**overview_data)
+            logger.info("Dashboard overview data fetched and validated.")
+            return dashboard_model
+        except Exception as e:
+            logger.error(f"Failed to create DashboardOverview model: {e}", exc_info=True)
+            # Return a default/empty model or raise an error
+            return DashboardOverview(report_summary={}, redis_counters={}, recent_errors=[])
 
     # --- Management Features ---
 
@@ -261,23 +229,23 @@ class DashboardService:
             logger.error("Cannot trigger manual sync: SheetSyncService instance not available.")
             return False
 
-    async def get_recent_requests(self, limit: int = MAX_LOG_ENTRIES) -> List[RequestLogEntry]:
-         """Retrieves the most recent request/response logs from Redis."""
-         logs = []
-         # Use client directly for simplicity or add lrange to RedisService
-         client = await self.redis_service.get_client()
-         raw_logs = await client.lrange(RECENT_REQUESTS_KEY, 0, limit - 1)
-         await client.aclose()
-         if raw_logs:
-             for log_json in raw_logs:
-                 try:
-                     logs.append(RequestLogEntry.model_validate_json(log_json))
-                 except Exception as e:
-                     logger.warning(f"Failed to parse request log entry from Redis: {e}")
-         return logs
+    # --- Cache Clearing Method (Example) ---
+    async def clear_cache_key(self, cache_key: str) -> bool:
+        """Clears a specific key in Redis."""
+        try:
+            deleted_count = await self.redis.delete(cache_key)
+            return deleted_count > 0
+        except Exception as e:
+            logger.error(f"Failed to clear Redis cache key '{cache_key}': {e}", exc_info=True)
+            return False
+
+    # Commenting out Redis-specific method - replace with MongoDB query if needed
+    # async def get_recent_requests(self, limit: int = MAX_LOG_ENTRIES) -> List[RequestLogEntry]:
+    #     ...
 
 # Dependency for FastAPI
 async def get_dashboard_service(
-    redis_service: RedisService = Depends(get_redis_service)
+    redis_service: RedisService = Depends(get_redis_service),
+    mongo_service: MongoService = Depends(get_mongo_service) # Add mongo dependency
 ) -> DashboardService:
-    return DashboardService(redis_service)
+    return DashboardService(redis_service, mongo_service)

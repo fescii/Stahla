@@ -486,14 +486,10 @@ class SheetSyncService:
                 logfire.error(f"Failed to log initial sync error to Redis: {log_e}")
 
     async def start_background_sync(self):
-        """Starts the background sync task if not already running. Initial sync is also non-blocking."""
+        """Starts the background sync task if not already running. Initial sync is handled separately."""
         if self._sync_task is None or self._sync_task.done():
-            logfire.info("SheetSyncService: Scheduling initial sync and starting background sync loop.")
-            
-            # Schedule the initial sync to run in the background immediately
-            asyncio.create_task(self._perform_initial_sync()) 
-            # Note: We don't await the initial sync here to prevent blocking startup.
-            # Errors from initial sync will be logged by _perform_initial_sync.
+            logfire.info("SheetSyncService: Starting background sync loop task.")
+            # Removed: Scheduling of initial sync from here. It's now handled in lifespan_startup.
 
             # Start the periodic background sync loop
             self._sync_task = asyncio.create_task(self._run_sync_loop())
@@ -518,17 +514,26 @@ class SheetSyncService:
 
 _sheet_sync_service_instance: Optional[SheetSyncService] = None
 
+async def _run_initial_sync_after_delay(service_instance: SheetSyncService, delay_seconds: int):
+    """Helper coroutine to wait and then run the initial sync."""
+    logfire.info(f"Initial sync scheduled to run after {delay_seconds} seconds.")
+    await asyncio.sleep(delay_seconds)
+    logfire.info("Delay finished, performing initial sync now.")
+    await service_instance._perform_initial_sync()
+
 async def lifespan_startup(redis_service: RedisService):
     global _sheet_sync_service_instance
     logfire.info("SYNC LIFESPAN: Attempting to start SheetSyncService...") # Added prominent log
     if _sheet_sync_service_instance is None:
         try:
             _sheet_sync_service_instance = SheetSyncService(redis_service)
-            # Await the initialization of the service itself
+            # Await the initialization of the service itself (non-blocking for I/O)
             await _sheet_sync_service_instance.initialize_service()
-            # Now start the background sync tasks (which run the first sync in the background)
+            # Start the background sync loop (doesn't run initial sync anymore)
             await _sheet_sync_service_instance.start_background_sync()
-            logfire.info("SYNC LIFESPAN: SheetSyncService initialized and background sync started.") # Updated log
+            # Schedule the initial sync to run after a delay in the background
+            asyncio.create_task(_run_initial_sync_after_delay(_sheet_sync_service_instance, 30))
+            logfire.info("SYNC LIFESPAN: SheetSyncService initialized, background loop started, initial sync scheduled with delay.") # Updated log
         except Exception as e:
             logfire.error(f"SYNC LIFESPAN: CRITICAL - Failed to initialize or start SheetSyncService: {e}", exc_info=True)
             # Depending on requirements, you might want to prevent app startup here

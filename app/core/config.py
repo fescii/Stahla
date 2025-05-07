@@ -131,6 +131,26 @@ class Settings(BaseSettings):
   # Optional: Path to Google Service Account credentials
   GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 
+  # MongoDB Configuration
+  MONGO_HOST: str = "localhost"
+  MONGO_PORT: int = 27017
+  MONGO_DB_NAME: str = "stahla_dashboard"
+  MONGO_INITDB_ROOT_USERNAME: Optional[str] = None # For initial setup if needed
+  MONGO_INITDB_ROOT_PASSWORD: Optional[str] = None # For initial setup if needed
+  MONGO_APP_USER: Optional[str] = None
+  MONGO_APP_PASSWORD: Optional[str] = None
+  MONGO_CONNECTION_URL: Optional[str] = None # Optional: Construct dynamically if needed
+
+  # Auth Settings
+  JWT_SECRET_KEY: str = "default_secret_key_please_change"
+  JWT_ALGORITHM: str = "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 # Default 1 hour
+  BCRYPT_SALT_ROUNDS: int = 10 # Default salt rounds for bcrypt
+
+  # Initial Superuser (Optional)
+  FIRST_SUPERUSER_EMAIL: Optional[str] = None
+  FIRST_SUPERUSER_PASSWORD: Optional[str] = None
+
   class Config:
     # Specifies the prefix for environment variables (optional)
     # env_prefix = ""
@@ -167,6 +187,10 @@ def get_settings() -> Settings:
 
 # Create an instance accessible throughout the application
 settings = get_settings()
+
+# Dynamically construct MONGO_CONNECTION_URL if not explicitly set and components are available
+if not settings.MONGO_CONNECTION_URL and settings.MONGO_APP_USER and settings.MONGO_APP_PASSWORD and settings.MONGO_HOST and settings.MONGO_PORT and settings.MONGO_DB_NAME:
+    settings.MONGO_CONNECTION_URL = f"mongodb://{settings.MONGO_APP_USER}:{settings.MONGO_APP_PASSWORD}@{settings.MONGO_HOST}:{settings.MONGO_PORT}/{settings.MONGO_DB_NAME}?authSource=admin"
 
 # Example usage:
 # from app.core.config import settings

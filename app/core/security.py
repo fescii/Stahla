@@ -2,11 +2,15 @@ import hmac
 import hashlib
 from typing import Optional
 
-from fastapi import Request, HTTPException, Security, status, Header
-from fastapi.security.api_key import APIKeyHeader
-from pydantic import BaseModel  # Import BaseModel for User model
+from fastapi import Request, HTTPException, Security, status, Header, Depends
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
+from jose import JWTError, jwt
+from pydantic import ValidationError, EmailStr
+import logfire
 
 from app.core.config import settings
+from app.models.user import TokenData, UserInDB # Import user models
+from app.services.auth.auth import AuthService, get_auth_service # Import auth service
 
 # --- API Key Security (Header: Authorization: Bearer <key>) ---
 
@@ -143,3 +147,51 @@ async def get_dashboard_user() -> User:
      return User(username="admin", is_admin=True)
 
 # --- End Placeholder ---
+
+# --- OAuth2 Password Bearer for JWT ---
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token") # Point to your token endpoint
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> UserInDB:
+    """Dependency to get the current user from JWT token."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(
+            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+        email: Optional[EmailStr] = payload.get("sub")
+        if email is None:
+            logfire.warning("JWT token missing 'sub' (email) claim.")
+            raise credentials_exception
+        token_data = TokenData(email=email, sub=email)
+    except JWTError as e:
+        logfire.warning(f"JWT Error decoding token: {e}")
+        raise credentials_exception
+    except ValidationError as e:
+        logfire.warning(f"JWT payload validation error: {e}")
+        raise credentials_exception
+        
+    user = await auth_service.get_user_by_email(email=token_data.email)
+    if user is None:
+        logfire.warning(f"User specified in JWT token not found: {token_data.email}")
+        raise credentials_exception
+    if not user.is_active:
+        logfire.warning(f"Attempt to use token for inactive user: {user.email}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+    return user
+
+async def get_current_active_admin(current_user: UserInDB = Depends(get_current_user)) -> UserInDB:
+    """Dependency to ensure the user is an active admin."""
+    if current_user.role != "admin":
+        logfire.warning(f"Admin access denied for user: {current_user.email} (Role: {current_user.role})")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    return current_user
+
+# Add other role checks if needed (e.g., get_current_active_dev)
