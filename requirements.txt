@@ -1,14 +1,14 @@
-# Stahla AI SDR API Requirements
-
 # FastAPI Framework and Server
 fastapi>=0.100.0
 uvicorn[standard]>=0.22.0
+
+# Pydantic for Data Validation and Settings
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
-email-validator>=2.0.0  # Required for EmailStr validation
+email-validator>=2.0.0  # Required for Pydantic EmailStr
 
-# HTTP and Async
-httpx>=0.24.0  # For async HTTP requests (HubSpot, BlandAI, etc.)
+# HTTP and Async Operations
+httpx>=0.24.0  # For async HTTP requests (Bland, HubSpot, n8n, etc.)
 
 # Environment and Configuration
 python-dotenv>=1.0.0  # For loading .env files
@@ -16,27 +16,34 @@ python-dotenv>=1.0.0  # For loading .env files
 # Logging
 logfire>=0.16.0  # For structured logging
 
-# AI and Classification
-marvin>=1.2.0  # For AI-based classification
+# AI and LLM (Marvin is optional based on LLM_PROVIDER)
+marvin>=1.2.0 # If using Marvin as LLM_PROVIDER
+# openai>=1.0.0 # If using OpenAI directly
+# anthropic>=0.20.0 # If using Anthropic directly
+# google-generativeai>=0.4.0 # If using Gemini directly
 
-# Date and Time handling
-python-dateutil>=2.8.2  # For date parsing and manipulation
+# Date and Time Handling
+python-dateutil>=2.8.2
 
-# System Monitoring
-psutil>=5.9.0  # For system metrics in health check endpoint
+# System Monitoring (for health check)
+psutil>=5.9.0
 
 # Markdown Rendering (for serving docs as HTML)
 markdown>=3.4.0
 pymdown-extensions>=9.0
 
-# Optional Dependencies
-# uncomment these as needed:
-geopy>=2.3.0  # For geographical calculations if needed for location utilities
-# html2text>=2020.1.16  # For better HTML to text conversion in email parsing
-# pandas>=2.0.0  # For data manipulation if needed
+# Redis Client (for caching and dashboard data)
+redis>=4.6.0
 
-# Development Dependencies (optional)
-# pytest>=7.3.1
-# black>=23.3.0
-# flake8>=6.0.0
-# mypy>=1.3.0
+# Google API Libraries
+google-api-python-client>=2.80.0  # For Google Sheets API
+google-auth-httplib2>=0.1.0       # For Google API authentication
+google-auth-oauthlib>=0.7.0        # For Google API authentication
+googlemaps>=4.10.0               # For Google Maps Distance Matrix API (Adjusted version)
+
+# Optional: Scheduler (if background tasks need more advanced scheduling)
+# fastapi-scheduler>=0.4.0 # Commented out due to version issue
+
+# Optional: For specific utilities if used more broadly
+geopy>=2.3.0
+pandas>=2.0.0

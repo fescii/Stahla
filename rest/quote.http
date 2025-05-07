@@ -1,0 +1,57 @@
+\
+### Request a Price Quote
+# This endpoint calculates and returns a price quote based on the provided details.
+
+# --- Variables ---
+@host = http://localhost:8000
+# Make sure to replace with your actual API key from .env
+@pricing_webhook_api_key = 7%FRtf@34hi
+@auth_token = Bearer {{pricing_webhook_api_key}}
+
+# --- Sample Request 1: Event, 2 Stall Trailer, Mountain View --- 
+POST {{host}}/api/v1/webhook/quote
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+  "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA 94043",
+  "trailer_type": "2 Stall Restroom Trailer", 
+  "rental_start_date": "2025-07-15",
+  "rental_days": 3,
+  "usage_type": "event",
+  "extras": [
+    {"extra_id": "3kW Generator", "qty": 1}
+  ]
+}
+
+### Sample Request 2: Commercial, 4 Stall Trailer, Cupertino, Longer Rental --- 
+POST {{host}}/api/v1/webhook/quote
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+  "delivery_location": "1 Infinite Loop, Cupertino, CA 95014",
+  "trailer_type": "4 Stall Restroom Trailer",
+  "rental_start_date": "2025-08-01",
+  "rental_days": 30,
+  "usage_type": "commercial",
+  "extras": [
+    {"extra_id": "pump_out", "qty": 2},
+    {"extra_id": "cleaning", "qty": 1}
+  ]
+}
+
+### Sample Request 3: Event, 8 Stall Trailer, Omaha (Near Branch), No Extras --- 
+POST {{host}}/api/v1/webhook/quote
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+  "delivery_location": "123 Main St, Omaha, NE 68102", 
+  "trailer_type": "8 Stall Restroom Trailer",
+  "rental_start_date": "2025-09-05",
+  "rental_days": 4,
+  "usage_type": "event",
+  "extras": []
+}
+

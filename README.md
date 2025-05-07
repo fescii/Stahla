@@ -1,13 +1,14 @@
 # Stahla AI SDR API
 
-This project implements a FastAPI backend designed to automate Sales Development Representative (SDR) tasks for Stahla, addressing inconsistencies and delays in handling inbound leads.
+This project implements a FastAPI backend designed to automate Sales Development Representative (SDR) tasks for Stahla, including **real-time price quoting** and providing an **operational dashboard backend**.
 
 ## Problem & Goal
 
-Manual handling of inbound calls, emails, and forms leads to missed context, slow responses, and inconsistent lead routing across Stahla Services, Logistics, and Leads. This erodes customer trust and results in lost revenue.
+Manual handling of inbound calls, emails, and forms leads to missed context, slow responses, inconsistent lead routing, **and delays in providing price quotes**. This erodes customer trust and results in lost revenue.
 
-The goal is to create a reliable, scalable AI-driven intake flow that captures complete information, classifies opportunities accurately, integrates seamlessly with HubSpot, and enables rapid human follow-up, aiming for:
-*   <15 sec median first response time.
+The goal is to create a reliable, scalable AI-driven intake and quoting flow that captures complete information, classifies opportunities accurately, integrates seamlessly with HubSpot, **generates quotes rapidly (<500ms P95)**, enables quick human follow-up, and provides operational visibility.
+*   <15 sec median first response time (SDR interaction).
+*   **<500ms P95 quote generation latency (`/webhook/pricing/quote`).**
 *   ≥95% data-field completeness in HubSpot.
 *   ≥90% routing accuracy.
 *   +20% increase in qualified-lead-to-quote conversion.
@@ -16,9 +17,11 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 
 1.  **AI Intake Agent:** Uses voice (Bland.ai), email parsing, and web form follow-ups to greet prospects, ask dynamic questions, and populate HubSpot.
 2.  **Classification & Routing:** Determines the appropriate business unit (Services, Logistics, Leads, or Disqualify) based on lead data and assigns the deal in HubSpot.
-3.  **Human Handoff:** Provides reps with summaries and context for quick quoting or disqualification.
-4.  **Extensible Framework:** Built for future agent additions (pricing, vendor sourcing, etc.).
-5.  **Integration Layer:** Uses n8n for managing specific webhook workflows (e.g., lead processing trigger).
+3.  **Real-time Pricing Agent (Integrated):** Provides instant price quotes via a secure webhook, using dynamically synced pricing rules from Google Sheets and cached Google Maps distance calculations.
+4.  **Human Handoff:** Provides reps with summaries, context, and **quotes** for quick follow-up or disqualification.
+5.  **Operational Dashboard Backend:** Exposes API endpoints for monitoring system status, cache performance, sync status, errors, recent requests, and limited cache/sync management.
+6.  **Extensible Framework:** Built for future agent additions.
+7.  **Integration Layer:** Uses n8n for managing specific webhook workflows (e.g., lead processing trigger).
 
 ## Key Technologies
 
@@ -28,19 +31,30 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 *   **Language Model (Optional):** Marvin AI (or others like OpenAI, Anthropic, Gemini)
 *   **Workflow Automation:** n8n
 *   **Data Validation:** Pydantic
+*   **Caching:** Redis
+*   **Geo-Services:** Google Maps Distance Matrix API
+*   **Data Source (Pricing):** Google Sheets API
 *   **Logging:** Logfire
 *   **Containerization:** Docker, Docker Compose
-*   **Language:** Python 3.13+
+*   **Language:** Python 3.11+
 
-## Core Features (v1)
+## Core Features (v1 + Pricing)
 
 *   **Voice AI Intake Agent (Bland.ai):** Answers inbound calls and initiates callbacks for incomplete web forms within 1 minute.
 *   **Web Form & Email Intake:** Processes submissions/emails via webhooks, using dynamic questioning and LLM parsing for emails.
 *   **Automated Follow-up:** Initiates Bland.ai calls for missing web form data and sends auto-reply emails for incomplete email leads.
-*   **HubSpot Data Enrichment:** Creates/updates Contacts & Deals with high completeness (lead type, product, duration, location, stalls, budget). Writes call summaries/recordings to HubSpot.
-*   **Classification & Routing Engine:** Classifies leads (Services/Logistics/Leads/Disqualify) using rules or AI (Marvin) and routes deals to the correct HubSpot pipeline with round-robin owner assignment.
+*   **HubSpot Data Enrichment:** Creates/updates Contacts & Deals with high completeness. Writes call summaries/recordings to HubSpot.
+*   **Classification & Routing Engine:** Classifies leads (Services/Logistics/Leads/Disqualify) and routes deals to the correct HubSpot pipeline with round-robin owner assignment.
+*   **Real-time Pricing Agent:**
+    *   `/webhook/pricing/quote` endpoint for instant quote generation (secured by API Key).
+    *   `/webhook/pricing/location_lookup` endpoint for asynchronous distance calculation/caching.
+    *   Dynamic sync of pricing rules, config, and branches from Google Sheets to Redis cache.
+    *   Calculates quotes based on trailer type, duration, usage, extras, delivery distance (nearest branch), and seasonal multipliers.
+*   **Operational Dashboard Backend API:**
+    *   Endpoints (`/dashboard/...`) for monitoring status (requests, errors, cache, sync) and recent activity.
+    *   Endpoints for managing cache (view/clear specific keys, clear pricing/maps cache) and triggering manual sheet sync.
 *   **Human-in-the-Loop Handoff:** Sends email notifications to reps with summaries, checklists, and action links.
-*   **Configuration & Monitoring:** Via `.env`, Pydantic settings, and health check endpoints.
+*   **Configuration & Monitoring:** Via `.env`, Pydantic settings, health check endpoints, and background logging to Redis for dashboard.
 *   **Logging:** Structured logging via Logfire.
 *   **Workflow Integration:** Connects with n8n for specific automation tasks.
 
@@ -50,62 +64,84 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 
 ```
 .
-├── app/                  # Main application code
-│   ├── api/              # API endpoint definitions (FastAPI routers)
-│   │   └── v1/           # API version 1
-│   │       ├── api.py    # Aggregates v1 routers
-│   │       └── endpoints/ # Specific endpoint logic
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       ├── api.py
+│   │       └── endpoints/
 │   │           ├── classify.py
 │   │           ├── health.py
 │   │           ├── hubspot.py
-│   │           ├── prepare.py
-│   │           └── webhooks/ # Webhook endpoints
+│   │           ├── documentation.py # Added
+│   │           ├── dash/         # Added
+│   │           │   └── dashboard.py
+│   │           └── webhooks/
 │   │               ├── form.py
 │   │               ├── helpers.py
 │   │               ├── hubspot.py
-│   │               └── voice.py
-│   ├── assets/           # Static assets (e.g., call scripts)
-│   ├── core/             # Configuration loading (settings)
-│   ├── models/           # Pydantic data models (requests, responses, internal)
+│   │               ├── voice.py
+│   │               └── pricing.py  # Added
+│   ├── assets/
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── middleware.py # Added
+│   │   └── security.py   # Added (if exists)
+│   ├── models/
 │   │   ├── bland.py
 │   │   ├── classification.py
 │   │   ├── common.py
 │   │   ├── email.py
 │   │   ├── hubspot.py
-│   │   └── webhook.py
-│   ├── services/         # Business logic services
-│   │   ├── classify/     # Classification engine (rules, AI)
+│   │   ├── webhook.py
+│   │   ├── location.py   # Added
+│   │   ├── quote.py      # Added (renamed from pricing.py)
+│   │   └── dash/         # Added
+│   │       └── dashboard.py
+│   ├── services/
+│   │   ├── classify/
 │   │   │   ├── classification.py
 │   │   │   ├── marvin.py
 │   │   │   └── rules.py
-│   │   ├── bland.py      # Bland.ai interaction service
-│   │   ├── email.py      # Email processing/sending service
-│   │   ├── hubspot.py    # HubSpot interaction service
-│   │   └── n8n.py        # n8n interaction service
-│   ├── utils/            # Utility functions (e.g., location)
+│   │   ├── bland.py
+│   │   ├── email.py
+│   │   ├── hubspot.py
+│   │   ├── n8n.py
+│   │   ├── location/     # Added
+│   │   │   └── location.py # Renamed
+│   │   ├── quote/        # Added
+│   │   │   ├── quote.py    # Renamed
+│   │   │   └── sync.py     # Renamed
+│   │   ├── redis/        # Added
+│   │   │   └── redis.py    # Renamed
+│   │   └── dash/         # Added
+│   │       ├── background.py
+│   │       └── dashboard.py
+│   ├── utils/
 │   │   ├── location.py
-│   │   └── location_enhanced.py
+│   │   └── enhanced.py   # Renamed
 │   ├── __init__.py
-│   └── main.py           # FastAPI application entry point
-├── docs/                 # Project documentation
-│   ├── api_usage.md
-│   ├── features.md
-│   ├── progress.md
-│   └── status.md
-├── info/                 # Informational files (e.g., data mappings)
+│   └── main.py
+├── docs/
+│   ├── api.md          # Updated
+│   ├── features.md     # Updated
+│   ├── progress.md     # Updated
+│   └── status.md       # Updated
+├── info/
+│   ├── 01 Pricing Agent Analysis & Implementation Proposal.md # Added
+│   ├── combined_sheet.csv # Added
 │   ├── hubspot.md
 │   ├── properties.csv
 │   └── services.csv
-├── rest/                 # Example REST client requests (e.g., .http files)
+├── rest/
 │   └── form.http
-├── tests/                # Unit/Integration tests (currently placeholder)
-├── .env                  # Local environment variables (DO NOT COMMIT)
-├── .env.example          # Example environment variables
+├── tests/ # (Placeholder)
+├── .env
+├── .env.example      # Updated
 ├── .gitignore
-├── requirements.txt      # Python dependencies
-├── Dockerfile            # Docker image definition
-├── docker-compose.yml    # Docker Compose configuration
-└── README.md             # This file
+├── requirements.txt  # Updated
+├── Dockerfile
+├── docker-compose.yml
+└── README.md         # This file
 ```
 
 ## Setup & Running
@@ -113,10 +149,13 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
 1.  **Clone the repository.**
 2.  **Create and configure `.env`:**
     *   Copy `.env.example` to `.env`.
-    *   Fill in your API keys for `HUBSPOT_API_KEY`, `BLAND_API_KEY`, `LOGFIRE_TOKEN`, and your chosen `LLM_PROVIDER`'s key (e.g., `MARVIN_API_KEY`).
-    *   Configure `APP_BASE_URL` to the publicly accessible URL where this API will run (needed for webhooks).
-    *   If using n8n (`N8N_ENABLED=true`), configure `N8N_WEBHOOK_URL` and `N8N_API_KEY`.
-    *   Adjust other settings like `EMAIL_SENDING_ENABLED` and SMTP details if needed.
+    *   Fill in API keys: `HUBSPOT_API_KEY`, `BLAND_API_KEY`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`, `PRICING_WEBHOOK_API_KEY`, and your chosen `LLM_PROVIDER`'s key.
+    *   Configure `GOOGLE_SHEET_ID` and the `GOOGLE_SHEET_*_RANGE` variables for products, generators, branches, and config tabs/ranges.
+    *   Set up `GOOGLE_APPLICATION_CREDENTIALS` if using Google Service Account auth.
+    *   Configure `REDIS_URL`.
+    *   Configure `APP_BASE_URL`.
+    *   Configure n8n settings if `N8N_ENABLED=true`.
+    *   Adjust other settings as needed.
 3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
@@ -125,25 +164,24 @@ The goal is to create a reliable, scalable AI-driven intake flow that captures c
     ```bash
     uvicorn app.main:app --reload --port 8000
     ```
-    *(The API will be available at `http://localhost:8000`)*
 5.  **Run using Docker Compose:**
     ```bash
     docker-compose up --build
     ```
-    *(The API will be available at `http://localhost:8000` by default)*
 
 ## API Documentation
 
 Once the application is running:
 
-*   Interactive API documentation (Swagger UI) is available at `/docs` (e.g., `http://localhost:8000/docs`).
-*   Alternative API documentation (ReDoc) is available at `/redoc` (e.g., `http://localhost:8000/redoc`).
-*   Project documentation files (from the `/docs` directory, e.g., `features.md`) are served as HTML pages under `/api/v1/docs/` (e.g., `http://localhost:8000/api/v1/docs/features` or `http://localhost:8000/api/v1/docs/features.md`).
-
-See `docs/api_usage.md` (also available rendered as HTML at `/api/v1/docs/api_usage.md` when running) for a summary of endpoints.
+*   Interactive API documentation (Swagger UI) is available at `/docs`.
+*   Alternative API documentation (ReDoc) is available at `/redoc`.
+*   Project documentation files (from `/docs`, e.g., `features.md`) are served as HTML at `/api/v1/docs/{filename}`.
+*   Detailed endpoint specifications are in `docs/api.md`.
 
 ## Future Considerations (Post-v1)
 
 *   SMS intake channel (e.g., via Twilio).
-*   Automated price quoting.
-*   Dedicated Integration & Orchestration Layer (e.g., self-hosted n8n on fly.io) to manage webhooks, retries, and potentially allow non-developers to adjust workflows.
+*   Frontend UI for the Operational Dashboard.
+*   Integration with external monitoring/alerting systems for advanced metrics (latency P95, cache hit ratios, historical trends) and alerts.
+*   Refinement of HubSpot dynamic ID fetching and call data persistence.
+*   Dedicated Integration & Orchestration Layer (e.g., self-hosted n8n).

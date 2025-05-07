@@ -72,3 +72,7 @@ prod_config.py
 # Local development configuration
 dev_config.py
 local_settings.py
+.venv/
+
+# gcp.json
+gcp.json

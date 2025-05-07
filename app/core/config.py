@@ -59,9 +59,9 @@ class Settings(BaseSettings):
 
   # Logfire Configuration
   LOGFIRE_TOKEN: Optional[str] = Field(None, validation_alias="LOGFIRE_TOKEN")
-  # Change type to int and default to 0
-  LOGFIRE_IGNORE_NO_CONFIG: int = Field(
-      0, validation_alias="LOGFIRE_IGNORE_NO_CONFIG")
+  # Change type to bool and default to False
+  LOGFIRE_IGNORE_NO_CONFIG: bool = Field(
+      False, validation_alias="LOGFIRE_IGNORE_NO_CONFIG")
 
   # LLM Configuration
   # Select your provider
