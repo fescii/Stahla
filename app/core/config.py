@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 from functools import lru_cache
 from typing import Optional, Literal, Any, List, Dict, Union  # Added Any, List, Dict, Union
+from urllib.parse import quote_plus # Import quote_plus
 import json
 # Import specific types from pydantic, NOT BaseSettings
 from pydantic import EmailStr, HttpUrl, AnyHttpUrl, Field, validator, ValidationInfo
@@ -131,14 +132,14 @@ class Settings(BaseSettings):
   # Optional: Path to Google Service Account credentials
   GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 
-  # MongoDB Configuration
+  # MongoDB Configuration (Updated Variable Names)
   MONGO_HOST: str = "localhost"
   MONGO_PORT: int = 27017
-  MONGO_DB_NAME: str = "stahla_dashboard"
-  MONGO_INITDB_ROOT_USERNAME: Optional[str] = None # For initial setup if needed
-  MONGO_INITDB_ROOT_PASSWORD: Optional[str] = None # For initial setup if needed
-  MONGO_APP_USER: Optional[str] = None
-  MONGO_APP_PASSWORD: Optional[str] = None
+  MONGO_DB_NAME: str = "stahla_dashboard" # Keep config default, .env overrides
+  MONGO_ROOT_USER: Optional[str] = None # Renamed from MONGO_INITDB_ROOT_USERNAME
+  MONGO_ROOT_PASSWORD: Optional[str] = None # Renamed from MONGO_INITDB_ROOT_PASSWORD
+  MONGO_USER: Optional[str] = None # Renamed from MONGO_APP_USER
+  MONGO_PASSWORD: Optional[str] = None # Renamed from MONGO_APP_PASSWORD
   MONGO_CONNECTION_URL: Optional[str] = None # Optional: Construct dynamically if needed
 
   # Auth Settings
@@ -189,9 +190,10 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 # Dynamically construct MONGO_CONNECTION_URL if not explicitly set and components are available
-if not settings.MONGO_CONNECTION_URL and settings.MONGO_APP_USER and settings.MONGO_APP_PASSWORD and settings.MONGO_HOST and settings.MONGO_PORT and settings.MONGO_DB_NAME:
-    settings.MONGO_CONNECTION_URL = f"mongodb://{settings.MONGO_APP_USER}:{settings.MONGO_APP_PASSWORD}@{settings.MONGO_HOST}:{settings.MONGO_PORT}/{settings.MONGO_DB_NAME}?authSource=admin"
-
-# Example usage:
-# from app.core.config import settings
-# api_key = settings.BLAND_API_KEY
+if not settings.MONGO_CONNECTION_URL and settings.MONGO_USER and settings.MONGO_PASSWORD and settings.MONGO_HOST and settings.MONGO_PORT and settings.MONGO_DB_NAME:
+    # URL-encode username and password using new variable names
+    encoded_user = quote_plus(settings.MONGO_USER)
+    encoded_password = quote_plus(settings.MONGO_PASSWORD)
+    # Re-add ?authSource=admin
+    settings.MONGO_CONNECTION_URL = f"mongodb://{encoded_user}:{encoded_password}@{settings.MONGO_HOST}:{settings.MONGO_PORT}/{settings.MONGO_DB_NAME}?authSource=admin"
+    print(f"Dynamically constructed MongoDB URL: {settings.MONGO_CONNECTION_URL}") # Add print for verification

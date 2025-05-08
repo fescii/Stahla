@@ -7,9 +7,10 @@ from fastapi import Depends # Add Depends import
 
 from app.models.quote import QuoteRequest, QuoteResponse, LineItem, QuoteBody, ExtraInput
 from app.models.location import DistanceResult
-from app.services.redis.redis import RedisService, get_redis_service # Import dependency function
-from app.services.location.location import LocationService, get_location_service # Import dependency function
+from app.services.redis.redis import RedisService, get_redis_service 
+from app.services.location.location import LocationService 
 from app.services.quote.sync import PRICING_CATALOG_CACHE_KEY # Import cache key
+from app.core.dependencies import get_location_service_dep 
 
 logger = logging.getLogger(__name__)
 
@@ -394,9 +395,9 @@ class QuoteService:
         logger.info(f"Quote built successfully for request_id: {request.request_id}, quote_id: {response.quote_id}, total: ${quote_body.subtotal:.2f}")
         return response
 
-# Dependency for FastAPI
+# Dependency for FastAPI - Defined here to avoid circular imports
 async def get_quote_service(
-    redis_service: RedisService = Depends(get_redis_service),
-    location_service: LocationService = Depends(get_location_service)
+    redis_service: RedisService = Depends(get_redis_service), # Use direct injector from redis.py
+    location_service: LocationService = Depends(get_location_service_dep) # Use injector from dependencies.py
 ) -> QuoteService:
     return QuoteService(redis_service, location_service)

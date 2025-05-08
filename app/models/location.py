@@ -1,10 +1,15 @@
 # filepath: /home/femar/AO3/Stahla/app/models/location.py
 from pydantic import BaseModel, Field
+from typing import Optional
+
+# Define the missing request model
+class LocationLookupRequest(BaseModel):
+    delivery_location: str = Field(..., description="Full delivery address for distance lookup.", example="1600 Amphitheatre Parkway, Mountain View, CA 94043")
 
 class BranchLocation(BaseModel):
     """Represents a Stahla branch location."""
-    name: str
-    address: str
+    name: str = Field(..., description="Name of the Stahla branch.")
+    address: str = Field(..., description="Full address of the Stahla branch.")
 
 class DistanceResult(BaseModel):
     """Represents the result of a distance calculation."""

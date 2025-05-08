@@ -9,13 +9,16 @@ from pydantic import BaseModel # Import BaseModel for LocationLookupRequest
 
 from app.core.config import settings
 # Import models using the correct path
+from app.models.location import LocationLookupRequest
 from app.models.quote import QuoteRequest, QuoteResponse
-# Import services using the renamed paths
-from app.services.location.location import LocationService, get_location_service
-from app.services.quote.quote import QuoteService, get_quote_service
-from app.services.redis.redis import RedisService, get_redis_service # Import Redis service for background tasks
-
-# Import background task functions
+# Import service classes and their injectors
+from app.services.location.location import LocationService 
+from app.services.quote.quote import QuoteService, get_quote_service 
+from app.services.redis.redis import RedisService, get_redis_service 
+# Import dependency injectors from core
+from app.core.dependencies import get_location_service_dep 
+from app.core.security import get_api_key # Keep API key dependency
+# Import background task helpers
 from app.services.dash.background import (
     log_request_response_bg,
     increment_request_counter_bg,
@@ -76,8 +79,8 @@ class LocationLookupRequest(BaseModel):
 async def webhook_location_lookup(
     payload: LocationLookupRequest,
     background_tasks: BackgroundTasks,
-    location_service: LocationService = Depends(get_location_service),
-    redis_service: RedisService = Depends(get_redis_service), # Inject Redis
+    location_service: LocationService = Depends(get_location_service_dep), # Use core dependency
+    redis_service: RedisService = Depends(get_redis_service), # Use direct injector
     api_key: str = Depends(get_api_key) # Enforce API Key Auth
 ):
     """
@@ -110,9 +113,8 @@ async def webhook_location_lookup(
 async def webhook_quote(
     payload: QuoteRequest,
     background_tasks: BackgroundTasks, # Keep for error logging
-    quote_service: QuoteService = Depends(get_quote_service),
-    redis_service: RedisService = Depends(get_redis_service), # Keep for error logging
-    # dashboard_service: DashboardService = Depends(get_dashboard_service), # REMOVED
+    quote_service: QuoteService = Depends(get_quote_service), # Use injector from quote.py
+    redis_service: RedisService = Depends(get_redis_service), # Use direct injector for error logging
     api_key: str = Depends(get_api_key)
 ) -> QuoteResponse:
     """

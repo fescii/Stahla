@@ -11,7 +11,7 @@ import logfire # Import logfire directly
 from fastapi import BackgroundTasks
 
 from app.core.config import settings
-from app.services.redis.redis import RedisService
+from app.services.redis.redis import RedisService, get_redis_service # Import get_redis_service
 from app.models.location import BranchLocation
 from app.services.dash.background import log_error_bg
 from app.services.quote.auth import create_sheets_service # Import the new service creator
@@ -521,23 +521,30 @@ async def _run_initial_sync_after_delay(service_instance: SheetSyncService, dela
     logfire.info("Delay finished, performing initial sync now.")
     await service_instance._perform_initial_sync()
 
-async def lifespan_startup(redis_service: RedisService):
+async def lifespan_startup(): # Remove redis_service parameter
+    """Initializes the SheetSyncService and starts background tasks."""
     global _sheet_sync_service_instance
-    logfire.info("SYNC LIFESPAN: Attempting to start SheetSyncService...") # Added prominent log
+    logfire.info("SYNC LIFESPAN: Attempting to start SheetSyncService...")
     if _sheet_sync_service_instance is None:
         try:
+            # Get Redis service instance via dependency injector
+            redis_service = await get_redis_service()
+            
             _sheet_sync_service_instance = SheetSyncService(redis_service)
-            # Await the initialization of the service itself (non-blocking for I/O)
+            # Await the initialization of the service itself (which builds the google client)
             await _sheet_sync_service_instance.initialize_service()
-            # Start the background sync loop (doesn't run initial sync anymore)
+            # Now start the background sync tasks (which run the first sync in the background after delay)
             await _sheet_sync_service_instance.start_background_sync()
             # Schedule the initial sync to run after a delay in the background
             asyncio.create_task(_run_initial_sync_after_delay(_sheet_sync_service_instance, 30))
-            logfire.info("SYNC LIFESPAN: SheetSyncService initialized, background loop started, initial sync scheduled with delay.") # Updated log
+            logfire.info("SYNC LIFESPAN: SheetSyncService initialized, background loop started, initial sync scheduled with delay.")
+        except RuntimeError as e:
+            logfire.error(f"SYNC LIFESPAN: CRITICAL - Failed to get required Redis service: {e}", exc_info=True)
+            # Prevent service from being considered initialized if Redis failed
+            _sheet_sync_service_instance = None 
         except Exception as e:
             logfire.error(f"SYNC LIFESPAN: CRITICAL - Failed to initialize or start SheetSyncService: {e}", exc_info=True)
-            # Depending on requirements, you might want to prevent app startup here
-            # by re-raising the exception or exiting.
+            _sheet_sync_service_instance = None # Ensure instance is None on other errors too
     else:
         logfire.info("SYNC LIFESPAN: SheetSyncService already initialized.")
 

@@ -1,0 +1,100 @@
+### Dashboard API Requests
+
+# --- Variables ---
+@host = http://localhost:8000
+@api_v1 = /api/v1
+
+# --- Authentication ---
+# Login to get JWT token
+# Replace with your admin user credentials from .env
+@admin_email = isfescii@gmail.com
+@admin_password = pass1234
+
+# @name login
+POST {{host}}{{api_v1}}/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username={{admin_email}}&password={{admin_password}}
+
+
+# Store the access token from the response
+# Run the login request above first, then paste the token here:
+@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpc2Zlc2NpaUBnbWFpbC5jb20iLCJleHAiOjE3NDY3MTY0MjB9.pGdqEEiP9xJbQn8-Bz_o8Q_CxBt1aIsX2pTyqsHWJ9Y
+
+###
+
+# --- Dashboard Endpoints ---
+
+# Get Dashboard Overview
+GET {{host}}{{api_v1}}/dashboard/overview
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Recent Error Logs (Default Limit)
+GET {{host}}{{api_v1}}/dashboard/errors
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Recent Error Logs (Specific Type & Limit)
+GET {{host}}{{api_v1}}/dashboard/errors?report_type=ValueError&limit=5
+x-access-token: {{jwt_token}}
+
+###
+
+# Trigger Manual Sheet Sync
+POST {{host}}{{api_v1}}/dashboard/sync/trigger
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Example: all maps distance keys)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=maps:distance:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Example: pricing catalog)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=pricing:catalog
+x-access-token: {{jwt_token}}
+
+###
+
+# View Specific Cache Item (Replace key with actual key from search)
+GET {{host}}{{api_v1}}/dashboard/cache/item?key=pricing:catalog
+x-access-token: {{jwt_token}}
+
+###
+
+# Clear Specific Cache Item (Replace key with actual key)
+POST {{host}}{{api_v1}}/dashboard/cache/clear/item
+x-access-token: {{jwt_token}}
+Content-Type: application/json
+
+{
+  "key": "maps:distance:somebranch:somelocation"
+}
+
+###
+
+# Clear Pricing Catalog Cache
+POST {{host}}{{api_v1}}/dashboard/cache/clear/pricing
+x-access-token: {{jwt_token}}
+Content-Type: application/json
+
+{
+  "confirm": true
+}
+
+###
+
+# Clear Maps Cache by Pattern
+POST {{host}}{{api_v1}}/dashboard/cache/clear/maps
+x-access-token: {{jwt_token}}
+Content-Type: application/json
+
+{
+  "location_pattern": "*omaha*"
+}
+

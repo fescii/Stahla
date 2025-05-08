@@ -34,13 +34,14 @@ class CacheStats(BaseModel):
 class SyncStatus(BaseModel):
     last_successful_sync_timestamp: Optional[str] = None
     is_sync_task_running: Optional[bool] = None
-    # TODO: Add recent errors if logged systematically
     recent_errors: List[str] = Field(default_factory=list, description="List of recent sync error messages (if available).")
 
+# Redefine ExternalServiceStatus to represent a single service
 class ExternalServiceStatus(BaseModel):
-    google_maps_api_calls: Optional[int] = Field(None, description="Count of calls made (requires tracking).")
-    google_maps_api_errors: Optional[int] = Field(None, description="Count of errors (requires tracking).")
-    google_sheet_sync: SyncStatus
+    name: str = Field(..., description="Name of the external service (e.g., Google Maps, Bland.ai)")
+    status: str = Field("UNKNOWN", description="Current status (e.g., OK, ERROR, UNKNOWN)")
+    last_checked: Optional[datetime] = Field(None, description="Timestamp of the last status check.")
+    details: Optional[str] = Field(None, description="Additional details or error message.")
 
 class RequestLogEntry(BaseModel):
     timestamp: datetime
@@ -59,14 +60,16 @@ class ErrorLogEntry(BaseModel):
     count: int = 1 # For aggregation
 
 class DashboardOverview(BaseModel):
-    # I. Monitoring
-    quote_requests_total: Optional[int] = Field(None, description="Total requests to /webhook/quote (requires tracking).")
-    quote_requests_success: Optional[int] = Field(None, description="Successful quote requests (requires tracking).")
-    quote_requests_error: Optional[int] = Field(None, description="Failed quote requests (requires tracking).")
-    quote_latency_p95_ms: Optional[float] = Field(None, description="95th percentile latency for /webhook/quote (requires tracking).")
-    location_lookups_total: Optional[int] = Field(None, description="Total requests to /webhook/location_lookup (requires tracking).")
-    cache_stats: CacheStats
-    external_services: ExternalServiceStatus
-    error_summary: List[ErrorLogEntry] = Field(default_factory=list, description="Summary of recent error types and counts.")
-    # II. Management Data (for context)
-    recent_requests: List[RequestLogEntry] = Field(default_factory=list, description="Last N quote requests/responses.")
+    report_summary: Dict[str, Any] = Field(default_factory=dict)
+    redis_counters: Dict[str, Any] = Field(default_factory=dict)
+    recent_errors: List[ErrorLogEntry] = Field(default_factory=list)
+    cache_stats: Optional[CacheStats] = None # Make optional or provide default
+    external_services: List[ExternalServiceStatus] = Field(default_factory=list)
+    sync_status: Optional[SyncStatus] = None # Make optional or provide default
+
+class CacheClearResult(BaseModel):
+    key: str = Field(..., description="The cache key targeted for clearing.")
+    cleared: bool = Field(..., description="Whether the key was found and cleared.")
+
+class ErrorLogResponse(BaseModel):
+    errors: List[ErrorLogEntry]

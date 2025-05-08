@@ -2,10 +2,11 @@ import logging
 from typing import Any, Dict, Optional
 from datetime import datetime
 import json
+import logfire # Import logfire
 
+from app.models.dash.dashboard import RequestLogEntry
 from app.services.redis.redis import RedisService
-from app.services.mongo.mongo import MongoService, mongo_service # Import MongoService
-from app.models.dash.dashboard import RequestLogEntry, ErrorLogEntry
+from app.services.mongo.mongo import MongoService, mongo_service_instance as mongo_service # Import the singleton instance and alias it
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +57,7 @@ async def log_error_bg(
     redis: RedisService, 
     error_key: str, 
     error_message: str, 
-    context: Optional[Dict[str, Any]] = None,
-    mongo: MongoService = mongo_service # Inject mongo service
+    context: Optional[Dict[str, Any]] = None
 ):
     """Logs error details to Redis (optional) and MongoDB."""
     log_context = {
@@ -65,13 +65,23 @@ async def log_error_bg(
         "message": error_message,
         "context": context or {}
     }
-    logger.error(f"Background Error Logged: Key='{error_key}', Msg='{error_message}', Context={context}")
+    # Use logfire for better visibility
+    logfire.error(f"Background Error Logged: Key='{error_key}', Msg='{error_message}', Context={context}")
     
-    # Log to MongoDB
-    try:
-        await mongo.log_report(report_type=error_key, data=log_context, success=False, error_message=error_message)
-    except Exception as e:
-        logger.error(f"Failed to log error '{error_key}' to MongoDB: {e}", exc_info=True)
+    # Log to MongoDB using the imported singleton instance
+    if mongo_service:
+        logfire.info(f"Attempting to log error '{error_key}' to MongoDB...") # Add log
+        try:
+            insert_id = await mongo_service.log_report(report_type=error_key, data=log_context, success=False, error_message=error_message)
+            if insert_id:
+                logfire.info(f"Successfully logged error '{error_key}' to MongoDB with id: {insert_id}") # Add log
+            else:
+                logfire.error(f"Failed to log error '{error_key}' to MongoDB (insert returned None).") # Add log
+        except Exception as e:
+            # Log exception during the mongo write attempt
+            logfire.error(f"Exception while logging error '{error_key}' to MongoDB: {e}", exc_info=True)
+    else:
+        logfire.warning(f"Skipping MongoDB error log for '{error_key}': Mongo service not initialized.")
 
     # Optional: Log simple error count to Redis
     # try:
@@ -82,21 +92,30 @@ async def log_error_bg(
 async def log_success_bg(
     redis: RedisService, 
     success_key: str, 
-    details: Optional[Dict[str, Any]] = None,
-    mongo: MongoService = mongo_service # Inject mongo service
+    details: Optional[Dict[str, Any]] = None
 ):
     """Logs success details to MongoDB and optionally increments a Redis counter."""
     log_context = {
         "success_key": success_key,
         "details": details or {}
     }
-    logger.info(f"Background Success Logged: Key='{success_key}', Details={details}")
+    # Use logfire for better visibility
+    logfire.info(f"Background Success Logged: Key='{success_key}', Details={details}")
 
-    # Log to MongoDB
-    try:
-        await mongo.log_report(report_type=success_key, data=log_context, success=True)
-    except Exception as e:
-        logger.error(f"Failed to log success '{success_key}' to MongoDB: {e}", exc_info=True)
+    # Log to MongoDB using the imported singleton instance
+    if mongo_service:
+        logfire.info(f"Attempting to log success '{success_key}' to MongoDB...") # Add log
+        try:
+            insert_id = await mongo_service.log_report(report_type=success_key, data=log_context, success=True)
+            if insert_id:
+                logfire.info(f"Successfully logged success '{success_key}' to MongoDB with id: {insert_id}") # Add log
+            else:
+                logfire.error(f"Failed to log success '{success_key}' to MongoDB (insert returned None).") # Add log
+        except Exception as e:
+            # Log exception during the mongo write attempt
+            logfire.error(f"Exception while logging success '{success_key}' to MongoDB: {e}", exc_info=True)
+    else:
+        logfire.warning(f"Skipping MongoDB success log for '{success_key}': Mongo service not initialized.")
 
     # Optional: Log simple success count to Redis
     # try:

@@ -2,10 +2,11 @@ import logging
 import json # For previewing JSON values
 from typing import Any, Dict, Optional, List
 from collections import Counter # For error aggregation
+from datetime import datetime # For timestamping external service checks
 
 from fastapi import Depends
 
-from app.services.redis.redis import RedisService, get_redis_service
+from app.services.redis.redis import RedisService 
 from app.services.mongo.mongo import MongoService, get_mongo_service # Import Mongo
 from app.services.quote.sync import SheetSyncService, PRICING_CATALOG_CACHE_KEY, BRANCH_LIST_CACHE_KEY
 # Access the running SheetSyncService instance (use with caution)
@@ -13,8 +14,8 @@ from app.services.quote.sync import _sheet_sync_service_instance
 
 # Import dashboard models
 from app.models.dash.dashboard import (
-    DashboardOverview, CacheStats, ExternalServiceStatus, SyncStatus,
-    CacheItem, CacheSearchResult, RequestLogEntry, ErrorLogEntry
+    DashboardOverview, CacheStats, ExternalServiceStatus, SyncStatus, # Import needed models
+    CacheItem, CacheSearchResult, RequestLogEntry, ErrorLogEntry # Ensure ErrorLogEntry is imported
 )
 # Import quote models for recent requests
 from app.models.quote import QuoteRequest, QuoteResponse
@@ -26,9 +27,7 @@ from app.services.dash.background import (
     ERROR_QUOTE_REQUESTS_KEY,
     TOTAL_LOCATION_LOOKUPS_KEY,
     GMAPS_API_CALLS_KEY,
-    GMAPS_API_ERRORS_KEY,
-    SHEET_SYNC_SUCCESS_KEY, # Add missing import
-    SHEET_SYNC_ERRORS_KEY   # Add missing import
+    GMAPS_API_ERRORS_KEY
 )
 
 logger = logging.getLogger(__name__)
@@ -70,9 +69,7 @@ class DashboardService:
                 ERROR_QUOTE_REQUESTS_KEY,
                 TOTAL_LOCATION_LOOKUPS_KEY,
                 GMAPS_API_CALLS_KEY,
-                GMAPS_API_ERRORS_KEY,
-                SHEET_SYNC_SUCCESS_KEY,
-                SHEET_SYNC_ERRORS_KEY
+                GMAPS_API_ERRORS_KEY
             ]
             results = await self.redis.mget(keys_to_fetch)
             
@@ -114,6 +111,29 @@ class DashboardService:
             logger.error(f"Failed to fetch recent reports from MongoDB: {e}", exc_info=True)
             overview_data['recent_errors'] = []
 
+        # --- Placeholder for Cache Stats --- 
+        # TODO: Implement actual cache statistics fetching (e.g., INFO command)
+        overview_data['cache_stats'] = CacheStats(
+            total_keys= -1, # Placeholder
+            memory_used_human="N/A" # Placeholder
+        )
+        logger.debug(f"Placeholder Cache Stats: {overview_data['cache_stats']}")
+
+        # --- Placeholder for External Service Status --- 
+        # TODO: Implement actual checks for external services
+        overview_data['external_services'] = [
+            ExternalServiceStatus(name="Google Sheets Sync", status="OK", last_checked=datetime.now()), # Placeholder
+            ExternalServiceStatus(name="Google Maps API", status="UNKNOWN", last_checked=datetime.now()), # Placeholder
+            ExternalServiceStatus(name="Bland.ai API", status="UNKNOWN", last_checked=datetime.now()), # Placeholder
+            ExternalServiceStatus(name="HubSpot API", status="UNKNOWN", last_checked=datetime.now()) # Placeholder
+        ]
+        logger.debug(f"Placeholder External Services: {overview_data['external_services']}")
+        
+        # --- Placeholder for Sync Status --- 
+        # TODO: Fetch actual last sync timestamp from Redis/DB
+        overview_data['sync_status'] = SyncStatus(last_sync_time=None, status="UNKNOWN") # Placeholder
+        logger.debug(f"Placeholder Sync Status: {overview_data['sync_status']}")
+
         # Construct the Pydantic model
         # Adapt DashboardOverview model if necessary based on fetched data structure
         try:
@@ -121,6 +141,9 @@ class DashboardService:
             overview_data.setdefault('report_summary', {})
             overview_data.setdefault('redis_counters', {})
             overview_data.setdefault('recent_errors', [])
+            overview_data.setdefault('cache_stats', CacheStats(total_keys=-1, memory_used_human="N/A"))
+            overview_data.setdefault('external_services', [])
+            overview_data.setdefault('sync_status', SyncStatus(last_sync_time=None, status="UNKNOWN"))
             
             dashboard_model = DashboardOverview(**overview_data)
             logger.info("Dashboard overview data fetched and validated.")
@@ -128,7 +151,14 @@ class DashboardService:
         except Exception as e:
             logger.error(f"Failed to create DashboardOverview model: {e}", exc_info=True)
             # Return a default/empty model or raise an error
-            return DashboardOverview(report_summary={}, redis_counters={}, recent_errors=[])
+            return DashboardOverview(
+                report_summary={}, 
+                redis_counters={}, 
+                recent_errors=[],
+                cache_stats=CacheStats(total_keys=-1, memory_used_human="N/A"),
+                external_services=[],
+                sync_status=SyncStatus(last_sync_time=None, status="UNKNOWN")
+            )
 
     # --- Management Features ---
 
@@ -239,13 +269,35 @@ class DashboardService:
             logger.error(f"Failed to clear Redis cache key '{cache_key}': {e}", exc_info=True)
             return False
 
+    async def get_error_logs(self, report_type: Optional[str] = None, limit: int = 50) -> List[ErrorLogEntry]:
+        """Retrieves recent error logs from MongoDB, optionally filtered by type."""
+        logger.info(f"Fetching error logs from MongoDB. Type: {report_type}, Limit: {limit}")
+        try:
+            raw_reports = await self.mongo.get_recent_reports(report_type=report_type, limit=limit)
+            
+            # Log the raw data received from MongoDB before filtering
+            logger.debug(f"Raw reports received from MongoDB for get_error_logs: {raw_reports}")
+            
+            # Filter for errors (success=False) and parse into ErrorLogEntry model
+            error_logs = []
+            for report in raw_reports:
+                # Check if 'success' field exists and is explicitly False
+                if "success" in report and report["success"] is False:
+                    try:
+                        # Add _id conversion if not already done in mongo service
+                        report['_id'] = str(report.get('_id'))
+                        error_logs.append(ErrorLogEntry(**report))
+                    except Exception as parse_error:
+                        logger.warning(f"Failed to parse MongoDB report into ErrorLogEntry: {report}. Error: {parse_error}")
+                # else: # Optional: Log reports being skipped by the filter
+                #    logger.debug(f"Skipping non-error report: {report.get('report_type')} - Success: {report.get('success')}")
+
+            logger.info(f"Retrieved {len(error_logs)} error logs after filtering.")
+            return error_logs
+        except Exception as e:
+            logger.error(f"Failed to retrieve error logs from MongoDB: {e}", exc_info=True)
+            return []
+
     # Commenting out Redis-specific method - replace with MongoDB query if needed
     # async def get_recent_requests(self, limit: int = MAX_LOG_ENTRIES) -> List[RequestLogEntry]:
     #     ...
-
-# Dependency for FastAPI
-async def get_dashboard_service(
-    redis_service: RedisService = Depends(get_redis_service),
-    mongo_service: MongoService = Depends(get_mongo_service) # Add mongo dependency
-) -> DashboardService:
-    return DashboardService(redis_service, mongo_service)

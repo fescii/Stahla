@@ -1,44 +1,67 @@
-\
 # filepath: app/services/mongo/mongo.py
 import logfire
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import ConnectionFailure, OperationFailure
+from pymongo.server_api import ServerApi # Import ServerApi
+from bson.codec_options import CodecOptions, UuidRepresentation # Import UuidRepresentation
 from app.core.config import settings
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from pymongo import ASCENDING, DESCENDING # Import for indexes
 
 # Define collection names
 REPORTS_COLLECTION = "reports"
+USERS_COLLECTION = "users" # Define users collection name here
 
 class MongoService:
-    client: Optional[AsyncIOMotorClient] = None
-    db: Optional[AsyncIOMotorDatabase] = None
+    # client and db are now instance attributes, initialized in __init__
+    client: Optional[AsyncIOMotorClient]
+    db: Optional[AsyncIOMotorDatabase]
 
-    async def connect_to_mongo(self):
+    def __init__(self):
+        # Initialize attributes to None before async connection
+        self.client = None
+        self.db = None
+        logfire.info("MongoService instance created. Connection will be established.")
+
+    async def connect_and_initialize(self):
+        """Connects to MongoDB and performs initial setup like index creation."""
         logfire.info("Connecting to MongoDB...")
         if not settings.MONGO_CONNECTION_URL:
             logfire.error("MONGO_CONNECTION_URL not set in environment/settings.")
             raise ValueError("MongoDB connection URL is not configured.")
-            
-        self.client = AsyncIOMotorClient(settings.MONGO_CONNECTION_URL)
+
         try:
+            # Configure UUID representation
+            codec_options = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
+            
+            self.client = AsyncIOMotorClient(
+                settings.MONGO_CONNECTION_URL, 
+                serverSelectionTimeoutMS=5000, # Add timeout
+                uuidRepresentation='standard' # Explicitly set standard UUID representation
+                # server_api=ServerApi('1') # Optional: Specify Stable API version
+            )
             # The ismaster command is cheap and does not require auth.
             await self.client.admin.command('ismaster')
-            self.db = self.client[settings.MONGO_DB_NAME]
+            # Get database with codec options
+            self.db = self.client.get_database(
+                settings.MONGO_DB_NAME, 
+                codec_options=codec_options
+            )
+            # self.db = self.client[settings.MONGO_DB_NAME] # Old way
             logfire.info(f"Successfully connected to MongoDB. Database: '{settings.MONGO_DB_NAME}'")
-            # TODO: Consider creating indexes here if needed
-            # await self.create_indexes()
-        except ConnectionFailure as e:
-            logfire.error(f"Failed to connect to MongoDB: {e}")
+            # Create indexes after successful connection
+            await self.create_indexes()
+        except (ConnectionFailure, OperationFailure) as e:
+            logfire.error(f"Failed to connect to MongoDB or authentication failed: {e}")
             self.client = None
             self.db = None
-            raise
-        except OperationFailure as e:
-            logfire.error(f"MongoDB authentication failed or operation failure during connection check: {e}")
-            # This might happen if the app user/pass is wrong or DB doesn't exist and user can't create
+            raise # Re-raise the exception to signal connection failure
+        except Exception as e:
+            logfire.error(f"An unexpected error occurred during MongoDB connection: {e}", exc_info=True)
             self.client = None
             self.db = None
-            raise
+            raise # Re-raise
 
     async def close_mongo_connection(self):
         logfire.info("Closing MongoDB connection...")
@@ -49,11 +72,34 @@ class MongoService:
             logfire.info("MongoDB connection closed.")
 
     async def get_db(self) -> AsyncIOMotorDatabase:
-        if not self.db:
-            logfire.error("MongoDB database is not initialized. Call connect_to_mongo first.")
-            # Depending on strategy, could try to reconnect here, but safer to raise
+        # Correct the check to use 'is None'
+        if self.db is None:
+            logfire.error("MongoDB database is not initialized.")
             raise RuntimeError("Database connection is not available.")
         return self.db
+
+    async def create_indexes(self):
+        """Creates necessary indexes in MongoDB collections if they don't exist."""
+        logfire.info("Attempting to create MongoDB indexes...")
+        # Correct the check to use 'is None'
+        if self.db is None:
+             logfire.error("Cannot create indexes, MongoDB database is not initialized.")
+             return
+        try:
+            # Index for users collection (example: unique email)
+            users_collection = self.db[USERS_COLLECTION]
+            await users_collection.create_index([("email", ASCENDING)], unique=True, name="email_unique_idx")
+            logfire.info(f"Index 'email_unique_idx' ensured for collection '{USERS_COLLECTION}'.")
+
+            # Index for reports collection (example: timestamp descending)
+            reports_collection = self.db[REPORTS_COLLECTION]
+            await reports_collection.create_index([("timestamp", DESCENDING)], name="timestamp_desc_idx")
+            logfire.info(f"Index 'timestamp_desc_idx' ensured for collection '{REPORTS_COLLECTION}'.")
+            
+            # Add other index creations here
+
+        except Exception as e:
+            logfire.error(f"Error creating MongoDB indexes: {e}", exc_info=True)
 
     # --- Dashboard Specific Methods ---
 
@@ -165,15 +211,43 @@ class MongoService:
             logfire.error(f"Failed to aggregate report summary from MongoDB: {e}", exc_info=True)
             return summary # Return default summary on error
 
-# Singleton instance
-mongo_service = MongoService()
+# --- Lifespan Integration Functions ---
 
-# Dependency injector
+mongo_service_instance: Optional[MongoService] = None
+
+async def startup_mongo_service() -> Optional[MongoService]:
+    """Creates MongoService instance, connects, initializes indexes."""
+    global mongo_service_instance
+    if mongo_service_instance is not None:
+        logfire.info("MongoService already initialized.")
+        return mongo_service_instance
+
+    logfire.info("Starting MongoDB service initialization...")
+    instance = MongoService()
+    try:
+        await instance.connect_and_initialize() # Connects and creates indexes
+        mongo_service_instance = instance # Store instance only on success
+        logfire.info("MongoDB service initialization successful.")
+        return mongo_service_instance
+    except Exception as e:
+        logfire.error(f"Failed during MongoDB startup sequence: {e}", exc_info=True)
+        mongo_service_instance = None # Ensure it's None on failure
+        return None # Indicate failure
+
+async def shutdown_mongo_service():
+    """Closes the MongoDB connection if the service was initialized."""
+    global mongo_service_instance
+    if mongo_service_instance:
+        logfire.info("Shutting down MongoDB service...")
+        await mongo_service_instance.close_mongo_connection()
+        mongo_service_instance = None
+    else:
+        logfire.info("MongoDB service was not initialized, skipping shutdown.")
+
+# Dependency injector using the singleton instance
 async def get_mongo_service() -> MongoService:
-    # This assumes connect_to_mongo is called during lifespan startup
-    if not mongo_service.db:
-        # Attempt to reconnect or handle error appropriately
-        # For simplicity, we raise an error here, assuming lifespan handles connection.
-        logfire.critical("MongoDB connection requested but not available.")
-        raise RuntimeError("MongoDB connection is not available.")
-    return mongo_service
+    """Dependency injector to get the initialized MongoService instance."""
+    if mongo_service_instance is None or mongo_service_instance.db is None:
+        logfire.error("MongoDB service requested but not available or not connected.")
+        raise RuntimeError("MongoDB service is not available.")
+    return mongo_service_instance

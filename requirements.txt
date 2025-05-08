@@ -47,3 +47,8 @@ googlemaps>=4.10.0               # For Google Maps Distance Matrix API (Adjusted
 # Optional: For specific utilities if used more broadly
 geopy>=2.3.0
 pandas>=2.0.0
+
+# Additional Dependencies
+python-jose[cryptography]>=3.3.0
+bcrypt>=3.2  # Add bcrypt explicitly
+motor>=3.0  # Add async MongoDB driver

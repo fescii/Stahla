@@ -54,6 +54,14 @@ class HubSpotManager:
         await self._client.aclose()
         logfire.info("HubSpot HTTP client closed.")
 
+    async def close(self):
+        """Closes the underlying HTTPX client."""
+        if self._client:
+            logfire.info("Closing HubSpotManager HTTPX client...")
+            await self._client.aclose()
+            self._client = None # Indicate client is closed
+            logfire.info("HubSpotManager HTTPX client closed.")
+
     async def _make_request(
             self, method: str, endpoint: str, params: Optional[Dict] = None, json_data: Optional[Dict] = None
     ) -> HubSpotApiResult:

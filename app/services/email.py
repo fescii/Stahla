@@ -30,6 +30,16 @@ class EmailManager:
         await self.email_client.aclose()
         logfire.info("Email HTTP client closed.")
 
+    async def close(self):
+        """Closes any underlying clients (e.g., Resend, SMTP). Placeholder for now."""
+        logfire.info("Closing EmailManager resources (if any)...")
+        # Add logic here to close Resend client or SMTP connection if they exist
+        # Example for a hypothetical self._resend_client:
+        # if hasattr(self, '_resend_client') and self._resend_client:
+        #     # Assuming resend client has an aclose method or similar
+        #     pass # Replace with actual close logic
+        logfire.info("EmailManager resources closed.")
+
     async def _extract_data_with_llm(self, payload: EmailWebhookPayload) -> Dict[str, Any]:
         """
         Extract structured data from email content using LLM.

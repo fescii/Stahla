@@ -7,12 +7,12 @@ from typing import List, Optional, Tuple, Dict, Any
 
 import googlemaps
 from googlemaps.exceptions import ApiError, HTTPError, Timeout, TransportError
-from fastapi import Depends, BackgroundTasks # Ensure Depends and BackgroundTasks are imported
+from fastapi import Depends, BackgroundTasks, Request, HTTPException, status # Add Request, HTTPException, status
 import logfire # Import logfire
 
 from app.core.config import settings
 from app.models.location import BranchLocation, DistanceResult
-from app.services.redis.redis import RedisService, get_redis_service # Import dependency function
+from app.services.redis.redis import RedisService # Keep RedisService import
 from app.services.quote.sync import BRANCH_LIST_CACHE_KEY # Import branch cache key
 from app.services.dash.background import (
     increment_request_counter_bg,
@@ -204,7 +204,3 @@ class LocationService:
         except Exception as e:
             # Use logfire directly for guaranteed output via configured pipeline
             logfire.error(f"Error prefetching distance for location {delivery_location}: {e}", exc_info=True)
-
-# Dependency for FastAPI
-async def get_location_service(redis_service: RedisService = Depends(get_redis_service)) -> LocationService:
-    return LocationService(redis_service)

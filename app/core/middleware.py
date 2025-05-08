@@ -1,6 +1,7 @@
 import time
+import json  # Import json module
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple, List
 
 from fastapi import Request, Response, BackgroundTasks
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -83,7 +84,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             response_payload_dict = {"detail": f"Middleware Error: {e}"} # Log middleware error
             # Ensure a response is sent if call_next failed catastrophically
             if response is None:
-                 response = Response(content=json.dumps({"detail": "Internal Server Error in Middleware"}), status_code=500, media_type="application/json")
+                 # Log error and return a generic 500 response
+                logger.error(f"Middleware error processing request {request_id}: {e}", exc_info=True)
+                # Ensure Response is imported from starlette.responses
+                response = Response(content=json.dumps({"detail": "Internal Server Error in Middleware"}), status_code=500, media_type="application/json")
+                # Log the error response details
+                logger.error(f"Response details: {response.status_code} {response_body}")
+                return response  # Return the response object
+
         finally:
             if should_log:
                 end_time = time.monotonic()

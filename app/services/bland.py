@@ -217,6 +217,14 @@ class BlandAIManager:
                 call_id=payload.call_id
             )
 
+    async def close(self):
+        """Closes the underlying HTTPX client."""
+        if self._client:
+            logfire.info("Closing BlandAIManager HTTPX client...")
+            await self._client.aclose()
+            self._client = None # Indicate client is closed
+            logfire.info("BlandAIManager HTTPX client closed.")
+
 # --- Singleton Instance and Startup Sync --- 
 
 # Create a singleton instance of the manager

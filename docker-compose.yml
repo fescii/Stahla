@@ -24,9 +24,9 @@ services:
     ports:
       - "27017:27017"
     environment:
-      # Use values from .env for initial root user setup
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-mongoadmin} # Provide defaults if not in .env
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secret}
+      # Use renamed variables from .env for initial root user setup
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-mongoadmin} # Use new var name
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secret} # Use new var name
     volumes:
       - mongo_data:/data/db # Persist data
     # Optional: Add a healthcheck

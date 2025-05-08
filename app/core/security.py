@@ -2,10 +2,10 @@ import hmac
 import hashlib
 from typing import Optional
 
-from fastapi import Request, HTTPException, Security, status, Header, Depends
+from fastapi import Request, HTTPException, Security, status, Header, Depends, Cookie
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jose import JWTError, jwt
-from pydantic import ValidationError, EmailStr
+from pydantic import ValidationError, EmailStr, BaseModel # Import BaseModel
 import logfire
 
 from app.core.config import settings
@@ -17,22 +17,23 @@ from app.services.auth.auth import AuthService, get_auth_service # Import auth s
 API_KEY_NAME = "Authorization"
 api_key_header_scheme = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
-async def verify_api_key(api_key_header: Optional[str] = Security(api_key_header_scheme), expected_key: Optional[str] = None):
-    """General purpose API Key validator for 'Authorization: Bearer <key>' header."""
-    if expected_key is None:
-        # If no key is configured in settings, bypass security (log warning)
-        # Consider raising an error instead for better security posture
-        # logger.warning("API Key validation skipped: No expected key configured.")
-        # return "bypass"
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Security key not configured for this endpoint.")
+# Re-define the get_api_key dependency
+async def get_api_key(api_key_header_value: Optional[str] = Security(api_key_header_scheme)):
+    """Dependency to validate the simple API key (e.g., for webhooks)."""
+    if not settings.PRICING_WEBHOOK_API_KEY:
+        logfire.error("Webhook API Key (PRICING_WEBHOOK_API_KEY) is not configured in settings.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="API Key security is not configured."
+        )
 
-    if api_key_header is None:
+    if api_key_header_value is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header missing"
         )
     
-    parts = api_key_header.split() 
+    parts = api_key_header_value.split() 
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -40,24 +41,15 @@ async def verify_api_key(api_key_header: Optional[str] = Security(api_key_header
         )
     
     token = parts[1]
-    if token == expected_key:
+    # Use constant time comparison
+    if hmac.compare_digest(token, settings.PRICING_WEBHOOK_API_KEY):
         return token # Return the valid token
     else:
-        # logger.warning(f"Invalid API Key received: {token[:5]}...")
+        logfire.warning(f"Invalid Webhook API Key received.")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API Key"
         )
-
-# Specific dependencies using the general validator
-
-async def verify_pricing_webhook_api_key(api_key: str = Security(verify_api_key, expected_key=settings.PRICING_WEBHOOK_API_KEY)):
-    """Dependency to verify the Pricing Webhook API Key."""
-    return api_key
-
-async def verify_form_webhook_api_key(api_key: str = Security(verify_api_key, expected_key=settings.FORM_WEBHOOK_API_KEY)):
-    """Dependency to verify the Form Webhook API Key."""
-    return api_key
 
 # --- HubSpot Webhook Security (X-HubSpot-Signature-v3) ---
 
@@ -148,20 +140,49 @@ async def get_dashboard_user() -> User:
 
 # --- End Placeholder ---
 
-# --- OAuth2 Password Bearer for JWT ---
+# --- JWT Authentication ---
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token") # Point to your token endpoint
+# Define scheme for OpenAPI docs, points to login endpoint
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False) 
 
+# Custom dependency to extract token from multiple locations
+async def get_token_from_sources(
+    request: Request,
+    authorization: Optional[str] = Security(api_key_header_scheme), # Checks Authorization header
+    x_access_token_header: Optional[str] = Header(None, alias="x-access-token"),
+    x_access_token_cookie: Optional[str] = Cookie(None, alias="x-access-token")
+) -> Optional[str]:
+    """
+    Extracts token from 'Authorization: Bearer <token>', 'x-access-token' header, 
+    or 'x-access-token' cookie.
+    """
+    if authorization and authorization.lower().startswith("bearer "):
+        # Check Authorization header first (standard)
+        token_part = authorization.split(" ", 1)[1]
+        if token_part:
+            return token_part
+    if x_access_token_header:
+        return x_access_token_header
+    if x_access_token_cookie:
+        return x_access_token_cookie
+    return None
+
+# Update get_current_user to use the custom token extractor
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    auth_service: AuthService = Depends(get_auth_service)
+    token: Optional[str] = Depends(get_token_from_sources), # Use custom dependency
+    auth_service: AuthService = Depends(get_auth_service) # Keep auth service dependency
 ) -> UserInDB:
-    """Dependency to get the current user from JWT token."""
+    """Dependency to get the current user from JWT token found in standard header, custom header, or cookie."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        # Adjust header based on preferred method or remove if multiple are supported
+        headers={"WWW-Authenticate": "Bearer"}, 
     )
+    if token is None:
+        logfire.warning("No token found in Authorization header, x-access-token header, or x-access-token cookie.")
+        raise credentials_exception
+        
     try:
         payload = jwt.decode(
             token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]

@@ -85,6 +85,30 @@ class RedisService:
             if 'client' in locals() and client:
                await client.close()
 
+    async def mget(self, keys: List[str]) -> List[Optional[str]]:
+        """
+        Gets multiple values from Redis corresponding to the given keys.
+
+        Args:
+            keys: A list of keys to get.
+
+        Returns:
+            A list of values (as strings or None if a key doesn't exist).
+        """
+        if not keys:
+            return []
+        try:
+            client = await self.get_client()
+            values = await client.mget(keys)
+            logger.debug(f"MGET for keys '{keys}': Found {len([v for v in values if v is not None])} values.")
+            return values
+        except RedisError as e:
+            logger.error(f"Redis error during MGET for keys '{keys}': {e}", exc_info=True)
+            return [None] * len(keys) # Return list of Nones on error
+        finally:
+            if 'client' in locals() and client:
+               await client.close()
+
     async def set_json(self, key: str, data: Any, ttl: Optional[int] = None) -> bool:
         """
         Serializes data to JSON and sets it in Redis.
@@ -202,6 +226,31 @@ class RedisService:
             if 'client' in locals() and client:
                await client.close()
 
+    async def increment(self, key: str, amount: int = 1) -> Optional[int]:
+        """
+        Increments the integer value of a key by the given amount.
+
+        Args:
+            key: The key to increment.
+            amount: The amount to increment by (default is 1).
+
+        Returns:
+            The value of key after the increment, or None if an error occurred.
+        """
+        try:
+            client = await self.get_client()
+            # Use incrby for flexibility, defaults to incrementing by 1 if amount is 1
+            new_value = await client.incrby(key, amount)
+            logger.debug(f"Incremented key '{key}' by {amount}. New value: {new_value}")
+            return new_value
+        except RedisError as e:
+            # Handle cases where the key holds a non-integer value
+            logger.error(f"Redis error incrementing key '{key}': {e}", exc_info=True)
+            return None
+        finally:
+            if 'client' in locals() and client:
+               await client.close()
+
     @classmethod
     async def close_pool(cls):
         """Closes the Redis connection pool if it exists."""
@@ -210,18 +259,50 @@ class RedisService:
             await cls._pool.disconnect()
             cls._pool = None
 
-# Optional: Dependency for FastAPI
+# --- Lifespan Integration and Dependency Injection ---
+
+redis_service_instance: Optional[RedisService] = None
+
+async def startup_redis_service() -> Optional[RedisService]:
+    """Creates RedisService instance and establishes connection pool."""
+    global redis_service_instance
+    if redis_service_instance is not None:
+        logger.info("RedisService already initialized.")
+        return redis_service_instance
+
+    logger.info("Starting Redis service initialization...")
+    instance = RedisService()
+    try:
+        # Test connection (e.g., by pinging)
+        client = await instance.get_client()
+        await client.ping()
+        await client.close() # Close the test client connection
+        redis_service_instance = instance # Store instance only on success
+        logger.info("Redis service initialization successful.")
+        return redis_service_instance
+    except Exception as e:
+        logger.error(f"Failed during Redis startup sequence: {e}", exc_info=True)
+        redis_service_instance = None # Ensure it's None on failure
+        # No pool to close on the instance itself, close the class pool if created
+        await RedisService.close_pool() 
+        return None # Indicate failure
+
+async def shutdown_redis_service():
+    """Closes the Redis connection pool if the service was initialized."""
+    global redis_service_instance
+    if redis_service_instance:
+        logger.info("Shutting down Redis service (closing class pool)...")
+        # Close the class-level pool
+        await RedisService.close_pool()
+        redis_service_instance = None
+    else:
+        logger.info("Redis service was not initialized, skipping shutdown.")
+
+# Dependency injector using the singleton instance
 async def get_redis_service() -> RedisService:
-    # You might want to manage the lifecycle differently,
-    # but returning an instance works for dependency injection.
-    return RedisService()
-
-# Optional: Add lifespan event handlers in main.py to manage the pool
-# @app.on_event("startup")
-# async def startup_event():
-#     await RedisService.get_pool() # Initialize pool on startup
-
-# @app.on_event("shutdown")
-# async def shutdown_event():
-#     await RedisService.close_pool() # Close pool on shutdown
+    """Dependency injector to get the initialized RedisService instance."""
+    if redis_service_instance is None:
+        logger.error("Redis service requested but not available or not connected.")
+        raise RuntimeError("Redis service is not available.")
+    return redis_service_instance
 
