@@ -3,12 +3,14 @@
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException
 import logfire
 from typing import Optional, Dict, Any
+from pydantic import BaseModel
 
 # Import models
 # Use the new model for the payload
 from app.models.webhook import HubSpotContactDataPayload, HubSpotPropertyDetail
 from app.models.hubspot import HubSpotLeadProperties, HubSpotLeadResult, HubSpotApiResult
 from app.models.classification import ClassificationInput
+from app.models.common import GenericResponse
 
 # Import services
 from app.services.hubspot import hubspot_manager
@@ -25,6 +27,12 @@ from .helpers import (
 router = APIRouter()
 
 
+# Define a response model for the data part of GenericResponse
+class HubSpotWebhookResponseData(BaseModel):
+    status: str
+    message: str
+
+
 def _extract_simple_properties(properties: Dict[str, Optional[HubSpotPropertyDetail]]) -> Dict[str, Any]:
     """Helper to extract simple key-value pairs from the detailed properties."""
     simple_props = {}
@@ -36,11 +44,11 @@ def _extract_simple_properties(properties: Dict[str, Optional[HubSpotPropertyDet
     return simple_props
 
 
-@router.post("/hubspot", summary="Handle HubSpot Direct Contact Data Webhook")
+@router.post("/hubspot", summary="Handle HubSpot Direct Contact Data Webhook", response_model=GenericResponse[HubSpotWebhookResponseData])
 async def webhook_hubspot(
     payload: HubSpotContactDataPayload = Body(...), # Use the new payload model
     background_tasks: BackgroundTasks = BackgroundTasks()
-):
+) -> GenericResponse[HubSpotWebhookResponseData]:
   """
   Receives direct contact data payload from HubSpot (e.g., via Workflow).
   Checks completeness.
@@ -132,4 +140,4 @@ async def webhook_hubspot(
 
   # Removed the loop and event-specific logic
 
-  return {"status": "received", "message": "HubSpot direct contact data processed. Lead creation deferred."}
+  return GenericResponse(data=HubSpotWebhookResponseData(status="received", message="HubSpot direct contact data processed. Lead creation deferred."))

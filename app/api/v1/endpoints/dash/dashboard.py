@@ -7,7 +7,7 @@ from pydantic import BaseModel # Import BaseModel
 from app.models.dash.dashboard import (
     DashboardOverview, RequestLogEntry, CacheClearResult, CacheItem, 
     CacheSearchResult, ClearCacheRequest, ClearPricingCacheRequest, ErrorLogEntry, 
-    ErrorLogResponse # Import ErrorLogResponse
+    ErrorLogResponse, SheetProductsResponse, SheetGeneratorsResponse, SheetBranchesResponse, SheetConfigResponse # Added Sheet data models
 )
 from app.models.common import GenericResponse
 from app.services.dash.dashboard import DashboardService # Import service class
@@ -78,10 +78,21 @@ async def trigger_manual_sync(
     """Endpoint to manually trigger a Google Sheet sync."""
     # Add permission check if needed: if not current_user.is_admin: ...
     logger.info(f"User requested manual sheet sync trigger.")
-    success = await dashboard_service.trigger_sheet_sync()
-    if not success:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to trigger sync. Check logs.")
-    return GenericResponse[MessageResponse](data=MessageResponse(message="Manual sync triggered successfully.")) # Wrap response
+    try:
+        logger.info("Calling dashboard_service.trigger_sheet_sync()")
+        success = await dashboard_service.trigger_sheet_sync()
+        logger.info(f"dashboard_service.trigger_sheet_sync() returned: {success}")
+        if not success:
+            logger.error("trigger_sheet_sync returned False. Raising HTTPException.")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to trigger sync. Check logs.")
+        logger.info("Manual sync trigger successful.")
+        return GenericResponse[MessageResponse](data=MessageResponse(message="Manual sync triggered successfully.")) # Wrap response
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException during manual sync trigger: {http_exc.detail}", exc_info=True)
+        raise  # Re-raise the HTTPException
+    except Exception as e:
+        logger.error(f"Unexpected error during manual sync trigger: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred during sync trigger.")
 
 @router.get(
     "/cache/search",
@@ -113,60 +124,92 @@ async def view_cache_item(
 ):
     """Endpoint to view a specific cached item."""
     logger.info(f"Requested cache key view: {key}")
-    cache_data = await dashboard_service.get_cache_item(key)
-    if cache_data is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cache key not found")
-    return GenericResponse[CacheItem](data=cache_data) # Wrap response
+    try:
+        cache_data = await dashboard_service.get_cache_item(key)
+        if cache_data is None:
+            error_message = f"Cache key '{key}' not found."
+            logger.info(error_message) # Log as info, as it's a standard case
+            return GenericResponse[CacheItem](
+                success=False, 
+                data=None, # Or a default CacheItem if preferred for typing, but None is fine for data
+                error_message=error_message, 
+                error_details=f"The cache key '{key}' does not exist or has expired."
+            )
+        return GenericResponse[CacheItem](data=cache_data)
+    except Exception as e:
+        error_message = f"Error retrieving cache key '{key}'."
+        logger.error(f"{error_message} Error: {e}", exc_info=True)
+        return GenericResponse[CacheItem](
+            success=False, 
+            data=None, 
+            error_message=error_message, 
+            error_details=str(e)
+        )
 
 @router.post(
     "/cache/clear/item",
-    # No response body for 204, so no response_model needed here
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=GenericResponse[MessageResponse], # Changed
+    status_code=status.HTTP_200_OK, # Changed
     summary="Clear Specific Cache Item",
-    description="Manually clears a specific cache key from Redis.",
-    dependencies=[Depends(get_current_user)] # Secure this endpoint (or use admin)
+    description="Manually clears a specific cache key from Redis. Returns success status.",
+    dependencies=[Depends(get_current_user)]
 )
 async def clear_cache_item(
-    payload: ClearCacheRequest = Body(...), # Use request body
-    dashboard_service: DashboardService = Depends(get_dashboard_service_dep) # Use core dependency
+    payload: ClearCacheRequest = Body(...),
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
 ):
     """Endpoint to manually clear a specific cache key."""
-    # Add permission check if needed
     logger.info(f"Requested cache clear for key: {payload.key}")
     try:
-        success = await dashboard_service.clear_cache_item(payload.key)
-        if not success:
-            # Don't raise 404 if key didn't exist, just log it. Return 204 anyway.
-            logger.warning(f"Attempted to clear non-existent or already expired key: {payload.key}")
+        cleared_successfully = await dashboard_service.clear_cache_item(payload.key)
+        if cleared_successfully:
+            message = f"Cache key '{payload.key}' cleared successfully."
+            logger.info(message)
+            return GenericResponse[MessageResponse](data=MessageResponse(message=message))
+        else:
+            message = f"Cache key '{payload.key}' not found or already expired."
+            logger.warning(message)
+            return GenericResponse[MessageResponse](success=False, data=MessageResponse(message=message), error_message=message)
     except Exception as e:
-        logger.error(f"Error clearing cache key {payload.key}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to clear cache key {payload.key}.")
-    # Return Response with 204 status code directly
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+        error_message = f"Failed to clear cache key {payload.key}."
+        logger.error(f"{error_message} Error: {e}", exc_info=True)
+        # It's better to let the global exception handler deal with 500s,
+        # but if we want to ensure GenericResponse for all paths from this endpoint:
+        return GenericResponse[MessageResponse](success=False, data=MessageResponse(message=error_message), error_message=error_message, error_details=str(e))
 
 
 @router.post(
     "/cache/clear/pricing",
-    # No response body for 204
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=GenericResponse[MessageResponse], # Changed
+    status_code=status.HTTP_200_OK, # Changed
     summary="Clear Pricing Catalog Cache",
-    description="Manually clears the entire pricing catalog cache, forcing a refresh on the next sync.",
-    dependencies=[Depends(get_current_user)] # Secure this endpoint (or use admin)
+    description="Manually clears the entire pricing catalog cache. Returns success status.",
+    dependencies=[Depends(get_current_user)]
 )
 async def clear_pricing_cache(
-    payload: ClearPricingCacheRequest = Body(...), # Use request body for confirmation
-    dashboard_service: DashboardService = Depends(get_dashboard_service_dep) # Use core dependency
+    payload: ClearPricingCacheRequest = Body(...),
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
 ):
     """Endpoint to clear the pricing catalog cache."""
     if not payload.confirm:
+         # This remains an HTTPException as it's a client validation error
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Confirmation flag must be set to true.")
-    # Add permission check if needed
-    logger.warning(f"Requested CLEARING ENTIRE PRICING CACHE.")
-    success = await dashboard_service.clear_pricing_catalog_cache()
-    # Log even if key didn't exist
-    logger.info(f"Pricing cache clear operation completed for key '{PRICING_CATALOG_CACHE_KEY}'. Success: {success}")
-    # Return Response with 204 status code directly
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    
+    logger.warning(f"Requested CLEARING ENTIRE PRICING CACHE for key '{PRICING_CATALOG_CACHE_KEY}'.")
+    try:
+        cleared_successfully = await dashboard_service.clear_pricing_catalog_cache()
+        if cleared_successfully:
+            message = f"Pricing catalog cache ('{PRICING_CATALOG_CACHE_KEY}') cleared successfully."
+            logger.info(message)
+            return GenericResponse[MessageResponse](data=MessageResponse(message=message))
+        else:
+            message = f"Pricing catalog cache ('{PRICING_CATALOG_CACHE_KEY}') was not found (already clear)."
+            logger.info(message) # Log as info, as this is an expected state for a "clear" operation
+            return GenericResponse[MessageResponse](data=MessageResponse(message=message))
+    except Exception as e:
+        error_message = f"Failed to clear pricing catalog cache ('{PRICING_CATALOG_CACHE_KEY}')."
+        logger.error(f"{error_message} Error: {e}", exc_info=True)
+        return GenericResponse[MessageResponse](success=False, data=MessageResponse(message=error_message), error_message=error_message, error_details=str(e))
 
 
 @router.post(
@@ -189,8 +232,6 @@ async def clear_maps_cache(
     # Wrap response
     return GenericResponse[MessageResponse](data=MessageResponse(message=f"Cleared {deleted_count} maps cache keys matching pattern '*{location_pattern}*."))
 
-
-# --- Error Log Viewing --- 
 @router.get(
     "/errors",
     response_model=GenericResponse[ErrorLogResponse], # Use GenericResponse wrapping ErrorLogResponse
@@ -213,39 +254,76 @@ async def get_error_logs_endpoint(
         logger.error(f"Error fetching error logs: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve error logs.")
 
-# --- Alert Configuration (Placeholder) --- 
-# This is a complex feature requiring more definition.
-# Example placeholder endpoint structure:
+# --- Sheet Data Endpoints ---
 
-# @router.post(
-#     "/alerts/config",
-#     summary="Configure Alerting Rules",
-#     description="Sets up rules for triggering alerts based on error logs or metrics.",
-#     dependencies=[Depends(get_current_active_admin)] # Likely admin only
-# )
-# async def configure_alerts(
-#     # Define Pydantic model for alert configuration payload
-#     # alert_config: AlertConfigPayload = Body(...),
-#     # dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
-# ):
-#     logger.info("Received request to configure alerts.")
-#     # TODO: Implement logic to store/update alert rules (e.g., in MongoDB or config)
-#     # success = await dashboard_service.update_alert_config(alert_config)
-#     # if not success:
-#     #     raise HTTPException(status_code=500, detail="Failed to save alert configuration.")
-#     return {"message": "Alert configuration endpoint not fully implemented."}
+@router.get(
+    "/sheet/products",
+    response_model=GenericResponse[SheetProductsResponse],
+    summary="Get Synced Products from Sheet",
+    description="Retrieves all product data synced from Google Sheets and stored in MongoDB.",
+    dependencies=[Depends(get_current_user)]
+)
+async def get_sheet_products(
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
+):
+    logger.info("Request to fetch synced products from MongoDB.")
+    try:
+        products_data = await dashboard_service.get_sheet_products_data()
+        return GenericResponse[SheetProductsResponse](data=products_data)
+    except Exception as e:
+        logger.error(f"Error fetching sheet products data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve synced products data.")
 
-# @router.get(
-#     "/alerts/config",
-#     summary="Get Alerting Configuration",
-#     description="Retrieves the current alerting rules.",
-#     dependencies=[Depends(get_current_active_admin)] # Likely admin only
-# )
-# async def get_alert_config(
-#     # dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
-# ):
-#     logger.info("Received request to get alert configuration.")
-#     # TODO: Implement logic to retrieve alert rules
-#     # config = await dashboard_service.get_alert_config()
-#     # return config
-#     return {"message": "Get alert configuration endpoint not fully implemented."}
+@router.get(
+    "/sheet/generators",
+    response_model=GenericResponse[SheetGeneratorsResponse],
+    summary="Get Synced Generators from Sheet",
+    description="Retrieves all generator data synced from Google Sheets and stored in MongoDB.",
+    dependencies=[Depends(get_current_user)]
+)
+async def get_sheet_generators(
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
+):
+    logger.info("Request to fetch synced generators from MongoDB.")
+    try:
+        generators_data = await dashboard_service.get_sheet_generators_data()
+        return GenericResponse[SheetGeneratorsResponse](data=generators_data)
+    except Exception as e:
+        logger.error(f"Error fetching sheet generators data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve synced generators data.")
+
+@router.get(
+    "/sheet/branches",
+    response_model=GenericResponse[SheetBranchesResponse],
+    summary="Get Synced Branches from Sheet",
+    description="Retrieves all branch data synced from Google Sheets and stored in MongoDB.",
+    dependencies=[Depends(get_current_user)]
+)
+async def get_sheet_branches(
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
+):
+    logger.info("Request to fetch synced branches from MongoDB.")
+    try:
+        branches_data = await dashboard_service.get_sheet_branches_data()
+        return GenericResponse[SheetBranchesResponse](data=branches_data)
+    except Exception as e:
+        logger.error(f"Error fetching sheet branches data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve synced branches data.")
+
+@router.get(
+    "/sheet/config",
+    response_model=GenericResponse[SheetConfigResponse],
+    summary="Get Synced Configuration from Sheet",
+    description="Retrieves the main configuration data (delivery, seasonal multipliers) synced from Google Sheets and stored in MongoDB.",
+    dependencies=[Depends(get_current_user)]
+)
+async def get_sheet_config(
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep)
+):
+    logger.info("Request to fetch synced configuration from MongoDB.")
+    try:
+        config_data = await dashboard_service.get_sheet_config_data()
+        return GenericResponse[SheetConfigResponse](data=config_data)
+    except Exception as e:
+        logger.error(f"Error fetching sheet configuration data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve synced configuration data.")

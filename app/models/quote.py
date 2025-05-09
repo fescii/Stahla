@@ -55,11 +55,23 @@ class LineItem(BaseModel):
     quantity: int = Field(..., description="Quantity of the item.")
     total: float = Field(..., description="Total cost for this line item.")
 
+class DeliveryCostDetails(BaseModel):
+    """Detailed breakdown of the delivery cost calculation."""
+    miles: float = Field(..., description="Distance in miles for the delivery.")
+    calculation_reason: str = Field(..., description="Explanation of how the delivery cost was calculated (e.g., tier name, free delivery rule).")
+    total_delivery_cost: float = Field(..., description="Total calculated cost for delivery.")
+    original_per_mile_rate: Optional[float] = Field(None, description="The original per-mile rate before any multipliers.")
+    original_base_fee: Optional[float] = Field(None, description="The original base fee before any multipliers.")
+    seasonal_multiplier_applied: Optional[float] = Field(None, description="Seasonal multiplier applied to delivery, if any.")
+    per_mile_rate_applied: Optional[float] = Field(None, description="The per-mile rate applied after any multipliers (original_rate * multiplier).")
+    base_fee_applied: Optional[float] = Field(None, description="The base fee applied after any multipliers (original_fee * multiplier).")
+
 class QuoteBody(BaseModel):
     """The main body of the quote response."""
     line_items: List[LineItem] = Field(..., description="Detailed list of charges.")
     subtotal: float = Field(..., description="Subtotal before taxes or potential fees.")
-    delivery_tier_applied: Optional[str] = Field(None, description="Name of the delivery pricing tier applied (e.g., 'Free Tier', 'Standard Rate').")
+    delivery_tier_applied: Optional[str] = Field(None, description="Summary name of the delivery pricing tier applied (e.g., 'Free Tier', 'Standard Rate'). This is often the same as part of calculation_reason in delivery_details.") # Kept for summary, but details are in delivery_details
+    delivery_details: Optional[DeliveryCostDetails] = Field(None, description="Detailed breakdown of the delivery cost calculation.") # New field
     notes: Optional[str] = Field(None, description="Additional notes or disclaimers.")
 
 class QuoteResponse(BaseModel):

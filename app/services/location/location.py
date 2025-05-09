@@ -20,6 +20,8 @@ from app.services.dash.background import (
     GMAPS_API_CALLS_KEY,
     GMAPS_API_ERRORS_KEY
 )
+# Import new keys for maps cache
+from app.services.dash.dashboard import MAPS_CACHE_HITS_KEY, MAPS_CACHE_MISSES_KEY
 
 # logger = logging.getLogger(__name__) # Ensure standard logger is commented out or removed
 
@@ -124,68 +126,61 @@ class LocationService:
             # Error already logged in _get_branches_from_cache or warning if empty
             return None # Cannot proceed without branches
 
-        # --- Calculation logic remains largely the same --- 
         min_distance_meters = float('inf')
         nearest_branch: Optional[BranchLocation] = None
         best_duration_seconds: Optional[int] = None
-        cached_result_found = False
         potential_results = []
 
-        # Check cache and make API calls concurrently using the loaded branches
         async def check_branch(branch: BranchLocation):
-            nonlocal min_distance_meters, nearest_branch, best_duration_seconds, cached_result_found
+            nonlocal min_distance_meters, nearest_branch, best_duration_seconds, potential_results
             cache_key = self._get_cache_key(branch.address, delivery_location)
             cached_data = await self.redis_service.get_json(cache_key)
+            
+            api_call_needed = True 
 
             if cached_data:
-                logfire.info(f"Cache hit for distance: '{branch.address}' -> '{delivery_location}'") # Use logfire
+                logfire.info(f"Cache hit for distance: '{branch.address}' -> '{delivery_location}'") 
                 try:
                     distance_result = DistanceResult(**cached_data)
-                    # Ensure the branch info in cache matches the current branch being checked
                     if distance_result.nearest_branch and distance_result.nearest_branch.name == branch.name and distance_result.nearest_branch.address == branch.address:
                         potential_results.append(distance_result)
-                        cached_result_found = True
-                        return
+                        await increment_request_counter_bg(self.redis_service, MAPS_CACHE_HITS_KEY) # HIT
+                        api_call_needed = False 
                     else:
-                         logfire.warning(f"Cached data for key {cache_key} has mismatched branch info ({distance_result.nearest_branch}) vs current ({branch}). Will refetch.") # Use logfire
-                         await self.redis_service.delete(cache_key) # Delete potentially stale cache entry
-
+                         logfire.warning(f"Cached data for key {cache_key} has mismatched branch info ({distance_result.nearest_branch}) vs current ({branch}). Will refetch.")
+                         await self.redis_service.delete(cache_key)
+                         # Miss will be counted by the 'if api_call_needed:' block below
                 except Exception as e:
-                    logfire.warning(f"Error parsing cached data for key {cache_key}: {e}. Will refetch.") # Use logfire
-                    await self.redis_service.delete(cache_key) # Delete invalid cache entry
+                    logfire.warning(f"Error parsing cached data for key {cache_key}: {e}. Will refetch.")
+                    await self.redis_service.delete(cache_key)
+                    # Miss will be counted by the 'if api_call_needed:' block below
+            
+            if api_call_needed:
+                await increment_request_counter_bg(self.redis_service, MAPS_CACHE_MISSES_KEY) # MISS (occurs if no cache, or cache was invalid/stale)
+                distance_info = await self._get_distance_from_google(branch.address, delivery_location)
+                if distance_info:
+                    distance_meters = distance_info['distance_meters']
+                    duration_seconds = distance_info['duration_seconds']
+                    distance_miles = distance_info['distance_miles'] 
+                    
+                    result = DistanceResult(
+                        nearest_branch=branch, 
+                        delivery_location=delivery_location,
+                        distance_miles=distance_miles,
+                        distance_meters=distance_meters,
+                        duration_seconds=duration_seconds
+                    )
+                    potential_results.append(result)
+                    await self.redis_service.set_json(cache_key, result.model_dump(), ttl=CACHE_TTL_SECONDS)
 
-            # If not cached or cache invalid/stale, call Google Maps API
-            distance_info = await self._get_distance_from_google(branch.address, delivery_location)
-            if distance_info:
-                # Access values using dictionary keys instead of unpacking
-                distance_meters = distance_info['distance_meters']
-                duration_seconds = distance_info['duration_seconds']
-                distance_miles = distance_info['distance_miles'] # Already calculated
-                
-                result = DistanceResult(
-                    nearest_branch=branch, # Store the current branch being checked
-                    delivery_location=delivery_location,
-                    distance_miles=distance_miles,
-                    distance_meters=distance_meters,
-                    duration_seconds=duration_seconds
-                )
-                potential_results.append(result)
-                # Cache the full result including the branch info
-                await self.redis_service.set_json(cache_key, result.model_dump(), ttl=CACHE_TTL_SECONDS)
-
-        # Run checks for all dynamically loaded branches concurrently
         await asyncio.gather(*(check_branch(branch) for branch in branches))
 
-        # Find the minimum distance among all results (cached or newly fetched)
         if not potential_results:
-            logfire.error(f"Could not determine distance to any branch for location: {delivery_location}") # Use logfire
+            logfire.error(f"Could not determine distance to any branch for location: {delivery_location}")
             return None
 
-        # Find the result with the minimum distance
         final_result = min(potential_results, key=lambda r: r.distance_meters)
-
-        # Ensure the final result has the correct nearest branch assigned
-        logfire.info(f"Nearest branch to '{delivery_location}' is '{final_result.nearest_branch.name}' ({final_result.distance_miles:.2f} miles)") # Use logfire
+        logfire.info(f"Nearest branch to '{delivery_location}' is '{final_result.nearest_branch.name}' ({final_result.distance_miles:.2f} miles)")
         return final_result
 
     async def prefetch_distance(self, delivery_location: str):

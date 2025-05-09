@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import redis.asyncio as redis
 from redis.asyncio.connection import ConnectionPool
@@ -23,9 +23,10 @@ class RedisService:
         if cls._pool is None:
             logger.info(f"Creating Redis connection pool for URL: {settings.REDIS_URL}")
             try:
+                print(f"Creating Redis connection pool for URL: {settings.REDIS_URL}")
                 cls._pool = ConnectionPool.from_url(
                     settings.REDIS_URL,
-                    decode_responses=True, # Decode responses to strings
+                    decode_responses=True,
                     max_connections=10
                 )
             except Exception as e:
@@ -176,24 +177,79 @@ class RedisService:
             if 'client' in locals() and client:
                await client.close()
 
-    async def delete(self, key: str) -> bool:
+    async def delete(self, *keys: str) -> int:
         """
-        Deletes a key from Redis.
+        Deletes one or more keys from Redis.
 
         Args:
-            key: The key to delete.
+            *keys: The key(s) to delete.
 
         Returns:
-            True if the key was deleted, False otherwise.
+            The number of keys that were deleted.
+        """
+        if not keys:
+            logger.warning("Delete called with no keys.")
+            return 0
+        try:
+            client = await self.get_client()
+            # The redis-py client.delete() method accepts multiple keys
+            result = await client.delete(*keys) 
+            logger.debug(f"Delete operation for keys '{keys}' resulted in {result} deletions.")
+            return result # result is the number of keys deleted
+        except RedisError as e:
+            logger.error(f"Redis error deleting keys '{keys}': {e}", exc_info=True)
+            return 0  # Return 0 on error, as no keys were successfully deleted in this attempt
+        finally:
+            if 'client' in locals() and client:
+               await client.close()
+
+    async def get_redis_info(self) -> Optional[Dict[str, Any]]:
+        """
+        Gets the Redis INFO command output.
+
+        Returns:
+            A dictionary containing Redis info if successful, otherwise None.
         """
         try:
             client = await self.get_client()
-            result = await client.delete(key)
-            logger.debug(f"Deleted key '{key}': {result > 0}")
-            return result > 0
+            info = await client.info()
+            logger.debug("Fetched Redis INFO")
+            return info
         except RedisError as e:
-            logger.error(f"Redis error deleting key '{key}': {e}", exc_info=True)
-            return False
+            logger.error(f"Redis error getting INFO: {e}", exc_info=True)
+            return None
+        finally:
+            if 'client' in locals() and client:
+               await client.close()
+
+    async def get_key_memory_usage(self, key: str) -> Optional[int]:
+        """
+        Gets the memory usage for a specific key in Redis.
+
+        Args:
+            key: The key to check.
+
+        Returns:
+            The memory usage in bytes if the key exists, otherwise None.
+        """
+        try:
+            client = await self.get_client()
+            # The MEMORY USAGE command might not be available in all Redis versions or configurations.
+            # It returns None if the key doesn't exist.
+            memory_bytes = await client.execute_command("MEMORY USAGE", key)
+            if memory_bytes is not None:
+                logger.debug(f"Memory usage for key '{key}': {memory_bytes} bytes")
+                return int(memory_bytes)
+            else:
+                logger.debug(f"Key '{key}' not found for memory usage check.")
+                return None
+        except RedisError as e:
+            # Handle cases where MEMORY USAGE might not be supported or other errors
+            if "unknown command" in str(e).lower() or "wrong number of arguments" in str(e).lower():
+                logger.warning(f"Redis command 'MEMORY USAGE {key}' not available or error: {e}")
+            else:
+                logger.error(f"Redis error getting memory usage for key '{key}': {e}", exc_info=True)
+            return None
         finally:
             if 'client' in locals() and client:
                await client.close()

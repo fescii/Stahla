@@ -11,6 +11,7 @@ from app.core.config import settings
 # Import models using the correct path
 from app.models.location import LocationLookupRequest
 from app.models.quote import QuoteRequest, QuoteResponse
+from app.models.common import GenericResponse, MessageResponse
 # Import service classes and their injectors
 from app.services.location.location import LocationService 
 from app.services.quote.quote import QuoteService, get_quote_service 
@@ -71,7 +72,7 @@ class LocationLookupRequest(BaseModel):
 
 @router.post(
     "/location_lookup",
-    status_code=status.HTTP_202_ACCEPTED,
+    response_model=GenericResponse[MessageResponse], # Updated response_model
     summary="Trigger Background Location Distance Calculation",
     description="Accepts a delivery location and triggers an asynchronous task to calculate and cache the distance to the nearest branch. Returns immediately.",
     # Removed tags here, they should be applied when including the router in api.py
@@ -100,12 +101,12 @@ async def webhook_location_lookup(
     
     logger.info(f"Background tasks added for prefetching distance and incrementing counter for: {payload.delivery_location}")
     # Return 202 immediately, indicating the request is accepted for processing
-    return {"message": "Location lookup accepted for background processing."}
+    return GenericResponse(data=MessageResponse(message="Location lookup accepted for background processing."))
 
 
 @router.post(
     "/quote",
-    response_model=QuoteResponse,
+    response_model=GenericResponse[QuoteResponse], # Updated response_model
     summary="Generate Real-time Price Quote",
     description="Calculates a price quote based on provided details, utilizing cached pricing and location data. Requires prior location lookup for optimal performance.",
     # Removed tags here
@@ -116,37 +117,21 @@ async def webhook_quote(
     quote_service: QuoteService = Depends(get_quote_service), # Use injector from quote.py
     redis_service: RedisService = Depends(get_redis_service), # Use direct injector for error logging
     api_key: str = Depends(get_api_key)
-) -> QuoteResponse:
+) -> GenericResponse[QuoteResponse]: # Updated return type hint
     """
     Webhook endpoint to generate a price quote. Middleware handles request/response logging.
     """
-    # start_time = time.monotonic() # No longer needed here
     request_id = payload.request_id
-    # response_data = None # No longer needed here
-    # status_code = status.HTTP_500_INTERNAL_SERVER_ERROR # No longer needed here
-    # latency_ms = None # No longer needed here
-    # success = False # No longer needed here
 
     try:
         logger.info(f"Received quote webhook for request_id: {request_id}")
         quote_response = await quote_service.build_quote(payload)
-        # status_code = status.HTTP_200_OK # Handled by middleware
-        # success = True # Handled by middleware
-        return quote_response
+        return GenericResponse(data=quote_response) # Return GenericResponse on success
     except ValueError as ve:
         logger.warning(f"Value error building quote for request {request_id}: {ve}")
-        # response_data = {"detail": str(ve)} # Handled by middleware
-        # status_code = status.HTTP_400_BAD_REQUEST # Handled by middleware
-        # Log specific error type via background task
         background_tasks.add_task(log_error_bg, redis_service, "ValueError", str(ve), {"request_id": request_id})
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        return GenericResponse.error(message=str(ve), details={"request_id": request_id}) # Return GenericResponse on error
     except Exception as e:
         logger.exception(f"Unexpected error building quote for request {request_id}", exc_info=e)
-        # response_data = {"detail": "An internal error occurred..."} # Handled by middleware
-        # status_code = status.HTTP_500_INTERNAL_SERVER_ERROR # Handled by middleware
-        # Log generic error type via background task
         background_tasks.add_task(log_error_bg, redis_service, type(e).__name__, str(e), {"request_id": request_id})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred while generating the quote.")
-    # finally:
-        # Logging and counting moved to middleware or handled within try/except
-        # pass
+        return GenericResponse.error(message="An internal error occurred while generating the quote.", details={"error_type": type(e).__name__, "request_id": request_id}) # Return GenericResponse on error

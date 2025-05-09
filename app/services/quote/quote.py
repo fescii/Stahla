@@ -1,15 +1,18 @@
 import logging
 import math
+import json
 from datetime import date # Ensure date is imported
 from typing import Any, Dict, List, Optional, Tuple, Literal # Import Literal
 
 from fastapi import Depends # Add Depends import
 
-from app.models.quote import QuoteRequest, QuoteResponse, LineItem, QuoteBody, ExtraInput
+from app.models.quote import QuoteRequest, QuoteResponse, LineItem, QuoteBody, ExtraInput, DeliveryCostDetails
 from app.models.location import DistanceResult
 from app.services.redis.redis import RedisService, get_redis_service 
 from app.services.location.location import LocationService 
-from app.services.quote.sync import PRICING_CATALOG_CACHE_KEY # Import cache key
+from app.services.quote.sync import PRICING_CATALOG_CACHE_KEY, BRANCH_LIST_CACHE_KEY # Import cache keys
+from app.services.dash.background import increment_request_counter_bg # For dashboard counters
+from app.services.dash.dashboard import PRICING_CACHE_HITS_KEY, PRICING_CACHE_MISSES_KEY # Import new keys
 from app.core.dependencies import get_location_service_dep 
 
 logger = logging.getLogger(__name__)
@@ -31,13 +34,25 @@ class QuoteService:
         self.location_service = location_service
 
     async def _get_pricing_catalog(self) -> Optional[Dict[str, Any]]:
-        """Retrieves the pricing catalog from Redis cache."""
-        catalog = await self.redis_service.get_json(PRICING_CATALOG_CACHE_KEY)
-        if not catalog:
-            logger.error(f"Pricing catalog not found in Redis cache (key: '{PRICING_CATALOG_CACHE_KEY}'). Run sheet sync.")
+        """
+        Retrieves the pricing catalog from Redis cache.
+        If not found, it implies that the sync service hasn't populated it yet.
+        """
+        try:
+            catalog = await self.redis_service.get_json(PRICING_CATALOG_CACHE_KEY)
+            
+            if catalog: # Successfully retrieved and deserialized
+                logger.debug(f"Pricing catalog found in cache ('{PRICING_CATALOG_CACHE_KEY}').")
+                await increment_request_counter_bg(self.redis_service, PRICING_CACHE_HITS_KEY) # HIT
+                return catalog
+            else: # Not found in cache (get_json returned None)
+                logger.warning(f"Pricing catalog NOT FOUND in cache ('{PRICING_CATALOG_CACHE_KEY}'). Needs sync.")
+                await increment_request_counter_bg(self.redis_service, PRICING_CACHE_MISSES_KEY) # MISS
+                return None
+        except Exception as e: # Catch any other unexpected errors during Redis interaction
+            logger.error(f"Error retrieving pricing catalog from Redis (key: '{PRICING_CATALOG_CACHE_KEY}'): {e}", exc_info=True)
+            await increment_request_counter_bg(self.redis_service, PRICING_CACHE_MISSES_KEY) # Count as MISS on error
             return None
-        # TODO: Add validation for the catalog structure if needed
-        return catalog
 
     def _determine_seasonal_multiplier(self, rental_start_date: date, seasonal_config: Dict[str, Any]) -> Tuple[float, str]:
         """Determines the seasonal rate multiplier based on the start date."""
@@ -173,41 +188,54 @@ class QuoteService:
         catalog: Dict[str, Any],
         rate_multiplier: float, # Added
         season_desc: str        # Added
-    ) -> Tuple[Optional[float], Optional[str]]:
+    ) -> Dict[str, Any]: # Updated return type
         """
         Calculates the delivery cost based on distance and delivery tiers,
-        applying seasonal multipliers.
+        applying seasonal multipliers. Returns a dictionary with detailed cost breakdown.
         """
         delivery_config = catalog.get("delivery")
         if not delivery_config:
             logger.warning("Delivery pricing configuration not found in catalog.")
-            return None, None
+            return {"cost": None, "tier_description": "Delivery pricing unavailable", "miles": distance_result.distance_miles} # Return partial info
 
         distance_miles = distance_result.distance_miles
-        free_tier_miles = delivery_config.get('free_miles_threshold', 25) # Default to 25 if not in config
-        per_mile_rate = delivery_config.get('per_mile_rate', 0)
-        base_fee = delivery_config.get('base_fee', 0)
+        original_free_tier_miles = delivery_config.get('free_miles_threshold', 25)
+        original_per_mile_rate = delivery_config.get('per_mile_rate', 0.0)
+        original_base_fee = delivery_config.get('base_fee', 0.0)
 
-        # Log the inputs before calculation
-        logger.info(f"Calculating delivery: Distance={distance_miles:.2f} mi, BaseFee=${base_fee:.2f}, PerMile=${per_mile_rate:.2f}, Multiplier={rate_multiplier:.2f}")
+        cost: Optional[float] = None
+        tier_description: str = ""
+        applied_per_mile_rate = original_per_mile_rate
+        applied_base_fee = original_base_fee
 
-        if distance_miles <= free_tier_miles:
-            cost = 0.0 # Free if within threshold
-            tier = f"Free Delivery (<= {free_tier_miles} miles)"
+        logger.info(f"Calculating delivery: Distance={distance_miles:.2f} mi, OriginalBaseFee=${original_base_fee:.2f}, OriginalPerMile=${original_per_mile_rate:.2f}, Multiplier={rate_multiplier:.2f}")
+
+        if distance_miles <= original_free_tier_miles:
+            cost = 0.0
+            tier_description = f"Free Delivery (<= {original_free_tier_miles} miles)"
+            # Seasonal multiplier does not apply to free tier
+            seasonal_multiplier_for_calc = 1.0 
+            applied_per_mile_rate = 0.0 # No per mile charge in free tier
+            applied_base_fee = 0.0 # No base fee in free tier
             logger.info(f"Delivery cost (Free Tier): ${cost:.2f}")
-            # Note: Seasonal multiplier typically doesn't apply to free services, but confirm business rule.
-            # Assuming multiplier does NOT apply if cost is 0.
         else:
-            # Apply seasonal multiplier to base fee and per-mile rate components
-            calculated_base_fee = base_fee * rate_multiplier
-            calculated_per_mile_rate = per_mile_rate * rate_multiplier
-            cost = calculated_base_fee + (distance_miles * calculated_per_mile_rate)
-            # Add season description to the tier info
-            tier = f"Standard Rate @ ${per_mile_rate:.2f}/mile (Base: ${base_fee:.2f}){season_desc}"
-            logger.info(f"Delivery cost ({distance_miles:.1f} miles @ ${per_mile_rate:.2f}/mile + Base ${base_fee:.2f}) * Multiplier {rate_multiplier:.2f}: ${cost:.2f}")
+            seasonal_multiplier_for_calc = rate_multiplier # Apply for paid tiers
+            applied_base_fee = original_base_fee * seasonal_multiplier_for_calc
+            applied_per_mile_rate = original_per_mile_rate * seasonal_multiplier_for_calc
+            cost = applied_base_fee + (distance_miles * applied_per_mile_rate)
+            tier_description = f"Standard Rate @ ${original_per_mile_rate:.2f}/mile (Base: ${original_base_fee:.2f}){season_desc}"
+            logger.info(f"Delivery cost ({distance_miles:.1f} miles @ ${applied_per_mile_rate:.2f}/mile (orig: ${original_per_mile_rate:.2f}) + Base ${applied_base_fee:.2f} (orig: ${original_base_fee:.2f})) with multiplier {seasonal_multiplier_for_calc:.2f}: ${cost:.2f}")
 
-        # Return cost rounded to 2 decimal places
-        return round(cost, 2), tier
+        return {
+            "cost": round(cost, 2) if cost is not None else None,
+            "tier_description": tier_description,
+            "miles": round(distance_miles, 2),
+            "original_per_mile_rate": original_per_mile_rate,
+            "original_base_fee": original_base_fee,
+            "seasonal_multiplier_applied": seasonal_multiplier_for_calc if cost > 0 else None, # Only show multiplier if it affected cost
+            "per_mile_rate_applied": round(applied_per_mile_rate, 2) if cost > 0 else 0.0,
+            "base_fee_applied": round(applied_base_fee, 2) if cost > 0 else 0.0
+        }
 
     def _calculate_extras_cost(self, extras_input: List[ExtraInput], trailer_id: str, rental_days: int, catalog: Dict[str, Any]) -> List[LineItem]:
         """
@@ -310,6 +338,8 @@ class QuoteService:
         logger.info(f"Building quote for request_id: {request.request_id}")
         line_items: List[LineItem] = []
         subtotal = 0.0
+        delivery_details_for_response: Optional[DeliveryCostDetails] = None # Initialize
+        delivery_tier_summary: Optional[str] = None
 
         # 1. Get Pricing Catalog from Cache
         catalog = await self._get_pricing_catalog()
@@ -352,22 +382,39 @@ class QuoteService:
         # Re-determining is safer if trailer calc might change it
         rate_multiplier, season_desc = self._determine_seasonal_multiplier(request.rental_start_date, seasonal_config)
         
-        delivery_cost, delivery_tier = self._calculate_delivery_cost(
+        delivery_calculation_result = self._calculate_delivery_cost(
             distance_result, 
             catalog,
             rate_multiplier, # Pass the correctly determined multiplier
             season_desc      # Pass the correctly determined season description
         )
-        if delivery_cost is not None and delivery_tier is not None:
+        
+        delivery_cost = delivery_calculation_result.get("cost")
+        delivery_tier_summary = delivery_calculation_result.get("tier_description")
+
+        if delivery_cost is not None and delivery_tier_summary is not None:
             line_items.append(LineItem(
-                description=delivery_tier, # Use the tier description from the calculation
+                description=delivery_tier_summary, # Use the tier description from the calculation
                 quantity=1, 
-                unit_price=None, # Keep as None as it's a calculated total
-                total=round(delivery_cost, 2)
+                unit_price=None, # Delivery cost is a total, not per unit in this context
+                total=delivery_cost
             ))
             subtotal += delivery_cost
+            
+            # Populate DeliveryCostDetails for the response
+            delivery_details_for_response = DeliveryCostDetails(
+                miles=delivery_calculation_result["miles"],
+                calculation_reason=delivery_tier_summary, # This is the tier description
+                total_delivery_cost=delivery_cost,
+                original_per_mile_rate=delivery_calculation_result.get("original_per_mile_rate"),
+                original_base_fee=delivery_calculation_result.get("original_base_fee"),
+                seasonal_multiplier_applied=delivery_calculation_result.get("seasonal_multiplier_applied"),
+                per_mile_rate_applied=delivery_calculation_result.get("per_mile_rate_applied"),
+                base_fee_applied=delivery_calculation_result.get("base_fee_applied")
+            )
         else:
             logger.warning("Could not calculate delivery cost or tier description was missing.")
+            delivery_tier_summary = "Delivery cost calculation failed"
 
         # 5. Calculate Extras Cost
         extra_line_items = self._calculate_extras_cost(
@@ -383,7 +430,8 @@ class QuoteService:
         quote_body = QuoteBody(
             line_items=line_items,
             subtotal=round(subtotal, 2),
-            delivery_tier_applied=delivery_tier,
+            delivery_tier_applied=delivery_tier_summary, # The summary string
+            delivery_details=delivery_details_for_response, # The detailed object
             notes="Quote is an estimate. Taxes not included. Final price subject to final confirmation."
         )
 

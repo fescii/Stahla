@@ -28,6 +28,8 @@ from app.services.n8n import close_n8n_client # Import the close function
 import logfire
 from dotenv import load_dotenv # Make sure python-dotenv is in requirements.txt
 from app.core.middleware import LoggingMiddleware # Import the middleware
+# Import the exception handlers
+from app.core.middleware import http_exception_handler, generic_exception_handler
 
 # --- Logfire Configuration ---
 # Load environment variables (especially for LOGFIRE_TOKEN if set)
@@ -137,6 +139,10 @@ app = FastAPI(
     redoc_url="/redoc", # Default ReDoc
     lifespan=lifespan
 )
+
+# --- Register Exception Handlers ---
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
 
 # --- Add Middleware --- 
 app.add_middleware(LoggingMiddleware)

@@ -16,10 +16,11 @@ Content-Type: application/x-www-form-urlencoded
 
 username={{admin_email}}&password={{admin_password}}
 
+###
 
 # Store the access token from the response
 # Run the login request above first, then paste the token here:
-@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpc2Zlc2NpaUBnbWFpbC5jb20iLCJleHAiOjE3NDY3MTY0MjB9.pGdqEEiP9xJbQn8-Bz_o8Q_CxBt1aIsX2pTyqsHWJ9Y
+@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpc2Zlc2NpaUBnbWFpbC5jb20iLCJleHAiOjE3NDY4MDUzMjN9.L0m3pmgnX3vddAZcRiYJp3uxQxXG-jKvp0qiUBWXeMs
 
 ###
 
@@ -97,4 +98,32 @@ Content-Type: application/json
 {
   "location_pattern": "*omaha*"
 }
+
+###
+
+# --- Synced Sheet Data Endpoints ---
+
+# Get Synced Products
+GET {{host}}{{api_v1}}/dashboard/sheet/products
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Synced Generators
+GET {{host}}{{api_v1}}/dashboard/sheet/generators
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Synced Branches
+GET {{host}}{{api_v1}}/dashboard/sheet/branches
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Synced Configuration
+GET {{host}}{{api_v1}}/dashboard/sheet/config
+x-access-token: {{jwt_token}}
+
+###
 

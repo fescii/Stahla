@@ -3,10 +3,12 @@
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status
 import logfire
 from typing import Optional, Dict, Any
+from pydantic import BaseModel
 
 # Import models
 from app.models.bland import BlandWebhookPayload
-from app.models.classification import ClassificationInput
+from app.models.classification import ClassificationInput, ClassificationOutput
+from app.models.common import GenericResponse
 
 # Import services
 from app.services.bland import bland_manager
@@ -22,15 +24,25 @@ from .helpers import (
 
 router = APIRouter()
 
+# Define a response model for the data part of GenericResponse
+class VoiceWebhookResponseData(BaseModel):
+    status: str
+    source: str
+    action: str
+    classification: Optional[ClassificationOutput] = None
+    hubspot_contact_id: Optional[str] = None
+    hubspot_lead_id: Optional[str] = None
+
 
 @router.post(
     "/voice",
     summary="Receive Voice Transcripts from Bland.ai",
+    response_model=GenericResponse[VoiceWebhookResponseData]
 )
 async def webhook_voice(
     payload: BlandWebhookPayload = Body(...),
     background_tasks: BackgroundTasks = BackgroundTasks()
-):
+) -> GenericResponse[VoiceWebhookResponseData]:
   """
   Handles incoming webhook submissions containing voice transcripts from Bland.ai.
   Processes the transcript, extracts data, and sends for classification.
@@ -213,11 +225,13 @@ async def webhook_voice(
     final_lead_id = None
 
   # Return response
-  return {
-      "status": "received",
-      "source": "voice",
-      "action": "classification_complete",
-      "classification": classification_result.classification.model_dump() if classification_result.classification else None,
-      "hubspot_contact_id": final_contact_id,
-      "hubspot_lead_id": final_lead_id
-  }
+  return GenericResponse(
+      data=VoiceWebhookResponseData(
+          status="received",
+          source="voice",
+          action="classification_complete",
+          classification=classification_result.classification,
+          hubspot_contact_id=final_contact_id,
+          hubspot_lead_id=final_lead_id
+      )
+  )
