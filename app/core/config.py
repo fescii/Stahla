@@ -46,6 +46,20 @@ class Settings(BaseSettings):
   HUBSPOT_LOGISTICS_PIPELINE_ID: str = "default" # Placeholder - Set in .env
   HUBSPOT_LOGISTICS_NEW_STAGE_ID: str = "appointmentscheduled" # Placeholder - Set in .env
   # --- End Add Missing --- 
+
+  # HubSpot Association Type IDs (Ensure these are integers and set in your .env file)
+  HUBSPOT_ASSOCIATION_TYPE_ID_DEAL_TO_CONTACT: int = Field(default=1, description="Numeric ID for Deal to Contact association") # Example default, replace with actual ID
+  HUBSPOT_ASSOCIATION_TYPE_ID_DEAL_TO_COMPANY: int = Field(default=2, description="Numeric ID for Deal to Company association") # Example default, replace with actual ID
+  HUBSPOT_ASSOCIATION_TYPE_ID_COMPANY_TO_CONTACT: int = Field(default=3, description="Numeric ID for Company to Contact association") # Example default, replace with actual ID
+  HUBSPOT_ASSOCIATION_TYPE_ID_TICKET_TO_CONTACT: int = Field(default=4, description="Numeric ID for Ticket to Contact association") # Example default, replace with actual ID
+  HUBSPOT_ASSOCIATION_TYPE_ID_TICKET_TO_DEAL: int = Field(default=5, description="Numeric ID for Ticket to Deal association") # Example default, replace with actual ID
+
+  # HubSpot Default Pipeline Names (Can be overridden in .env)
+  HUBSPOT_DEFAULT_DEAL_PIPELINE_NAME: str = "Sales Pipeline"
+  HUBSPOT_DEFAULT_TICKET_PIPELINE_NAME: str = "Support Pipeline"
+  HUBSPOT_DEFAULT_LEAD_LIFECYCLE_STAGE: str = "lead"
+
+
   # HUBSPOT_REVIEW_OWNER_ID: Optional[str] = None # Optional: Assign leads needing review to specific owner
 
   # Bland.ai Configuration

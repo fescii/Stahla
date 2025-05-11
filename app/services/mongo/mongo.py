@@ -1,22 +1,29 @@
 # filepath: app/services/mongo/mongo.py
 import logfire
+import logging
+import copy # Added import
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import ConnectionFailure, OperationFailure
 from pymongo.server_api import ServerApi # Import ServerApi
 from bson.codec_options import CodecOptions, UuidRepresentation # Import UuidRepresentation
 from app.core.config import settings
-from typing import Optional, Dict, Any, List, Union # Import Union
-from datetime import datetime
+from typing import Optional, Dict, Any, List, Union, Tuple # Import Union
+from datetime import datetime, timezone # Added import
 from pymongo import ASCENDING, DESCENDING # Import for indexes
 from pymongo import UpdateOne # Ensure UpdateOne is imported
+from fastapi import HTTPException
+from app.models.bland_call_log import BlandCallLog, BlandCallStatus, PaginatedBlandCallResponse, BlandCallStats
+from app.models.error_log import ErrorLog, PaginatedErrorLogResponse # Added ErrorLog models
 
-# Define collection names
+# --- Constants for Collection Names ---
 REPORTS_COLLECTION = "reports"
 USERS_COLLECTION = "users" # Define users collection name here
 SHEET_PRODUCTS_COLLECTION = "sheet_products"
 SHEET_GENERATORS_COLLECTION = "sheet_generators"
 SHEET_BRANCHES_COLLECTION = "sheet_branches"
 SHEET_CONFIG_COLLECTION = "sheet_config"
+BLAND_CALL_LOGS_COLLECTION = "bland_call_logs"
+ERROR_LOGS_COLLECTION = "error_logs" # New collection for general errors
 
 class MongoService:
     # client and db are now instance attributes, initialized in __init__
@@ -117,6 +124,23 @@ class MongoService:
             # _id is automatically indexed. If using a specific field like 'config_type' for multiple configs:
             await sheet_config_coll.create_index([("config_type", ASCENDING)], unique=True, name="sheet_config_type_unique_idx", sparse=True)
             logfire.info(f"Index 'sheet_config_type_unique_idx' (sparse) ensured for collection '{SHEET_CONFIG_COLLECTION}'.")
+
+            # Indexes for Bland Call Logs
+            bland_logs_coll = self.db[BLAND_CALL_LOGS_COLLECTION]
+            # HubSpot Contact ID will be stored as _id, which is automatically indexed and unique.
+            # We ensure 'id' field (which will be the HubSpot Contact ID) is used for _id upon insertion.
+            await bland_logs_coll.create_index([("status", ASCENDING)], name="bland_call_log_status_idx")
+            await bland_logs_coll.create_index([("created_at", DESCENDING)], name="bland_call_log_created_at_idx")
+            await bland_logs_coll.create_index([("phone_number", ASCENDING)], name="bland_call_log_phone_idx", sparse=True) # If searching by phone
+            await bland_logs_coll.create_index([("call_id_bland", ASCENDING)], name="bland_call_log_bland_call_id_idx", sparse=True) # If searching by Bland's call_id
+            logfire.info(f"Indexes ensured for collection '{BLAND_CALL_LOGS_COLLECTION}'.")
+
+            # Indexes for Error Logs
+            error_logs_coll = self.db[ERROR_LOGS_COLLECTION]
+            await error_logs_coll.create_index([("timestamp", DESCENDING)], name="error_log_timestamp_idx")
+            await error_logs_coll.create_index([("service_name", ASCENDING)], name="error_log_service_name_idx")
+            await error_logs_coll.create_index([("error_type", ASCENDING)], name="error_log_error_type_idx")
+            logfire.info(f"Indexes ensured for collection '{ERROR_LOGS_COLLECTION}'.")
 
         except Exception as e:
             logfire.error(f"Error creating MongoDB indexes: {e}", exc_info=True)
@@ -342,6 +366,330 @@ class MongoService:
         except Exception as e:
             logfire.error(f"Failed to aggregate report summary from MongoDB: {e}", exc_info=True)
             return summary # Return default summary on error
+
+    # --- Bland Call Log Specific Methods ---
+
+    async def log_bland_call_attempt(
+        self,
+        contact_id: str,
+        phone_number: str,
+        task: Optional[str], # Task description if pathway_id_used is None
+        initial_status: BlandCallStatus = BlandCallStatus.PENDING,
+        call_id_bland: Optional[str] = None, # Bland's call_id for *this* attempt, if known early
+        retry_of_call_id: Optional[str] = None, # Bland's call_id of the *previous* attempt being retried
+        retry_reason: Optional[str] = None,
+        # New fields for storing call inputs
+        voice_id: Optional[int] = None,
+        transfer_phone_number: Optional[str] = None,
+        webhook_url: Optional[str] = None,
+        request_data_variables: Optional[Dict[str, Any]] = None,
+        max_duration: Optional[int] = None,
+        pathway_id_used: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Logs an attempt of a Bland.ai call or updates for a retry.
+        HubSpot Contact ID (contact_id) is used as MongoDB '_id'.
+        """
+        db = await self.get_db()
+        collection = db[BLAND_CALL_LOGS_COLLECTION]
+        
+        current_time = datetime.utcnow()
+        
+        doc_fields = {
+            "phone_number": phone_number,
+            "task": task,
+            "pathway_id_used": pathway_id_used,
+            "status": initial_status.value, # Will be PENDING for new, or updated if retry
+            "updated_at": current_time,
+            "voice_id": voice_id,
+            "transfer_phone_number": transfer_phone_number,
+            "webhook_url": webhook_url,
+            "request_data_variables": request_data_variables,
+            "max_duration": max_duration,
+            # These are specific to this attempt, might be None initially
+            "call_id_bland": call_id_bland, 
+            "retry_of_call_id": retry_of_call_id,
+            "retry_reason": retry_reason,
+        }
+        # Remove None values from doc_fields to avoid inserting them if not provided
+        doc_fields = {k: v for k, v in doc_fields.items() if v is not None}
+
+        try:
+            # Attempt to insert a new document
+            doc_to_insert = {
+                "_id": contact_id,
+                "created_at": current_time,
+                "retry_count": 0, # Initial attempt
+                **doc_fields
+            }
+            # Ensure status is PENDING for a truly new insert.
+            doc_to_insert["status"] = BlandCallStatus.PENDING.value
+
+            result = await collection.insert_one(doc_to_insert)
+            logfire.info(f"Logged new Bland call attempt for contact_id: {contact_id}, mongo_id: {result.inserted_id}", contact_id=contact_id)
+            return str(result.inserted_id)
+        except OperationFailure as e:
+            if e.code == 11000: # Duplicate key error for _id, means it's a retry or concurrent attempt
+                logfire.warning(f"Bland call log for contact_id: {contact_id} already exists. Updating for retry.", contact_id=contact_id)
+                
+                update_set_fields = {
+                    "status": BlandCallStatus.RETRYING.value,
+                    "updated_at": current_time,
+                    "last_retry_attempt_at": current_time,
+                    # Update all params for this new attempt
+                    "phone_number": phone_number,
+                    "task": task,
+                    "pathway_id_used": pathway_id_used,
+                    "voice_id": voice_id,
+                    "transfer_phone_number": transfer_phone_number,
+                    "webhook_url": webhook_url,
+                    "request_data_variables": request_data_variables,
+                    "max_duration": max_duration,
+                    "retry_reason": retry_reason,
+                    "retry_of_call_id": retry_of_call_id, # This is the Bland call_id of the *previous* attempt
+                    "call_id_bland": call_id_bland # This is the Bland call_id for *this current* retry attempt, if known now (usually None)
+                }
+                # Clean None values from $set to avoid overwriting with None if not provided for the retry
+                update_set_fields = {k: v for k, v in update_set_fields.items() if v is not None}
+
+                update_data_for_retry = {
+                    "$set": update_set_fields,
+                    "$inc": {"retry_count": 1}
+                }
+                
+                # If call_id_bland is explicitly None for this retry attempt (e.g. previous one failed before getting it, and this one hasn't got one yet)
+                # ensure it's unset rather than keeping an old one.
+                if call_id_bland is None and "call_id_bland" not in update_set_fields:
+                     if "$unset" not in update_data_for_retry: update_data_for_retry["$unset"] = {}
+                     update_data_for_retry["$unset"]["call_id_bland"] = ""
+
+
+                updated = await self.update_bland_call_log_internal(contact_id, update_data_for_retry)
+                return contact_id if updated else None
+            
+            logfire.error(f"MongoDB operation failure logging Bland call attempt for contact_id {contact_id}: {e}", contact_id=contact_id, exc_info=True)
+            return None
+        except Exception as e:
+            logfire.error(f"Failed to log Bland call attempt for contact_id {contact_id}: {e}", contact_id=contact_id, exc_info=True)
+            return None
+
+    async def update_bland_call_log_internal(self, call_id: str, update_data: Dict[str, Any]) -> bool:
+        """
+        Internal method to update a BlandCallLog document by call_id.
+        Uses $set operator for updates. Ensures 'updated_at' is always updated.
+        """
+        logger.debug(f"Attempting to update bland_call_log for call_id: {call_id} with data: {update_data}")
+        if not self.db or self.bland_call_logs_collection is None:
+            logger.error("Database or bland_call_logs_collection not initialized.")
+            return False
+
+        # Ensure 'updated_at' is always part of the update
+        update_data_copy = copy.deepcopy(update_data)
+        update_data_copy["updated_at"] = datetime.now(timezone.utc)
+
+        try:
+            result = await self.bland_call_logs_collection.update_one(
+                {"call_id": call_id},
+                {"$set": update_data_copy}
+            )
+
+            if result.matched_count == 0:
+                logger.warning(f"No document found with call_id: {call_id} to update.")
+                return False
+            if result.modified_count == 0 and result.matched_count > 0:
+                logger.info(f"Document with call_id: {call_id} found but no fields were modified by the update data: {update_data_copy}")
+                # Still return True as the operation to find and "update" (even if to same values) was successful
+                return True
+            
+            logger.info(f"Successfully updated bland_call_log for call_id: {call_id}. Matched: {result.matched_count}, Modified: {result.modified_count}")
+            return True
+        except OperationFailure as e:
+            logger.error(f"MongoDB OperationFailure while updating bland_call_log for call_id {call_id}: {e.details}", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while updating bland_call_log for call_id {call_id}: {e}", exc_info=True)
+            return False
+
+    async def update_bland_call_completion(
+        self,
+        contact_id: str,
+        status: BlandCallStatus,
+        summary: Optional[str] = None,
+        transcript: Optional[str] = None,
+        full_response_bland: Optional[Dict[str, Any]] = None, # This is the correct variable name
+        error_message: Optional[str] = None,
+        call_id_bland: Optional[str] = None 
+    ) -> bool:
+        """Updates a Bland call log upon completion or failure, using HubSpot Contact ID."""
+        update_payload = {
+            "status": status.value,
+            "updated_at": datetime.utcnow(),
+        }
+
+        if call_id_bland: # If a specific bland_call_id is passed (e.g. from initial attempt if not set before)
+            update_payload["call_id_bland"] = call_id_bland
+        
+        if full_response_bland:
+            update_payload["call_id_bland"] = full_response_bland.get("call_id", call_id_bland) # Prioritize from full_response_bland
+            update_payload["summary"] = full_response_bland.get("summary")
+            update_payload["transcript"] = full_response_bland.get("transcript") or full_response_bland.get("concatenated_transcript")
+            update_payload["full_response_bland"] = full_response_bland
+        
+        # Use provided summary/transcript if full_response_bland doesn't contain them or is not provided
+        if summary is not None and "summary" not in update_payload:
+            update_payload["summary"] = summary
+        if transcript is not None and "transcript" not in update_payload:
+            update_payload["transcript"] = transcript
+
+        if error_message:
+            update_payload["error_message"] = error_message
+        
+        # Remove None values to avoid overwriting existing fields with None, unless explicitly set to None (e.g. clearing an error)
+        # For this function, we generally want to set fields if they are provided.
+        # If a field in full_response_bland is None, it will be set to None in DB. This is usually desired.
+        # The initial construction of update_payload handles this.
+
+        return await self.update_bland_call_log_internal(contact_id, {"$set": update_payload})
+
+
+    async def get_bland_call_log(self, contact_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a Bland.ai call log by its HubSpot Contact ID (_id)."""
+        db = await self.get_db()
+        collection = db[BLAND_CALL_LOGS_COLLECTION]
+        try:
+            log_doc = await collection.find_one({"_id": contact_id})
+            return log_doc # _id is already the contact_id (string)
+        except Exception as e:
+            logfire.error(f"Failed to retrieve Bland call log for contact_id {contact_id}: {e}", contact_id=contact_id, exc_info=True)
+            return None
+
+    async def get_bland_calls(
+        self, 
+        page: int = 1, 
+        page_size: int = 10, 
+        status_filter: Optional[str] = None, # Renamed from status to status_filter
+        sort_field: str = "created_at", 
+        sort_order: int = DESCENDING
+    ) -> Tuple[List[Dict[str, Any]], int]: # Corrected return type annotation
+        """Retrieves a paginated list of Bland.ai call logs."""
+        db = await self.get_db()
+        collection = db[BLAND_CALL_LOGS_COLLECTION]
+        query = {}
+        if status_filter:
+            query["status"] = status_filter
+        
+        try:
+            total_items = await collection.count_documents(query)
+            skip = (page - 1) * page_size
+            cursor = collection.find(query).sort(sort_field, sort_order).skip(skip).limit(page_size)
+            items = await cursor.to_list(length=page_size)
+            # _id is already a string (HubSpot Contact ID), so no conversion needed for _id.
+            return items, total_items
+        except Exception as e:
+            logfire.error(f"Failed to retrieve Bland calls: {e}", query=query, exc_info=True)
+            return [], 0
+
+    async def get_bland_call_stats(self) -> Dict[str, Any]:
+        """Counts Bland.ai calls, categorized by status, and includes a total."""
+        db = await self.get_db()
+        collection = db[BLAND_CALL_LOGS_COLLECTION]
+        
+        all_statuses = [status.value for status in BlandCallStatus]
+        
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$status",
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        
+        # Initialize stats with all statuses from the enum, ensuring all are present
+        stats = {status_val: 0 for status_val in all_statuses}
+        total_calls = 0
+        
+        try:
+            cursor = collection.aggregate(pipeline)
+            async for doc in cursor:
+                status_val = doc["_id"]
+                count = doc["count"]
+                if status_val in stats: # Should always be true if status in DB is valid
+                    stats[status_val] = count
+                total_calls += count
+            
+            stats["total_calls"] = total_calls
+            return stats
+        except Exception as e:
+            logfire.error(f"Failed to retrieve Bland call stats: {e}", exc_info=True)
+            # Return stats with 0 counts in case of error, including total
+            # Ensure all enum statuses are present with 0 count
+            error_stats = {status_val: 0 for status_val in all_statuses}
+            error_stats["total_calls"] = 0
+            return error_stats
+
+    # --- General Error Log Specific Methods ---
+
+    async def log_error_to_db(
+        self,
+        service_name: str,
+        error_type: str,
+        error_message: str,
+        stack_trace: Optional[str] = None,
+        request_context: Optional[Dict[str, Any]] = None,
+        additional_data: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
+        """Logs a general error to the error_logs collection."""
+        db = await self.get_db()
+        collection = db[ERROR_LOGS_COLLECTION]
+        
+        error_log_entry = ErrorLog(
+            service_name=service_name,
+            error_type=error_type,
+            error_message=error_message,
+            stack_trace=stack_trace,
+            request_context=request_context,
+            additional_data=additional_data
+        )
+        
+        try:
+            error_doc = error_log_entry.model_dump(by_alias=True)
+            
+            result = await collection.insert_one(error_doc)
+            logfire.info(f"Logged general error from service '{service_name}' to MongoDB with id: {result.inserted_id}", error_id=str(result.inserted_id))
+            return str(result.inserted_id)
+        except Exception as e:
+            logfire.error(f"Failed to log general error from service '{service_name}' to MongoDB: {e}", exc_info=True)
+            return None
+
+    async def get_error_logs(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        service_name_filter: Optional[str] = None,
+        error_type_filter: Optional[str] = None,
+        sort_field: str = "timestamp",
+        sort_order: int = DESCENDING # PyMongo constant
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Retrieves a paginated list of error logs, with optional filtering and sorting."""
+        db = await self.get_db()
+        collection = db[ERROR_LOGS_COLLECTION]
+        query = {}
+        if service_name_filter:
+            query["service_name"] = service_name_filter
+        if error_type_filter:
+            query["error_type"] = error_type_filter
+
+        skip = (page - 1) * page_size
+        
+        try:
+            cursor = collection.find(query).sort(sort_field, sort_order).skip(skip).limit(page_size)
+            items = await cursor.to_list(length=page_size)
+            total_items = await collection.count_documents(query)
+            return items, total_items
+        except Exception as e:
+            logfire.error(f"Failed to retrieve error logs from MongoDB: {e}", exc_info=True)
+            return [], 0
 
 # --- Lifespan Integration Functions ---
 

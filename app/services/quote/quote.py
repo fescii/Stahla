@@ -10,6 +10,7 @@ from app.models.quote import QuoteRequest, QuoteResponse, LineItem, QuoteBody, E
 from app.models.location import DistanceResult
 from app.services.redis.redis import RedisService, get_redis_service 
 from app.services.location.location import LocationService 
+from app.services.mongo.mongo import MongoService, get_mongo_service # Added MongoService, get_mongo_service
 from app.services.quote.sync import PRICING_CATALOG_CACHE_KEY, BRANCH_LIST_CACHE_KEY # Import cache keys
 from app.services.dash.background import increment_request_counter_bg # For dashboard counters
 from app.services.dash.dashboard import PRICING_CACHE_HITS_KEY, PRICING_CACHE_MISSES_KEY # Import new keys
@@ -29,29 +30,44 @@ class QuoteService:
     and calculated delivery distances.
     """
 
-    def __init__(self, redis_service: RedisService, location_service: LocationService):
+    def __init__(self, redis_service: RedisService, location_service: LocationService, mongo_service: MongoService): # Added mongo_service
         self.redis_service = redis_service
         self.location_service = location_service
+        self.mongo_service = mongo_service # Store mongo_service
 
     async def _get_pricing_catalog(self) -> Optional[Dict[str, Any]]:
         """
         Retrieves the pricing catalog from Redis cache.
-        If not found, it implies that the sync service hasn't populated it yet.
+        If not found or on error, logs to MongoDB and returns None.
         """
         try:
             catalog = await self.redis_service.get_json(PRICING_CATALOG_CACHE_KEY)
             
-            if catalog: # Successfully retrieved and deserialized
+            if catalog: 
                 logger.debug(f"Pricing catalog found in cache ('{PRICING_CATALOG_CACHE_KEY}').")
-                await increment_request_counter_bg(self.redis_service, PRICING_CACHE_HITS_KEY) # HIT
+                await increment_request_counter_bg(self.redis_service, PRICING_CACHE_HITS_KEY) 
                 return catalog
-            else: # Not found in cache (get_json returned None)
+            else: 
                 logger.warning(f"Pricing catalog NOT FOUND in cache ('{PRICING_CATALOG_CACHE_KEY}'). Needs sync.")
-                await increment_request_counter_bg(self.redis_service, PRICING_CACHE_MISSES_KEY) # MISS
+                await increment_request_counter_bg(self.redis_service, PRICING_CACHE_MISSES_KEY)
+                # Log to MongoDB
+                await self.mongo_service.log_error_to_db(
+                    service_name="QuoteService._get_pricing_catalog",
+                    error_type="CacheMiss",
+                    message=f"Pricing catalog not found in cache (key: '{PRICING_CATALOG_CACHE_KEY}'). Sync may be required.",
+                    details={"cache_key": PRICING_CATALOG_CACHE_KEY}
+                )
                 return None
-        except Exception as e: # Catch any other unexpected errors during Redis interaction
+        except Exception as e: 
             logger.error(f"Error retrieving pricing catalog from Redis (key: '{PRICING_CATALOG_CACHE_KEY}'): {e}", exc_info=True)
-            await increment_request_counter_bg(self.redis_service, PRICING_CACHE_MISSES_KEY) # Count as MISS on error
+            await increment_request_counter_bg(self.redis_service, PRICING_CACHE_MISSES_KEY)
+            # Log to MongoDB
+            await self.mongo_service.log_error_to_db(
+                service_name="QuoteService._get_pricing_catalog",
+                error_type="RedisError",
+                message=f"Error retrieving pricing catalog from Redis: {str(e)}",
+                details={"cache_key": PRICING_CATALOG_CACHE_KEY, "exception_type": type(e).__name__, "exception_args": e.args}
+            )
             return None
 
     def _determine_seasonal_multiplier(self, rental_start_date: date, seasonal_config: Dict[str, Any]) -> Tuple[float, str]:
@@ -81,8 +97,8 @@ class QuoteService:
         trailer_id: str,
         rental_days: int,
         usage_type: Literal["commercial", "event"],
-        rental_start_date: date,      # Changed from event_tier
-        seasonal_config: Dict[str, Any], # Added seasonal_config
+        rental_start_date: date,      
+        seasonal_config: Dict[str, Any], 
         catalog: Dict[str, Any]
     ) -> Tuple[Optional[float], Optional[str]]:
         """Calculates the base rental cost for a trailer, applying seasonal multipliers."""
@@ -92,6 +108,12 @@ class QuoteService:
 
         if not product_info:
             logger.error(f"Trailer type '{trailer_id}' not found in pricing catalog.")
+            # Log to MongoDB - This is a significant issue for quoting this item.
+            # This method is synchronous, so log_error_to_db would need to be called with asyncio.create_task
+            # or made synchronous in MongoService, or this method becomes async.
+            # For now, assuming direct await is not possible here.
+            # Consider making this method async if direct DB logging is desired here.
+            # For now, this error will propagate as None, and build_quote will raise ValueError.
             return None, None
 
         cost: Optional[float] = None
@@ -109,8 +131,9 @@ class QuoteService:
             
             if cost is None:
                  logger.error(f"Base event price ('{event_tier_key}') not found for trailer '{trailer_id}'. Cannot calculate event price.")
-                 return None, None # Cannot price if base event price missing
-
+                 # Log to MongoDB - similar to above, this would ideally be async.
+                 # This will also cause build_quote to raise ValueError.
+                 return None, None 
             tier_name = event_tier_key.replace('event_', '').replace('_', ' ').title()
             description_suffix = f"(Event <= 4 days - {tier_name})"
             logger.info(f"Base Event pricing ({event_tier_key}) for '{trailer_id}': ${cost:.2f}")
@@ -159,7 +182,9 @@ class QuoteService:
                 logger.info(f"Base rate: {rate_tier_desc} for '{trailer_id}': ${base_cost:.2f}")
             else:
                  logger.warning(f"Could not determine applicable base rate for '{trailer_id}' ({rental_days} days). No weekly rate found.")
-                 return None, None # Cannot price if no weekly rate
+                 # Log to MongoDB - this is a configuration issue.
+                 # This will also cause build_quote to raise ValueError.
+                 return None, None 
 
             # If a monthly rate was selected, calculate prorated base cost
             if base_monthly_rate is not None and base_cost is None: # Check base_cost is None to avoid overwriting 28-day/weekly calc
@@ -167,7 +192,7 @@ class QuoteService:
                 description_suffix = f"({rental_days} days - Prorated {rate_tier_desc})"
                 logger.info(f"Base rate: Prorated {rate_tier_desc} for '{trailer_id}': ${base_cost:.2f}")
 
-            if base_cost is None:
+            if base_cost is None: # Should be caught by the 'else' above if no weekly rate
                  logger.error(f"Failed to calculate base cost for trailer '{trailer_id}' ({rental_days} days, {usage_type}).")
                  return None, None
 
@@ -176,26 +201,33 @@ class QuoteService:
             logger.info(f"Applied seasonal multiplier {rate_multiplier}. Final cost: ${cost:.2f}")
 
         # Final check if cost calculation failed
-        if cost is None:
+        if cost is None: # Should be caught by earlier returns if issues occurred
             logger.error(f"Cost calculation resulted in None for trailer '{trailer_id}' ({rental_days} days, {usage_type}).")
             return None, None
 
         return round(cost, 2), description_suffix
 
-    def _calculate_delivery_cost(
+    async def _calculate_delivery_cost( # Made async
         self, 
         distance_result: DistanceResult, 
         catalog: Dict[str, Any],
-        rate_multiplier: float, # Added
-        season_desc: str        # Added
-    ) -> Dict[str, Any]: # Updated return type
+        rate_multiplier: float, 
+        season_desc: str        
+    ) -> Dict[str, Any]: 
         """
         Calculates the delivery cost based on distance and delivery tiers,
         applying seasonal multipliers. Returns a dictionary with detailed cost breakdown.
+        Logs to DB if config is missing.
         """
         delivery_config = catalog.get("delivery")
         if not delivery_config:
             logger.warning("Delivery pricing configuration not found in catalog.")
+            await self.mongo_service.log_error_to_db(
+                service_name="QuoteService._calculate_delivery_cost",
+                error_type="ConfigurationMissing",
+                message="Delivery pricing configuration not found in catalog.",
+                details={"catalog_keys": list(catalog.keys())}
+            )
             return {"cost": None, "tier_description": "Delivery pricing unavailable", "miles": distance_result.distance_miles} # Return partial info
 
         distance_miles = distance_result.distance_miles
@@ -237,10 +269,11 @@ class QuoteService:
             "base_fee_applied": round(applied_base_fee, 2) if cost > 0 else 0.0
         }
 
-    def _calculate_extras_cost(self, extras_input: List[ExtraInput], trailer_id: str, rental_days: int, catalog: Dict[str, Any]) -> List[LineItem]:
+    async def _calculate_extras_cost(self, extras_input: List[ExtraInput], trailer_id: str, rental_days: int, catalog: Dict[str, Any]) -> List[LineItem]: # Made async
         """
         Calculates the cost for requested extras (generators, services).
         Uses pricing from generator catalog and service costs from product catalog.
+        Logs to DB for missing items/rates.
         """
         extra_line_items: List[LineItem] = []
         generators_catalog = catalog.get("generators", {})
@@ -287,7 +320,13 @@ class QuoteService:
                     description = f"{qty}x {gen_name} ({rental_days} days - Weekly Rate)"
                 else:
                     logger.warning(f"Could not determine rate for generator '{extra_id}' ({rental_days} days).")
-                    item_cost = 0.00 # Or handle as error
+                    await self.mongo_service.log_error_to_db(
+                        service_name="QuoteService._calculate_extras_cost",
+                        error_type="PricingUnavailable",
+                        message=f"Could not determine rate for generator '{extra_id}'.",
+                        details={"extra_id": extra_id, "rental_days": rental_days, "trailer_id": trailer_id}
+                    )
+                    item_cost = 0.00 
                     description = f"{qty}x {gen_name} (Pricing Unavailable)"
 
                 logger.info(f"Calculated generator cost for '{extra_id}' (Qty: {qty}, Days: {rental_days}): ${item_cost:.2f}")
@@ -305,6 +344,12 @@ class QuoteService:
                     logger.info(f"Calculated service cost for '{extra_id}' (Qty: {qty}): ${item_cost:.2f}")
                 else:
                     logger.warning(f"Service '{extra_id}' found but has no price in catalog for trailer {trailer_id}.")
+                    await self.mongo_service.log_error_to_db(
+                        service_name="QuoteService._calculate_extras_cost",
+                        error_type="PricingUnavailable",
+                        message=f"Service '{extra_id}' has no price in catalog for trailer {trailer_id}.",
+                        details={"extra_id": extra_id, "trailer_id": trailer_id}
+                    )
                     item_cost = 0.00
                     description = f"{qty}x {extra_id.replace('_', ' ').title()} (Pricing Unavailable)"
             
@@ -316,7 +361,13 @@ class QuoteService:
 
             else:
                 logger.warning(f"Extra item '{extra_id}' not found in pricing catalog or product extras.")
-                item_cost = 0.00 # Default to 0 if unknown
+                await self.mongo_service.log_error_to_db(
+                    service_name="QuoteService._calculate_extras_cost",
+                    error_type="ItemNotFound",
+                    message=f"Extra item '{extra_id}' not found in pricing catalog or product extras.",
+                    details={"extra_id": extra_id, "trailer_id": trailer_id}
+                )
+                item_cost = 0.00 
                 description = f"{qty}x {extra_id} (Unknown Item)"
 
             if item_cost is not None:
@@ -331,7 +382,7 @@ class QuoteService:
 
         return extra_line_items
 
-    async def build_quote(self, request: QuoteRequest) -> QuoteResponse:
+    async def build_quote(self, request: QuoteRequest) -> QuoteResponse: # build_quote is already async
         """
         Builds a complete quote response based on the request.
         """
@@ -348,22 +399,45 @@ class QuoteService:
 
         # 2. Get Delivery Distance
         distance_result = await self.location_service.get_distance_to_nearest_branch(request.delivery_location)
-        if not distance_result:
+        if not distance_result: # This case should be rare if get_distance_to_nearest_branch handles its errors
+            logger.error(f"Critical: Could not determine delivery distance for location: {request.delivery_location}. LocationService returned None.")
+            await self.mongo_service.log_error_to_db(
+                service_name="QuoteService.build_quote",
+                error_type="LocationServiceError",
+                message="LocationService.get_distance_to_nearest_branch returned None.",
+                details={"delivery_location": request.delivery_location.model_dump_json() if request.delivery_location else None}
+            )
             raise ValueError(f"Could not determine delivery distance for location: {request.delivery_location}")
         # Log the obtained distance result
         logger.info(f"Distance result obtained: Branch='{distance_result.nearest_branch.name}', Miles={distance_result.distance_miles:.2f}")
 
         # 3. Calculate Trailer Rental Cost - Pass start date and seasonal config
+        # _calculate_trailer_cost is synchronous. If it returns None, error is raised below.
+        # For more granular logging within _calculate_trailer_cost, it would need to become async
+        # or use a background task for logging, which is complex to pass down.
         seasonal_config = catalog.get("seasonal_multipliers", {})
-        trailer_cost_result = self._calculate_trailer_cost(
+        trailer_cost_result = self._calculate_trailer_cost( # This remains sync
             request.trailer_type,
             request.rental_days,
             request.usage_type,
-            request.rental_start_date, # Pass start date
-            seasonal_config,         # Pass seasonal config
+            request.rental_start_date, 
+            seasonal_config,         
             catalog
         )
         if trailer_cost_result is None or trailer_cost_result[0] is None:
+            # Log the specific failure before raising ValueError
+            await self.mongo_service.log_error_to_db(
+                service_name="QuoteService.build_quote",
+                error_type="PricingError",
+                message=f"Could not calculate price for trailer type: {request.trailer_type}.",
+                details={
+                    "trailer_type": request.trailer_type, 
+                    "rental_days": request.rental_days,
+                    "usage_type": request.usage_type,
+                    "rental_start_date": request.rental_start_date.isoformat(),
+                    "reason": "Output of _calculate_trailer_cost was None."
+                }
+            )
             raise ValueError(f"Could not calculate price for trailer type: {request.trailer_type} for {request.rental_days} days ({request.usage_type}). Check catalog and request.")
         
         trailer_cost, trailer_desc_suffix = trailer_cost_result
@@ -378,15 +452,13 @@ class QuoteService:
         subtotal += trailer_cost
 
         # 4. Calculate Delivery Cost - Pass seasonal multiplier and description
-        # Determine seasonal multiplier and description AGAIN here, or pass from trailer calc
-        # Re-determining is safer if trailer calc might change it
         rate_multiplier, season_desc = self._determine_seasonal_multiplier(request.rental_start_date, seasonal_config)
         
-        delivery_calculation_result = self._calculate_delivery_cost(
+        delivery_calculation_result = await self._calculate_delivery_cost( # Now awaited
             distance_result, 
             catalog,
-            rate_multiplier, # Pass the correctly determined multiplier
-            season_desc      # Pass the correctly determined season description
+            rate_multiplier, 
+            season_desc      
         )
         
         delivery_cost = delivery_calculation_result.get("cost")
@@ -414,10 +486,23 @@ class QuoteService:
             )
         else:
             logger.warning("Could not calculate delivery cost or tier description was missing.")
+            # Log this specific failure if delivery_cost is None from _calculate_delivery_cost
+            # (which already logs if config is missing, this is for other potential None returns)
+            if delivery_cost is None:
+                 await self.mongo_service.log_error_to_db(
+                    service_name="QuoteService.build_quote",
+                    error_type="DeliveryPricingError",
+                    message="Delivery cost calculation failed or returned None.",
+                    details={
+                        "distance_miles": distance_result.distance_miles,
+                        "rate_multiplier": rate_multiplier,
+                        "reason": "Output of _calculate_delivery_cost was None or tier description missing."
+                    }
+                )
             delivery_tier_summary = "Delivery cost calculation failed"
 
         # 5. Calculate Extras Cost
-        extra_line_items = self._calculate_extras_cost(
+        extra_line_items = await self._calculate_extras_cost( # Now awaited
             request.extras, 
             request.trailer_type, 
             request.rental_days, 
@@ -445,7 +530,8 @@ class QuoteService:
 
 # Dependency for FastAPI - Defined here to avoid circular imports
 async def get_quote_service(
-    redis_service: RedisService = Depends(get_redis_service), # Use direct injector from redis.py
-    location_service: LocationService = Depends(get_location_service_dep) # Use injector from dependencies.py
+    redis_service: RedisService = Depends(get_redis_service), 
+    location_service: LocationService = Depends(get_location_service_dep),
+    mongo_service: MongoService = Depends(get_mongo_service) # Added mongo_service dependency
 ) -> QuoteService:
-    return QuoteService(redis_service, location_service)
+    return QuoteService(redis_service, location_service, mongo_service) # Pass mongo_service

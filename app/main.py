@@ -1,34 +1,27 @@
 # app/main.py
 
-from fastapi import FastAPI, Request, HTTPException # Added Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks # Added BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse # Added HTMLResponse
+from fastapi.responses import HTMLResponse 
 from contextlib import asynccontextmanager
-import markdown # Added markdown import
-import asyncio # Import asyncio
+import markdown 
+import asyncio 
 # --- Project Structure Imports ---
-# Import settings from core/config.py
-# Use absolute imports now that WORKDIR is /code
 from app.core.config import settings
-# Correctly import the router from app.api.v1.api
 from app.api.v1.api import api_router_v1
-# Import service managers using the correct class names
-# Ensure the sync function and manager are imported
-from app.services.bland import bland_manager, sync_bland_pathway_on_startup
+from app.services.bland import bland_manager # Removed sync_bland_pathway_on_startup import, will call method directly
 from app.services.hubspot import HubSpotManager
 from app.services.email import EmailManager
-from app.services.quote.sync import lifespan_startup as sheet_sync_startup # Update import path
-from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown # Update import path
-# Import mongo and auth lifespan functions
-from app.services.mongo.mongo import startup_mongo_service, shutdown_mongo_service 
+from app.services.quote.sync import lifespan_startup as sheet_sync_startup 
+from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown 
+from app.services.mongo.mongo import startup_mongo_service, shutdown_mongo_service, get_mongo_service # Added get_mongo_service
 from app.services.auth.auth import startup_auth_service 
 from app.services.redis.redis import startup_redis_service, shutdown_redis_service
-from app.services.n8n import close_n8n_client # Import the close function
+from app.services.n8n import close_n8n_client 
 import logfire
-from dotenv import load_dotenv # Make sure python-dotenv is in requirements.txt
-from app.core.middleware import LoggingMiddleware # Import the middleware
-# Import the exception handlers
+from dotenv import load_dotenv 
+from app.core.middleware import LoggingMiddleware 
 from app.core.middleware import http_exception_handler, generic_exception_handler
 
 # --- Logfire Configuration ---
@@ -55,41 +48,57 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize connections, load models, etc.
     logfire.info("Application startup: Initializing resources.")
     
+    mongo_service_instance = None # Initialize to None
     try:
         # Initialize Redis
         await startup_redis_service()
 
         # Initialize MongoDB (connects, creates indexes)
         await startup_mongo_service() 
-        # Note: startup_mongo_service logs its own errors but doesn't raise by default
-        # We proceed, but subsequent services might fail if mongo connection failed.
+        # Get MongoService instance for other services that need it during startup
+        mongo_service_instance = await get_mongo_service()
         
         # Initialize Auth Service (creates initial user if needed)
-        await startup_auth_service() 
-        # Note: startup_auth_service logs its own errors and handles mongo failure gracefully.
-
+        # Pass mongo_service_instance if auth service needs it directly for startup logic
+        await startup_auth_service(mongo_service=mongo_service_instance) # Assuming startup_auth_service can take it
+        
         # Initialize Sheet Sync Service 
-        await sheet_sync_startup() 
+        # Pass mongo_service_instance if sheet_sync_startup needs it
+        await sheet_sync_startup(mongo_service=mongo_service_instance) # Assuming sheet_sync_startup can take it
         logfire.info("Sheet Sync service startup initiated.")
 
         # Initialize other managers/services if needed
-        app.state.bland_manager = bland_manager
+        app.state.bland_manager = bland_manager # bland_manager is already initialized globally
         app.state.hubspot_manager = HubSpotManager(settings.HUBSPOT_API_KEY)
         app.state.email_manager = EmailManager()
         logfire.info("HubSpotManager and EmailManager initialized.")
 
         # Trigger initial Bland pathway sync (non-blocking)
-        if hasattr(app.state, 'bland_manager') and app.state.bland_manager:
-             asyncio.create_task(app.state.bland_manager._sync_pathway()) 
+        if app.state.bland_manager and mongo_service_instance:
+             # Pass mongo_service_instance and None for background_tasks
+             asyncio.create_task(app.state.bland_manager._sync_pathway(
+                 mongo_service=mongo_service_instance, 
+                 background_tasks=None # Startup tasks can log synchronously
+             )) 
              logfire.info("Bland pathway sync task scheduled.")
+        elif not mongo_service_instance:
+            logfire.error("Mongo service not available, skipping Bland pathway sync.")
         else:
              logfire.warning("Bland manager not initialized, skipping pathway sync task.")
 
     except Exception as e:
-        # Catch any exception during the entire startup sequence
         logfire.error(f"Critical error during application startup sequence: {e}", exc_info=True)
-        # Depending on the severity, you might want to raise the exception
-        # here to prevent the application from starting in a broken state.
+        # If mongo_service_instance is available, try to log this critical startup error
+        if mongo_service_instance:
+            try:
+                await mongo_service_instance.log_error_to_db(
+                    service_name="ApplicationStartup",
+                    error_type="CriticalStartupError",
+                    message=f"Critical error during application startup: {str(e)}",
+                    details={"exception_type": type(e).__name__, "args": e.args}
+                )
+            except Exception as log_e:
+                logfire.error(f"Failed to log critical startup error to DB: {log_e}", exc_info=True)
         raise e 
 
     logfire.info("Application startup sequence complete.")

@@ -20,7 +20,7 @@ username={{admin_email}}&password={{admin_password}}
 
 # Store the access token from the response
 # Run the login request above first, then paste the token here:
-@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpc2Zlc2NpaUBnbWFpbC5jb20iLCJleHAiOjE3NDY4MDUzMjN9.L0m3pmgnX3vddAZcRiYJp3uxQxXG-jKvp0qiUBWXeMs
+@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpc2Zlc2NpaUBnbWFpbC5jb20iLCJleHAiOjE3NDY5MTg4MjZ9.4Ns5cwvLBzw6zVB7DJW3-0zOnHvSZXru3BVQn4WVew0
 
 ###
 

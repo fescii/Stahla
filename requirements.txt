@@ -41,6 +41,9 @@ google-auth-httplib2>=0.1.0       # For Google API authentication
 google-auth-oauthlib>=0.7.0        # For Google API authentication
 googlemaps>=4.10.0               # For Google Maps Distance Matrix API (Adjusted version)
 
+# HubSpot API Client
+hubspot-api-client>=8.1.0 # Or the latest version compatible with v4 associations
+
 # Optional: Scheduler (if background tasks need more advanced scheduling)
 # fastapi-scheduler>=0.4.0 # Commented out due to version issue
 

@@ -1,636 +1,1018 @@
 # app/services/hubspot.py
 
-import httpx
-import logfire
-from typing import Optional, Dict, Any, List
-import itertools
-import asyncio  # For locking
+import logging
+import traceback
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Union
 
-# Import models
-from app.models.hubspot import (
-    HubSpotContactInput,
-    HubSpotContactResult,
-    HubSpotLeadInput,
-    HubSpotLeadResult,
-    HubSpotApiResult,
-    HubSpotContactProperties,
-    HubSpotLeadProperties,
-    HubSpotCompanyProperties, # Add Company model
-    HubSpotCompanyInput # Add Company model
-)
-from app.models.classification import ClassificationOutput  # Needed for deal creation
+from cachetools import TTLCache
+from hubspot import HubSpot
+# For v4 associations - ensure these are correct for your SDK version and that the SDK is up-to-date.
+from hubspot.crm.associations.v4.models import AssociationSpec, PublicObjectId, BatchInputPublicAssociationMultiCreate, PublicAssociationMultiCreate
+from hubspot.crm.companies import SimplePublicObjectInput
+from hubspot.crm.contacts import SimplePublicObjectInput as ContactSimplePublicObjectInput
+from hubspot.crm.deals import SimplePublicObjectInput as DealSimplePublicObjectInput
+from hubspot.crm.deals.exceptions import ApiException as DealApiException
+from hubspot.crm.objects.exceptions import ApiException as ObjectApiException # General CRM object API exception
+from hubspot.crm.owners import PublicOwner # from hubspot.crm.owners.models
+from hubspot.crm.pipelines import Pipeline, PipelineStage # from hubspot.crm.pipelines.models
+# from hubspot.crm.properties import Property # from hubspot.crm.properties.models - Not directly used in this refactor for Property definition
+from pydantic import ValidationError
+
 from app.core.config import settings
+from app.models.hubspot import (
+    HubSpotCompanyPropertiesCreate,
+    HubSpotCompanyPropertiesUpdate,
+    HubSpotContactPropertiesCreate,
+    HubSpotContactPropertiesUpdate,
+    HubSpotDealPropertiesCreate,
+    HubSpotDealPropertiesUpdate,
+    HubSpotErrorDetail, # Make sure this model is defined to parse HubSpot error bodies
+    HubSpotObject,
+    HubSpotOwner,
+    HubSpotPipeline,
+    HubSpotPipelineStage,
+    HubSpotSearchRequest,
+    HubSpotSearchResponse,
+    HubSpotTicketPropertiesCreate,
+    HubSpotTicketPropertiesUpdate,
+)
+from app.models.quote import LeadCreateSchema
 
+logger = logging.getLogger(__name__)
 
 class HubSpotManager:
-    """
-    Manages interactions with the HubSpot API.
-    Handles creating/updating contacts and leads.
-    """
-
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = "https://api.hubapi.com"
-        # Use httpx.AsyncClient for asynchronous requests
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        # Initialize the client with base URL and headers
-        self._client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers=headers,
-            timeout=15.0  # Slightly longer timeout for external API
-        )
-        self._owner_iterator: Optional[itertools.cycle] = None
-        self._owner_list: List[Dict[str, Any]] = []
-        self._owner_lock = asyncio.Lock()
-        self._owners_last_fetched: Optional[float] = None
-        self._owner_cache_ttl = 3600  # Cache owners for 1 hour
-        logfire.info("HubSpotManager initialized.")
-
-    async def close_client(self):
-        """Gracefully closes the HTTP client."""
-        await self._client.aclose()
-        logfire.info("HubSpot HTTP client closed.")
-
-    async def close(self):
-        """Closes the underlying HTTPX client."""
-        if self._client:
-            logfire.info("Closing HubSpotManager HTTPX client...")
-            await self._client.aclose()
-            self._client = None # Indicate client is closed
-            logfire.info("HubSpotManager HTTPX client closed.")
-
-    async def _make_request(
-            self, method: str, endpoint: str, params: Optional[Dict] = None, json_data: Optional[Dict] = None
-    ) -> HubSpotApiResult:
-        """Helper method to make requests to the HubSpot API."""
-        url = f"{self.base_url.strip('/')}/{endpoint.lstrip('/')}"
-        logfire.debug(
-            f"Making HubSpot API request: {method} {url}", params=params, data=json_data)
+    def __init__(self, access_token: Optional[str] = None):
+        self.access_token = access_token or settings.HUBSPOT_ACCESS_TOKEN
+        if not self.access_token:
+            logger.error("HubSpot access token is not configured.")
+            raise ValueError("HubSpot access token is not configured.")
         try:
-            response = await self._client.request(method, endpoint, params=params, json=json_data)
-            response.raise_for_status()  # Raise exception for 4xx/5xx errors
-            response_data = response.json()
-            logfire.debug("HubSpot API request successful.", response=response_data)
-            # HubSpot API responses often don't have a simple 'status' field like Bland
-            # Success is usually indicated by 2xx status code, handled by raise_for_status
-            return HubSpotApiResult(status="success", message="Request successful", details=response_data)
-        except httpx.HTTPStatusError as e:
-            logfire.error(f"HubSpot API HTTP error: {e.response.status_code}", url=str(
-                e.request.url), response=e.response.text)
-            message = f"HTTP error {e.response.status_code}"
-            try:
-                error_details = e.response.json()
-                if "message" in error_details:
-                    message += f": {error_details['message']}"
-            except Exception:
-                error_details = {"raw_response": e.response.text}
-                message += f": {e.response.text}"
-            return HubSpotApiResult(status="error", message=message, details=error_details)
-        except httpx.RequestError as e:
-            logfire.error(f"HubSpot API request error: {e}", url=str(e.request.url))
-            return HubSpotApiResult(status="error", message=f"Request failed: {e}", details={"error_type": type(e).__name__})
+            self.client = HubSpot(access_token=self.access_token)
+            # Test client connectivity (optional, but good for early failure detection)
+            # self.client.crm.contacts.basic_api.get_page(limit=1) # Example call
+            logger.info("HubSpot client initialized successfully.")
         except Exception as e:
-            logfire.error(
-                f"Unexpected error during HubSpot API request: {e}", exc_info=True)
-            return HubSpotApiResult(status="error", message=f"An unexpected error occurred: {e}", details={"error_type": type(e).__name__})
+            logger.error(f"Failed to initialize HubSpot client: {e}", exc_info=True)
+            raise ValueError(f"Failed to initialize HubSpot client: {e}")
 
-    async def search_contact_by_email(self, email: str) -> Optional[str]:
-        """Searches for a contact by email and returns their HubSpot ID if found."""
-        endpoint = "/crm/v3/objects/contacts/search"
-        payload = {
-            "filterGroups": [
-                {
-                    "filters": [
-                        {
-                            "propertyName": "email",
-                            "operator": "EQ",
-                            "value": email
-                        }
-                    ]
-                }
-            ],
-            # Only need ID, but request at least one property
-            "properties": ["email"],
-            "limit": 1
-        }
-        result = await self._make_request("POST", endpoint, json_data=payload)
-        if result.status == "success" and result.details.get("total", 0) > 0:
-            contact_id = result.details["results"][0]["id"]
-            logfire.info(f"Found existing HubSpot contact by email.",
-                         email=email, contact_id=contact_id)
-            return contact_id
-        logfire.info("No existing HubSpot contact found by email.", email=email)
-        return None
+        self.pipelines_cache = TTLCache(maxsize=100, ttl=settings.CACHE_TTL_HUBSPOT_PIPELINES)
+        self.stages_cache = TTLCache(maxsize=500, ttl=settings.CACHE_TTL_HUBSPOT_STAGES)
+        self.owners_cache = TTLCache(maxsize=100, ttl=settings.CACHE_TTL_HUBSPOT_OWNERS)
 
-    async def create_or_update_contact(self, contact_data: HubSpotContactProperties) -> HubSpotApiResult:
+        self.DEFAULT_DEAL_PIPELINE_NAME = settings.HUBSPOT_DEFAULT_DEAL_PIPELINE_NAME or "Sales Pipeline"
+        self.DEFAULT_TICKET_PIPELINE_NAME = settings.HUBSPOT_DEFAULT_TICKET_PIPELINE_NAME or "Support Pipeline"
+
+        # Ensure these are numeric IDs from your HubSpot settings/environment
+        self.DEAL_TO_CONTACT_ASSOCIATION_TYPE_ID = int(settings.HUBSPOT_ASSOCIATION_TYPE_ID_DEAL_TO_CONTACT)
+        self.DEAL_TO_COMPANY_ASSOCIATION_TYPE_ID = int(settings.HUBSPOT_ASSOCIATION_TYPE_ID_DEAL_TO_COMPANY)
+        self.COMPANY_TO_CONTACT_ASSOCIATION_TYPE_ID = int(settings.HUBSPOT_ASSOCIATION_TYPE_ID_COMPANY_TO_CONTACT)
+        self.TICKET_TO_CONTACT_ASSOCIATION_TYPE_ID = int(settings.HUBSPOT_ASSOCIATION_TYPE_ID_TICKET_TO_CONTACT)
+        self.TICKET_TO_DEAL_ASSOCIATION_TYPE_ID = int(settings.HUBSPOT_ASSOCIATION_TYPE_ID_TICKET_TO_DEAL)
+
+    async def _handle_api_error(self, e: Exception, context: str, object_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Creates a new contact or updates an existing one based on email.
-        Returns HubSpotApiResult consistently.
+        Centralized handler for HubSpot API errors.
+        Logs the error and returns a structured error dictionary.
         """
-        if not contact_data.email:
-            logfire.error("Cannot create/update HubSpot contact without email.")
-            return HubSpotApiResult(
-                status="error",
-                entity_type="contact",
-                message="Email is required to create or update contact.",
-                hubspot_id=None
-            )
-
-        existing_contact_id = await self.search_contact_by_email(contact_data.email)
-        # Use mode='json' to ensure HttpUrl etc. are serialized to strings
-        properties_payload = contact_data.model_dump(
-            mode='json', by_alias=True, exclude_none=True)
-
-        if existing_contact_id:
-            # Update existing contact
-            logfire.info("Updating existing HubSpot contact.",
-                         contact_id=existing_contact_id, email=contact_data.email)
-            endpoint = f"/crm/v3/objects/contacts/{existing_contact_id}"
-            payload = {"properties": properties_payload}
-            result = await self._make_request("PATCH", endpoint, json_data=payload)
-            if result.status == "success":
-                return HubSpotApiResult(
-                    status="success",
-                    entity_type="contact",
-                    message="Contact updated successfully.",
-                    hubspot_id=existing_contact_id,
-                    details=result.details
-                )
-            else:
-                return HubSpotApiResult(
-                    status="error",
-                    entity_type="contact",
-                    message=f"Failed to update contact: {result.message}",
-                    details=result.details,
-                    hubspot_id=existing_contact_id
-                )
-        else:
-            # Create new contact
-            logfire.info("Creating new HubSpot contact.", email=contact_data.email)
-            endpoint = "/crm/v3/objects/contacts"
-            payload = {"properties": properties_payload}
-            result = await self._make_request("POST", endpoint, json_data=payload)
-            if result.status == "success":
-                new_contact_id = result.details.get("id")
-                return HubSpotApiResult(
-                    status="success",
-                    entity_type="contact",
-                    message="Contact created successfully.",
-                    hubspot_id=new_contact_id,
-                    details=result.details
-                )
-            else:
-                return HubSpotApiResult(
-                    status="error",
-                    entity_type="contact",
-                    message=f"Failed to create contact: {result.message}",
-                    details=result.details,
-                    hubspot_id=None
-                )
-
-    # --- New Company Methods ---
-    async def search_company_by_domain(self, domain: str) -> Optional[str]:
-        """Searches for a company by domain and returns its HubSpot ID if found."""
-        endpoint = "/crm/v3/objects/companies/search"
-        payload = {
-            "filterGroups": [
-                {
-                    "filters": [
-                        {
-                            "propertyName": "domain",
-                            "operator": "EQ",
-                            "value": domain
-                        }
-                    ]
-                }
-            ],
-            "properties": ["domain", "name"], # Request basic properties
-            "limit": 1
-        }
-        logfire.info(f"Searching for HubSpot company by domain: {domain}")
-        result = await self._make_request("POST", endpoint, json_data=payload)
-        if result.status == "success" and result.details and result.details.get("total", 0) > 0:
-            company_id = result.details["results"][0]["id"]
-            company_name = result.details["results"][0].get("properties", {}).get("name", "N/A")
-            logfire.info(f"Found existing HubSpot company by domain.",
-                         domain=domain, company_id=company_id, company_name=company_name)
-            return company_id
-        logfire.info("No existing HubSpot company found by domain.", domain=domain)
-        return None
-
-    async def create_or_update_company(self, company_data: HubSpotCompanyProperties) -> HubSpotApiResult:
-        """
-        Creates a new company or updates an existing one based on domain.
-        Returns HubSpotApiResult consistently.
-        """
-        if not company_data.domain:
-            logfire.warn("Cannot create/update HubSpot company without domain.")
-            return HubSpotApiResult(
-                status="error",
-                entity_type="company",
-                message="Domain is required to create or update company.",
-                hubspot_id=None
-            )
-
-        existing_company_id = await self.search_company_by_domain(company_data.domain)
-        # Use mode='json' for potential future complex types
-        properties_payload = company_data.model_dump(
-            mode='json', by_alias=True, exclude_none=True)
+        error_message = f"HubSpot API error in {context}"
+        if object_id:
+            error_message += f" for ID {object_id}"
         
-        # Ensure name is set if missing, default to domain
-        if not properties_payload.get('name'):
-            properties_payload['name'] = company_data.domain
-            logfire.debug("Company name missing, defaulting to domain.", domain=company_data.domain)
+        error_details_str = str(e)
+        status_code = None
+        parsed_error_details = None
 
-        if existing_company_id:
-            # Update existing company (optional - might just return ID)
-            logfire.info("Found existing HubSpot company, returning ID.",
-                         company_id=existing_company_id, domain=company_data.domain)
-            # Optionally update properties if needed, for now just return success with ID
-            # endpoint = f"/crm/v3/objects/companies/{existing_company_id}"
-            # payload = {"properties": properties_payload}
-            # update_result = await self._make_request("PATCH", endpoint, json_data=payload)
-            # For now, just confirm existence is sufficient
-            return HubSpotApiResult(
-                status="success", # Indicate found/no update needed
-                entity_type="company",
-                message="Company already exists.",
-                hubspot_id=existing_company_id,
-                details={"properties": properties_payload} # Return intended props
-            )
-        else:
-            # Create new company
-            logfire.info("Creating new HubSpot company.", domain=company_data.domain, name=properties_payload['name'])
-            endpoint = "/crm/v3/objects/companies"
-            payload = {"properties": properties_payload}
-            result = await self._make_request("POST", endpoint, json_data=payload)
-            if result.status == "success":
-                new_company_id = result.details.get("id")
-                return HubSpotApiResult(
-                    status="success",
-                    entity_type="company",
-                    message="Company created successfully.",
-                    hubspot_id=new_company_id,
-                    details=result.details
-                )
+        if isinstance(e, (ObjectApiException, DealApiException)):
+            status_code = e.status
+            if hasattr(e, 'body') and e.body:
+                error_details_str = e.body
+                try:
+                    # Attempt to parse the HubSpot error body if your HubSpotErrorDetail model is set up
+                    if HubSpotErrorDetail: # Check if the model is available
+                        parsed_error_details = HubSpotErrorDetail.model_validate_json(e.body).model_dump()
+                        logger.error(f"{error_message}: Status {status_code}, Parsed Body: {parsed_error_details}", exc_info=True)
+                    else:
+                        logger.error(f"{error_message}: Status {status_code}, Raw Body: {e.body}", exc_info=True)
+                except (ValidationError, Exception) as parse_err: # Catch Pydantic validation error or other parsing issues
+                    logger.error(f"{error_message}: Status {status_code}, Raw Body: {e.body}. Failed to parse error body: {parse_err}", exc_info=True)
             else:
-                return HubSpotApiResult(
-                    status="error",
-                    entity_type="company",
-                    message=f"Failed to create company: {result.message}",
-                    details=result.details,
-                    hubspot_id=None
-                )
-
-    async def associate_contact_to_company(self, contact_id: str, company_id: str) -> HubSpotApiResult:
-        """Associates an existing contact with an existing company."""
-        # Association: Contact -> Company (Primary)
-        # Verify associationTypeId (e.g., 1 for Contact to Company Primary)
-        association_type_id = 1 
-        endpoint = f"/crm/v3/objects/contacts/{contact_id}/associations/company/{company_id}/{association_type_id}"
-        logfire.info("Associating contact to company.", contact_id=contact_id, company_id=company_id, type_id=association_type_id)
-        result = await self._make_request("PUT", endpoint) # PUT request with no body
-
-        if result.status == "success":
-            logfire.info("Successfully associated contact to company.", contact_id=contact_id, company_id=company_id)
-            return HubSpotApiResult(
-                status="success",
-                entity_type="association",
-                message="Contact associated to company successfully.",
-                details=result.details
-            )
+                logger.error(f"{error_message}: Status {status_code}, Details: {str(e)} (No body)", exc_info=True)
         else:
-            # Handle potential 404 if contact/company doesn't exist, or other errors
-            logfire.error("Failed to associate contact to company.", 
-                          contact_id=contact_id, company_id=company_id, 
-                          error=result.message, details=result.details)
-            return HubSpotApiResult(
-                status="error",
-                entity_type="association",
-                message=f"Failed to associate contact {contact_id} to company {company_id}: {result.message}",
-                details=result.details
-            )
-    # --- End New Company Methods ---
+            logger.error(f"Unexpected error in {context}{f' for ID {object_id}' if object_id else ''}: {e}", exc_info=True)
 
-    async def create_lead(self, lead_data: HubSpotLeadProperties, 
-                        associated_contact_id: Optional[str] = None, 
-                        associated_company_id: Optional[str] = None) -> HubSpotApiResult:
-        """
-        Creates a new lead in HubSpot and optionally associates it with a contact and/or company.
-        Requires at least one association (contact or company) based on HubSpot API rules.
-        Returns HubSpotApiResult.
-        """
-        logfire.info("Creating new HubSpot lead.", 
-                     lead_properties=lead_data.model_dump(exclude_none=True),
-                     contact_id=associated_contact_id,
-                     company_id=associated_company_id)
-        
-        # Check if at least one association ID is provided
-        if not associated_contact_id and not associated_company_id:
-            logfire.error("Lead creation requires at least one association (Contact ID or Company ID).", 
-                          lead_properties=lead_data.model_dump(exclude_none=True))
-            return HubSpotApiResult(
-                status="error",
-                entity_type="lead",
-                message="Lead creation requires associating with a primary contact or company.",
-                hubspot_id=None
-            )
-
-        endpoint = "/crm/v3/objects/leads"
-        properties_dict = lead_data.model_dump(mode='json', by_alias=True, exclude_none=True)
-        payload: Dict[str, Any] = {
-            "properties": properties_dict,
-            "associations": [] # Initialize empty list
+        return {
+            "error": error_message,
+            "details_raw": error_details_str,
+            "details_parsed": parsed_error_details,
+            "status_code": status_code,
+            "context": context,
+            "object_id": object_id
         }
 
-        # Add Contact Association if provided
-        if associated_contact_id:
-            contact_association = {
-                "to": {"id": associated_contact_id},
-                "types": [
-                    {
-                        "associationCategory": "HUBSPOT_DEFINED",
-                        "associationTypeId": 578 # ID 578 = Lead to primary contact
-                    }
-                ]
+    async def search_objects(
+        self,
+        object_type: str,
+        search_request: HubSpotSearchRequest,
+    ) -> HubSpotSearchResponse:
+        """
+        Generic method to search HubSpot objects (contacts, companies, deals, tickets).
+        """
+        logger.debug(f"Searching {object_type} with request: {search_request.model_dump_json(indent=2, exclude_none=True)}")
+        try:
+            search_request_dict = search_request.model_dump(exclude_none=True)
+            
+            api_client_map = {
+                "contacts": self.client.crm.contacts.search_api,
+                "companies": self.client.crm.companies.search_api,
+                "deals": self.client.crm.deals.search_api,
+                "tickets": self.client.crm.tickets.search_api, # Ensure tickets API is similar
             }
-            payload["associations"].append(contact_association)
-            logfire.info("Adding association to contact for new lead.", contact_id=associated_contact_id, type_id=578)
 
-        # Add Company Association if provided
-        if associated_company_id:
-            company_association = {
-                "to": {"id": associated_company_id},
-                "types": [
-                    {
-                        "associationCategory": "HUBSPOT_DEFINED",
-                        "associationTypeId": 610 # ID 610 = Lead to Company
-                    }
-                ]
-            }
-            payload["associations"].append(company_association)
-            logfire.info("Adding association to company for new lead.", company_id=associated_company_id, type_id=610)
+            if object_type not in api_client_map:
+                logger.error(f"Unsupported object type for search: {object_type}")
+                return HubSpotSearchResponse(total=0, results=[])
 
-        result = await self._make_request("POST", endpoint, json_data=payload)
-
-        if result.status == "success":
-            lead_id = result.details.get("id")
-            logfire.info("HubSpot lead created successfully.", lead_id=lead_id)
-            # Return HubSpotApiResult for consistency
-            return HubSpotApiResult(
-                status="success",
-                entity_type="lead",
-                message="Lead created successfully.",
-                hubspot_id=lead_id,
-                details=result.details # Include full response details
-            )
-        else:
-            logfire.error("Failed to create HubSpot lead.",
-                          error=result.message,
-                          details=result.details,
-                          payload=payload
-                          )
-            return HubSpotApiResult(
-                status="error",
-                entity_type="lead",
-                message=f"Failed to create lead: {result.message}",
-                details=result.details,
-                hubspot_id=None
+            api_response = api_client_map[object_type].do_search(
+                public_object_search_request=search_request_dict
             )
 
-    async def get_contact_by_id(self, contact_id: str) -> HubSpotApiResult:
-        """Fetches a contact by its HubSpot ID. Returns HubSpotApiResult."""
-        logfire.info(f"Fetching HubSpot contact by ID: {contact_id}")
-        endpoint = f"/crm/v3/objects/contacts/{contact_id}"
-        # Specify properties you want to retrieve
-        prop_list = list(HubSpotContactProperties.model_fields.keys())
-        params = {"properties": ",".join(prop_list)}
-        result = await self._make_request("GET", endpoint, params=params)
-
-        if result.status == "success":
-            return HubSpotApiResult(
-                status="success",
-                entity_type="contact",
-                message="Contact fetched successfully.",
-                hubspot_id=result.details.get("id"),
-                details=result.details
+            results = [HubSpotObject(**obj.to_dict()) for obj in api_response.results]
+            paging_dict = api_response.paging.to_dict() if api_response.paging and hasattr(api_response.paging, 'to_dict') else None
+            
+            return HubSpotSearchResponse(
+                total=api_response.total,
+                results=results,
+                paging=paging_dict,
             )
-        else:
-            return HubSpotApiResult(
-                status="error",
-                entity_type="contact",
-                message=f"Failed to fetch contact {contact_id}: {result.message}",
-                details=result.details,
-                hubspot_id=contact_id
+        except (ObjectApiException, DealApiException) as e:
+            await self._handle_api_error(e, f"{object_type} search")
+            return HubSpotSearchResponse(total=0, results=[]) 
+        except Exception as e:
+            await self._handle_api_error(e, f"{object_type} search")
+            return HubSpotSearchResponse(total=0, results=[])
+
+    # --- Contact Methods ---
+    async def create_contact(self, properties: HubSpotContactPropertiesCreate) -> Optional[HubSpotObject]:
+        logger.debug(f"Creating contact with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        try:
+            simple_public_object_input = ContactSimplePublicObjectInput(
+                properties=properties.model_dump(exclude_none=True)
             )
-
-    async def get_lead_by_id(self, lead_id: str) -> HubSpotApiResult:
-        """Fetches a lead by its HubSpot ID. Returns HubSpotApiResult."""
-        logfire.info(f"Fetching HubSpot lead by ID: {lead_id}")
-        # Assuming 'leads' is the correct API name.
-        endpoint = f"/crm/v3/objects/leads/{lead_id}"
-        # Specify properties you want to retrieve
-        prop_list = list(HubSpotLeadProperties.model_fields.keys())
-        params = {"properties": ",".join(prop_list)}
-        result = await self._make_request("GET", endpoint, params=params)
-
-        if result.status == "success":
-            return HubSpotApiResult(
-                status="success",
-                entity_type="lead",
-                message="Lead fetched successfully.",
-                hubspot_id=result.details.get("id"),
-                details=result.details
+            api_response = self.client.crm.contacts.basic_api.create(
+                simple_public_object_input=simple_public_object_input
             )
-        else:
-            return HubSpotApiResult(
-                status="error",
-                entity_type="lead",
-                message=f"Failed to fetch lead {lead_id}: {result.message}",
-                details=result.details,
-                hubspot_id=lead_id
-            )
-
-    async def update_lead_properties(self, lead_id: str, properties: Dict[str, Any]) -> HubSpotApiResult:
-        """Updates specific properties of an existing lead."""
-        logfire.info(
-            f"Updating properties for lead {lead_id}.", properties=properties)
-        # Assuming 'leads' is the correct API name.
-        endpoint = f"/crm/v3/objects/leads/{lead_id}"
-        # Ensure properties are JSON serializable (though input is dict, good practice)
-        # Pydantic model not used directly here, but ensure values are basic types
-        payload = {"properties": properties} 
-        result = await self._make_request("PATCH", endpoint, json_data=payload)
-
-        if result.status == "success":
-            logfire.info(f"Lead {lead_id} properties updated successfully.")
-            # Return the generic result
-            return HubSpotApiResult(
-                status="success",
-                entity_type="lead",
-                message="Lead properties updated successfully.",
-                hubspot_id=lead_id,
-                details=result.details
-            )
-        else:
-            logfire.error(
-                f"Failed to update properties for lead {lead_id}.", error=result.message, details=result.details)
-            return HubSpotApiResult(
-                status="error",
-                entity_type="lead",
-                message=f"Failed to update lead properties: {result.message}",
-                details=result.details,
-                hubspot_id=lead_id
-            )
-
-    # Added function to update contact properties
-    async def update_contact_properties(self, contact_id: str, properties: Dict[str, Any]) -> HubSpotApiResult:
-        """Updates specific properties of an existing contact."""
-        logfire.info(
-            f"Updating properties for contact {contact_id}.", properties=properties)
-        endpoint = f"/crm/v3/objects/contacts/{contact_id}"
-        # Ensure properties are JSON serializable
-        payload = {"properties": properties}
-        result = await self._make_request("PATCH", endpoint, json_data=payload)
-
-        if result.status == "success":
-            logfire.info(f"Contact {contact_id} properties updated successfully.")
-            return HubSpotApiResult(
-                status="success",
-                entity_type="contact",
-                message="Contact properties updated successfully.",
-                hubspot_id=contact_id,
-                details=result.details
-            )
-        else:
-            logfire.error(
-                f"Failed to update properties for contact {contact_id}.", error=result.message, details=result.details)
-            return HubSpotApiResult(
-                status="error",
-                entity_type="contact",
-                message=f"Failed to update contact properties: {result.message}",
-                details=result.details,
-                hubspot_id=contact_id
-            )
-
-    # --- ID Lookup Methods ---
-    async def get_pipeline_id(self, pipeline_name: str, object_type: str = "deals") -> Optional[str]:
-        """Fetches the ID of a pipeline by its name. (Usually for Deals/Tickets)"""
-        endpoint = f"/crm/v3/pipelines/{object_type}"
-        logfire.info(
-            f"Fetching {object_type} pipelines to find ID for '{pipeline_name}'.")
-        result = await self._make_request("GET", endpoint)
-
-        if result.status == "success" and "results" in result.details:
-            for pipeline in result.details["results"]:
-                if pipeline.get("label", "").lower() == pipeline_name.lower():
-                    pipeline_id = pipeline.get("id")
-                    logfire.info(f"Found pipeline ID.",
-                                 name=pipeline_name, id=pipeline_id)
-                    return pipeline_id
-            logfire.warn(f"Pipeline not found by name.", name=pipeline_name, object_type=object_type)
+            logger.info(f"Successfully created contact ID: {api_response.id}")
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            await self._handle_api_error(e, "contact creation")
             return None
-        else:
-            logfire.error(f"Failed to fetch {object_type} pipelines from HubSpot.",
-                          error=result.message)
+        except Exception as e:
+            await self._handle_api_error(e, "contact creation")
             return None
 
-    async def get_stage_id(self, pipeline_id: str, stage_name: str, object_type: str = "deals") -> Optional[str]:
-        """Fetches the ID of a stage within a specific pipeline by its name. (Usually for Deals/Tickets)"""
-        endpoint = f"/crm/v3/pipelines/{object_type}/{pipeline_id}/stages"
-        logfire.info(
-            f"Fetching stages for pipeline {pipeline_id} ({object_type}) to find ID for stage '{stage_name}'.")
-        result = await self._make_request("GET", endpoint)
-
-        if result.status == "success" and "results" in result.details:
-            for stage in result.details["results"]:
-                if stage.get("label", "").lower() == stage_name.lower():
-                    stage_id = stage.get("id")
-                    logfire.info(f"Found stage ID.", pipeline_id=pipeline_id,
-                                 name=stage_name, id=stage_id)
-                    return stage_id
-            logfire.warn(f"Stage not found by name in pipeline.",
-                         name=stage_name, pipeline_id=pipeline_id, object_type=object_type)
+    async def get_contact(self, contact_id: str, properties_list: Optional[List[str]] = None) -> Optional[HubSpotObject]:
+        logger.debug(f"Getting contact ID: {contact_id} with properties: {properties_list}")
+        try:
+            fetch_properties = properties_list or ["email", "firstname", "lastname", "phone", "lifecyclestage", "hs_object_id"]
+            api_response = self.client.crm.contacts.basic_api.get_by_id(
+                contact_id=contact_id,
+                properties=fetch_properties,
+                archived=False # Explicitly fetch non-archived
+            )
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            if e.status == 404:
+                logger.info(f"Contact with ID {contact_id} not found.")
+            else:
+                await self._handle_api_error(e, "get contact", contact_id)
             return None
-        else:
-            logfire.error(
-                f"Failed to fetch stages for pipeline {pipeline_id} ({object_type}) from HubSpot.", error=result.message)
+        except Exception as e:
+            await self._handle_api_error(e, "get contact", contact_id)
             return None
 
-    async def get_owners(self, email: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
-        """Fetches owners (users) from HubSpot, optionally filtering by email."""
-        endpoint = "/crm/v3/owners/"
-        params = {"limit": limit}
-        if email:
-            params["email"] = email
-        logfire.info("Fetching owners from HubSpot.", params=params)
-        result = await self._make_request("GET", endpoint, params=params)
+    async def update_contact(self, contact_id: str, properties: HubSpotContactPropertiesUpdate) -> Optional[HubSpotObject]:
+        logger.debug(f"Updating contact ID: {contact_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        if not properties.model_dump(exclude_none=True, exclude_unset=True):
+            logger.warning(f"Update contact called for ID {contact_id} with no properties to update. Skipping API call.")
+            return await self.get_contact(contact_id) # Return current state
 
-        if result.status == "success" and "results" in result.details:
-            owners = result.details["results"]
-            logfire.info(f"Fetched {len(owners)} owners from HubSpot.")
-            return owners
-        else:
-            logfire.error("Failed to fetch owners from HubSpot.",
-                          error=result.message)
+        try:
+            simple_public_object_input = ContactSimplePublicObjectInput(
+                properties=properties.model_dump(exclude_none=True, exclude_unset=True) 
+            )
+            api_response = self.client.crm.contacts.basic_api.update(
+                contact_id=contact_id,
+                simple_public_object_input=simple_public_object_input
+            )
+            logger.info(f"Successfully updated contact ID: {contact_id}")
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            await self._handle_api_error(e, "update contact", contact_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "update contact", contact_id)
+            return None
+
+    async def delete_contact(self, contact_id: str) -> bool:
+        logger.debug(f"Archiving contact ID: {contact_id}")
+        try:
+            self.client.crm.contacts.basic_api.archive(contact_id=contact_id)
+            logger.info(f"Successfully archived contact ID: {contact_id}")
+            return True
+        except ObjectApiException as e:
+            if e.status == 404: # Not found, considered "deleted" or "already archived"
+                logger.info(f"Contact with ID {contact_id} not found for archiving (already archived or never existed).")
+                return True # Or False, depending on desired idempotency interpretation
+            await self._handle_api_error(e, "archive contact", contact_id)
+            return False
+        except Exception as e:
+            await self._handle_api_error(e, "archive contact", contact_id)
+            return False
+
+    # --- Company Methods ---
+    async def create_company(self, properties: HubSpotCompanyPropertiesCreate) -> Optional[HubSpotObject]:
+        logger.debug(f"Creating company with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        try:
+            simple_public_object_input = SimplePublicObjectInput(
+                properties=properties.model_dump(exclude_none=True)
+            )
+            api_response = self.client.crm.companies.basic_api.create(
+                simple_public_object_input=simple_public_object_input
+            )
+            logger.info(f"Successfully created company ID: {api_response.id}")
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            await self._handle_api_error(e, "company creation")
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "company creation")
+            return None
+
+    async def get_company(self, company_id: str, properties_list: Optional[List[str]] = None) -> Optional[HubSpotObject]:
+        logger.debug(f"Getting company ID: {company_id} with properties: {properties_list}")
+        try:
+            fetch_properties = properties_list or ["name", "domain", "phone", "website", "industry", "hs_object_id"]
+            api_response = self.client.crm.companies.basic_api.get_by_id(
+                company_id=company_id,
+                properties=fetch_properties,
+                archived=False
+            )
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            if e.status == 404:
+                logger.info(f"Company with ID {company_id} not found.")
+            else:
+                await self._handle_api_error(e, "get company", company_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "get company", company_id)
+            return None
+
+    async def update_company(self, company_id: str, properties: HubSpotCompanyPropertiesUpdate) -> Optional[HubSpotObject]:
+        logger.debug(f"Updating company ID: {company_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        if not properties.model_dump(exclude_none=True, exclude_unset=True):
+            logger.warning(f"Update company called for ID {company_id} with no properties to update. Skipping API call.")
+            return await self.get_company(company_id)
+
+        try:
+            simple_public_object_input = SimplePublicObjectInput(
+                properties=properties.model_dump(exclude_none=True, exclude_unset=True)
+            )
+            api_response = self.client.crm.companies.basic_api.update(
+                company_id=company_id,
+                simple_public_object_input=simple_public_object_input
+            )
+            logger.info(f"Successfully updated company ID: {company_id}")
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            await self._handle_api_error(e, "update company", company_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "update company", company_id)
+            return None
+
+    async def delete_company(self, company_id: str) -> bool:
+        logger.debug(f"Archiving company ID: {company_id}")
+        try:
+            self.client.crm.companies.basic_api.archive(company_id=company_id)
+            logger.info(f"Successfully archived company ID: {company_id}")
+            return True
+        except ObjectApiException as e:
+            if e.status == 404:
+                logger.info(f"Company with ID {company_id} not found for archiving.")
+                return True 
+            await self._handle_api_error(e, "archive company", company_id)
+            return False
+        except Exception as e:
+            await self._handle_api_error(e, "archive company", company_id)
+            return False
+
+    # --- Deal Methods ---
+    async def create_deal(self, properties: HubSpotDealPropertiesCreate) -> Optional[HubSpotObject]:
+        logger.debug(f"Creating deal with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        try:
+            deal_props_dict = properties.model_dump(exclude_none=True)
+
+            if "pipeline" not in deal_props_dict or "dealstage" not in deal_props_dict:
+                logger.debug(f"Pipeline or dealstage not in input for deal '{deal_props_dict.get('dealname', 'N/A')}'. Attempting to set defaults from '{self.DEFAULT_DEAL_PIPELINE_NAME}'.")
+                default_pipeline = await self.get_pipeline_by_name(object_type="deals", pipeline_name=self.DEFAULT_DEAL_PIPELINE_NAME)
+                if default_pipeline and default_pipeline.id and default_pipeline.stages:
+                    deal_props_dict["pipeline"] = default_pipeline.id
+                    first_stage = min(default_pipeline.stages, key=lambda s: s.display_order if s.display_order is not None else float('inf'), default=None)
+                    if first_stage and first_stage.id:
+                        deal_props_dict["dealstage"] = first_stage.id
+                        logger.info(f"Set deal to pipeline '{default_pipeline.label}' ({default_pipeline.id}) and stage '{first_stage.label}' ({first_stage.id})")
+                    else:
+                        logger.warning(f"Default deal pipeline '{self.DEFAULT_DEAL_PIPELINE_NAME}' has no stages or first stage ID is missing. Deal stage not set.")
+                else:
+                    logger.warning(f"Default deal pipeline '{self.DEFAULT_DEAL_PIPELINE_NAME}' not found or has no stages. Pipeline and stage not set for deal.")
+            
+            simple_public_object_input = DealSimplePublicObjectInput(properties=deal_props_dict)
+            api_response = self.client.crm.deals.basic_api.create(
+                simple_public_object_input=simple_public_object_input
+            )
+            logger.info(f"Successfully created deal ID: {api_response.id}")
+            return HubSpotObject(**api_response.to_dict())
+        except DealApiException as e: 
+            await self._handle_api_error(e, "deal creation")
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "deal creation")
+            return None
+
+    async def get_deal(self, deal_id: str, properties_list: Optional[List[str]] = None) -> Optional[HubSpotObject]:
+        logger.debug(f"Getting deal ID: {deal_id} with properties: {properties_list}")
+        try:
+            fetch_properties = properties_list or ["dealname", "amount", "dealstage", "pipeline", "closedate", "hubspot_owner_id", "hs_object_id"]
+            api_response = self.client.crm.deals.basic_api.get_by_id(
+                deal_id=deal_id,
+                properties=fetch_properties,
+                archived=False
+            )
+            return HubSpotObject(**api_response.to_dict())
+        except DealApiException as e:
+            if e.status == 404:
+                logger.info(f"Deal with ID {deal_id} not found.")
+            else:
+                await self._handle_api_error(e, "get deal", deal_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "get deal", deal_id)
+            return None
+
+    async def update_deal(self, deal_id: str, properties: HubSpotDealPropertiesUpdate) -> Optional[HubSpotObject]:
+        logger.debug(f"Updating deal ID: {deal_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        if not properties.model_dump(exclude_none=True, exclude_unset=True):
+            logger.warning(f"Update deal called for ID {deal_id} with no properties to update. Skipping API call.")
+            return await self.get_deal(deal_id)
+        try:
+            simple_public_object_input = DealSimplePublicObjectInput(
+                properties=properties.model_dump(exclude_none=True, exclude_unset=True)
+            )
+            api_response = self.client.crm.deals.basic_api.update(
+                deal_id=deal_id,
+                simple_public_object_input=simple_public_object_input
+            )
+            logger.info(f"Successfully updated deal ID: {deal_id}")
+            return HubSpotObject(**api_response.to_dict())
+        except DealApiException as e:
+            await self._handle_api_error(e, "update deal", deal_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "update deal", deal_id)
+            return None
+
+    async def delete_deal(self, deal_id: str) -> bool:
+        logger.debug(f"Archiving deal ID: {deal_id}")
+        try:
+            self.client.crm.deals.basic_api.archive(deal_id=deal_id)
+            logger.info(f"Successfully archived deal ID: {deal_id}")
+            return True
+        except DealApiException as e:
+            if e.status == 404:
+                logger.info(f"Deal with ID {deal_id} not found for archiving.")
+                return True
+            await self._handle_api_error(e, "archive deal", deal_id)
+            return False
+        except Exception as e:
+            await self._handle_api_error(e, "archive deal", deal_id)
+            return False
+
+    # --- Ticket Methods ---
+    async def create_ticket(self, properties: HubSpotTicketPropertiesCreate) -> Optional[HubSpotObject]:
+        logger.debug(f"Creating ticket with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        try:
+            ticket_props_dict = properties.model_dump(exclude_none=True)
+            if "hs_pipeline" not in ticket_props_dict or "hs_pipeline_stage" not in ticket_props_dict:
+                logger.debug(f"Pipeline or stage not in input for ticket '{ticket_props_dict.get('subject', 'N/A')}'. Attempting to set defaults from '{self.DEFAULT_TICKET_PIPELINE_NAME}'.")
+                default_pipeline = await self.get_pipeline_by_name(object_type="tickets", pipeline_name=self.DEFAULT_TICKET_PIPELINE_NAME)
+                if default_pipeline and default_pipeline.id and default_pipeline.stages:
+                    ticket_props_dict["hs_pipeline"] = default_pipeline.id
+                    first_stage = min(default_pipeline.stages, key=lambda s: s.display_order if s.display_order is not None else float('inf'), default=None)
+                    if first_stage and first_stage.id:
+                        ticket_props_dict["hs_pipeline_stage"] = first_stage.id
+                        logger.info(f"Set ticket to pipeline '{default_pipeline.label}' ({default_pipeline.id}) and stage '{first_stage.label}' ({first_stage.id})")
+                    else:
+                        logger.warning(f"Default ticket pipeline '{self.DEFAULT_TICKET_PIPELINE_NAME}' has no stages or first stage ID is missing. Ticket stage not set.")
+                else:
+                    logger.warning(f"Default ticket pipeline '{self.DEFAULT_TICKET_PIPELINE_NAME}' not found or has no stages. Pipeline and stage not set for ticket.")
+            
+            simple_public_object_input = SimplePublicObjectInput(properties=ticket_props_dict)
+            api_response = self.client.crm.tickets.basic_api.create(simple_public_object_input=simple_public_object_input)
+            logger.info(f"Successfully created ticket ID: {api_response.id}")
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e: 
+            await self._handle_api_error(e, "ticket creation")
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "ticket creation")
+            return None
+
+    async def get_ticket(self, ticket_id: str, properties_list: Optional[List[str]] = None) -> Optional[HubSpotObject]:
+        logger.debug(f"Getting ticket ID: {ticket_id} with properties: {properties_list}")
+        try:
+            fetch_properties = properties_list or ["subject", "content", "hs_pipeline", "hs_pipeline_stage", "hubspot_owner_id", "hs_object_id"]
+            api_response = self.client.crm.tickets.basic_api.get_by_id(
+                ticket_id=ticket_id, 
+                properties=fetch_properties,
+                archived=False
+            )
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            if e.status == 404:
+                logger.info(f"Ticket with ID {ticket_id} not found.")
+            else:
+                await self._handle_api_error(e, "get ticket", ticket_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "get ticket", ticket_id)
+            return None
+
+    async def update_ticket(self, ticket_id: str, properties: HubSpotTicketPropertiesUpdate) -> Optional[HubSpotObject]:
+        logger.debug(f"Updating ticket ID: {ticket_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
+        if not properties.model_dump(exclude_none=True, exclude_unset=True):
+            logger.warning(f"Update ticket called for ID {ticket_id} with no properties to update. Skipping API call.")
+            return await self.get_ticket(ticket_id)
+        try:
+            simple_public_object_input = SimplePublicObjectInput(properties=properties.model_dump(exclude_none=True, exclude_unset=True))
+            api_response = self.client.crm.tickets.basic_api.update(
+                ticket_id=ticket_id, 
+                simple_public_object_input=simple_public_object_input
+            )
+            logger.info(f"Successfully updated ticket ID: {ticket_id}")
+            return HubSpotObject(**api_response.to_dict())
+        except ObjectApiException as e:
+            await self._handle_api_error(e, "update ticket", ticket_id)
+            return None
+        except Exception as e:
+            await self._handle_api_error(e, "update ticket", ticket_id)
+            return None
+
+    async def delete_ticket(self, ticket_id: str) -> bool:
+        logger.debug(f"Archiving ticket ID: {ticket_id}")
+        try:
+            self.client.crm.tickets.basic_api.archive(ticket_id=ticket_id)
+            logger.info(f"Successfully archived ticket ID: {ticket_id}")
+            return True
+        except ObjectApiException as e:
+            if e.status == 404:
+                logger.info(f"Ticket with ID {ticket_id} not found for archiving.")
+                return True
+            await self._handle_api_error(e, "archive ticket", ticket_id)
+            return False
+        except Exception as e:
+            await self._handle_api_error(e, "archive ticket", ticket_id)
+            return False
+
+    # --- Pipeline, Stage, Owner Methods ---
+    async def get_pipelines(self, object_type: str) -> List[HubSpotPipeline]:
+        cache_key = f"pipelines_{object_type}"
+        cached_pipelines = self.pipelines_cache.get(cache_key)
+        if cached_pipelines is not None:
+            logger.debug(f"Returning cached pipelines for {object_type}")
+            return cached_pipelines
+
+        logger.debug(f"Fetching pipelines for object type: {object_type}")
+        try:
+            sdk_object_type = object_type.rstrip('s') 
+            if sdk_object_type not in ["deal", "ticket"]:
+                 logger.error(f"Unsupported object type for pipelines: {object_type} (sdk type: {sdk_object_type})")
+                 return []
+
+            api_response = self.client.crm.pipelines.pipelines_api.get_all(object_type=sdk_object_type)
+            
+            pipelines_data = []
+            for p_data in api_response.results:
+                stages = await self.get_pipeline_stages(object_type, p_data.id)
+                pipeline_model = HubSpotPipeline(**p_data.to_dict(), stages=stages)
+                pipelines_data.append(pipeline_model)
+
+            self.pipelines_cache[cache_key] = pipelines_data
+            return pipelines_data
+        except ObjectApiException as e: 
+            await self._handle_api_error(e, f"{object_type} pipelines retrieval")
+            return []
+        except Exception as e:
+            await self._handle_api_error(e, f"{object_type} pipelines retrieval")
             return []
 
-    async def _update_owner_list_if_needed(self):
-        """Fetches owners from HubSpot and updates the internal list and iterator if cache expired."""
-        now = asyncio.get_event_loop().time()
-        if not self._owner_list or not self._owners_last_fetched or (now - self._owners_last_fetched > self._owner_cache_ttl):
-            logfire.info("Fetching or refreshing HubSpot owners for round-robin.")
-            fetched_owners = await self.get_owners()
-            # Filter out owners without an ID or potentially inactive ones if possible
-            self._owner_list = [owner for owner in fetched_owners if owner.get("id")]
-            if self._owner_list:
-                self._owner_iterator = itertools.cycle(self._owner_list)
-                self._owners_last_fetched = now
-                logfire.info(
-                    f"Initialized round-robin with {len(self._owner_list)} owners.")
+    async def get_pipeline_by_name(self, object_type: str, pipeline_name: str) -> Optional[HubSpotPipeline]:
+        logger.debug(f"Getting {object_type} pipeline by name: {pipeline_name}")
+        pipelines = await self.get_pipelines(object_type)
+        for p in pipelines:
+            if p.label == pipeline_name: # 'label' is the human-readable name
+                return p
+        logger.warning(f"{object_type.capitalize()} pipeline with name '{pipeline_name}' not found.")
+        return None
+
+    async def get_pipeline_stages(self, object_type: str, pipeline_id: str) -> List[HubSpotPipelineStage]:
+        cache_key = f"stages_{object_type}_{pipeline_id}"
+        cached_stages = self.stages_cache.get(cache_key)
+        if cached_stages is not None:
+            logger.debug(f"Returning cached stages for {object_type} pipeline ID: {pipeline_id}")
+            return cached_stages
+
+        logger.debug(f"Fetching stages for {object_type} pipeline ID: {pipeline_id}")
+        try:
+            sdk_object_type = object_type.rstrip('s')
+            if sdk_object_type not in ["deal", "ticket"]:
+                logger.error(f"Unsupported object type for pipeline stages: {object_type}")
+                return []
+            
+            api_response = self.client.crm.pipelines.pipeline_stages_api.get_all(object_type=sdk_object_type, pipeline_id=pipeline_id)
+            stages = [HubSpotPipelineStage(**s.to_dict()) for s in api_response.results]
+            self.stages_cache[cache_key] = stages
+            return stages
+        except ObjectApiException as e:
+            await self._handle_api_error(e, f"{object_type} pipeline stages retrieval", pipeline_id)
+            return []
+        except Exception as e:
+            await self._handle_api_error(e, f"{object_type} pipeline stages retrieval", pipeline_id)
+            return []
+
+    async def get_pipeline_stage_by_name(self, object_type: str, pipeline_id: str, stage_name: str) -> Optional[HubSpotPipelineStage]:
+        logger.debug(f"Getting stage by name: {stage_name} for {object_type} pipeline ID: {pipeline_id}")
+        stages = await self.get_pipeline_stages(object_type, pipeline_id)
+        for stage in stages:
+            if stage.label == stage_name:
+                return stage
+        logger.warning(f"Stage with name '{stage_name}' not found in {object_type} pipeline '{pipeline_id}'.")
+        return None
+
+    async def get_owners(self, limit: int = 100) -> List[HubSpotOwner]:
+        # Caching strategy: cache the full list if fetched.
+        # If called frequently with different limits, this might not be optimal.
+        # For now, assumes one primary call to get all owners.
+        full_list_cache_key = "all_owners_complete_list"
+        if full_list_cache_key in self.owners_cache:
+            logger.debug("Returning full cached list of owners")
+            return self.owners_cache[full_list_cache_key]
+
+        logger.debug(f"Fetching all owners (paginating with limit: {limit})")
+        all_owners_list = []
+        current_after = None
+        
+        try:
+            while True:
+                api_response = self.client.crm.owners.owners_api.get_page(limit=limit, after=current_after)
+                owners_page = [HubSpotOwner(**owner.to_dict()) for owner in api_response.results]
+                all_owners_list.extend(owners_page)
+                
+                if api_response.paging and api_response.paging.next and api_response.paging.next.after:
+                    current_after = api_response.paging.next.after
+                    logger.debug(f"Fetching next page of owners, after: {current_after}")
+                else:
+                    break 
+            
+            self.owners_cache[full_list_cache_key] = all_owners_list
+            logger.info(f"Fetched and cached {len(all_owners_list)} owners.")
+            return all_owners_list
+        except ObjectApiException as e: 
+            await self._handle_api_error(e, "owners retrieval")
+            return []
+        except Exception as e:
+            await self._handle_api_error(e, "owners retrieval")
+            return []
+
+    async def get_owner_by_email(self, email: str) -> Optional[HubSpotOwner]:
+        logger.debug(f"Getting owner by email: {email}")
+        cache_key = f"owner_email_{email.lower()}" # Normalize email for cache key
+        cached_owner = self.owners_cache.get(cache_key)
+        if cached_owner:
+            logger.debug(f"Returning cached owner for email: {email}")
+            return cached_owner
+
+        try:
+            api_response = self.client.crm.owners.owners_api.get_page(email=email, limit=1)
+            if api_response.results:
+                owner_data = HubSpotOwner(**api_response.results[0].to_dict())
+                self.owners_cache[cache_key] = owner_data
+                logger.info(f"Found owner by email via API: {email} -> ID {owner_data.id}")
+                return owner_data
             else:
-                logfire.warn("No valid owners found to initialize round-robin.")
-                self._owner_iterator = None
-        else:
-            logfire.debug("Using cached owner list for round-robin.")
-
-    async def get_next_owner_id(self, team_name: Optional[str] = None) -> Optional[str]:
-        """
-        Gets the next owner ID using a simple in-memory round-robin.
-        NOTE: In-memory state is not suitable for production. Filtering by team_name is not implemented.
-        """
-        async with self._owner_lock:  # Ensure atomic update of iterator
-            await self._update_owner_list_if_needed()
-
-            if not self._owner_iterator:
-                logfire.error(
-                    "Owner iterator not initialized, cannot assign next owner.")
+                logger.warning(f"Owner with email '{email}' not found via direct API query. Consider checking all owners if necessary.")
+                # Optional: Fallback to searching in all owners (can be slow)
+                # all_owners = await self.get_owners()
+                # for owner in all_owners:
+                #     if owner.email and owner.email.lower() == email.lower():
+                #         self.owners_cache[cache_key] = owner
+                #         logger.info(f"Found owner by email '{email}' after searching all owners.")
+                #         return owner
+                # logger.warning(f"Owner with email '{email}' not found even after checking all owners.")
                 return None
+        except ObjectApiException as e:
+            await self._handle_api_error(e, "get owner by email", email)
+        except Exception as e:
+            await self._handle_api_error(e, "get owner by email", email)
+        
+        return None
 
-            # TODO: Implement filtering by team_name if required.
-            # This would involve fetching teams, finding the team ID, fetching team members,
-            # and filtering the self._owner_list before creating the cycle.
-            if team_name:
-                logfire.warn(
-                    "Filtering owners by team_name is not implemented in get_next_owner_id.")
+    # --- Association Methods (Using API v4) ---
+    async def associate_objects(
+        self,
+        from_object_type: str, # e.g., "deals", "contacts"
+        from_object_id: str,
+        to_object_type: str,   # e.g., "contacts", "companies"
+        to_object_id: str,
+        association_type_id: int, # Numeric association type ID
+    ) -> bool:
+        context = f"associating {from_object_type} {from_object_id} to {to_object_type} {to_object_id} (type {association_type_id})"
+        logger.debug(f"Attempting to {context}")
+        try:
+            # HubSpot API v4 uses string identifiers for object types (e.g., "contact", "deal")
+            # and numeric IDs for association types.
+            # The SDK method client.crm.associations.v4.basic_api.create is for defining association *types*.
+            # To create an *instance* of an association:
+            # client.crm.associations.v4.batch_api.create_default is for default HubSpot associations (e.g. contact to company)
+            # client.crm.associations.v4.batch_api.create allows specifying custom types.
 
+            # For creating a single association instance with a specific type ID:
+            # The `client.crm.associations.v4.basic_api.create` is actually for creating association *definitions/types*.
+            # To create an *instance* of an association, you typically use the batch API, even for one.
+            # `self.client.crm.associations.v4.batch_api.create_batch` is the one.
+            
+            # Let's use the batch creation method for a single association for consistency with batch_associate_objects
+            # This requires from_object_type_id and to_object_type_id to be the string names of the object types.
+            
+            # Convert plural to singular if needed by SDK, though SDK might handle it.
+            # For association APIs, HubSpot often uses the singular form or a specific object type ID string.
+            # The `from_object_type_id` and `to_object_type_id` for `create_batch` are like "0-1" for Contact, "0-2" for Company.
+            # This is different from the `from_object_type` string like "contacts".
+            # This part is tricky and depends on exact SDK expectations for these IDs.
+            # Let's assume the SDK's `batch_api.create_batch` can take the object type *names* (e.g., "CONTACT", "DEAL")
+            # as `from_object_type_id` and `to_object_type_id` arguments, and it maps them internally.
+            # If not, we'd need a mapping from "contacts" -> "0-1", "companies" -> "0-2", "deals" -> "0-3", etc.
+
+            # The `PublicAssociationMultiCreate` takes `_from` (PublicObjectId) and `to` (PublicObjectId)
+            # and `types` (List[AssociationSpec]).
+            
+            # Standard object type IDs used by some association APIs:
+            # CONTACT = "0-1"
+            # COMPANY = "0-2"
+            # DEAL = "0-3"
+            # TICKET = "0-5"
+            # This mapping might be needed if the SDK doesn't accept names like "CONTACTS".
+            # For now, assuming SDK handles from_object_type.upper() or similar.
+            # The `from_object_type` and `to_object_type` in `batch_api.create_batch` are indeed the object type names.
+
+            association_specs = [
+                AssociationSpec(
+                    association_category="HUBSPOT_DEFINED", # Or "USER_DEFINED" for custom association types
+                    association_type_id=int(association_type_id)
+                )
+            ]
+            
+            batch_input = BatchInputPublicAssociationMultiCreate(inputs=[
+                PublicAssociationMultiCreate(
+                    _from=PublicObjectId(id=from_object_id),
+                    to=PublicObjectId(id=to_object_id),
+                    types=association_specs
+                )
+            ])
+
+            # The create_batch method is structured per (from_object_type, to_object_type) pair.
+            api_response = self.client.crm.associations.v4.batch_api.create_batch(
+                from_object_type_id=from_object_type.upper(), # e.g. CONTACTS -> CONTACT
+                to_object_type_id=to_object_type.upper(),     # e.g. DEALS -> DEAL
+                batch_input_public_association_multi_create=batch_input
+            )
+
+            if hasattr(api_response, 'status') and api_response.status == "COMPLETE":
+                logger.info(f"Successfully {context}")
+                return True
+            elif hasattr(api_response, 'status') and api_response.status == "COMPLETE_WITH_ERRORS":
+                logger.error(f"Failed to {context}. Status: {api_response.status}, Errors: {api_response.errors if hasattr(api_response, 'errors') else 'N/A'}")
+                return False
+            else: # FAILED or other status
+                logger.error(f"Failed to {context}. Status: {api_response.status if hasattr(api_response, 'status') else 'Unknown'}, Response: {api_response}")
+                return False
+
+        except ObjectApiException as e: 
+            await self._handle_api_error(e, context)
+            return False
+        except ImportError as ie: # In case AssociationSpec or other models are not found
+            logger.error(f"ImportError during association: {ie}. Ensure HubSpot SDK is up-to-date and v4 models are available.", exc_info=True)
+            return False
+        except Exception as e: 
+            await self._handle_api_error(e, context)
+            return False
+
+    async def batch_associate_objects(self, inputs: List[Dict[str, Any]]) -> bool:
+        """
+        Associates objects in batch using HubSpot API v4.
+        Each item in 'inputs' should be a dict like:
+        { 
+          "from_object_type": "deals", "from_object_id": "id1", 
+          "to_object_type": "contacts", "to_object_id": "id2", 
+          "association_type_id": 123 (numeric)
+        }
+        """
+        if not inputs:
+            logger.info("No associations to perform in batch.")
+            return True
+
+        logger.debug(f"Batch associating {len(inputs)} pairs.")
+        
+        # Group inputs by (from_object_type, to_object_type) as the API call is per pair of object types.
+        grouped_inputs: Dict[tuple[str, str], List[PublicAssociationMultiCreate]] = {}
+        for item in inputs:
             try:
-                next_owner = next(self._owner_iterator)
-                owner_id = next_owner.get("id")
-                logfire.info(f"Assigned next owner via round-robin.",
-                             owner_id=owner_id, owner_email=next_owner.get("email"))
-                return owner_id
-            except StopIteration:
-                logfire.error("Owner iterator unexpectedly empty.")
-                return None
+                from_obj_type_norm = item["from_object_type"].upper() # Normalize: "contacts" -> "CONTACTS"
+                to_obj_type_norm = item["to_object_type"].upper()
+                key = (from_obj_type_norm, to_obj_type_norm)
+
+                if key not in grouped_inputs:
+                    grouped_inputs[key] = []
+                
+                assoc_specs = [
+                    AssociationSpec(
+                        association_category="HUBSPOT_DEFINED", # Or "USER_DEFINED"
+                        association_type_id=int(item["association_type_id"])
+                    )
+                ]
+                grouped_inputs[key].append(
+                    PublicAssociationMultiCreate(
+                        _from=PublicObjectId(id=item["from_object_id"]),
+                        to=PublicObjectId(id=item["to_object_id"]),
+                        types=assoc_specs
+                    )
+                )
+            except KeyError as e:
+                logger.error(f"Missing key in batch association input item: {item}. Error: {e}", exc_info=True)
+                # Decide if one bad item fails the whole batch or just skips. For now, skip.
+                continue 
             except Exception as e:
-                logfire.error("Error getting next owner from iterator.", exc_info=True)
-                return None
+                logger.error(f"Error preparing batch association for item {item}: {e}", exc_info=True)
+                continue
+
+        all_successful = True
+        for (from_obj_type_sdk, to_obj_type_sdk), associations_for_pair in grouped_inputs.items():
+            if not associations_for_pair:
+                continue
+
+            context = f"batch associating {len(associations_for_pair)} pairs from {from_obj_type_sdk} to {to_obj_type_sdk}"
+            logger.debug(f"Attempting to {context}")
+            
+            batch_input = BatchInputPublicAssociationMultiCreate(inputs=associations_for_pair)
+            try:
+                api_response = self.client.crm.associations.v4.batch_api.create_batch(
+                    from_object_type_id=from_obj_type_sdk, 
+                    to_object_type_id=to_obj_type_sdk,    
+                    batch_input_public_association_multi_create=batch_input
+                )
+                
+                if hasattr(api_response, 'status') and api_response.status == "COMPLETE":
+                    logger.info(f"Successfully completed {context}.")
+                elif hasattr(api_response, 'status') and api_response.status == "COMPLETE_WITH_ERRORS":
+                    logger.warning(f"{context} completed with errors: {api_response.errors if hasattr(api_response, 'errors') else 'N/A'}")
+                    all_successful = False # Mark overall as not fully successful
+                else: # FAILED or other status
+                    logger.error(f"{context} failed. Status: {api_response.status if hasattr(api_response, 'status') else 'Unknown'}, Response: {api_response}")
+                    all_successful = False
+            except ObjectApiException as e:
+                await self._handle_api_error(e, context)
+                all_successful = False
+            except Exception as e:
+                await self._handle_api_error(e, context)
+                all_successful = False
+        
+        return all_successful
+
+    # --- Lead Creation Method ---
+    async def create_lead(self, lead_data: LeadCreateSchema) -> Dict[str, Any]:
+        logger.info(f"Attempting to create lead with data: {lead_data.model_dump_json(indent=2, exclude_none=True)}")
+        
+        response = {
+            "success": False, 
+            "message": "Lead processing initiated.",
+            "contact_id": None, 
+            "company_id": None, 
+            "deal_id": None,
+            "errors": [],
+            "association_results": {"total": 0, "succeeded": 0, "failed_details": []}
+        }
+
+        contact_id: Optional[str] = None
+        company_id: Optional[str] = None
+        deal_id: Optional[str] = None
+
+        try:
+            # 1. Create Contact (or find existing - simplified to create for now)
+            # More robust: search by email first. If exists, use ID, maybe update.
+            # search_req_contact = HubSpotSearchRequest(filters=[{"propertyName": "email", "operator": "EQ", "value": lead_data.email}], limit=1, properties=["hs_object_id", "email"])
+            # existing_contacts = await self.search_objects("contacts", search_req_contact)
+            # if existing_contacts.results:
+            #     contact_id = existing_contacts.results[0].id
+            #     response["contact_id"] = contact_id
+            #     logger.info(f"Found existing contact ID: {contact_id} for email: {lead_data.email}")
+            #     # Optionally, update the existing contact here
+            #     # contact_update_props = HubSpotContactPropertiesUpdate(phone=lead_data.phone, ...)
+            #     # await self.update_contact(contact_id, contact_update_props)
+            # else:
+            # Create new contact
+            contact_create_props = HubSpotContactPropertiesCreate(
+                email=lead_data.email,
+                firstname=lead_data.first_name,
+                lastname=lead_data.last_name,
+                phone=lead_data.phone,
+                lifecyclestage=settings.HUBSPOT_DEFAULT_LEAD_LIFECYCLE_STAGE or "lead" 
+            )
+            contact = await self.create_contact(contact_create_props)
+            if contact and contact.id:
+                contact_id = contact.id
+                response["contact_id"] = contact_id
+                logger.info(f"Successfully created contact ID: {contact_id}")
+            else:
+                logger.error(f"Failed to create contact for email: {lead_data.email}")
+                response["errors"].append({"step": "contact_creation", "message": "Failed to create contact."})
 
 
-# Create a singleton instance of the manager
-# Ensure settings are loaded before this is instantiated
-hubspot_manager = HubSpotManager(api_key=settings.HUBSPOT_API_KEY)
+            # 2. Create Company (or find existing - simplified to create for now)
+            if lead_data.company_name:
+                # More robust: search by domain first.
+                # search_req_company = HubSpotSearchRequest(filters=[{"propertyName": "domain", "operator": "EQ", "value": lead_data.company_domain}], limit=1, properties=["hs_object_id", "name"])
+                # existing_companies = await self.search_objects("companies", search_req_company)
+                # if existing_companies.results:
+                #    company_id = existing_companies.results[0].id
+                #    response["company_id"] = company_id
+                #    logger.info(f"Found existing company ID: {company_id} for domain: {lead_data.company_domain}")
+                # else:
+                company_create_props = HubSpotCompanyPropertiesCreate(
+                    name=lead_data.company_name,
+                    domain=lead_data.company_domain or None,
+                    # phone=lead_data.company_phone or None, # Add if in LeadCreateSchema
+                    # website=lead_data.company_website or None, # Add if in LeadCreateSchema
+                )
+                company = await self.create_company(company_create_props)
+                if company and company.id:
+                    company_id = company.id
+                    response["company_id"] = company_id
+                    logger.info(f"Successfully created company ID: {company_id} for '{lead_data.company_name}'")
+                else:
+                    logger.warning(f"Failed to create company: {lead_data.company_name}")
+                    response["errors"].append({"step": "company_creation", "message": f"Failed to create company '{lead_data.company_name}'."})
+            
+            # 3. Create Deal (only if contact or company was successfully created/found)
+            if contact_id or company_id: # Proceed if we have something to associate the deal with
+                deal_name_parts = [lead_data.first_name, lead_data.last_name, lead_data.service_of_interest]
+                deal_name = " - ".join(filter(None, deal_name_parts)) or "New Lead Deal"
+
+                deal_create_props = HubSpotDealPropertiesCreate(
+                    dealname=deal_name,
+                    amount=str(lead_data.estimated_value or 0.0) # HubSpot often expects amount as string
+                    # pipeline and dealstage will be set by create_deal if not provided here and defaults are configured
+                )
+
+                if lead_data.owner_email:
+                    owner = await self.get_owner_by_email(lead_data.owner_email)
+                    if owner and owner.id:
+                        deal_create_props.hubspot_owner_id = owner.id
+                        logger.info(f"Assigning owner ID {owner.id} ({owner.email}) to the new deal.")
+                    else:
+                        logger.warning(f"Owner with email {lead_data.owner_email} not found. Deal will be unassigned or default assigned.")
+                        response["errors"].append({"step": "owner_assignment", "message": f"Owner '{lead_data.owner_email}' not found."})
+                
+                deal = await self.create_deal(deal_create_props)
+                if deal and deal.id:
+                    deal_id = deal.id
+                    response["deal_id"] = deal_id
+                    logger.info(f"Successfully created deal ID: {deal_id} with name '{deal_name}'")
+                else:
+                    logger.error(f"Failed to create deal for '{deal_name}'.")
+                    response["errors"].append({"step": "deal_creation", "message": f"Failed to create deal '{deal_name}'."})
+            else:
+                logger.warning("Skipping deal creation as no contact or company was created/found.")
+                response["message"] = "Contact and/or company creation failed; deal creation skipped."
+
+
+            # 4. Create Associations
+            associations_to_attempt: List[Dict[str, Any]] = []
+            if deal_id:
+                if contact_id:
+                    associations_to_attempt.append({
+                        "from_object_type": "deals", "from_object_id": deal_id,
+                        "to_object_type": "contacts", "to_object_id": contact_id,
+                        "association_type_id": self.DEAL_TO_CONTACT_ASSOCIATION_TYPE_ID
+                    })
+                if company_id:
+                    associations_to_attempt.append({
+                        "from_object_type": "deals", "from_object_id": deal_id,
+                        "to_object_type": "companies", "to_object_id": company_id,
+                        "association_type_id": self.DEAL_TO_COMPANY_ASSOCIATION_TYPE_ID
+                    })
+            if company_id and contact_id: # Also associate company to contact
+                 associations_to_attempt.append({
+                    "from_object_type": "companies", "from_object_id": company_id,
+                    "to_object_type": "contacts", "to_object_id": contact_id,
+                    "association_type_id": self.COMPANY_TO_CONTACT_ASSOCIATION_TYPE_ID
+                })
+
+            response["association_results"]["total"] = len(associations_to_attempt)
+            if associations_to_attempt:
+                # Using individual associate_objects calls for clarity here,
+                # but batch_associate_objects could be used if all associations are of the same from/to types.
+                # Since they are mixed, individual calls or a more complex batch grouping is needed.
+                # The current batch_associate_objects handles grouping, so it can be used.
+                
+                batch_success = await self.batch_associate_objects(associations_to_attempt)
+                if batch_success:
+                    response["association_results"]["succeeded"] = len(associations_to_attempt)
+                    logger.info(f"Successfully created {len(associations_to_attempt)} associations for lead.")
+                else:
+                    # Batch method logs errors internally. Here we just note overall failure.
+                    # For more granular success/failure, iterate and call associate_objects individually.
+                    logger.warning("One or more associations failed during batch processing for lead. Check previous logs.")
+                    response["errors"].append({"step": "associations", "message": "One or more associations failed during batch processing."})
+                    # To get exact counts if batch_associate_objects doesn't return it:
+                    # You'd need to modify batch_associate_objects or do individual calls here and count.
+                    # For now, assuming batch_success means all or nothing for this simplified response.
+                    # A more robust batch_associate_objects could return a count of successes.
+                    # Let's assume for now if batch_success is false, 0 succeeded for this summary.
+                    response["association_results"]["succeeded"] = 0 # Or get a more precise count
+
+            if not response["errors"] and (contact_id or company_id or deal_id):
+                response["success"] = True
+                response["message"] = "Lead processed successfully."
+                if not deal_id and (contact_id or company_id):
+                     response["message"] = "Contact/Company processed; deal creation failed or was skipped."
+            elif not response["errors"] and not any([contact_id, company_id, deal_id]):
+                response["success"] = True # Or False, depending on if "nothing created" is an error
+                response["message"] = "Lead data processed, but no new HubSpot entities were created (e.g., contact/company might have existed and were not updated, or data was insufficient)."
+            else: # Errors occurred
+                response["success"] = False
+                final_error_messages = [err.get("message", "Unknown error") for err in response["errors"]]
+                response["message"] = f"Lead processing encountered errors: {'; '.join(final_error_messages)}"
+
+            logger.info(f"Lead creation process completed. Final response: {response}")
+            return response
+
+        except ValidationError as ve: # Pydantic validation error for input LeadCreateSchema
+            logger.error(f"Input validation error for lead creation: {ve.errors()}", exc_info=True)
+            response["message"] = "Input data validation failed."
+            response["errors"].append({"step": "input_validation", "details": ve.errors()})
+            return response
+        except (ObjectApiException, DealApiException) as e: 
+             # This catches API errors that might occur outside the specific create_x methods if any direct calls were made here
+             error_info = await self._handle_api_error(e, "lead creation main process")
+             response["message"] = "A HubSpot API error occurred during lead processing."
+             response["errors"].append({"step": "hubspot_api_main", "details": error_info})
+             return response
+        except Exception as e:
+            logger.error(f"Unexpected error during lead creation: {e}", exc_info=True)
+            response["message"] = "An unexpected error occurred during lead processing."
+            response["errors"].append({"step": "unexpected_main", "details": str(e)})
+            return response
+
+    # --- Old Search Methods (Commented Out as generic search_objects is preferred) ---
+    # async def search_contacts_by_email(self, email: str, properties: Optional[List[str]] = None) -> HubSpotSearchResponse:
+    #     logger.debug(f"Searching contacts by email: {email}")
+    #     search_filter = {"propertyName": "email", "operator": "EQ", "value": email}
+    #     search_request = HubSpotSearchRequest(
+    #         filters=[search_filter],
+    #         properties=properties or ["email", "firstname", "lastname", "phone", "hs_object_id", "lifecyclestage"],
+    #         limit=10 
+    #     )
+    #     return await self.search_objects(object_type="contacts", search_request=search_request)
+
+    # async def search_companies_by_domain(self, domain: str, properties: Optional[List[str]] = None) -> HubSpotSearchResponse:
+    #     logger.debug(f"Searching companies by domain: {domain}")
+    #     search_filter = {"propertyName": "domain", "operator": "EQ", "value": domain}
+    #     search_request = HubSpotSearchRequest(
+    #         filters=[search_filter],
+    #         properties=properties or ["name", "domain", "phone", "hs_object_id", "website", "industry"],
+    #         limit=10
+    #     )
+    #     return await self.search_objects(object_type="companies", search_request=search_request)
+
+    # async def search_deals_by_name(self, deal_name: str, properties: Optional[List[str]] = None) -> HubSpotSearchResponse:
+    #     logger.debug(f"Searching deals by name: {deal_name}")
+    #     # Using CONTAINS_TOKEN might be better for names, but EQ is safer for exact matches.
+    #     # Adjust operator based on needs. For "EQ", ensure deal_name is exact.
+    #     search_filter = {"propertyName": "dealname", "operator": "EQ", "value": deal_name}
+    #     search_request = HubSpotSearchRequest(
+    #         filters=[search_filter],
+    #         properties=properties or ["dealname", "amount", "dealstage", "pipeline", "hs_object_id", "closedate", "hubspot_owner_id"],
+    #         limit=10
+    #     )
+    #     return await self.search_objects(object_type="deals", search_request=search_request)

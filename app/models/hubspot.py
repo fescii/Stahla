@@ -11,6 +11,40 @@ class HubSpotBaseModel(BaseModel):
         extra = 'allow'  # Allow extra fields from HubSpot API responses
 
 
+# --- HubSpot Error Models ---
+
+class HubSpotErrorItem(BaseModel):
+    """Represents a single error item in a HubSpot API error response."""
+    message: str
+    in_param: Optional[str] = Field(None, alias="in")
+    code: Optional[str] = None
+    sub_category: Optional[str] = Field(None, alias="subCategory")
+    context_details: Optional[Dict[str, Any]] = Field(None, alias="context") # Context specific to this error item
+
+    class Config:
+        populate_by_name = True
+        extra = 'allow'
+
+class HubSpotErrorDetail(HubSpotBaseModel):
+    """
+    Model to parse detailed error responses from the HubSpot API.
+    Inherits from HubSpotBaseModel to allow extra fields.
+    """
+    status: Optional[str] = None # e.g., "error"
+    message: str # Main error message from HubSpot
+    correlation_id: Optional[str] = Field(None, alias="correlationId")
+    category: Optional[str] = None # e.g., "VALIDATION_ERROR"
+    sub_category: Optional[str] = Field(None, alias="subCategory") # If present at the top level of the error
+    errors: Optional[List[HubSpotErrorItem]] = Field(None, description="A list of specific error details.")
+    # General context for the error, e.g. {"objectType": ["DEAL"]}
+    error_context: Optional[Dict[str, Any]] = Field(None, alias="context")
+    links: Optional[Dict[str, HttpUrl]] = Field(None, description="Helpful links related to the error.")
+
+    class Config:
+        populate_by_name = True
+        # extra = 'allow' is inherited from HubSpotBaseModel
+
+
 # --- Contact Models ---
 
 class HubSpotContactProperties(BaseModel):
