@@ -28,6 +28,7 @@ class Settings(BaseSettings):
   APP_BASE_URL: str = "http://localhost:8000"
 
   # HubSpot Configuration
+  HUBSPOT_ACCESS_TOKEN: Optional[str] = Field(None, description="HubSpot Private App Access Token") # Added
   HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE"  # Default is just a placeholder
   HUBSPOT_CLIENT_SECRET: Optional[str] = None
   HUBSPOT_PORTAL_ID: Optional[str] = None  # Ensure this is defined
@@ -59,6 +60,10 @@ class Settings(BaseSettings):
   HUBSPOT_DEFAULT_TICKET_PIPELINE_NAME: str = "Support Pipeline"
   HUBSPOT_DEFAULT_LEAD_LIFECYCLE_STAGE: str = "lead"
 
+  # HubSpot Cache TTLs (in seconds)
+  CACHE_TTL_HUBSPOT_PIPELINES: int = Field(default=3600, description="Cache TTL for HubSpot pipelines in seconds") # Added
+  CACHE_TTL_HUBSPOT_STAGES: int = Field(default=3600, description="Cache TTL for HubSpot pipeline stages in seconds") # Added
+  CACHE_TTL_HUBSPOT_OWNERS: int = Field(default=3600, description="Cache TTL for HubSpot owners in seconds") # Added
 
   # HUBSPOT_REVIEW_OWNER_ID: Optional[str] = None # Optional: Assign leads needing review to specific owner
 
@@ -76,7 +81,8 @@ class Settings(BaseSettings):
   LOGFIRE_TOKEN: Optional[str] = Field(None, validation_alias="LOGFIRE_TOKEN")
   # Change type to bool and default to False
   LOGFIRE_IGNORE_NO_CONFIG: bool = Field(
-      False, validation_alias="LOGFIRE_IGNORE_NO_CONFIG")
+      False, validation_alias="LOGFIRE_IGNORE_NO_CONFIG", description="Suppress LogfireNotConfiguredWarning if True"
+  )
 
   # LLM Configuration
   # Select your provider
@@ -187,27 +193,44 @@ def get_settings() -> Settings:
   Relies on pydantic-settings to load from .env and environment variables.
   """
   try:
-    # Pydantic-settings automatically reads from .env and environment variables
-    # based on the Settings class definition and its Config.
-    # It handles type conversions and aliases.
     settings_instance = Settings()
-    # Log a few key settings to verify
-    logfire.info(
-        f"LLM Provider: {settings_instance.LLM_PROVIDER}, Classification Method: {settings_instance.CLASSIFICATION_METHOD}")
+
+    # Construct MongoDB URL if not explicitly provided
+    if not settings_instance.MONGO_CONNECTION_URL:
+      user = quote_plus(settings_instance.MONGO_USER) if settings_instance.MONGO_USER else None
+      password = quote_plus(settings_instance.MONGO_PASSWORD) if settings_instance.MONGO_PASSWORD else None
+      host = settings_instance.MONGO_HOST
+      port = settings_instance.MONGO_PORT
+      db_name = settings_instance.MONGO_DB_NAME
+      auth_source = "admin" # Common default, adjust if needed
+
+      if user and password:
+        mongo_url = f"mongodb://{user}:{password}@{host}:{port}/{db_name}?authSource={auth_source}"
+      else:
+        # Fallback for local/unauthenticated MongoDB
+        mongo_url = f"mongodb://{host}:{port}/{db_name}"
+      
+      settings_instance.MONGO_CONNECTION_URL = mongo_url
+      # Log the dynamically constructed URL for debugging (ensure this is after logfire.configure)
+      # logfire.info(f"Dynamically constructed MongoDB URL: {mongo_url}")
+
+
     return settings_instance
-  except Exception as e:  # Catch potential validation errors during Settings() init
-    logfire.error(f"Failed to initialize Settings object: {e}", exc_info=True)
-    raise ValueError(f"Configuration error: {e}") from e
+  except Exception as e:
+    # This log might not reach Logfire if configuration itself failed
+    # Consider a simple print or standard library logging for critical bootstrap errors
+    print(f"CRITICAL: Failed to initialize settings: {e}")
+    # logfire.error(f"CRITICAL: Failed to initialize settings: {e}", exc_info=True) # This might not work if logfire isn't configured
+    raise  # Re-raise the exception to halt application startup
 
-
-# Create an instance accessible throughout the application
 settings = get_settings()
 
-# Dynamically construct MONGO_CONNECTION_URL if not explicitly set and components are available
-if not settings.MONGO_CONNECTION_URL and settings.MONGO_USER and settings.MONGO_PASSWORD and settings.MONGO_HOST and settings.MONGO_PORT and settings.MONGO_DB_NAME:
-    # URL-encode username and password using new variable names
-    encoded_user = quote_plus(settings.MONGO_USER)
-    encoded_password = quote_plus(settings.MONGO_PASSWORD)
-    # Re-add ?authSource=admin
-    settings.MONGO_CONNECTION_URL = f"mongodb://{encoded_user}:{encoded_password}@{settings.MONGO_HOST}:{settings.MONGO_PORT}/{settings.MONGO_DB_NAME}?authSource=admin"
-    print(f"Dynamically constructed MongoDB URL: {settings.MONGO_CONNECTION_URL}") # Add print for verification
+# Example of using logfire after settings (and thus Logfire) are configured
+# This will only be effective if logfire.configure() in main.py has run
+logfire.info(
+    f"Settings loaded. DEV mode: {settings.DEV}, Project: {settings.PROJECT_NAME}, Logfire Ignore No Config: {settings.LOGFIRE_IGNORE_NO_CONFIG}"
+)
+if settings.MONGO_CONNECTION_URL and "localhost" not in settings.MONGO_CONNECTION_URL: # Avoid logging credentials for local default
+    logfire.info(f"MongoDB URL (production-like): {settings.MONGO_CONNECTION_URL.split('@')[-1]}") # Log only host part if not local
+else:
+    logfire.info(f"MongoDB URL: {settings.MONGO_CONNECTION_URL}")

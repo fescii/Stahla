@@ -81,8 +81,8 @@ class BlandAIManager:
                 error_details_config = {
                     "service_name": "BlandAIManager._sync_pathway",
                     "error_type": "ConfigurationError",
-                    "message": "Pathway sync skipped: BLAND_PATHWAY_ID is not configured.",
-                    "details": {"pathway_id_configured": self.pathway_id}
+                    "error_message": "Pathway sync skipped: BLAND_PATHWAY_ID is not configured.",
+                    "additional_data": {"pathway_id_configured": self.pathway_id}
                 }
                 if background_tasks:
                     background_tasks.add_task(mongo_service.log_error_to_db, **error_details_config)
@@ -96,8 +96,8 @@ class BlandAIManager:
                 error_details_def = {
                     "service_name": "BlandAIManager._sync_pathway",
                     "error_type": "PathwayDefinitionError",
-                    "message": f"Pathway sync failed for {self.pathway_id}: Definition not loaded from call.json.",
-                    "details": {"pathway_id": self.pathway_id, "pathway_json_path": PATHWAY_JSON_PATH}
+                    "error_message": f"Pathway sync failed for {self.pathway_id}: Definition not loaded from call.json.",
+                    "additional_data": {"pathway_id": self.pathway_id, "pathway_json_path": PATHWAY_JSON_PATH}
                 }
                 if background_tasks:
                     background_tasks.add_task(mongo_service.log_error_to_db, **error_details_def)
@@ -112,8 +112,8 @@ class BlandAIManager:
                 error_details_name = {
                     "service_name": "BlandAIManager._sync_pathway",
                     "error_type": "PathwayDefinitionError",
-                    "message": f"Pathway sync failed for {self.pathway_id}: 'name' field missing in call.json.",
-                    "details": {"pathway_id": self.pathway_id, "pathway_definition_keys": list(self.pathway_definition.keys())}
+                    "error_message": f"Pathway sync failed for {self.pathway_id}: 'name' field missing in call.json.",
+                    "additional_data": {"pathway_id": self.pathway_id, "pathway_definition_keys": list(self.pathway_definition.keys())}
                 }
                 if background_tasks:
                     background_tasks.add_task(mongo_service.log_error_to_db, **error_details_name)
@@ -182,13 +182,13 @@ class BlandAIManager:
                 log_db_details = {
                     "service_name": "BlandAIManager._make_request",
                     "error_type": "HTTPStatusError",
-                    "message": message,
-                    "details": {
+                    "error_message": message,
+                    "additional_data": {
                         "method": method,
                         "endpoint": endpoint,
-                        "request_payload_keys": list(json_data.keys()) if json_data else None, # Avoid logging sensitive data from payload
+                        "request_payload_keys": list(json_data.keys()) if json_data else None,
                         "status_code": e.response.status_code,
-                        "response_text": e.response.text, # This might be large
+                        "response_text": e.response.text,
                         "error_details_parsed": error_details_parsed
                     }
                 }
@@ -205,12 +205,12 @@ class BlandAIManager:
                 log_db_details_req = {
                     "service_name": "BlandAIManager._make_request",
                     "error_type": "RequestError",
-                    "message": message,
-                    "details": {
+                    "error_message": message,
+                    "additional_data": {
                         "method": method,
                         "endpoint": endpoint,
                         "request_payload_keys": list(json_data.keys()) if json_data else None,
-                        "error_details": error_details
+                        "error_details": error_details # This nested key is fine, it's the outer one that matters for the function call
                     }
                 }
                 if background_tasks:
@@ -226,12 +226,12 @@ class BlandAIManager:
                 log_db_details_unexp = {
                     "service_name": "BlandAIManager._make_request",
                     "error_type": "UnexpectedException",
-                    "message": message,
-                    "details": {
+                    "error_message": message,
+                    "additional_data": {
                         "method": method,
                         "endpoint": endpoint,
                         "request_payload_keys": list(json_data.keys()) if json_data else None,
-                        "error_details": error_details_unexp
+                        "error_details": error_details_unexp # This nested key is fine
                     }
                 }
                 if background_tasks:
@@ -357,8 +357,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.retry_call",
                 error_type="NotFoundError",
-                message="Original call log not found to retry.",
-                details={"contact_id": contact_id, "retry_reason": retry_reason}
+                error_message="Original call log not found to retry.",
+                additional_data={"contact_id": contact_id, "retry_reason": retry_reason}
             )
             return BlandApiResult(status="error", message="Original call log not found to retry.", details={"contact_id": contact_id})
 
@@ -369,8 +369,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.retry_call",
                 error_type="DataValidationError",
-                message="Original call log missing phone number.",
-                details={"contact_id": contact_id, "original_log_doc_id": str(original_log_doc.get("_id"))}
+                error_message="Original call log missing phone number.",
+                additional_data={"contact_id": contact_id, "original_log_doc_id": str(original_log_doc.get("_id"))}
             )
             return BlandApiResult(status="error", message="Original call log missing phone number.", details={"contact_id": contact_id})
 
@@ -390,8 +390,8 @@ class BlandAIManager:
                     mongo_service.log_error_to_db,
                     service_name="BlandAIManager.retry_call",
                     error_type="WebhookParsingError",
-                    message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
-                    details={
+                    error_message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
+                    additional_data={
                         "contact_id": contact_id, 
                         "webhook_url_string": webhook_str,
                         "validation_error": str(e)
@@ -402,12 +402,12 @@ class BlandAIManager:
                 background_tasks.add_task(
                     mongo_service.log_error_to_db,
                     service_name="BlandAIManager.retry_call",
-                    error_type="WebhookParsingError", # Consistent error type
-                    message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
-                    details={
+                    error_type="WebhookParsingError", 
+                    error_message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
+                    additional_data={
                         "contact_id": contact_id,
                         "webhook_url_string": webhook_str,
-                        "error_type_name": type(e).__name__, # Renamed for clarity
+                        "error_type_name": type(e).__name__, 
                         "error_args": e.args
                     }
                 )
@@ -457,8 +457,8 @@ class BlandAIManager:
                     mongo_service.log_error_to_db,
                     service_name="BlandAIManager._extract_data_from_transcript",
                     error_type="TranscriptProcessingError",
-                    message=error_message,
-                    details={"contact_id": contact_id, "transcript_length": 0}
+                    error_message=error_message, 
+                    additional_data={"contact_id": contact_id, "transcript_length": 0}
                 )
                 return BlandProcessingResult(
                     success=False, 
@@ -487,8 +487,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager._extract_data_from_transcript",
                 error_type="UnexpectedException",
-                message=error_message,
-                details={
+                error_message=error_message,
+                additional_data={
                     "contact_id": contact_id, 
                     "exception_type": type(e).__name__,
                     "exception_args": e.args
@@ -522,8 +522,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.process_incoming_transcript",
                 error_type="MissingContactID",
-                message="Webhook received without contact_id in metadata.",
-                details={"bland_call_id": bland_call_id, "metadata": payload.metadata}
+                error_message="Webhook received without contact_id in metadata.",
+                additional_data={"bland_call_id": bland_call_id, "metadata": payload.metadata}
             )
             return
 
@@ -569,7 +569,7 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.process_incoming_transcript",
                 error_type="WebhookReportedError",
-                message=f"Bland webhook reported an error for call: {payload.error}",
+                error_message=f"Bland webhook reported an error for call: {payload.error}", # Changed 'message' to 'error_message'
                 details={
                     "contact_id": contact_id,
                     "bland_call_id": bland_call_id,

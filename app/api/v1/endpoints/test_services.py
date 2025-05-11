@@ -1,24 +1,25 @@
 import time
 import logfire
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, Any
 
 # Model imports
-from app.models.location import Branch, LocationLookupRequest as LocationServiceRequest
+from app.models.location import BranchLocation, LocationLookupRequest as LocationServiceRequest # Changed Branch to BranchLocation
 from app.models.quote import QuoteRequest, QuoteResponse
 
 # Service and dependency imports
 from app.services.location.location import LocationService
 from app.services.quote.quote import QuoteService, get_quote_service # Import get_quote_service directly
 from app.core.dependencies import get_location_service_dep
+from app.models.common import GenericResponse # Added import
 
 router = APIRouter()
 
 # --- Response Models for Test Endpoints ---
 
 class LocationServiceTestData(BaseModel):
-    branch: Optional[Branch] = None
+    branch: Optional[BranchLocation] = None # Changed Branch to BranchLocation
     distance_km: Optional[float] = None
     error_message: Optional[str] = Field(default=None, description="Error message if processing failed")
 
@@ -33,7 +34,7 @@ class QuoteServiceTestResponse(BaseModel):
 
 # --- Test Endpoints ---
 
-@router.post("/location", response_model=LocationServiceTestResponse)
+@router.post("/location", response_model=GenericResponse[LocationServiceTestResponse]) # Updated response_model
 async def test_location_service(
     request_payload: LocationServiceRequest,
     location_service: LocationService = Depends(get_location_service_dep)
@@ -44,7 +45,7 @@ async def test_location_service(
     """
     logfire.info(f"Test endpoint: Received location service test request for: {request_payload.delivery_location}")
     start_time = time.perf_counter()
-    branch_info: Optional[Branch] = None
+    branch_info: Optional[BranchLocation] = None # Changed Branch to BranchLocation
     distance: Optional[float] = None
     error_msg: Optional[str] = None
 
@@ -65,12 +66,15 @@ async def test_location_service(
 
     response_data = LocationServiceTestData(branch=branch_info, distance_km=distance, error_message=error_msg)
     
-    return LocationServiceTestResponse(
+    test_response = LocationServiceTestResponse(
         data=response_data if not error_msg else None, # Only include data if no error, or adjust as needed
         processing_time_ms=processing_time_ms
     )
+    if error_msg:
+        return GenericResponse.error(message="Location service test failed", details=error_msg, status_code=500) # Return GenericResponse.error
+    return GenericResponse(data=test_response) # Wrapped in GenericResponse
 
-@router.post("/quote", response_model=QuoteServiceTestResponse)
+@router.post("/quote", response_model=GenericResponse[QuoteServiceTestResponse]) # Updated response_model
 async def test_quote_service(
     request_payload: QuoteRequest,
     quote_service: QuoteService = Depends(get_quote_service) # Use get_quote_service directly
@@ -98,8 +102,11 @@ async def test_quote_service(
     end_time = time.perf_counter()
     processing_time_ms = (end_time - start_time) * 1000
 
-    return QuoteServiceTestResponse(
+    test_response = QuoteServiceTestResponse(
         data=quote_data if not error_msg else None,
         processing_time_ms=processing_time_ms,
         error_message=error_msg
     )
+    if error_msg:
+        return GenericResponse.error(message="Quote service test failed", details=error_msg, status_code=500 if not isinstance(ve, ValueError) else 400) # Return GenericResponse.error, adjust status for ValueError
+    return GenericResponse(data=test_response) # Wrapped in GenericResponse

@@ -1,0 +1,65 @@
+### Variables
+@base_url = http://localhost:8000/api/v1
+@auth_token = your_auth_token_here
+@content_type = application/json
+
+###
+# @name SendCall
+POST {{base_url}}/bland-calls/send-call
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "phone_number": "+1234567890",
+    "task": "Your task description here",
+    "first_sentence": "Hello, this is a test call.",
+    "wait_for_greeting": true,
+    "record": true,
+    "amd": true,
+    "answered_by_enabled": true,
+    "interruption_threshold": 500,
+    "max_duration": 10,
+    "start_time": null,
+    "transfer_phone_number": null,
+    "voice_id": 0,
+    "reduce_latency": true,
+    "webhook_url": "https://example.com/webhook",
+    "metadata": {},
+    "create_docs": false,
+    "temperature": null,
+    "tools": [],
+    "voice_settings": {}
+}
+
+###
+# @name AnalyzeCall
+POST {{base_url}}/bland-calls/analyze-call
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "call_id": "your_call_id_here",
+    "goal": "Analyze the call for sentiment and key topics.",
+    "questions": [
+        ["What was the overall sentiment of the call?", "sentiment_analysis"],
+        ["What were the main topics discussed?", "topic_extraction"]
+    ]
+}
+
+###
+# @name GetCallLogs
+GET {{base_url}}/bland-calls/call-logs?limit=10&offset=0
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+###
+# @name GetCallLogById
+GET {{base_url}}/bland-calls/call-log/your_call_id_here
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+###
+# @name GetCallLogsByBatchId
+GET {{base_url}}/bland-calls/call-logs/batch/your_batch_id_here
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}

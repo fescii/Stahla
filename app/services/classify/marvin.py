@@ -26,59 +26,96 @@ from app.core.config import settings
 
 def configure_marvin():
   """Configure Marvin based on the selected LLM provider in settings"""
-  provider = settings.LLM_PROVIDER.lower()
+  provider = settings.LLM_PROVIDER.lower() if settings.LLM_PROVIDER else ""
   config_kwargs = {}
 
   # Set up configuration based on selected provider
   if provider == "openai":
     if settings.OPENAI_API_KEY:
-      config_kwargs["api_key"] = settings.OPENAI_API_KEY
+      config_kwargs["openai_api_key"] = settings.OPENAI_API_KEY
       if settings.MODEL_NAME:
-        config_kwargs["openai_model"] = settings.MODEL_NAME
+        config_kwargs["openai_model_name"] = settings.MODEL_NAME # Changed to openai_model_name
     else:
-      logfire.error("OpenAI selected as provider but API key is missing")
+      logfire.error("OpenAI selected as provider but OPENAI_API_KEY is missing")
 
   elif provider == "anthropic":
     if settings.ANTHROPIC_API_KEY:
       config_kwargs["anthropic_api_key"] = settings.ANTHROPIC_API_KEY
       if settings.MODEL_NAME:
-        config_kwargs["anthropic_model"] = settings.MODEL_NAME
+        config_kwargs["anthropic_model_name"] = settings.MODEL_NAME # Changed to anthropic_model_name
     else:
-      logfire.error("Anthropic selected as provider but API key is missing")
+      logfire.error("Anthropic selected as provider but ANTHROPIC_API_KEY is missing")
 
   elif provider == "gemini":
     if settings.GEMINI_API_KEY:
       config_kwargs["gemini_api_key"] = settings.GEMINI_API_KEY
       if settings.MODEL_NAME:
-        config_kwargs["gemini_model"] = settings.MODEL_NAME
+        config_kwargs["gemini_model_name"] = settings.MODEL_NAME # Changed to gemini_model_name
     else:
-      logfire.error("Gemini selected as provider but API key is missing")
+      logfire.error("Gemini selected as provider but GEMINI_API_KEY is missing")
+  
+  elif provider == "marvin":
+    if settings.MARVIN_API_KEY:
+      # If LLM_PROVIDER is "marvin", assume MARVIN_API_KEY is picked up from the environment
+      # or Marvin handles it internally. Do not pass a generic "api_key".
+      logfire.info("LLM_PROVIDER is 'marvin'. Assuming MARVIN_API_KEY is used by Marvin automatically (e.g., from env).")
+    else:
+      logfire.error("Marvin selected as provider but MARVIN_API_KEY is missing")
 
-  # Default to Marvin's default configuration
-  if not config_kwargs and settings.MARVIN_API_KEY:
-    config_kwargs["api_key"] = settings.MARVIN_API_KEY
+  # The old fallback for generic "api_key" is removed as it caused errors.
+  # if not config_kwargs and settings.MARVIN_API_KEY:
+  #   config_kwargs["api_key"] = settings.MARVIN_API_KEY
 
   # Apply configuration
   try:
-    # Try the newer Marvin configuration method
-    logfire.info(f"Configuring Marvin with provider: {provider}")
-    marvin.settings.configure(**config_kwargs)
-  except AttributeError:
-    try:
-      # Fall back to direct assignment
-      for key, value in config_kwargs.items():
-        setattr(marvin.settings, key, value)
-    except Exception as e:
-      logfire.error(f"Failed to configure Marvin: {str(e)}")
-      logfire.error(
-          "Check Marvin library compatibility and API key configuration")
+    logfire.info(f"Attempting to configure Marvin. Provider: '{provider}'. Config_kwargs to apply: {list(config_kwargs.keys())}")
 
+    if config_kwargs: # If there are specific keys like openai_api_key
+        for key, value in config_kwargs.items():
+            # Log safely, especially for API keys
+            log_value = f"{str(value)[:5]}..." if isinstance(value, str) and ("key" in key.lower() or "token" in key.lower()) else str(value)
+            logfire.debug(f"Setting marvin.settings.{key} = {log_value}")
+            setattr(marvin.settings, key, value)
+        logfire.info(f"Marvin configured using direct assignment for keys: {list(config_kwargs.keys())}.")
+    
+    elif provider == "marvin" and settings.MARVIN_API_KEY:
+        # If provider is "marvin", MARVIN_API_KEY is set, and we generated no config_kwargs for it.
+        # Marvin should pick up MARVIN_API_KEY from environment variables automatically.
+        logfire.info("LLM_PROVIDER is 'marvin' and MARVIN_API_KEY is set. "
+                     "Relying on Marvin to use MARVIN_API_KEY from environment variables.")
+        logfire.info("Marvin configuration presumed complete via environment variables for 'marvin' provider.") # Added log message
+        # No explicit marvin.settings call needed here if it's purely env-based for this case.
 
-# Initialize Marvin ONLY if it's the selected provider
-if settings.LLM_PROVIDER == "marvin":
+    elif provider in ["openai", "anthropic", "gemini"] and not config_kwargs:
+        # This case implies the API key for the selected provider was missing (already logged during config_kwargs build).
+        logfire.warn(f"LLM_PROVIDER is '{provider}' but corresponding API key (and possibly model name) was not found. Marvin not configured with specifics for this provider.")
+    
+    elif provider == "marvin" and not settings.MARVIN_API_KEY:
+        # Already logged when config_kwargs was being built.
+        logfire.warn("Marvin not configured as MARVIN_API_KEY is missing for 'marvin' provider.")
+    
+    elif not provider:
+        logfire.warn("LLM_PROVIDER is not set. Marvin not configured.")
+    
+    else: # Provider is set, but not one of the explicitly handled ones, and no config_kwargs were generated.
+        logfire.warn(f"LLM_PROVIDER is '{provider}', which is not explicitly handled for specific key setup, "
+                      "nor is it 'marvin' with a MARVIN_API_KEY. Relying on Marvin's defaults or other env vars if any.")
+
+  except AttributeError as ae:
+      # This might catch if marvin.settings itself doesn't exist, or if setattr tries to set a non-existent attribute
+      # on a strictly defined settings object that doesn't allow arbitrary attributes.
+      logfire.error(f"Failed to configure Marvin due to AttributeError: {str(ae)}. This might indicate an issue with marvin.settings structure or an attempt to set an unsupported attribute.")
+      logfire.error("Check Marvin library compatibility, expected settings attributes, and API key configuration.")
+  except Exception as e:
+    logfire.error(f"An unexpected error occurred during Marvin configuration: {str(e)}", exc_info=True)
+
+# Initialize Marvin if it's a selected provider that Marvin handles
+SUPPORTED_MARVIN_PROVIDERS = ["openai", "anthropic", "gemini", "marvin"]
+if settings.LLM_PROVIDER and settings.LLM_PROVIDER.lower() in SUPPORTED_MARVIN_PROVIDERS:
+  logfire.info(f"LLM_PROVIDER is '{settings.LLM_PROVIDER}', attempting to configure Marvin.")
   configure_marvin()
 else:
-  logfire.info(f"Skipping Marvin configuration as LLM_PROVIDER is set to '{settings.LLM_PROVIDER}'")
+  logfire.info(f"Skipping Marvin configuration as LLM_PROVIDER ('{settings.LLM_PROVIDER}') is not one of {SUPPORTED_MARVIN_PROVIDERS} or not set.")
 
 
 @marvin.fn
@@ -283,6 +320,54 @@ class MarvinClassificationManager:
       rule_classification = "Leads"
       rule_reasoning = f"Rule: Small Event / Trailer / Not Local - {ai_reasoning}"
       owner_team = "Stahla Leads Team"
+
+    # Large Event / Trailer / Local
+    elif intended_use == "Large Event" and has_specialty_trailer and stalls >= 7 and duration_days > 5 and is_local:
+      rule_classification = "Services"
+      rule_reasoning = f"Rule: Large Event / Trailer / Local - {ai_reasoning}"
+      owner_team = "Stahla Services Sales Team"
+
+    # Large Event / Trailer / Not Local
+    elif intended_use == "Large Event" and has_specialty_trailer and stalls >= 7 and duration_days > 5 and not is_local:
+      rule_classification = "Logistics"
+      rule_reasoning = f"Rule: Large Event / Trailer / Not Local - {ai_reasoning}"
+      owner_team = "Stahla Logistics Sales Team"
+
+    # Disaster Relief / Trailer / Local
+    elif intended_use == "Disaster Relief" and has_specialty_trailer and duration_days < 180 and is_local:
+      rule_classification = "Services"
+      rule_reasoning = f"Rule: Disaster Relief / Trailer / Local - {ai_reasoning}"
+      owner_team = "Stahla Services Sales Team"
+
+    # Disaster Relief / Trailer / Not Local
+    elif intended_use == "Disaster Relief" and has_specialty_trailer and duration_days < 180 and not is_local:
+      rule_classification = "Logistics"
+      rule_reasoning = f"Rule: Disaster Relief / Trailer / Not Local - {ai_reasoning}"
+      owner_team = "Stahla Logistics Sales Team"
+
+    # Construction / Company Trailer / Local
+    elif intended_use == "Construction" and has_specialty_trailer and is_local:
+      rule_classification = "Services"
+      rule_reasoning = f"Rule: Construction / Company Trailer / Local - {ai_reasoning}"
+      owner_team = "Stahla Services Sales Team"
+
+    # Construction / Company Trailer / Not Local
+    elif intended_use == "Construction" and has_specialty_trailer and not is_local:
+      rule_classification = "Logistics"
+      rule_reasoning = f"Rule: Construction / Company Trailer / Not Local - {ai_reasoning}"
+      owner_team = "Stahla Logistics Sales Team"
+
+    # Facility / Trailer / Local
+    elif intended_use == "Facility" and has_specialty_trailer and is_local:
+      rule_classification = "Services"
+      rule_reasoning = f"Rule: Facility / Trailer / Local - {ai_reasoning}"
+      owner_team = "Stahla Services Sales Team"
+
+    # Facility / Trailer / Not Local
+    elif intended_use == "Facility" and has_specialty_trailer and not is_local:
+      rule_classification = "Logistics"
+      rule_reasoning = f"Rule: Facility / Trailer / Not Local - {ai_reasoning}"
+      owner_team = "Stahla Logistics Sales Team"
 
     # Add fallback cases
     else:

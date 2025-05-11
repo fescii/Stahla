@@ -1,46 +1,60 @@
 # app/main.py
 
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks # Added BackgroundTasks
+import os # Add os import
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse 
+from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
-import markdown 
-import asyncio 
-# --- Project Structure Imports ---
-from app.core.config import settings
-from app.api.v1.api import api_router_v1
-from app.services.bland import bland_manager # Removed sync_bland_pathway_on_startup import, will call method directly
-from app.services.hubspot import HubSpotManager
-from app.services.email import EmailManager
-from app.services.quote.sync import lifespan_startup as sheet_sync_startup 
-from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown 
-from app.services.mongo.mongo import startup_mongo_service, shutdown_mongo_service, get_mongo_service # Added get_mongo_service
-from app.services.auth.auth import startup_auth_service 
-from app.services.redis.redis import startup_redis_service, shutdown_redis_service
-from app.services.n8n import close_n8n_client 
-import logfire
-from dotenv import load_dotenv 
-from app.core.middleware import LoggingMiddleware 
-from app.core.middleware import http_exception_handler, generic_exception_handler
+import markdown
+import asyncio
+from dotenv import load_dotenv
 
-# --- Logfire Configuration ---
-# Load environment variables (especially for LOGFIRE_TOKEN if set)
+# Load environment variables first
 load_dotenv()
 
-# Configure Logfire
-# Make sure LOGFIRE_TOKEN is set in your environment or .env file
-logfire_config = {
-    "send_to_logfire": True, # Send logs to Logfire cloud
-    "service_name": settings.PROJECT_NAME, # Use project name from settings
+# --- Logfire Configuration ---
+import logfire
+
+# Configure Logfire using environment variables directly or defaults
+# This ensures Logfire is configured before any other module (like config.py) might use it.
+_logfire_project_name = os.getenv("PROJECT_NAME", "Stahla AI SDR") # Default from config.py
+_logfire_dev_mode_str = os.getenv("DEV", "False") # Default from config.py
+_logfire_dev_mode = _logfire_dev_mode_str.lower() in ('true', '1', 'yes', 't')
+
+_logfire_config = {
+    "send_to_logfire": True, # Consistent with previous direct configuration
+    "service_name": _logfire_project_name,
 }
 
-# Only set console=False if DEV is False, otherwise rely on the default (True)
-if not settings.DEV:
-    logfire_config["console"] = False
+# If not in DEV mode, disable console logging for Logfire.
+# Otherwise, Logfire's default (console=True) will apply.
+if not _logfire_dev_mode:
+    _logfire_config["console"] = False
 
-logfire.configure(**logfire_config)
-logfire.instrument_pydantic() # Instrument Pydantic models
+# Note: LOGFIRE_TOKEN is typically picked up by Logfire automatically from the environment.
+# If it needed to be explicitly passed, you would get it from os.getenv("LOGFIRE_TOKEN")
+# and add it to _logfire_config if present.
+
+logfire.configure(**_logfire_config)
+logfire.instrument_pydantic()
+# --- End Logfire Configuration ---
+
+# --- Project Structure Imports (Now that Logfire is configured) ---
+from app.core.config import settings # settings import is now after logfire.configure()
+from app.api.v1.api import api_router_v1
+from app.services.bland import bland_manager
+from app.services.hubspot import HubSpotManager
+from app.services.email import EmailManager
+from app.services.quote.sync import lifespan_startup as sheet_sync_startup
+from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown
+from app.services.mongo.mongo import startup_mongo_service, shutdown_mongo_service, get_mongo_service
+from app.services.auth.auth import startup_auth_service
+from app.services.redis.redis import startup_redis_service, shutdown_redis_service
+from app.services.n8n import close_n8n_client
+# logfire and load_dotenv were already handled above for early configuration
+from app.core.middleware import LoggingMiddleware
+from app.core.middleware import http_exception_handler, generic_exception_handler
 
 # --- Lifespan Management ---
 @asynccontextmanager
@@ -59,12 +73,12 @@ async def lifespan(app: FastAPI):
         mongo_service_instance = await get_mongo_service()
         
         # Initialize Auth Service (creates initial user if needed)
-        # Pass mongo_service_instance if auth service needs it directly for startup logic
-        await startup_auth_service(mongo_service=mongo_service_instance) # Assuming startup_auth_service can take it
+        # startup_auth_service will get the mongo_service instance itself
+        await startup_auth_service() # Removed mongo_service argument
         
         # Initialize Sheet Sync Service 
-        # Pass mongo_service_instance if sheet_sync_startup needs it
-        await sheet_sync_startup(mongo_service=mongo_service_instance) # Assuming sheet_sync_startup can take it
+        # sheet_sync_startup will get the mongo_service instance itself
+        await sheet_sync_startup() # Removed mongo_service argument
         logfire.info("Sheet Sync service startup initiated.")
 
         # Initialize other managers/services if needed
@@ -94,7 +108,7 @@ async def lifespan(app: FastAPI):
                 await mongo_service_instance.log_error_to_db(
                     service_name="ApplicationStartup",
                     error_type="CriticalStartupError",
-                    message=f"Critical error during application startup: {str(e)}",
+                    error_message=f"Critical error during application startup: {str(e)}", # Changed 'message' to 'error_message'
                     details={"exception_type": type(e).__name__, "args": e.args}
                 )
             except Exception as log_e:

@@ -1,0 +1,54 @@
+### Variables
+@base_url = http://localhost:8000/api/v1
+@auth_token = your_auth_token_here
+@content_type = application/json
+
+###
+# @name TestClassifyText
+POST {{base_url}}/test/classify-text
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "text": "This is a test classification.",
+    "model_name": "gpt-3.5-turbo",
+    "provider": "openai"
+}
+
+###
+# @name TestMongoLog
+POST {{base_url}}/test/mongo-log
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "level": "info",
+    "message": "This is a test log message.",
+    "service_name": "TestService",
+    "function_name": "test_mongo_log",
+    "additional_data": {}
+}
+
+###
+# @name TestHubspotContact
+POST {{base_url}}/test/hubspot-contact
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "email": "test@example.com",
+    "firstname": "Test",
+    "lastname": "User"
+}
+
+###
+# @name TestBlandSendCall
+POST {{base_url}}/test/bland-send-call
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "phone_number": "+1234567890",
+    "task": "Test bland send call task",
+    "first_sentence": "Hello, this is a test call from the test service."
+}

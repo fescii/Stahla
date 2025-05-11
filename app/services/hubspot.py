@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 from cachetools import TTLCache
 from hubspot import HubSpot
 # For v4 associations - ensure these are correct for your SDK version and that the SDK is up-to-date.
-from hubspot.crm.associations.v4.models import AssociationSpec, PublicObjectId, BatchInputPublicAssociationMultiCreate, PublicAssociationMultiCreate
+from hubspot.crm.associations.v4.models import AssociationSpec, PublicObjectId, BatchInputPublicAssociationMultiPost, PublicAssociationMultiPost
 from hubspot.crm.companies import SimplePublicObjectInput
 from hubspot.crm.contacts import SimplePublicObjectInput as ContactSimplePublicObjectInput
 from hubspot.crm.deals import SimplePublicObjectInput as DealSimplePublicObjectInput
@@ -21,23 +21,24 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.models.hubspot import (
-    HubSpotCompanyPropertiesCreate,
-    HubSpotCompanyPropertiesUpdate,
-    HubSpotContactPropertiesCreate,
-    HubSpotContactPropertiesUpdate,
-    HubSpotDealPropertiesCreate,
-    HubSpotDealPropertiesUpdate,
-    HubSpotErrorDetail, # Make sure this model is defined to parse HubSpot error bodies
-    HubSpotObject,
-    HubSpotOwner,
-    HubSpotPipeline,
-    HubSpotPipelineStage,
-    HubSpotSearchRequest,
-    HubSpotSearchResponse,
-    HubSpotTicketPropertiesCreate,
-    HubSpotTicketPropertiesUpdate,
+    HubSpotContactProperties,
+    HubSpotLeadProperties,
+    HubSpotCompanyProperties,
+    HubSpotCompanyInput,
+    HubSpotContactInput,
+    HubSpotLeadInput,
+    HubSpotErrorDetail,
+    HubSpotApiResult,
+    HubSpotObject,  # Added
+    HubSpotSearchRequest,  # Added
+    HubSpotSearchResponse,  # Added
+    HubSpotDealProperties,  # Added (for create/update deals)
+    HubSpotTicketProperties,  # Added (for create/update tickets)
+    HubSpotPipeline,  # Added
+    HubSpotPipelineStage,  # Added
+    HubSpotOwner  # Added
 )
-from app.models.quote import LeadCreateSchema
+# from app.models.quote import LeadCreateSchema # Removed this problematic import
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ class HubSpotManager:
             return HubSpotSearchResponse(total=0, results=[])
 
     # --- Contact Methods ---
-    async def create_contact(self, properties: HubSpotContactPropertiesCreate) -> Optional[HubSpotObject]:
+    async def create_contact(self, properties: HubSpotContactProperties) -> Optional[HubSpotObject]:
         logger.debug(f"Creating contact with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         try:
             simple_public_object_input = ContactSimplePublicObjectInput(
@@ -191,7 +192,7 @@ class HubSpotManager:
             await self._handle_api_error(e, "get contact", contact_id)
             return None
 
-    async def update_contact(self, contact_id: str, properties: HubSpotContactPropertiesUpdate) -> Optional[HubSpotObject]:
+    async def update_contact(self, contact_id: str, properties: HubSpotContactProperties) -> Optional[HubSpotObject]:
         logger.debug(f"Updating contact ID: {contact_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         if not properties.model_dump(exclude_none=True, exclude_unset=True):
             logger.warning(f"Update contact called for ID {contact_id} with no properties to update. Skipping API call.")
@@ -231,7 +232,7 @@ class HubSpotManager:
             return False
 
     # --- Company Methods ---
-    async def create_company(self, properties: HubSpotCompanyPropertiesCreate) -> Optional[HubSpotObject]:
+    async def create_company(self, properties: HubSpotCompanyProperties) -> Optional[HubSpotObject]:
         logger.debug(f"Creating company with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         try:
             simple_public_object_input = SimplePublicObjectInput(
@@ -269,7 +270,7 @@ class HubSpotManager:
             await self._handle_api_error(e, "get company", company_id)
             return None
 
-    async def update_company(self, company_id: str, properties: HubSpotCompanyPropertiesUpdate) -> Optional[HubSpotObject]:
+    async def update_company(self, company_id: str, properties: HubSpotCompanyProperties) -> Optional[HubSpotObject]:
         logger.debug(f"Updating company ID: {company_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         if not properties.model_dump(exclude_none=True, exclude_unset=True):
             logger.warning(f"Update company called for ID {company_id} with no properties to update. Skipping API call.")
@@ -309,7 +310,7 @@ class HubSpotManager:
             return False
 
     # --- Deal Methods ---
-    async def create_deal(self, properties: HubSpotDealPropertiesCreate) -> Optional[HubSpotObject]:
+    async def create_deal(self, properties: HubSpotDealProperties) -> Optional[HubSpotObject]: # Changed HubSpotDealPropertiesCreate to HubSpotDealProperties
         logger.debug(f"Creating deal with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         try:
             deal_props_dict = properties.model_dump(exclude_none=True)
@@ -361,7 +362,7 @@ class HubSpotManager:
             await self._handle_api_error(e, "get deal", deal_id)
             return None
 
-    async def update_deal(self, deal_id: str, properties: HubSpotDealPropertiesUpdate) -> Optional[HubSpotObject]:
+    async def update_deal(self, deal_id: str, properties: HubSpotDealProperties) -> Optional[HubSpotObject]: # Changed HubSpotDealPropertiesUpdate to HubSpotDealProperties
         logger.debug(f"Updating deal ID: {deal_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         if not properties.model_dump(exclude_none=True, exclude_unset=True):
             logger.warning(f"Update deal called for ID {deal_id} with no properties to update. Skipping API call.")
@@ -400,7 +401,7 @@ class HubSpotManager:
             return False
 
     # --- Ticket Methods ---
-    async def create_ticket(self, properties: HubSpotTicketPropertiesCreate) -> Optional[HubSpotObject]:
+    async def create_ticket(self, properties: HubSpotTicketProperties) -> Optional[HubSpotObject]: # Changed HubSpotTicketPropertiesCreate to HubSpotTicketProperties
         logger.debug(f"Creating ticket with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         try:
             ticket_props_dict = properties.model_dump(exclude_none=True)
@@ -449,7 +450,7 @@ class HubSpotManager:
             await self._handle_api_error(e, "get ticket", ticket_id)
             return None
 
-    async def update_ticket(self, ticket_id: str, properties: HubSpotTicketPropertiesUpdate) -> Optional[HubSpotObject]:
+    async def update_ticket(self, ticket_id: str, properties: HubSpotTicketProperties) -> Optional[HubSpotObject]: # Changed HubSpotTicketPropertiesUpdate to HubSpotTicketProperties
         logger.debug(f"Updating ticket ID: {ticket_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}")
         if not properties.model_dump(exclude_none=True, exclude_unset=True):
             logger.warning(f"Update ticket called for ID {ticket_id} with no properties to update. Skipping API call.")
@@ -657,24 +658,12 @@ class HubSpotManager:
             
             # Convert plural to singular if needed by SDK, though SDK might handle it.
             # For association APIs, HubSpot often uses the singular form or a specific object type ID string.
-            # The `from_object_type_id` and `to_object_type_id` for `create_batch` are like "0-1" for Contact, "0-2" for Company.
+            # The `from_object_type_id` and `to_object_type_id` for `create_batch` are like "0-1" for Contact, "0-2" for Company, "0-3" for Deal.
             # This is different from the `from_object_type` string like "contacts".
             # This part is tricky and depends on exact SDK expectations for these IDs.
             # Let's assume the SDK's `batch_api.create_batch` can take the object type *names* (e.g., "CONTACT", "DEAL")
             # as `from_object_type_id` and `to_object_type_id` arguments, and it maps them internally.
             # If not, we'd need a mapping from "contacts" -> "0-1", "companies" -> "0-2", "deals" -> "0-3", etc.
-
-            # The `PublicAssociationMultiCreate` takes `_from` (PublicObjectId) and `to` (PublicObjectId)
-            # and `types` (List[AssociationSpec]).
-            
-            # Standard object type IDs used by some association APIs:
-            # CONTACT = "0-1"
-            # COMPANY = "0-2"
-            # DEAL = "0-3"
-            # TICKET = "0-5"
-            # This mapping might be needed if the SDK doesn't accept names like "CONTACTS".
-            # For now, assuming SDK handles from_object_type.upper() or similar.
-            # The `from_object_type` and `to_object_type` in `batch_api.create_batch` are indeed the object type names.
 
             association_specs = [
                 AssociationSpec(
@@ -683,8 +672,8 @@ class HubSpotManager:
                 )
             ]
             
-            batch_input = BatchInputPublicAssociationMultiCreate(inputs=[
-                PublicAssociationMultiCreate(
+            batch_input = BatchInputPublicAssociationMultiPost(inputs=[
+                PublicAssociationMultiPost(
                     _from=PublicObjectId(id=from_object_id),
                     to=PublicObjectId(id=to_object_id),
                     types=association_specs
@@ -735,7 +724,7 @@ class HubSpotManager:
         logger.debug(f"Batch associating {len(inputs)} pairs.")
         
         # Group inputs by (from_object_type, to_object_type) as the API call is per pair of object types.
-        grouped_inputs: Dict[tuple[str, str], List[PublicAssociationMultiCreate]] = {}
+        grouped_inputs: Dict[tuple[str, str], List[PublicAssociationMultiPost]] = {}
         for item in inputs:
             try:
                 from_obj_type_norm = item["from_object_type"].upper() # Normalize: "contacts" -> "CONTACTS"
@@ -752,7 +741,7 @@ class HubSpotManager:
                     )
                 ]
                 grouped_inputs[key].append(
-                    PublicAssociationMultiCreate(
+                    PublicAssociationMultiPost(
                         _from=PublicObjectId(id=item["from_object_id"]),
                         to=PublicObjectId(id=item["to_object_id"]),
                         types=assoc_specs
@@ -774,7 +763,7 @@ class HubSpotManager:
             context = f"batch associating {len(associations_for_pair)} pairs from {from_obj_type_sdk} to {to_obj_type_sdk}"
             logger.debug(f"Attempting to {context}")
             
-            batch_input = BatchInputPublicAssociationMultiCreate(inputs=associations_for_pair)
+            batch_input = BatchInputPublicAssociationMultiPost(inputs=associations_for_pair)
             try:
                 api_response = self.client.crm.associations.v4.batch_api.create_batch(
                     from_object_type_id=from_obj_type_sdk, 
@@ -800,7 +789,7 @@ class HubSpotManager:
         return all_successful
 
     # --- Lead Creation Method ---
-    async def create_lead(self, lead_data: LeadCreateSchema) -> Dict[str, Any]:
+    async def create_lead(self, lead_data: HubSpotLeadInput) -> Dict[str, Any]: # Changed LeadCreateSchema to HubSpotLeadInput
         logger.info(f"Attempting to create lead with data: {lead_data.model_dump_json(indent=2, exclude_none=True)}")
         
         response = {
@@ -831,10 +820,10 @@ class HubSpotManager:
             #     # await self.update_contact(contact_id, contact_update_props)
             # else:
             # Create new contact
-            contact_create_props = HubSpotContactPropertiesCreate(
+            contact_create_props = HubSpotContactProperties( # Changed from HubSpotContactPropertiesCreate
+                firstname=lead_data.contact_firstname,
+                lastname=lead_data.contact_lastname,
                 email=lead_data.email,
-                firstname=lead_data.first_name,
-                lastname=lead_data.last_name,
                 phone=lead_data.phone,
                 lifecyclestage=settings.HUBSPOT_DEFAULT_LEAD_LIFECYCLE_STAGE or "lead" 
             )
@@ -858,11 +847,9 @@ class HubSpotManager:
                 #    response["company_id"] = company_id
                 #    logger.info(f"Found existing company ID: {company_id} for domain: {lead_data.company_domain}")
                 # else:
-                company_create_props = HubSpotCompanyPropertiesCreate(
+                company_create_props = HubSpotCompanyProperties( # Changed from HubSpotCompanyPropertiesCreate
                     name=lead_data.company_name,
-                    domain=lead_data.company_domain or None,
-                    # phone=lead_data.company_phone or None, # Add if in LeadCreateSchema
-                    # website=lead_data.company_website or None, # Add if in LeadCreateSchema
+                    domain=lead_data.company_domain  # Assuming domain might be available or derived
                 )
                 company = await self.create_company(company_create_props)
                 if company and company.id:
@@ -878,10 +865,15 @@ class HubSpotManager:
                 deal_name_parts = [lead_data.first_name, lead_data.last_name, lead_data.service_of_interest]
                 deal_name = " - ".join(filter(None, deal_name_parts)) or "New Lead Deal"
 
-                deal_create_props = HubSpotDealPropertiesCreate(
-                    dealname=deal_name,
-                    amount=str(lead_data.estimated_value or 0.0) # HubSpot often expects amount as string
-                    # pipeline and dealstage will be set by create_deal if not provided here and defaults are configured
+                deal_create_props = HubSpotDealProperties( # Changed from HubSpotDealPropertiesCreate
+                    dealname=f"{lead_data.contact_firstname or ''} {lead_data.contact_lastname or ''} - {lead_data.project_category or 'New Lead'}",
+                    amount=lead_data.estimated_value if lead_data.estimated_value is not None else 0.0,  # Ensure amount is float
+                    # Add other necessary deal properties from lead_data
+                    # Example:
+                    # closedate=lead_data.expected_close_date, # Ensure format is YYYY-MM-DD
+                    # hubspot_owner_id=assigned_owner_id, # If owner is determined
+                    # pipeline=default_deal_pipeline_id, # If pipeline is determined
+                    # dealstage=default_deal_stage_id, # If stage is determined
                 )
 
                 if lead_data.owner_email:
@@ -1016,3 +1008,15 @@ class HubSpotManager:
     #         limit=10
     #     )
     #     return await self.search_objects(object_type="deals", search_request=search_request)
+
+# Instantiate the manager for global use, ensuring settings are loaded
+# This allows other modules to import hubspot_manager directly.
+# Ensure app.core.config.settings are available when this module is imported.
+try:
+    hubspot_manager = HubSpotManager()
+except ValueError as e:
+    logger.critical(f"Failed to initialize HubSpotManager at module level: {e}", exc_info=True)
+    # Depending on the application's desired behavior for a critical setup failure,
+    # you might raise the error further or exit, or allow a None object
+    # For now, we'll let it be None and dependent services should handle this.
+    hubspot_manager = None
