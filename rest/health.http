@@ -1,6 +1,12 @@
-### Get Application Health Status
+### Health Check Endpoints
 @baseUrl = http://localhost:8000  
+
 ## @name HealthCheck
-## @description Check the health status of the application
+## @description Check the health status of all services and system resources
 GET {{baseUrl}}/api/v1/health
+Content-Type: application/json
+
+### @name SimplePing
+### @description Simple ping endpoint for minimal health checks (e.g., load balancers)
+GET {{baseUrl}}/api/v1/health/ping
 Content-Type: application/json

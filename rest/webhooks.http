@@ -1,0 +1,34 @@
+### Webhook API Requests
+
+### Variables
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+@pricingApiKey = 7%FRtf@34hi
+
+### Location Lookup (Pricing Webhook)
+# @name LocationLookup
+POST {{baseUrl}}/webhook/location_lookup
+Content-Type: {{contentType}}
+Authorization: Bearer {{pricingApiKey}}
+
+{
+  "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA 94043"
+}
+
+### Generate Price Quote (Pricing Webhook)
+# @name GenerateQuote
+POST {{baseUrl}}/webhook/quote
+Content-Type: {{contentType}}
+Authorization: Bearer {{pricingApiKey}}
+
+{
+  "request_id": "test-quote-request-123",
+  "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA 94043",
+  "trailer_type": "2 Stall Restroom Trailer",
+  "rental_start_date": "2025-07-15",
+  "rental_days": 3,
+  "usage_type": "event",
+  "extras": [
+    {"extra_id": "3kW Generator", "qty": 1}
+  ]
+}

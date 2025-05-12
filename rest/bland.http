@@ -1,7 +1,58 @@
+### Bland AI API Requests
+
 ### Variables
 @base_url = http://localhost:8000/api/v1
 @auth_token = your_auth_token_here
 @content_type = application/json
+
+### Initiate Bland Call
+# @name InitiateCall
+POST {{base_url}}/bland/initiate?contact_id=your_hubspot_contact_id_here
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+{
+    "phone_number": "+1234567890",
+    "task": "Follow up with the lead regarding their recent inquiry and gather necessary details.",
+    "voice_id": 1,
+    "transfer_phone_number": null,
+    "webhook": "https://example.com/webhook",
+    "request_data": {
+        "key1": "value1", 
+        "key2": "value2"
+    },
+    "max_duration": 300
+}
+
+### Retry Bland Call
+# @name RetryCall
+POST {{base_url}}/bland/retry/your_hubspot_contact_id_here?retry_reason=Manual retry requested
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+### Get Call Statistics
+# @name GetStats
+GET {{base_url}}/bland/stats
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+### Get All Call Logs (Paginated)
+# @name GetAllLogs
+GET {{base_url}}/bland/logs?page=1&page_size=10&sort_field=created_at&sort_order=desc
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+### Get Failed Call Logs
+# @name GetFailedLogs
+GET {{base_url}}/bland/logs/failed?page=1&page_size=10
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
+
+### Get Completed Call Logs
+# @name GetCompletedLogs
+GET {{base_url}}/bland/logs/completed?page=1&page_size=10
+Content-Type: {{content_type}}
+Authorization: Bearer {{auth_token}}
 
 ###
 # @name SendCall

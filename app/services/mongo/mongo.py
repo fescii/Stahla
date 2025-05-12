@@ -79,7 +79,9 @@ class MongoService:
 
 						self.client = AsyncIOMotorClient(
 								settings.MONGO_CONNECTION_URL,
-								serverSelectionTimeoutMS=5000,  # Add timeout
+								serverSelectionTimeoutMS=3000,  # Reduced from 5000ms
+								connectTimeoutMS=2000,        # Added: 2 seconds
+								socketTimeoutMS=2000,         # Added: 2 seconds for operations
 								uuidRepresentation="standard",  # Explicitly set standard UUID representation
 								# server_api=ServerApi('1') # Optional: Specify Stable API version
 						)

@@ -1,0 +1,29 @@
+### Classification API Requests
+
+### Variables
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Classify Lead Data
+POST {{baseUrl}}/classify
+Content-Type: {{contentType}}
+
+{
+    "source": "hubspot",
+    "data": {
+        "customer_info": {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "phone": "+12345678901",
+            "address": "123 Main St, San Francisco, CA"
+        },
+        "request_info": {
+            "product_interest": "Restroom Trailer",
+            "requested_date": "2025-08-15",
+            "event_type": "Construction",
+            "zip_code": "94103",
+            "additional_notes": "Need a 4-stall trailer for a construction site"
+        }
+    }
+}

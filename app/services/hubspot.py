@@ -983,7 +983,8 @@ class HubSpotManager:
             logfire.warning("HubSpot client not initialized for health check.")
             return "error: client not initialized"
         try:
-            await self.client.crm.owners.owners_api.get_page(limit=1)
+            # Remove await - HubSpot client API is synchronous
+            self.client.crm.owners.owners_api.get_page(limit=1)
             logfire.debug("HubSpot connection check successful.")
             return "ok"
         except OwnersApiException as e: # Specific exception for owners API
@@ -999,6 +1000,7 @@ class HubSpotManager:
                 error_message=str(e),
                 exc_info=True # Keep exc_info for unexpected errors
             )
+            return f"error: {str(e)}"
             status = getattr(e, 'status', 'Unknown')
             reason = getattr(e, 'reason', 'Unknown')
             if status != 'Unknown' or reason != 'Unknown':

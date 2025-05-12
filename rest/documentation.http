@@ -1,0 +1,29 @@
+### Documentation API Requests
+
+### Variables
+@baseUrl = http://localhost:8000/api/v1
+
+### Get API Documentation
+# @name GetApiDocs
+GET {{baseUrl}}/docs/api
+Accept: text/html
+
+### Get Features Documentation
+# @name GetFeaturesDocs
+GET {{baseUrl}}/docs/features
+Accept: text/html
+
+### Get Client Documentation
+# @name GetClientDocs
+GET {{baseUrl}}/docs/client
+Accept: text/html
+
+### Get Status Documentation
+# @name GetStatusDocs
+GET {{baseUrl}}/docs/status
+Accept: text/html
+
+### Get Pricing Update Documentation
+# @name GetPricingUpdateDocs
+GET {{baseUrl}}/docs/pricing_update
+Accept: text/html

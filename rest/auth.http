@@ -1,0 +1,59 @@
+### Authentication and User Management
+
+### Variables
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/x-www-form-urlencoded
+
+username=isfescii@gmail.com&password=pass1234
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Get Current User Information
+GET {{baseUrl}}/auth/me
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+### Create New User (Admin Only)
+POST {{baseUrl}}/auth/users/
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+    "email": "newuser@example.com",
+    "password": "StrongPassword123!",
+    "full_name": "New User",
+    "is_active": true,
+    "is_admin": false
+}
+
+### List All Users (Admin Only)
+GET {{baseUrl}}/auth/users/
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+### Get User by ID (Admin Only)
+GET {{baseUrl}}/auth/users/your-user-id-here
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+### Update User (Admin Only)
+PUT {{baseUrl}}/auth/users/your-user-id-here
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+    "full_name": "Updated User Name",
+    "is_active": true,
+    "is_admin": false
+}
+
+### Delete User (Admin Only)
+DELETE {{baseUrl}}/auth/users/your-user-id-here
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
