@@ -19,8 +19,7 @@ username={{admin_email}}&password={{admin_password}}
 ###
 
 # Store the access token from the response
-# Run the login request above first, then paste the token here:
-@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpc2Zlc2NpaUBnbWFpbC5jb20iLCJleHAiOjE3NDY5MTg4MjZ9.4Ns5cwvLBzw6zVB7DJW3-0zOnHvSZXru3BVQn4WVew0
+@jwt_token = {{login.response.body.data.access_token}}
 
 ###
 
@@ -40,6 +39,18 @@ x-access-token: {{jwt_token}}
 
 # Get Recent Error Logs (Specific Type & Limit)
 GET {{host}}{{api_v1}}/dashboard/errors?report_type=ValueError&limit=5
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Recent Request Logs (Default Limit)
+GET {{host}}{{api_v1}}/dashboard/requests/recent
+x-access-token: {{jwt_token}}
+
+###
+
+# Get Recent Request Logs (Filter by Type & Limit)
+GET {{host}}{{api_v1}}/dashboard/requests/recent?report_type=QuoteRequest&limit=10
 x-access-token: {{jwt_token}}
 
 ###
@@ -123,6 +134,12 @@ x-access-token: {{jwt_token}}
 
 # Get Synced Configuration
 GET {{host}}{{api_v1}}/dashboard/sheet/config
+x-access-token: {{jwt_token}}
+
+###
+
+# Get External Services Status
+GET {{host}}{{api_v1}}/dashboard/services/status
 x-access-token: {{jwt_token}}
 
 ###

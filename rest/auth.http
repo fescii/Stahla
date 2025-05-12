@@ -38,12 +38,12 @@ Content-Type: {{contentType}}
 Authorization: Bearer {{authToken}}
 
 ### Get User by ID (Admin Only)
-GET {{baseUrl}}/auth/users/your-user-id-here
+GET {{baseUrl}}/auth/users/1bfbd07c-ac22-48eb-8e10-78d7487e7a85
 Content-Type: {{contentType}}
 Authorization: Bearer {{authToken}}
 
 ### Update User (Admin Only)
-PUT {{baseUrl}}/auth/users/your-user-id-here
+PUT {{baseUrl}}/auth/users/1bfbd07c-ac22-48eb-8e10-78d7487e7a85
 Content-Type: {{contentType}}
 Authorization: Bearer {{authToken}}
 
@@ -54,6 +54,6 @@ Authorization: Bearer {{authToken}}
 }
 
 ### Delete User (Admin Only)
-DELETE {{baseUrl}}/auth/users/your-user-id-here
+DELETE {{baseUrl}}/auth/users/cb03af45-00ac-41ea-ab9a-d2ecf745dfe2
 Content-Type: {{contentType}}
 Authorization: Bearer {{authToken}}

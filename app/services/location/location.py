@@ -1,30 +1,37 @@
 # filepath: /home/femar/AO3/Stahla/app/services/location/location.py
 import asyncio
-import functools 
-import logging 
+import functools
+import logging
 import time
 from typing import List, Optional, Tuple, Dict, Any
 
 import googlemaps
 from googlemaps.exceptions import ApiError, HTTPError, Timeout, TransportError
-from fastapi import Depends, BackgroundTasks, Request, HTTPException, status 
-import logfire 
+from fastapi import Depends, BackgroundTasks, Request, HTTPException, status
+import logfire
 
 from app.core.config import settings
 from app.models.location import BranchLocation, DistanceResult
-from app.services.redis.redis import RedisService, get_redis_service # Added get_redis_service for dependency
-from app.services.mongo.mongo import MongoService, get_mongo_service # Added MongoService and get_mongo_service
-from app.services.quote.sync import BRANCH_LIST_CACHE_KEY 
+from app.services.redis.redis import (
+    RedisService,
+    get_redis_service,
+)  # Added get_redis_service for dependency
+from app.services.mongo.mongo import (
+    MongoService,
+    get_mongo_service,
+)  # Added MongoService and get_mongo_service
+from app.services.quote.sync import BRANCH_LIST_CACHE_KEY
 from app.services.dash.background import (
     increment_request_counter_bg,
     log_error_bg,
     GMAPS_API_CALLS_KEY,
-    GMAPS_API_ERRORS_KEY
+    GMAPS_API_ERRORS_KEY,
 )
 from app.services.dash.dashboard import MAPS_CACHE_HITS_KEY, MAPS_CACHE_MISSES_KEY
 
 MILES_PER_METER = 0.000621371
 CACHE_TTL_SECONDS = 24 * 60 * 60  # 24 hours
+
 
 class LocationService:
     """
@@ -33,9 +40,11 @@ class LocationService:
     Integrates with MongoService for error logging.
     """
 
-    def __init__(self, redis_service: RedisService, mongo_service: MongoService): # Added mongo_service
+    def __init__(
+        self, redis_service: RedisService, mongo_service: MongoService
+    ):  # Added mongo_service
         self.redis_service = redis_service
-        self.mongo_service = mongo_service # Store mongo_service
+        self.mongo_service = mongo_service  # Store mongo_service
         self.gmaps = googlemaps.Client(key=settings.GOOGLE_MAPS_API_KEY)
 
     async def _get_branches_from_cache(self) -> List[BranchLocation]:
@@ -49,7 +58,7 @@ class LocationService:
                     service_name="LocationService._get_branches_from_cache",
                     error_type="CacheMiss",
                     message=msg,
-                    details={"cache_key": BRANCH_LIST_CACHE_KEY}
+                    details={"cache_key": BRANCH_LIST_CACHE_KEY},
                 )
                 return []
             if not isinstance(branches_data, list):
@@ -59,13 +68,18 @@ class LocationService:
                     service_name="LocationService._get_branches_from_cache",
                     error_type="CacheFormatError",
                     message=msg,
-                    details={"cache_key": BRANCH_LIST_CACHE_KEY, "data_type": str(type(branches_data))}
+                    details={
+                        "cache_key": BRANCH_LIST_CACHE_KEY,
+                        "data_type": str(type(branches_data)),
+                    },
                 )
                 return []
-            if not branches_data: 
-                 logfire.warning(f"Branch list loaded from Redis cache key '{BRANCH_LIST_CACHE_KEY}' is empty.")
-                 # Not necessarily an error to log to DB, but a warning.
-                 return []
+            if not branches_data:
+                logfire.warning(
+                    f"Branch list loaded from Redis cache key '{BRANCH_LIST_CACHE_KEY}' is empty."
+                )
+                # Not necessarily an error to log to DB, but a warning.
+                return []
 
             branches = []
             for i, branch_dict in enumerate(branches_data):
@@ -78,7 +92,11 @@ class LocationService:
                         service_name="LocationService._get_branches_from_cache",
                         error_type="ValidationError",
                         message="Invalid branch data in cache.",
-                        details={"index": i, "data": branch_dict, "error": str(validation_error)}
+                        details={
+                            "index": i,
+                            "data": branch_dict,
+                            "error": str(validation_error),
+                        },
                     )
             logfire.info(f"Loaded {len(branches)} branches from Redis cache.")
             return branches
@@ -89,7 +107,11 @@ class LocationService:
                 service_name="LocationService._get_branches_from_cache",
                 error_type="UnexpectedException",
                 message=f"{msg}: {str(e)}",
-                details={"cache_key": BRANCH_LIST_CACHE_KEY, "exception_type": type(e).__name__, "args": e.args}
+                details={
+                    "cache_key": BRANCH_LIST_CACHE_KEY,
+                    "exception_type": type(e).__name__,
+                    "args": e.args,
+                },
             )
             return []
 
@@ -98,7 +120,9 @@ class LocationService:
         norm_delivery = "".join(filter(str.isalnum, delivery_location)).lower()
         return f"maps:distance:{norm_branch}:{norm_delivery}"
 
-    async def _get_distance_from_google(self, origin: str, destination: str) -> Optional[Dict[str, Any]]:
+    async def _get_distance_from_google(
+        self, origin: str, destination: str
+    ) -> Optional[Dict[str, Any]]:
         """Helper to get distance using Google Maps API, run in executor. Logs errors to MongoDB."""
         if not self.gmaps:
             msg = "Google Maps client not initialized."
@@ -107,48 +131,72 @@ class LocationService:
                 service_name="LocationService._get_distance_from_google",
                 error_type="ConfigurationError",
                 message=msg,
-                details={"origin": origin, "destination": destination}
+                details={"origin": origin, "destination": destination},
             )
             return None
-        
+
         loop = asyncio.get_running_loop()
         try:
-            await increment_request_counter_bg(self.redis_service, GMAPS_API_CALLS_KEY) # Increment API call counter
+            await increment_request_counter_bg(
+                self.redis_service, GMAPS_API_CALLS_KEY
+            )  # Increment API call counter
             func_call = functools.partial(
-                self.gmaps.distance_matrix, 
-                origins=[origin], 
-                destinations=[destination], 
-                mode="driving"
+                self.gmaps.distance_matrix,
+                origins=[origin],
+                destinations=[destination],
+                mode="driving",
             )
             result = await loop.run_in_executor(None, func_call)
-            
-            if result.get('status') == 'OK' and result['rows'][0]['elements'][0]['status'] == 'OK':
-                element = result['rows'][0]['elements'][0]
-                distance_meters = element['distance']['value']
-                duration_seconds = element['duration']['value']
+
+            if (
+                result.get("status") == "OK"
+                and result["rows"][0]["elements"][0]["status"] == "OK"
+            ):
+                element = result["rows"][0]["elements"][0]
+                distance_meters = element["distance"]["value"]
+                duration_seconds = element["duration"]["value"]
                 distance_miles = distance_meters * MILES_PER_METER
-                logfire.info(f"Google Maps distance: {distance_miles:.2f} miles, Duration: {duration_seconds}s for {origin} -> {destination}")
+                logfire.info(
+                    f"Google Maps distance: {distance_miles:.2f} miles, Duration: {duration_seconds}s for {origin} -> {destination}"
+                )
                 return {
                     "distance_miles": round(distance_miles, 2),
                     "distance_meters": distance_meters,
                     "duration_seconds": duration_seconds,
                     "origin": origin,
-                    "destination": destination
+                    "destination": destination,
                 }
             else:
-                gmaps_status = result.get('status')
-                element_status = result['rows'][0]['elements'][0].get('status') if result.get('rows') and result['rows'][0].get('elements') else 'N/A'
+                gmaps_status = result.get("status")
+                element_status = (
+                    result["rows"][0]["elements"][0].get("status")
+                    if result.get("rows") and result["rows"][0].get("elements")
+                    else "N/A"
+                )
                 msg = f"Google Maps API error for '{origin}' -> '{destination}': GMaps Status: {gmaps_status}, Element Status: {element_status}"
                 logfire.warning(msg)
-                await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY) # Increment API error counter
+                await increment_request_counter_bg(
+                    self.redis_service, GMAPS_API_ERRORS_KEY
+                )  # Increment API error counter
                 await self.mongo_service.log_error_to_db(
                     service_name="LocationService._get_distance_from_google",
                     error_type="GoogleMapsAPIError",
                     message=msg,
-                    details={"origin": origin, "destination": destination, "gmaps_status": gmaps_status, "element_status": element_status, "full_response": result}
+                    details={
+                        "origin": origin,
+                        "destination": destination,
+                        "gmaps_status": gmaps_status,
+                        "element_status": element_status,
+                        "full_response": result,
+                    },
                 )
                 return None
-        except (ApiError, HTTPError, Timeout, TransportError) as e: # Catch specific Google Maps client errors
+        except (
+            ApiError,
+            HTTPError,
+            Timeout,
+            TransportError,
+        ) as e:  # Catch specific Google Maps client errors
             msg = f"Google Maps API client error for '{origin}' -> '{destination}': {type(e).__name__} - {str(e)}"
             logfire.error(msg, exc_info=True)
             await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
@@ -156,7 +204,12 @@ class LocationService:
                 service_name="LocationService._get_distance_from_google",
                 error_type=f"GoogleMapsClient{type(e).__name__}",
                 message=msg,
-                details={"origin": origin, "destination": destination, "exception_type": type(e).__name__, "args": e.args}
+                details={
+                    "origin": origin,
+                    "destination": destination,
+                    "exception_type": type(e).__name__,
+                    "args": e.args,
+                },
             )
             return None
         except Exception as e:
@@ -167,11 +220,18 @@ class LocationService:
                 service_name="LocationService._get_distance_from_google",
                 error_type="UnexpectedException",
                 message=msg,
-                details={"origin": origin, "destination": destination, "exception_type": type(e).__name__, "args": e.args}
+                details={
+                    "origin": origin,
+                    "destination": destination,
+                    "exception_type": type(e).__name__,
+                    "args": e.args,
+                },
             )
             return None
 
-    async def get_distance_to_nearest_branch(self, delivery_location: str) -> Optional[DistanceResult]:
+    async def get_distance_to_nearest_branch(
+        self, delivery_location: str
+    ) -> Optional[DistanceResult]:
         """
         Finds the nearest Stahla branch (loaded from Redis) to a delivery location
         and calculates the driving distance using Google Maps API and Redis caching.
@@ -187,11 +247,11 @@ class LocationService:
                 service_name="LocationService.get_distance_to_nearest_branch",
                 error_type="NoBranchesLoaded",
                 message=msg,
-                details={"delivery_location": delivery_location}
+                details={"delivery_location": delivery_location},
             )
             return None
 
-        min_distance_meters = float('inf')
+        min_distance_meters = float("inf")
         nearest_branch: Optional[BranchLocation] = None
         best_duration_seconds: Optional[int] = None
         potential_results = []
@@ -200,48 +260,71 @@ class LocationService:
             nonlocal min_distance_meters, nearest_branch, best_duration_seconds, potential_results
             cache_key = self._get_cache_key(branch.address, delivery_location)
             cached_data = await self.redis_service.get_json(cache_key)
-            
-            api_call_needed = True 
+
+            api_call_needed = True
 
             if cached_data:
-                logfire.info(f"Cache hit for distance: '{branch.address}' -> '{delivery_location}'") 
+                logfire.info(
+                    f"Cache hit for distance: '{branch.address}' -> '{delivery_location}'"
+                )
                 try:
                     distance_result = DistanceResult(**cached_data)
-                    if distance_result.nearest_branch and distance_result.nearest_branch.name == branch.name and distance_result.nearest_branch.address == branch.address:
+                    if (
+                        distance_result.nearest_branch
+                        and distance_result.nearest_branch.name == branch.name
+                        and distance_result.nearest_branch.address == branch.address
+                    ):
                         potential_results.append(distance_result)
-                        await increment_request_counter_bg(self.redis_service, MAPS_CACHE_HITS_KEY) 
-                        api_call_needed = False 
+                        await increment_request_counter_bg(
+                            self.redis_service, MAPS_CACHE_HITS_KEY
+                        )
+                        api_call_needed = False
                     else:
-                         logfire.warning(f"Cached data for key {cache_key} has mismatched branch info ({distance_result.nearest_branch}) vs current ({branch}). Will refetch.")
-                         await self.redis_service.delete(cache_key)
+                        logfire.warning(
+                            f"Cached data for key {cache_key} has mismatched branch info ({distance_result.nearest_branch}) vs current ({branch}). Will refetch."
+                        )
+                        await self.redis_service.delete(cache_key)
                 except Exception as e:
-                    logfire.warning(f"Error parsing cached data for key {cache_key}: {e}. Will refetch.")
+                    logfire.warning(
+                        f"Error parsing cached data for key {cache_key}: {e}. Will refetch."
+                    )
                     await self.redis_service.delete(cache_key)
                     # Log this specific cache parsing error to MongoDB
                     await self.mongo_service.log_error_to_db(
                         service_name="LocationService.get_distance_to_nearest_branch.check_branch",
                         error_type="CacheParseError",
                         message=f"Error parsing cached distance data for key {cache_key}: {str(e)}",
-                        details={"cache_key": cache_key, "branch_address": branch.address, "delivery_location": delivery_location, "exception_type": type(e).__name__}
+                        details={
+                            "cache_key": cache_key,
+                            "branch_address": branch.address,
+                            "delivery_location": delivery_location,
+                            "exception_type": type(e).__name__,
+                        },
                     )
-            
+
             if api_call_needed:
-                await increment_request_counter_bg(self.redis_service, MAPS_CACHE_MISSES_KEY) 
-                distance_info = await self._get_distance_from_google(branch.address, delivery_location)
+                await increment_request_counter_bg(
+                    self.redis_service, MAPS_CACHE_MISSES_KEY
+                )
+                distance_info = await self._get_distance_from_google(
+                    branch.address, delivery_location
+                )
                 if distance_info:
-                    distance_meters = distance_info['distance_meters']
-                    duration_seconds = distance_info['duration_seconds']
-                    distance_miles = distance_info['distance_miles'] 
-                    
+                    distance_meters = distance_info["distance_meters"]
+                    duration_seconds = distance_info["duration_seconds"]
+                    distance_miles = distance_info["distance_miles"]
+
                     result = DistanceResult(
-                        nearest_branch=branch, 
+                        nearest_branch=branch,
                         delivery_location=delivery_location,
                         distance_miles=distance_miles,
                         distance_meters=distance_meters,
-                        duration_seconds=duration_seconds
+                        duration_seconds=duration_seconds,
                     )
                     potential_results.append(result)
-                    await self.redis_service.set_json(cache_key, result.model_dump(), ttl=CACHE_TTL_SECONDS)
+                    await self.redis_service.set_json(
+                        cache_key, result.model_dump(), ttl=CACHE_TTL_SECONDS
+                    )
                 # else: _get_distance_from_google already logged the error to DB
 
         await asyncio.gather(*(check_branch(branch) for branch in branches))
@@ -253,12 +336,17 @@ class LocationService:
                 service_name="LocationService.get_distance_to_nearest_branch",
                 error_type="NoDistanceCalculated",
                 message=msg,
-                details={"delivery_location": delivery_location, "num_branches_checked": len(branches)}
+                details={
+                    "delivery_location": delivery_location,
+                    "num_branches_checked": len(branches),
+                },
             )
             return None
 
         final_result = min(potential_results, key=lambda r: r.distance_meters)
-        logfire.info(f"Nearest branch to '{delivery_location}' is '{final_result.nearest_branch.name}' ({final_result.distance_miles:.2f} miles)")
+        logfire.info(
+            f"Nearest branch to '{delivery_location}' is '{final_result.nearest_branch.name}' ({final_result.distance_miles:.2f} miles)"
+        )
         return final_result
 
     async def prefetch_distance(self, delivery_location: str):
@@ -270,18 +358,27 @@ class LocationService:
         try:
             await self.get_distance_to_nearest_branch(delivery_location)
         except Exception as e:
-            msg = f"Error prefetching distance for location {delivery_location}: {str(e)}"
+            msg = (
+                f"Error prefetching distance for location {delivery_location}: {str(e)}"
+            )
             logfire.error(msg, exc_info=True)
             await self.mongo_service.log_error_to_db(
                 service_name="LocationService.prefetch_distance",
                 error_type="PrefetchException",
                 message=msg,
-                details={"delivery_location": delivery_location, "exception_type": type(e).__name__, "args": e.args}
+                details={
+                    "delivery_location": delivery_location,
+                    "exception_type": type(e).__name__,
+                    "args": e.args,
+                },
             )
+
 
 # Dependency for FastAPI
 async def get_location_service(
     redis_service: RedisService = Depends(get_redis_service),
-    mongo_service: MongoService = Depends(get_mongo_service) # Added mongo_service dependency
+    mongo_service: MongoService = Depends(
+        get_mongo_service
+    ),  # Added mongo_service dependency
 ) -> LocationService:
-    return LocationService(redis_service, mongo_service) # Pass mongo_service
+    return LocationService(redis_service, mongo_service)  # Pass mongo_service
