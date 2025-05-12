@@ -4,9 +4,9 @@ from fastapi import APIRouter
 
 # Import endpoint routers
 from .endpoints import health, classify, hubspot, documentation
-from .endpoints import bland_calls
-from .endpoints import test_services
-from .endpoints import error_logs # Added error_logs router
+from .endpoints import bland # Changed from bland_calls
+from .endpoints import testing # Changed from test_services
+from .endpoints import errors # Added error_logs router -> Changed from error_logs
 # Import individual webhook routers
 from .endpoints.webhooks import form as webhooks_form
 from .endpoints.webhooks import hubspot as webhooks_hubspot
@@ -46,10 +46,10 @@ api_router_v1.include_router(dashboard_router.router, prefix="/dashboard", tags=
 api_router_v1.include_router(auth_endpoints, prefix="/auth", tags=["Authentication"])
 
 # Include Bland AI calls router
-api_router_v1.include_router(bland_calls.router, prefix="/bland-calls", tags=["Bland AI Calls"])
+api_router_v1.include_router(bland.router, prefix="/bland", tags=["Bland AI Calls"]) # Changed from bland_calls
 
 # Include Test Services router
-api_router_v1.include_router(test_services.router, prefix="/test", tags=["Test Services"])
+api_router_v1.include_router(testing.router, prefix="/test", tags=["Test Services"]) # Changed from test_services
 
 # Include Error Logs router
-api_router_v1.include_router(error_logs.router, prefix="/error-logs", tags=["Error Logs"])
+api_router_v1.include_router(errors.router, prefix="/error", tags=["Error Logs"]) # Changed from error_logs

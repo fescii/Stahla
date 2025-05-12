@@ -52,7 +52,7 @@ async def create_price_quote(
             notes="This is a sample quote generated for testing purposes.",
             is_estimate=True,
             missing_info=["Sample missing info"] if not pricing_input.power_available else [],
-            generated_at=datetime.utcnow().isoformat()
+            generated_at=datetime.now(datetime.timezone.utc).isoformat(),
         )
         # --- END SAMPLE DATA ---
 

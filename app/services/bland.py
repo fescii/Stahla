@@ -15,8 +15,8 @@ from app.models.bland import (
     BlandWebhookPayload,
     BlandProcessingResult
 )
-from app.models.bland_call_log import BlandCallStatus 
-from app.models.error_log import ErrorLog 
+from app.models.blandlog import BlandCallStatus 
+from app.models.error import ErrorLog 
 from app.services.mongo.mongo import MongoService 
 
 
@@ -81,8 +81,8 @@ class BlandAIManager:
                 error_details_config = {
                     "service_name": "BlandAIManager._sync_pathway",
                     "error_type": "ConfigurationError",
-                    "error_message": "Pathway sync skipped: BLAND_PATHWAY_ID is not configured.",
-                    "additional_data": {"pathway_id_configured": self.pathway_id}
+                    "message": "Pathway sync skipped: BLAND_PATHWAY_ID is not configured.",
+                    "details": {"pathway_id_configured": self.pathway_id}
                 }
                 if background_tasks:
                     background_tasks.add_task(mongo_service.log_error_to_db, **error_details_config)
@@ -96,8 +96,8 @@ class BlandAIManager:
                 error_details_def = {
                     "service_name": "BlandAIManager._sync_pathway",
                     "error_type": "PathwayDefinitionError",
-                    "error_message": f"Pathway sync failed for {self.pathway_id}: Definition not loaded from call.json.",
-                    "additional_data": {"pathway_id": self.pathway_id, "pathway_json_path": PATHWAY_JSON_PATH}
+                    "message": f"Pathway sync failed for {self.pathway_id}: Definition not loaded from call.json.",
+                    "details": {"pathway_id": self.pathway_id, "pathway_json_path": PATHWAY_JSON_PATH}
                 }
                 if background_tasks:
                     background_tasks.add_task(mongo_service.log_error_to_db, **error_details_def)
@@ -112,8 +112,8 @@ class BlandAIManager:
                 error_details_name = {
                     "service_name": "BlandAIManager._sync_pathway",
                     "error_type": "PathwayDefinitionError",
-                    "error_message": f"Pathway sync failed for {self.pathway_id}: 'name' field missing in call.json.",
-                    "additional_data": {"pathway_id": self.pathway_id, "pathway_definition_keys": list(self.pathway_definition.keys())}
+                    "message": f"Pathway sync failed for {self.pathway_id}: 'name' field missing in call.json.",
+                    "details": {"pathway_id": self.pathway_id, "pathway_definition_keys": list(self.pathway_definition.keys())}
                 }
                 if background_tasks:
                     background_tasks.add_task(mongo_service.log_error_to_db, **error_details_name)
@@ -141,7 +141,7 @@ class BlandAIManager:
             logfire.error(f"Pathway sync failed: Could not update pathway {self.pathway_id}. Bland API Message: {update_result.message}", details=update_result.details)
             # Error already logged by _make_request if mongo_service was provided.
 
-    async def close_client(self):
+    async def close(self):
         """Gracefully closes the HTTP client."""
         await self._client.aclose()
         logfire.info("BlandAI HTTP client closed.")
@@ -172,18 +172,18 @@ class BlandAIManager:
             return BlandApiResult(status=status, message=message, details=details, call_id=call_id_from_bland)
         except httpx.HTTPStatusError as e:
             logfire.error(f"Bland API HTTP error: {e.response.status_code}", url=str(e.request.url), response=e.response.text)
-            message = f"HTTP error {e.response.status_code}: {e.response.text}"
+            message_content = f"HTTP error {e.response.status_code}: {e.response.text}"
             try:
                 error_details_parsed = e.response.json()
             except Exception:
                 error_details_parsed = {"raw_response": e.response.text}
             
             if mongo_service:
-                log_db_details = {
+                log_db_payload = {
                     "service_name": "BlandAIManager._make_request",
                     "error_type": "HTTPStatusError",
-                    "error_message": message,
-                    "additional_data": {
+                    "message": message_content,
+                    "details": {
                         "method": method,
                         "endpoint": endpoint,
                         "request_payload_keys": list(json_data.keys()) if json_data else None,
@@ -193,52 +193,52 @@ class BlandAIManager:
                     }
                 }
                 if background_tasks:
-                    background_tasks.add_task(mongo_service.log_error_to_db, **log_db_details)
+                    background_tasks.add_task(mongo_service.log_error_to_db, **log_db_payload)
                 else:
-                    await mongo_service.log_error_to_db(**log_db_details)
-            return BlandApiResult(status="error", message=message, details=error_details_parsed)
+                    await mongo_service.log_error_to_db(**log_db_payload)
+            return BlandApiResult(status="error", message=message_content, details=error_details_parsed)
         except httpx.RequestError as e:
             logfire.error(f"Bland API request error: {e}", url=str(e.request.url))
-            message = f"Request failed: {e}"
-            error_details = {"error_type": type(e).__name__, "request_url": str(e.request.url) if e.request else "N/A"}
+            message_content = f"Request failed: {e}"
+            error_details_data = {"error_type": type(e).__name__, "request_url": str(e.request.url) if e.request else "N/A"}
             if mongo_service:
-                log_db_details_req = {
+                log_db_payload_req = {
                     "service_name": "BlandAIManager._make_request",
                     "error_type": "RequestError",
-                    "error_message": message,
-                    "additional_data": {
+                    "message": message_content,
+                    "details": {
                         "method": method,
                         "endpoint": endpoint,
                         "request_payload_keys": list(json_data.keys()) if json_data else None,
-                        "error_details": error_details # This nested key is fine, it's the outer one that matters for the function call
+                        "error_details": error_details_data 
                     }
                 }
                 if background_tasks:
-                    background_tasks.add_task(mongo_service.log_error_to_db, **log_db_details_req)
+                    background_tasks.add_task(mongo_service.log_error_to_db, **log_db_payload_req)
                 else:
-                    await mongo_service.log_error_to_db(**log_db_details_req)
-            return BlandApiResult(status="error", message=message, details=error_details)
+                    await mongo_service.log_error_to_db(**log_db_payload_req)
+            return BlandApiResult(status="error", message=message_content, details=error_details_data)
         except Exception as e:
             logfire.error(f"Unexpected error during Bland API request: {e}", exc_info=True)
-            message = f"An unexpected error occurred: {e}"
-            error_details_unexp = {"error_type": type(e).__name__, "exception_args": e.args}
+            message_content = f"An unexpected error occurred: {e}"
+            error_details_unexp_data = {"error_type": type(e).__name__, "exception_args": e.args}
             if mongo_service:
-                log_db_details_unexp = {
+                log_db_payload_unexp = {
                     "service_name": "BlandAIManager._make_request",
                     "error_type": "UnexpectedException",
-                    "error_message": message,
-                    "additional_data": {
+                    "message": message_content,
+                    "details": {
                         "method": method,
                         "endpoint": endpoint,
                         "request_payload_keys": list(json_data.keys()) if json_data else None,
-                        "error_details": error_details_unexp # This nested key is fine
+                        "error_details": error_details_unexp_data 
                     }
                 }
                 if background_tasks:
-                    background_tasks.add_task(mongo_service.log_error_to_db, **log_db_details_unexp)
+                    background_tasks.add_task(mongo_service.log_error_to_db, **log_db_payload_unexp)
                 else:
-                    await mongo_service.log_error_to_db(**log_db_details_unexp)
-            return BlandApiResult(status="error", message=message, details=error_details_unexp)
+                    await mongo_service.log_error_to_db(**log_db_payload_unexp)
+            return BlandApiResult(status="error", message=message_content, details=error_details_unexp_data)
 
     async def initiate_callback(
         self, 
@@ -357,8 +357,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.retry_call",
                 error_type="NotFoundError",
-                error_message="Original call log not found to retry.",
-                additional_data={"contact_id": contact_id, "retry_reason": retry_reason}
+                message="Original call log not found to retry.",
+                details={"contact_id": contact_id, "retry_reason": retry_reason}
             )
             return BlandApiResult(status="error", message="Original call log not found to retry.", details={"contact_id": contact_id})
 
@@ -369,8 +369,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.retry_call",
                 error_type="DataValidationError",
-                error_message="Original call log missing phone number.",
-                additional_data={"contact_id": contact_id, "original_log_doc_id": str(original_log_doc.get("_id"))}
+                message="Original call log missing phone number.",
+                details={"contact_id": contact_id, "original_log_doc_id": str(original_log_doc.get("_id"))}
             )
             return BlandApiResult(status="error", message="Original call log missing phone number.", details={"contact_id": contact_id})
 
@@ -390,8 +390,8 @@ class BlandAIManager:
                     mongo_service.log_error_to_db,
                     service_name="BlandAIManager.retry_call",
                     error_type="WebhookParsingError",
-                    error_message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
-                    additional_data={
+                    message=f"Could not parse original webhook_url \'{webhook_str}\' for retry.",
+                    details={
                         "contact_id": contact_id, 
                         "webhook_url_string": webhook_str,
                         "validation_error": str(e)
@@ -403,8 +403,8 @@ class BlandAIManager:
                     mongo_service.log_error_to_db,
                     service_name="BlandAIManager.retry_call",
                     error_type="WebhookParsingError", 
-                    error_message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
-                    additional_data={
+                    message=f"Unexpected error parsing original webhook_url \'{webhook_str}\' for retry.",
+                    details={
                         "contact_id": contact_id,
                         "webhook_url_string": webhook_str,
                         "error_type_name": type(e).__name__, 
@@ -451,18 +451,18 @@ class BlandAIManager:
             # Simulate some processing that might fail
             if not transcript:
                  # Log an error if transcript is empty, for example
-                error_message = "Transcript processing error: Received empty transcript."
-                logfire.warn(f"{error_message} for contact_id: {contact_id}")
+                error_message_content = "Transcript processing error: Received empty transcript."
+                logfire.warn(f"{error_message_content} for contact_id: {contact_id}")
                 background_tasks.add_task(
                     mongo_service.log_error_to_db,
                     service_name="BlandAIManager._extract_data_from_transcript",
                     error_type="TranscriptProcessingError",
-                    error_message=error_message, 
-                    additional_data={"contact_id": contact_id, "transcript_length": 0}
+                    message=error_message_content, 
+                    details={"contact_id": contact_id, "transcript_length": 0}
                 )
                 return BlandProcessingResult(
                     success=False, 
-                    message=error_message,
+                    message=error_message_content,
                     data=None,
                     full_transcript=full_transcript_text
                 )
@@ -481,14 +481,14 @@ class BlandAIManager:
             )
 
         except Exception as e:
-            error_message = f"Unexpected error during transcript data extraction: {str(e)}"
-            logfire.error(f"{error_message} for contact_id: {contact_id}", exc_info=True)
+            error_message_content = f"Unexpected error during transcript data extraction: {str(e)}"
+            logfire.error(f"{error_message_content} for contact_id: {contact_id}", exc_info=True)
             background_tasks.add_task(
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager._extract_data_from_transcript",
                 error_type="UnexpectedException",
-                error_message=error_message,
-                additional_data={
+                message=error_message_content,
+                details={
                     "contact_id": contact_id, 
                     "exception_type": type(e).__name__,
                     "exception_args": e.args
@@ -496,7 +496,7 @@ class BlandAIManager:
             )
             return BlandProcessingResult(
                 success=False,
-                message=error_message,
+                message=error_message_content,
                 data=None,
                 full_transcript=full_transcript_text # Still provide transcript if available
             )
@@ -522,8 +522,8 @@ class BlandAIManager:
                 mongo_service.log_error_to_db,
                 service_name="BlandAIManager.process_incoming_transcript",
                 error_type="MissingContactID",
-                error_message="Webhook received without contact_id in metadata.",
-                additional_data={"bland_call_id": bland_call_id, "metadata": payload.metadata}
+                message="Webhook received without contact_id in metadata.",
+                details={"bland_call_id": bland_call_id, "metadata": payload.metadata}
             )
             return
 
@@ -577,6 +577,27 @@ class BlandAIManager:
                     "webhook_payload_summary": payload.model_dump(exclude={'transcript', 'recording_url'}) # Log key fields
                 }
             )
+
+
+    async def check_connection(self) -> str:
+        """Checks the connection to the Bland.ai API."""
+        logfire.debug("Attempting BlandAI connection check...")
+        if not self._client:
+            logfire.error("BlandAI connection check: Client not initialized.")
+            return "error: BlandAI client not initialized."
+        try:
+            # Attempt to list pathways as a general read operation.
+            api_result = await self._make_request(method="GET", endpoint="/v1/pathways")
+
+            if api_result.status == "success":
+                logfire.info("BlandAI connection check successful.")
+                return "ok"
+            else:
+                logfire.warn(f"BlandAI connection check failed. API Response: {api_result.message}", details=api_result.details)
+                return f"error: {api_result.message}"
+        except Exception as e:
+            logfire.error(f"BlandAI connection check failed with an exception: {str(e)}", exc_info=True)
+            return f"error: Exception during health check: {str(e)}"
 
 
 # --- Singleton Instance and Startup Sync --- 

@@ -160,7 +160,3 @@ async def delete_user_endpoint(
     if delete_result.deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return # Return None for 204
-
-# Note: Logout is typically handled client-side by deleting the token.
-# There's no standard server-side logout for stateless JWT.
-# You could implement token blacklisting if needed, but it adds complexity.

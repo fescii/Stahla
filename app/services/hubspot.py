@@ -1,23 +1,23 @@
 # app/services/hubspot.py
 
 import logging
-import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from cachetools import TTLCache
 from hubspot import HubSpot
-# For v4 associations - ensure these are correct for your SDK version and that the SDK is up-to-date.
 from hubspot.crm.associations.v4.models import AssociationSpec, PublicObjectId, BatchInputPublicAssociationMultiPost, PublicAssociationMultiPost
 from hubspot.crm.companies import SimplePublicObjectInput
 from hubspot.crm.contacts import SimplePublicObjectInput as ContactSimplePublicObjectInput
 from hubspot.crm.deals import SimplePublicObjectInput as DealSimplePublicObjectInput
 from hubspot.crm.deals.exceptions import ApiException as DealApiException
 from hubspot.crm.objects.exceptions import ApiException as ObjectApiException # General CRM object API exception
+from hubspot.crm.owners import ApiException as OwnersApiException # Ensure this is imported for check_connection
 from hubspot.crm.owners import PublicOwner # from hubspot.crm.owners.models
 from hubspot.crm.pipelines import Pipeline, PipelineStage # from hubspot.crm.pipelines.models
 # from hubspot.crm.properties import Property # from hubspot.crm.properties.models - Not directly used in this refactor for Property definition
 from pydantic import ValidationError
+import logfire # Ensure logfire is imported
 
 from app.core.config import settings
 from app.models.hubspot import (
@@ -976,38 +976,42 @@ class HubSpotManager:
             response["errors"].append({"step": "unexpected_main", "details": str(e)})
             return response
 
-    # --- Old Search Methods (Commented Out as generic search_objects is preferred) ---
-    # async def search_contacts_by_email(self, email: str, properties: Optional[List[str]] = None) -> HubSpotSearchResponse:
-    #     logger.debug(f"Searching contacts by email: {email}")
-    #     search_filter = {"propertyName": "email", "operator": "EQ", "value": email}
-    #     search_request = HubSpotSearchRequest(
-    #         filters=[search_filter],
-    #         properties=properties or ["email", "firstname", "lastname", "phone", "hs_object_id", "lifecyclestage"],
-    #         limit=10 
-    #     )
-    #     return await self.search_objects(object_type="contacts", search_request=search_request)
+    async def check_connection(self) -> str:
+        """Checks the connection to HubSpot by trying to list owners."""
+        if not self.client:
+            # Use logfire for consistency if desired, or keep standard logger
+            logfire.warning("HubSpot client not initialized for health check.")
+            return "error: client not initialized"
+        try:
+            await self.client.crm.owners.owners_api.get_page(limit=1)
+            logfire.debug("HubSpot connection check successful.")
+            return "ok"
+        except OwnersApiException as e: # Specific exception for owners API
+            logfire.error(
+                "HubSpot connection check failed: Owners API Exception", 
+                status_code=e.status, 
+                reason=e.reason
+            ) # Use logfire.error
+            return f"error: Owners API Exception {e.status}"
+        except Exception as e: # Catch any other exceptions
+            logfire.error(
+                "HubSpot connection check failed: Unexpected error",
+                error_message=str(e),
+                exc_info=True # Keep exc_info for unexpected errors
+            )
+            status = getattr(e, 'status', 'Unknown')
+            reason = getattr(e, 'reason', 'Unknown')
+            if status != 'Unknown' or reason != 'Unknown':
+                return f"error: API-like Exception Status {status}, Reason {reason}, Details: {str(e)}"
+            return f"error: Unexpected error: {str(e)}"
 
-    # async def search_companies_by_domain(self, domain: str, properties: Optional[List[str]] = None) -> HubSpotSearchResponse:
-    #     logger.debug(f"Searching companies by domain: {domain}")
-    #     search_filter = {"propertyName": "domain", "operator": "EQ", "value": domain}
-    #     search_request = HubSpotSearchRequest(
-    #         filters=[search_filter],
-    #         properties=properties or ["name", "domain", "phone", "hs_object_id", "website", "industry"],
-    #         limit=10
-    #     )
-    #     return await self.search_objects(object_type="companies", search_request=search_request)
-
-    # async def search_deals_by_name(self, deal_name: str, properties: Optional[List[str]] = None) -> HubSpotSearchResponse:
-    #     logger.debug(f"Searching deals by name: {deal_name}")
-    #     # Using CONTAINS_TOKEN might be better for names, but EQ is safer for exact matches.
-    #     # Adjust operator based on needs. For "EQ", ensure deal_name is exact.
-    #     search_filter = {"propertyName": "dealname", "operator": "EQ", "value": deal_name}
-    #     search_request = HubSpotSearchRequest(
-    #         filters=[search_filter],
-    #         properties=properties or ["dealname", "amount", "dealstage", "pipeline", "hs_object_id", "closedate", "hubspot_owner_id"],
-    #         limit=10
-    #     )
-    #     return await self.search_objects(object_type="deals", search_request=search_request)
+    async def close(self):
+        """Placeholder close method for HubSpotManager if needed by shutdown sequence."""
+        # The HubSpot client typically doesn't require explicit closing for stateless API calls.
+        # If there were specific resources to release (e.g., a persistent connection pool
+        # not managed by the underlying HTTP library), they would be handled here.
+        logger.info("HubSpotManager close called. No specific resources to release for the default client.")
+        pass
 
 # Instantiate the manager for global use, ensuring settings are loaded
 # This allows other modules to import hubspot_manager directly.
@@ -1020,3 +1024,4 @@ except ValueError as e:
     # you might raise the error further or exit, or allow a None object
     # For now, we'll let it be None and dependent services should handle this.
     hubspot_manager = None
+    raise RuntimeError(f"HubSpotManager initialization failed: {e}")

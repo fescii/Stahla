@@ -5,18 +5,18 @@
 
 ###
 # @name GetErrorLogs
-GET {{base_url}}/error-logs/
+GET {{base_url}}/error/
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
 ###
 # @name GetErrorLogById
-GET {{base_url}}/error-logs/your_error_id_here
+GET {{base_url}}/error/your_error_id_here
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
 ###
 # @name DeleteErrorLog
-DELETE {{base_url}}/error-logs/your_error_id_here
+DELETE {{base_url}}/error/your_error_id_here
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}

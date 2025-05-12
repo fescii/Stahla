@@ -1,7 +1,7 @@
 ### Trigger Sample Contact Creation
 # Sends a request to the test endpoint to create the hardcoded sample contact
 # from hubspot.md, which should trigger the subsequent classification/lead creation flow.
-POST http://localhost:8000/api/v1/hubspot/test/create-sample-contact
+POST http://localhost:8000/api/v1/hubspot/test/contact
 Content-Type: application/json
 
 {

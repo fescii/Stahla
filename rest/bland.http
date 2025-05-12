@@ -33,7 +33,7 @@ Authorization: Bearer {{auth_token}}
 
 ###
 # @name AnalyzeCall
-POST {{base_url}}/bland-calls/analyze-call
+POST {{base_url}}/bland/analyze
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
@@ -48,18 +48,18 @@ Authorization: Bearer {{auth_token}}
 
 ###
 # @name GetCallLogs
-GET {{base_url}}/bland-calls/call-logs?limit=10&offset=0
+GET {{base_url}}/bland/logs?limit=10&offset=0
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
 ###
 # @name GetCallLogById
-GET {{base_url}}/bland-calls/call-log/your_call_id_here
+GET {{base_url}}/bland-calls/log/your_call_id_here
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
 ###
 # @name GetCallLogsByBatchId
-GET {{base_url}}/bland-calls/call-logs/batch/your_batch_id_here
+GET {{base_url}}/bland/logs/batch/your_batch_id_here
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}

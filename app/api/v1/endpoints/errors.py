@@ -2,10 +2,11 @@ import logfire
 from fastapi import APIRouter, Depends, Query
 from typing import Optional, List
 from pymongo import ASCENDING, DESCENDING
+from datetime import datetime
 
 from app.services.mongo.mongo import MongoService, get_mongo_service
-from app.models.error_log import ErrorLog, PaginatedErrorLogResponse
 from app.models.common import GenericResponse # Added import
+from app.models.error import ErrorLog, PaginatedErrorLogResponse # Changed from error_log
 
 router = APIRouter()
 

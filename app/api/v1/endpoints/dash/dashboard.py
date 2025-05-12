@@ -44,7 +44,7 @@ async def get_dashboard_overview_endpoint(
         raise HTTPException(status_code=500, detail="Failed to retrieve dashboard data.")
 
 @router.get(
-    "/recent-requests", 
+    "/requests/recent", 
     response_model=GenericResponse[List[RequestLogEntry]], # Use GenericResponse
     summary="Get Recent Request Logs",
     description="Retrieves a list of recent logged requests (currently placeholder).",

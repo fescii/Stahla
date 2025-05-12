@@ -8,7 +8,7 @@
 @pricing_webhook_api_key = 7%FRtf@34hi
 @auth_token = Bearer {{pricing_webhook_api_key}}
 
-POST {{host}}/api/v1/webhook/location_lookup
+POST {{host}}/api/v1/webhook/location/lookup
 Content-Type: application/json
 Authorization: {{auth_token}}
 
@@ -17,7 +17,7 @@ Authorization: {{auth_token}}
 }
 
 ### Example with a different address
-POST {{host}}/api/v1/webhook/location_lookup
+POST {{host}}/api/v1/webhook/location/lookup
 Content-Type: application/json
 Authorization: {{auth_token}}
 
@@ -27,7 +27,7 @@ Authorization: {{auth_token}}
 
 ### Example with an address that might be near a configured Stahla branch
 # Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache hits later
-POST {{host}}/api/v1/webhook/location_lookup
+POST {{host}}/api/v1/webhook/location/lookup
 Content-Type: application/json
 Authorization: {{auth_token}}
 

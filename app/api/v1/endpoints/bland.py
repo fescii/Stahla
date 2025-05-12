@@ -11,7 +11,7 @@ from app.services.mongo.mongo import get_mongo_service
 from app.core.security import get_current_user
 from app.models.user import User
 from app.models.bland import BlandCallbackRequest # Models from bland.py
-from app.models.bland_call_log import BlandCallStatus, BlandCallStats, PaginatedBlandCallResponse, BlandCallLog # Models from bland_call_log.py
+from app.models.blandlog import BlandCallStatus, BlandCallStats, PaginatedBlandCallResponse, BlandCallLog # Models from bland_call_log.py -> blandlog.py
 from app.models.common import GenericResponse # Added import
 from datetime import datetime
 

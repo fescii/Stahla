@@ -5,7 +5,7 @@
 
 ###
 # @name TestClassifyText
-POST {{base_url}}/test/classify-text
+POST {{base_url}}/test/classify
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
@@ -17,7 +17,7 @@ Authorization: Bearer {{auth_token}}
 
 ###
 # @name TestMongoLog
-POST {{base_url}}/test/mongo-log
+POST {{base_url}}/test/mongo/log
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
@@ -31,7 +31,7 @@ Authorization: Bearer {{auth_token}}
 
 ###
 # @name TestHubspotContact
-POST {{base_url}}/test/hubspot-contact
+POST {{base_url}}/test/hubspot/contact
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
@@ -43,7 +43,7 @@ Authorization: Bearer {{auth_token}}
 
 ###
 # @name TestBlandSendCall
-POST {{base_url}}/test/bland-send-call
+POST {{base_url}}/test/bland/call
 Content-Type: {{content_type}}
 Authorization: Bearer {{auth_token}}
 
