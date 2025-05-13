@@ -1,29 +1,62 @@
 ### Classification API Requests
 
 ### Variables
-@baseUrl = http://localhost:8000/api/v1
-@contentType = application/json
+# Define variables at the top of the file or per request block
+@host = http://localhost:8000
+# Make sure to replace with your actual API key from .env
+@pricing_webhook_api_key = 7%FRtf@34hi
+@auth_token = Bearer {{pricing_webhook_api_key}}
 
-### Classify Lead Data
-POST {{baseUrl}}/classify
-Content-Type: {{contentType}}
+## Classify Lead Data
+POST {{host}}/api/v1/classify
+Content-Type: application/json
+Authorization: {{auth_token}}
 
 {
-    "source": "hubspot",
-    "data": {
-        "customer_info": {
-            "first_name": "John",
-            "last_name": "Doe",
+    "source": "webform",
+    "raw_data": {
+        "form_submission": {
+            "firstname": "John",
+            "lastname": "Doe",
             "email": "john.doe@example.com",
             "phone": "+12345678901",
-            "address": "123 Main St, San Francisco, CA"
-        },
-        "request_info": {
-            "product_interest": "Restroom Trailer",
-            "requested_date": "2025-08-15",
-            "event_type": "Construction",
-            "zip_code": "94103",
-            "additional_notes": "Need a 4-stall trailer for a construction site"
+            "service_address": "123 Main St, San Francisco, CA 94103"
         }
-    }
+    },
+    "extracted_data": {
+        "product_interest": ["Restroom Trailer"],
+        "event_type": "Construction"
+    },
+    "firstname": "John",
+    "lastname": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "+12345678901",
+    "company": "Doe Construction Inc.",
+    "product_interest": ["Restroom Trailer"],
+    "event_type": "Construction",
+    "service_address": "123 Main St, San Francisco, CA 94103",
+    "event_location_description": "123 Main St, San Francisco, CA 94103",
+    "state": "CA",
+    "event_city": "San Francisco",
+    "event_postal_code": "94103",
+    "rental_start_date": "2025-08-15",
+    "units_needed": "4",
+    "required_stalls": 4,
+    "intended_use": "Construction",
+    "is_local": true,
+    "is_in_service_area": true,
+    "service_needed": "rental"
+}
+
+## Classify Lead Data - Minimal required fields
+POST {{host}}/api/v1/classify
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+    "source": "webform",
+    "raw_data": {},
+    "service_address": "123 Main St, San Francisco, CA 94103",
+    "event_location_description": "123 Main St, San Francisco, CA 94103",
+    "service_needed": "rental"
 }
