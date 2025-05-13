@@ -1,11 +1,15 @@
-Key,Value
-Delivery Base Fee,$125.00
-Delivery Per Mile Rate,$3.65
-Delivery Free Miles Threshold,25
-Seasonal Multiplier Standard,1
-Seasonal Multiplier Premium Start,2025-05-01
-Seasonal Multiplier Premium End,2025-09-30
-Seasonal Multiplier Premium Rate,1.15
-Seasonal Multiplier Premium Plus Start,2025-11-15
-Seasonal Multiplier Premium Plus End,2025-12-31
-Seasonal Multiplier Premium Plus Rate,1.25
+Key,Value,Note
+Delivery Base Fee,$0.00,
+Delivery Per Mile Rate (from Omaha or Kansas City),$2.99,
+Delivery Per Mile Rate (from Denver),$3.99,
+Delivery Free Miles Threshold,25,
+Seasonal Multiplier Standard Start,(Any date not listed as one of the below),
+Seasonal Multiplier Standard End,(Any date not listed as one of the below),
+Seasonal Multiplier Premium Start,2025-05-02,(excludes any dates listed by Premium Plus or Premium Platinum)
+Seasonal Multiplier Premium End,2025-11-01,(excludes any dates listed by Premium Plus or Premium Platinum)
+Seasonal Multiplier Premium Plus Start,2025-06-06,
+Seasonal Multiplier Premium Plus End,2025-07-06,
+Seasonal Multiplier Premium Plus Start,2025-08-15,
+Seasonal Multiplier Premium Plus End,2025-09-25,
+Seasonal Multiplier Premium Platinum Start,2025-09-26,
+Seasonal Multiplier Premium Platinum End,2025-10-12,
