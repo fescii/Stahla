@@ -17,7 +17,7 @@ from app.models.classification import (
     IntendedUseType,
     ProductType,
     ExtractedCallDetails,
-    ClassificationOutput # Added import
+    ClassificationOutput  # Added import
 )
 from app.core.config import settings
 
@@ -34,33 +34,41 @@ def configure_marvin():
     if settings.OPENAI_API_KEY:
       config_kwargs["openai_api_key"] = settings.OPENAI_API_KEY
       if settings.MODEL_NAME:
-        config_kwargs["openai_model_name"] = settings.MODEL_NAME # Changed to openai_model_name
+        # Changed to openai_model_name
+        config_kwargs["openai_model_name"] = settings.MODEL_NAME
     else:
-      logfire.error("OpenAI selected as provider but OPENAI_API_KEY is missing")
+      logfire.error(
+          "OpenAI selected as provider but OPENAI_API_KEY is missing")
 
   elif provider == "anthropic":
     if settings.ANTHROPIC_API_KEY:
       config_kwargs["anthropic_api_key"] = settings.ANTHROPIC_API_KEY
       if settings.MODEL_NAME:
-        config_kwargs["anthropic_model_name"] = settings.MODEL_NAME # Changed to anthropic_model_name
+        # Changed to anthropic_model_name
+        config_kwargs["anthropic_model_name"] = settings.MODEL_NAME
     else:
-      logfire.error("Anthropic selected as provider but ANTHROPIC_API_KEY is missing")
+      logfire.error(
+          "Anthropic selected as provider but ANTHROPIC_API_KEY is missing")
 
   elif provider == "gemini":
     if settings.GEMINI_API_KEY:
       config_kwargs["gemini_api_key"] = settings.GEMINI_API_KEY
       if settings.MODEL_NAME:
-        config_kwargs["gemini_model_name"] = settings.MODEL_NAME # Changed to gemini_model_name
+        # Changed to gemini_model_name
+        config_kwargs["gemini_model_name"] = settings.MODEL_NAME
     else:
-      logfire.error("Gemini selected as provider but GEMINI_API_KEY is missing")
-  
+      logfire.error(
+          "Gemini selected as provider but GEMINI_API_KEY is missing")
+
   elif provider == "marvin":
     if settings.MARVIN_API_KEY:
       # If LLM_PROVIDER is "marvin", assume MARVIN_API_KEY is picked up from the environment
       # or Marvin handles it internally. Do not pass a generic "api_key".
-      logfire.info("LLM_PROVIDER is 'marvin'. Assuming MARVIN_API_KEY is used by Marvin automatically (e.g., from env).")
+      logfire.info(
+          "LLM_PROVIDER is 'marvin'. Assuming MARVIN_API_KEY is used by Marvin automatically (e.g., from env).")
     else:
-      logfire.error("Marvin selected as provider but MARVIN_API_KEY is missing")
+      logfire.error(
+          "Marvin selected as provider but MARVIN_API_KEY is missing")
 
   # The old fallback for generic "api_key" is removed as it caused errors.
   # if not config_kwargs and settings.MARVIN_API_KEY:
@@ -68,60 +76,73 @@ def configure_marvin():
 
   # Apply configuration
   try:
-    logfire.info(f"Attempting to configure Marvin. Provider: '{provider}'. Config_kwargs to apply: {list(config_kwargs.keys())}")
+    logfire.info(
+        f"Attempting to configure Marvin. Provider: '{provider}'. Config_kwargs to apply: {list(config_kwargs.keys())}")
 
-    if config_kwargs: # If there are specific keys like openai_api_key
-        for key, value in config_kwargs.items():
-            # Log safely, especially for API keys
-            log_value = f"{str(value)[:5]}..." if isinstance(value, str) and ("key" in key.lower() or "token" in key.lower()) else str(value)
-            logfire.debug(f"Setting marvin.settings.{key} = {log_value}")
-            setattr(marvin.settings, key, value)
-        logfire.info(f"Marvin configured using direct assignment for keys: {list(config_kwargs.keys())}.")
-    
+    if config_kwargs:  # If there are specific keys like openai_api_key
+      for key, value in config_kwargs.items():
+        # Log safely, especially for API keys
+        log_value = f"{str(value)[:5]}..." if isinstance(value, str) and (
+            "key" in key.lower() or "token" in key.lower()) else str(value)
+        logfire.debug(f"Setting marvin.settings.{key} = {log_value}")
+        setattr(marvin.settings, key, value)
+      logfire.info(
+          f"Marvin configured using direct assignment for keys: {list(config_kwargs.keys())}.")
+
     elif provider == "marvin" and settings.MARVIN_API_KEY:
-        # If provider is "marvin", MARVIN_API_KEY is set, and we generated no config_kwargs for it.
-        # Marvin should pick up MARVIN_API_KEY from environment variables automatically.
-        logfire.info("LLM_PROVIDER is 'marvin' and MARVIN_API_KEY is set. "
-                     "Relying on Marvin to use MARVIN_API_KEY from environment variables.")
-        logfire.info("Marvin configuration presumed complete via environment variables for 'marvin' provider.") # Added log message
-        # No explicit marvin.settings call needed here if it's purely env-based for this case.
+      # If provider is "marvin", MARVIN_API_KEY is set, and we generated no config_kwargs for it.
+      # Marvin should pick up MARVIN_API_KEY from environment variables automatically.
+      logfire.info("LLM_PROVIDER is 'marvin' and MARVIN_API_KEY is set. "
+                   "Relying on Marvin to use MARVIN_API_KEY from environment variables.")
+      # Added log message
+      logfire.info(
+          "Marvin configuration presumed complete via environment variables for 'marvin' provider.")
+      # No explicit marvin.settings call needed here if it's purely env-based for this case.
 
     elif provider in ["openai", "anthropic", "gemini"] and not config_kwargs:
-        # This case implies the API key for the selected provider was missing (already logged during config_kwargs build).
-        logfire.warn(f"LLM_PROVIDER is '{provider}' but corresponding API key (and possibly model name) was not found. Marvin not configured with specifics for this provider.")
-    
+      # This case implies the API key for the selected provider was missing (already logged during config_kwargs build).
+      logfire.warn(
+          f"LLM_PROVIDER is '{provider}' but corresponding API key (and possibly model name) was not found. Marvin not configured with specifics for this provider.")
+
     elif provider == "marvin" and not settings.MARVIN_API_KEY:
-        # Already logged when config_kwargs was being built.
-        logfire.warn("Marvin not configured as MARVIN_API_KEY is missing for 'marvin' provider.")
-    
+      # Already logged when config_kwargs was being built.
+      logfire.warn(
+          "Marvin not configured as MARVIN_API_KEY is missing for 'marvin' provider.")
+
     elif not provider:
-        logfire.warn("LLM_PROVIDER is not set. Marvin not configured.")
-    
-    else: # Provider is set, but not one of the explicitly handled ones, and no config_kwargs were generated.
-        logfire.warn(f"LLM_PROVIDER is '{provider}', which is not explicitly handled for specific key setup, "
-                      "nor is it 'marvin' with a MARVIN_API_KEY. Relying on Marvin's defaults or other env vars if any.")
+      logfire.warn("LLM_PROVIDER is not set. Marvin not configured.")
+
+    else:  # Provider is set, but not one of the explicitly handled ones, and no config_kwargs were generated.
+      logfire.warn(f"LLM_PROVIDER is '{provider}', which is not explicitly handled for specific key setup, "
+                   "nor is it 'marvin' with a MARVIN_API_KEY. Relying on Marvin's defaults or other env vars if any.")
 
   except AttributeError as ae:
       # This might catch if marvin.settings itself doesn't exist, or if setattr tries to set a non-existent attribute
       # on a strictly defined settings object that doesn't allow arbitrary attributes.
-      logfire.error(f"Failed to configure Marvin due to AttributeError: {str(ae)}. This might indicate an issue with marvin.settings structure or an attempt to set an unsupported attribute.")
-      logfire.error("Check Marvin library compatibility, expected settings attributes, and API key configuration.")
+    logfire.error(
+        f"Failed to configure Marvin due to AttributeError: {str(ae)}. This might indicate an issue with marvin.settings structure or an attempt to set an unsupported attribute.")
+    logfire.error(
+        "Check Marvin library compatibility, expected settings attributes, and API key configuration.")
   except Exception as e:
-    logfire.error(f"An unexpected error occurred during Marvin configuration: {str(e)}", exc_info=True)
+    logfire.error(
+        f"An unexpected error occurred during Marvin configuration: {str(e)}", exc_info=True)
+
 
 # Initialize Marvin if it's a selected provider that Marvin handles
 SUPPORTED_MARVIN_PROVIDERS = ["openai", "anthropic", "gemini", "marvin"]
 if settings.LLM_PROVIDER and settings.LLM_PROVIDER.lower() in SUPPORTED_MARVIN_PROVIDERS:
-  logfire.info(f"LLM_PROVIDER is '{settings.LLM_PROVIDER}', attempting to configure Marvin.")
+  logfire.info(
+      f"LLM_PROVIDER is '{settings.LLM_PROVIDER}', attempting to configure Marvin.")
   configure_marvin()
 else:
-  logfire.info(f"Skipping Marvin configuration as LLM_PROVIDER ('{settings.LLM_PROVIDER}') is not one of {SUPPORTED_MARVIN_PROVIDERS} or not set.")
+  logfire.info(
+      f"Skipping Marvin configuration as LLM_PROVIDER ('{settings.LLM_PROVIDER}') is not one of {SUPPORTED_MARVIN_PROVIDERS} or not set.")
 
 
 @marvin.fn
 def classify_lead_with_ai(
     call_summary_or_transcript: str
-) -> ExtractedCallDetails: # Return type is correct here
+) -> ExtractedCallDetails:  # Return type is correct here
   """
   Analyze the provided call summary or transcript based on the detailed business rules below.
   Extract the relevant details into the ExtractedCallDetails structure.
@@ -226,11 +247,12 @@ def classify_lead_with_ai(
 
   **Extraction Guidelines:**
   - Extract specific details mentioned in the call: product_interest, service_needed, event_type, location (full address if possible), city, state (2-letter code if possible), postal_code, start_date, end_date, duration_days, guest_count, required_stalls, ada_required, power_available (True/False), water_available (True/False).
+  - **IMPORTANT: All extracted date strings (e.g., start_date, end_date, rental_start_date) MUST be formatted as 'YYYY-MM-DD'.**
   - For budget_mentioned: Extract the specific amount mentioned (e.g., '$2500', '$10k') or 'none' if no budget is mentioned or explicitly stated as none. Do not include surrounding text.
   - For comments: Capture any other specific comments, questions, or key details mentioned that aren't covered by other fields.
   - Provide brief reasoning for the chosen classification based *only* on the rules and the call content.
   """
-  pass # Marvin implements this
+  pass  # Marvin implements this
 
 
 class MarvinClassificationManager:
@@ -411,35 +433,38 @@ class MarvinClassificationManager:
     """
     logfire.info("Starting Marvin-based classification using call data")
 
-    # --- Extract Call Summary or Transcript --- 
+    # --- Extract Call Summary or Transcript ---
     call_text = input_data.extracted_data.get("call_summary")
     if not call_text:
-        call_text = input_data.extracted_data.get("full_transcript")
+      call_text = input_data.extracted_data.get("full_transcript")
     if not call_text:
-        if isinstance(input_data.raw_data, dict):
-             call_text = input_data.raw_data.get("summary") or input_data.raw_data.get("concatenated_transcript")
-    
+      if isinstance(input_data.raw_data, dict):
+        call_text = input_data.raw_data.get(
+            "summary") or input_data.raw_data.get("concatenated_transcript")
+
     if not call_text:
-        logfire.error("Could not find call summary or transcript in input_data for Marvin classification.")
-        reasoning = "Error: Missing call summary/transcript for classification. Defaulting to Leads."
-        # Return a default ClassificationOutput on error
-        return ClassificationOutput(lead_type="Leads", reasoning=reasoning, requires_human_review=True)
+      logfire.error(
+          "Could not find call summary or transcript in input_data for Marvin classification.")
+      reasoning = "Error: Missing call summary/transcript for classification. Defaulting to Leads."
+      # Return a default ClassificationOutput on error
+      return ClassificationOutput(lead_type="Leads", reasoning=reasoning, requires_human_review=True)
     # --- End Extraction ---
 
     try:
       logfire.info("Calling Marvin for classification with call text.")
-      extracted_details: ExtractedCallDetails = classify_lead_with_ai(call_summary_or_transcript=call_text)
-      
+      extracted_details: ExtractedCallDetails = classify_lead_with_ai(
+          call_summary_or_transcript=call_text)
+
       classification = extracted_details.classification
       reasoning = extracted_details.reasoning or f"Classified as {classification} by Marvin AI based on call summary/transcript."
-      
+
       logfire.info("Marvin classification successful.",
                    classification=classification,
                    extracted_details=extracted_details.model_dump())
 
-      # --- Determine Owner Team --- 
+      # --- Determine Owner Team ---
       # Assign owner team based on classification
-      owner_team = "None" # Default
+      owner_team = "None"  # Default
       if classification == "Services":
         owner_team = "Stahla Services Sales Team"
       elif classification == "Logistics":
@@ -447,13 +472,15 @@ class MarvinClassificationManager:
       elif classification == "Leads":
         owner_team = "Stahla Leads Team"
       else:  # Disqualify or unexpected result
-        owner_team = "None" # Default to None or Leads team for review
+        owner_team = "None"  # Default to None or Leads team for review
         if classification != "Disqualify":
-            logfire.warn(f"Unexpected classification result from Marvin: {classification}")
-            # --- Safer Reasoning Update (Corrected) ---
-            base_reasoning = reasoning if reasoning is not None else f"Classified as {classification} by Marvin AI."
-            reasoning = base_reasoning + f" (Unexpected result: {classification})"
-            # --- End Safer Reasoning Update ---
+          logfire.warn(
+              f"Unexpected classification result from Marvin: {classification}")
+          # --- Safer Reasoning Update (Corrected) ---
+          base_reasoning = reasoning if reasoning is not None else f"Classified as {classification} by Marvin AI."
+          reasoning = base_reasoning + \
+              f" (Unexpected result: {classification})"
+          # --- End Safer Reasoning Update ---
 
       # --- Log values before creating ClassificationOutput ---
       logfire.debug("Preparing ClassificationOutput",
@@ -461,20 +488,22 @@ class MarvinClassificationManager:
                     reasoning_value=reasoning)
       # --- End Log ---
 
-      # --- Create ClassificationOutput with metadata --- 
+      # --- Create ClassificationOutput with metadata ---
       # Create the final output including the extracted metadata
       output = ClassificationOutput(
           lead_type=classification,
           reasoning=reasoning,
-          requires_human_review=True, # Default to needing review after AI call?
-          metadata=extracted_details.model_dump(exclude_none=True) # Add extracted details to metadata
+          requires_human_review=True,  # Default to needing review after AI call?
+          metadata=extracted_details.model_dump(
+              exclude_none=True)  # Add extracted details to metadata
       )
       # Add owner team to metadata if determined
       if owner_team != "None":
           # Ensure metadata exists before adding to it (it should, as we just created it)
-          if output.metadata is None: output.metadata = {}
-          output.metadata["assigned_owner_team"] = owner_team
-      # --- End Create ClassificationOutput --- 
+        if output.metadata is None:
+          output.metadata = {}
+        output.metadata["assigned_owner_team"] = owner_team
+      # --- End Create ClassificationOutput ---
 
       return output
 

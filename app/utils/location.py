@@ -340,7 +340,9 @@ def _extract_coordinates_safely(location_obj) -> Tuple[Optional[float], Optional
 
 
 def determine_locality_from_description(
-    location_description: Optional[str], state_code: Optional[str] = None
+    location_description: str, state_code: Optional[str] = None,
+    city: Optional[str] = None,
+    postal_code: Optional[str] = None,
 ) -> bool:
   """
   Determine if a location description refers to a local area using geocoding.

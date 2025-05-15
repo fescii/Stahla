@@ -12,10 +12,10 @@ Content-Type: application/json
   "city": "New York",
   "event_start_date": "2025-05-25",
   "event_end_date": "2025-05-25",
-  "firstname": "Pau",
-  "lastname": "Melody",
+  "firstname": "Fredrick",
+  "lastname": "Femar",
   "phone": "713253018",
-  "email": "paumelodies@gmail.com",
+  "email": "fredrick.femar@gmail.com",
   "by_submitting_this_form_you_consent_to_receive_texts": true
 }
 

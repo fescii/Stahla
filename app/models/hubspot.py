@@ -110,13 +110,10 @@ class HubSpotContactProperties(BaseModel):
       None, alias="ai_call_summary")  # Multi-line text
   ai_call_sentiment: Optional[str] = Field(
       None, alias="ai_call_sentiment")  # Single line text
-  call_recording_url: Optional[HttpUrl] = Field(
+  call_recording_url: Optional[str] = Field(  # Changed HttpUrl to str
       None, alias="call_recording_url")  # Single-line text (URL)
   call_summary: Optional[str] = Field(
       None, alias="call_summary")  # Multi-line text
-  # Added based on call.json variables (assuming these exist or will be created in HubSpot)
-  contact_consent_given: Optional[bool] = Field(
-      None, alias="contact_consent_given")  # Maps to contact_consent_given from call
 
   model_config = {
       "populate_by_name": True  # Allows using alias for HubSpot internal names
@@ -203,8 +200,8 @@ class HubSpotLeadProperties(BaseModel):
       None, alias="ai_qualification_notes")
   number_of_stalls: Optional[int] = Field(
       None, alias="number_of_stalls")  # Number (integer)
-  event_duration_days: Optional[int] = Field(
-      None, alias="event_duration_days")  # Number (integer)
+  event_duration_days: Optional[float] = Field(  # Changed int to float
+      None, alias="event_duration_days")  # Number (decimal)
   guest_count_estimate: Optional[int] = Field(
       None, alias="guest_count_estimate")  # Number (integer)
   ai_estimated_value: Optional[float] = Field(

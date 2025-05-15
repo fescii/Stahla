@@ -87,19 +87,13 @@ class Settings(BaseSettings):
   # Bland.ai Configuration
   BLAND_API_KEY: str = "YOUR_BLAND_AI_KEY_HERE"
   BLAND_API_URL: str = "https://api.bland.ai"
-  # Default Bland Voice ID (optional, can be overridden in requests)
-  BLAND_DEFAULT_VOICE_ID: Optional[int] = None
-  # Add setting for phone prefix
-  BLAND_PHONE_PREFIX: Optional[str] = Field(
-      None, validation_alias="BLAND_PHONE_PREFIX")
-  # Add setting for Conversation Pathway ID
-  BLAND_PATHWAY_ID: Optional[str] = Field(
-      None, validation_alias="BLAND_PATHWAY_ID")
-  # Changed: Made mandatory
-  BLAND_LOCATION_TOOL_ID: str = Field(...,
-                                      validation_alias="BLAND_LOCATION_TOOL_ID")
-  # Changed: Made mandatory
-  BLAND_QUOTE_TOOL_ID: str = Field(..., validation_alias="BLAND_QUOTE_TOOL_ID")
+  BLAND_PATHWAY_ID: Optional[str] = None
+  BLAND_LOCATION_TOOL_ID: Optional[str] = None
+  BLAND_QUOTE_TOOL_ID: Optional[str] = None
+  # Default voice ID if not set in environment
+  BLAND_VOICE_ID: Optional[str] = None
+  # Optional phone prefix for Bland calls (e.g., "+1")
+  BLAND_PHONE_PREFIX: Optional[str] = None
 
   # Logfire Configuration
   LOGFIRE_TOKEN: Optional[str] = Field(None, validation_alias="LOGFIRE_TOKEN")

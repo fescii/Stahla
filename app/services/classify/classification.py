@@ -2,6 +2,7 @@
 
 import logfire
 from typing import Optional, Tuple
+from datetime import datetime, date
 
 # Import models
 from app.models.classification import (
@@ -16,6 +17,51 @@ from app.core.config import settings  # Import settings for threshold
 from app.services.classify.rules import classify_lead
 from app.services.classify.marvin import marvin_classification_manager
 from app.utils.location import determine_locality_from_description
+
+# --- Add a date normalization utility ---
+
+
+def _normalize_date_field_to_yyyy_mm_dd(date_value: any) -> Optional[str]:
+  """Normalize various date inputs to a 'YYYY-MM-DD' string or None."""
+  if date_value is None:
+    return None
+
+  # Handles datetime.datetime and datetime.date
+  if isinstance(date_value, (datetime, date)):
+    return date_value.strftime("%Y-%m-%d")
+
+  if isinstance(date_value, str):
+    # Check if already in YYYY-MM-DD format
+    if _is_valid_iso_date(date_value):
+      return date_value
+
+    # Attempt to parse from millisecond timestamp string
+    try:
+      timestamp_ms = int(date_value)
+      dt_object = datetime.fromtimestamp(timestamp_ms / 1000)
+      return dt_object.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+      pass  # Not a simple integer timestamp string
+
+    # If it's a string but not YYYY-MM-DD or a timestamp, log and return None
+    # This indicates Marvin did not follow the YYYY-MM-DD instruction
+    logfire.warn(
+        f"Received non-standard date string from AI/data: '{date_value}'. Expected YYYY-MM-DD or ms timestamp. Normalization to YYYY-MM-DD failed.")
+    return None
+
+  if isinstance(date_value, (int, float)):
+    # Assume it's a millisecond timestamp if numeric
+    try:
+      dt_object = datetime.fromtimestamp(date_value / 1000)
+      return dt_object.strftime("%Y-%m-%d")
+    except (ValueError, TypeError) as e:
+      logfire.warn(
+          f"Error converting numeric timestamp '{date_value}' to date: {e}")
+      return None
+
+  logfire.warn(
+      f"Unparseable date type ('{type(date_value)}') for value: '{date_value}'. Returning None.")
+  return None
 
 
 class ClassificationManager:
@@ -284,7 +330,6 @@ class ClassificationManager:
           "by_submitting_this_form_you_consent_to_receive_texts": getattr(input_data, 'by_submitting_this_form_you_consent_to_receive_texts', None),
           "partner_referral_consent": getattr(input_data, 'referral_accepted', None),
           "recording_consent_given": getattr(input_data, 'recording_consent_given', None),
-          "contact_consent_given": getattr(input_data, 'contact_consent_given', None),
           "follow_up_call_scheduled": getattr(input_data, 'follow_up_call_scheduled', None),
 
           # Decision and Quoting
@@ -301,6 +346,23 @@ class ClassificationManager:
       if settings.LLM_PROVIDER.lower() == "marvin" and settings.MARVIN_API_KEY and classification_output and classification_output.metadata:
         metadata.update(classification_output.metadata)
       # --- End Update ---
+
+      # --- Normalize date fields in metadata after potential Marvin update ---
+      date_fields_in_metadata = [
+          'event_start_date', 'event_end_date',
+          'rental_start_date', 'rental_end_date',
+          'start_date', 'end_date'  # Common fields that might come from Marvin
+      ]
+      for field_name in date_fields_in_metadata:
+        if field_name in metadata:
+          original_date_value = metadata[field_name]
+          normalized_date = _normalize_date_field_to_yyyy_mm_dd(
+              original_date_value)
+          if normalized_date != original_date_value:  # Log if a change occurred or failed
+            logfire.debug(
+                f"Normalized metadata date field '{field_name}': from '{original_date_value}' to '{normalized_date}'")
+          metadata[field_name] = normalized_date
+      # --- End Date Normalization ---
 
       # Prepare output
       output = ClassificationOutput(

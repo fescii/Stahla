@@ -59,9 +59,7 @@ async def webhook_voice(
 
   # Process transcript
   processing_result = await bland_manager.process_incoming_transcript(
-      payload,
-      mongo_service=mongo_service,  # Pass mongo_service
-      background_tasks=background_tasks  # Pass background_tasks
+      payload
   )
 
   if processing_result.status == "error":

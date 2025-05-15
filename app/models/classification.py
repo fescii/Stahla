@@ -258,8 +258,10 @@ class ExtractedCallDetails(BaseModel):
       None, description="Mentioned state (2-letter code if possible).")
   postal_code: Optional[str] = Field(
       None, description="Mentioned postal/ZIP code.")  # Added
-  start_date: Optional[str] = Field(None, description="Mentioned start date.")
-  end_date: Optional[str] = Field(None, description="Mentioned end date.")
+  start_date: Optional[str] = Field(
+      None, description="Mentioned start date. MUST be formatted as YYYY-MM-DD.")
+  end_date: Optional[str] = Field(
+      None, description="Mentioned end date. MUST be formatted as YYYY-MM-DD.")
   duration_days: Optional[int] = Field(
       None, description="Mentioned duration in days.")
   guest_count: Optional[int] = Field(
