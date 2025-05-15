@@ -1,0 +1,34 @@
+{
+  "name": "BackgroundLocationLookupTool_v2",
+  "description": "Sends a full delivery address string to an internal API for background lookup, geocoding, distance calculation, and caching. Designed to be non-blocking for the conversation flow.",
+  "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/location/lookup",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer 7%FRtf@34hi"
+  },
+  "input_schema": {
+    "example": {
+      "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA 94043"
+    },
+    "type": "object",
+    "properties": {
+      "delivery_location": {
+        "type": "string",
+        "description": "The full, concatenated delivery address string (e.g., '123 Main St, Anytown, CA 90210')."
+      }
+    },
+    "required": [
+      "delivery_location"
+    ]
+  },
+  "body": {
+    "delivery_location": "{{input.delivery_location}}"
+  },
+  "response": {
+    "lookup_success": "$.success",
+    "lookup_message": "$.data.message"
+  },
+  "speech": null,
+  "timeout": 7000
+}

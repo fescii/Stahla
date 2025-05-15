@@ -55,3 +55,8 @@ pandas>=2.0.0
 python-jose[cryptography]>=3.3.0
 bcrypt>=3.2  # Add bcrypt explicitly
 motor>=3.0  # Add async MongoDB driver
+
+pymongo~=4.12.1
+starlette~=0.46.2
+protobuf~=5.29.4
+cachetools~=5.5.2

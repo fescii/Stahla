@@ -1,6 +1,6 @@
 # app/api/v1/endpoints/webhooks/voice.py
 
-from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status, Depends
 import logfire
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
@@ -14,6 +14,7 @@ from app.models.common import GenericResponse
 from app.services.bland import bland_manager
 from app.services.classify.classification import classification_manager
 from app.services.hubspot import hubspot_manager
+from app.services.mongo.mongo import MongoService, get_mongo_service  # Added import
 
 # Import helpers
 from .helpers import (
@@ -25,13 +26,15 @@ from .helpers import (
 router = APIRouter()
 
 # Define a response model for the data part of GenericResponse
+
+
 class VoiceWebhookResponseData(BaseModel):
-    status: str
-    source: str
-    action: str
-    classification: Optional[ClassificationOutput] = None
-    hubspot_contact_id: Optional[str] = None
-    hubspot_lead_id: Optional[str] = None
+  status: str
+  source: str
+  action: str
+  classification: Optional[ClassificationOutput] = None
+  hubspot_contact_id: Optional[str] = None
+  hubspot_lead_id: Optional[str] = None
 
 
 @router.post(
@@ -41,7 +44,9 @@ class VoiceWebhookResponseData(BaseModel):
 )
 async def webhook_voice(
     payload: BlandWebhookPayload = Body(...),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    mongo_service: MongoService = Depends(
+        get_mongo_service)  # Added dependency
 ) -> GenericResponse[VoiceWebhookResponseData]:
   """
   Handles incoming webhook submissions containing voice transcripts from Bland.ai.
@@ -53,7 +58,11 @@ async def webhook_voice(
                call_id=payload.call_id)
 
   # Process transcript
-  processing_result = await bland_manager.process_incoming_transcript(payload)
+  processing_result = await bland_manager.process_incoming_transcript(
+      payload,
+      mongo_service=mongo_service,  # Pass mongo_service
+      background_tasks=background_tasks  # Pass background_tasks
+  )
 
   if processing_result.status == "error":
     logfire.error("Failed to process Bland transcript.",
@@ -80,39 +89,45 @@ async def webhook_voice(
   elif getattr(payload, 'metadata', None) and isinstance(payload.metadata, dict):
     metadata = payload.metadata
 
-  contact_properties_from_hubspot: Dict[str, Any] = {} # Initialize dict for fetched properties
+  # Initialize dict for fetched properties
+  contact_properties_from_hubspot: Dict[str, Any] = {}
 
   if metadata:
     hubspot_contact_id = metadata.get("hubspot_contact_id")
     hubspot_lead_id = metadata.get("hubspot_lead_id")
     logfire.info("Found metadata in Bland payload.",
                  contact_id=hubspot_contact_id, lead_id=hubspot_lead_id)
-    
-    # --- Fetch HubSpot Contact Details --- 
+
+    # --- Fetch HubSpot Contact Details ---
     if hubspot_contact_id:
-        logfire.info(f"Fetching HubSpot contact details for ID: {hubspot_contact_id}")
-        contact_result = await hubspot_manager.get_contact_by_id(hubspot_contact_id)
-        
-        # Check status first
-        if contact_result.status == "success":
-            # Check if 'details' attribute exists and is a dictionary
-            if contact_result.details and isinstance(contact_result.details, dict):
-                # Check if 'properties' key exists within 'details' and is not None/empty
-                fetched_properties = contact_result.details.get('properties')
-                if fetched_properties and isinstance(fetched_properties, dict):
-                    contact_properties_from_hubspot = fetched_properties
-                    logfire.info("Successfully fetched HubSpot contact properties.", properties=contact_properties_from_hubspot)
-                else:
-                    logfire.warn("HubSpot contact details fetched, but 'properties' key is missing or empty.", contact_id=hubspot_contact_id, details=contact_result.details)
-            else:
-                # Status was success, but 'details' attribute was missing or not a dict
-                logfire.warn("HubSpot contact fetch successful, but no valid details data found.", contact_id=hubspot_contact_id, raw_details=contact_result.details)
+      logfire.info(
+          f"Fetching HubSpot contact details for ID: {hubspot_contact_id}")
+      contact_result = await hubspot_manager.get_contact_by_id(hubspot_contact_id)
+
+      # Check status first
+      if contact_result.status == "success":
+        # Check if 'details' attribute exists and is a dictionary
+        if contact_result.details and isinstance(contact_result.details, dict):
+          # Check if 'properties' key exists within 'details' and is not None/empty
+          fetched_properties = contact_result.details.get('properties')
+          if fetched_properties and isinstance(fetched_properties, dict):
+            contact_properties_from_hubspot = fetched_properties
+            logfire.info("Successfully fetched HubSpot contact properties.",
+                         properties=contact_properties_from_hubspot)
+          else:
+            logfire.warn("HubSpot contact details fetched, but 'properties' key is missing or empty.",
+                         contact_id=hubspot_contact_id, details=contact_result.details)
         else:
-            # Status was not "success"
-            error_message = getattr(contact_result, 'message', 'Unknown error') # Safely get error message
-            logfire.warn("Failed to fetch HubSpot contact details from voice webhook.", 
-                         contact_id=hubspot_contact_id, error=error_message)
-    # --- End Fetch --- 
+          # Status was success, but 'details' attribute was missing or not a dict
+          logfire.warn("HubSpot contact fetch successful, but no valid details data found.",
+                       contact_id=hubspot_contact_id, raw_details=contact_result.details)
+      else:
+        # Status was not "success"
+        # Safely get error message
+        error_message = getattr(contact_result, 'message', 'Unknown error')
+        logfire.warn("Failed to fetch HubSpot contact details from voice webhook.",
+                     contact_id=hubspot_contact_id, error=error_message)
+    # --- End Fetch ---
 
     form_data = metadata.get('form_submission_data', {})
     if form_data:
@@ -121,19 +136,22 @@ async def webhook_voice(
       # Update extracted_data, giving priority to form_data for common fields
       extracted_data.update(form_data)
 
-  # --- Merge Fetched HubSpot Properties --- 
+  # --- Merge Fetched HubSpot Properties ---
   # Merge fetched properties, giving priority to existing extracted_data (from call/form metadata)
-  merged_extracted_data = contact_properties_from_hubspot.copy() # Start with HubSpot data
-  merged_extracted_data.update(extracted_data) # Overwrite with call/form data if present
-  extracted_data = merged_extracted_data # Use the merged data going forward
-  # --- End Merge --- 
+  # Start with HubSpot data
+  merged_extracted_data = contact_properties_from_hubspot.copy()
+  # Overwrite with call/form data if present
+  merged_extracted_data.update(extracted_data)
+  extracted_data = merged_extracted_data  # Use the merged data going forward
+  # --- End Merge ---
 
   # Add call-specific details (ensure they don't overwrite metadata if already present)
   extracted_data.setdefault(
       "call_recording_url", getattr(payload, 'recording_url', None))
   extracted_data.setdefault("call_summary", getattr(payload, 'summary', None))
   # Ensure full_transcript is also added if needed
-  extracted_data.setdefault("full_transcript", getattr(payload, 'concatenated_transcript', None))
+  extracted_data.setdefault("full_transcript", getattr(
+      payload, 'concatenated_transcript', None))
 
   logfire.info("Final data prepared for classification (Voice)",
                has_email=bool(extracted_data.get('email')),
@@ -156,38 +174,43 @@ async def webhook_voice(
   logfire.info("Classification result received.",
                result=classification_result.model_dump(exclude={"input_data"}))
 
-  # --- Update classification_input with extracted details --- 
+  # --- Update classification_input with extracted details ---
   if classification_result.status == "success" and classification_result.classification:
-      extracted_metadata = classification_result.classification.metadata or {}
-      logfire.info("Updating classification_input with extracted metadata", metadata=extracted_metadata)
-      
-      # Fields to update from extracted metadata
-      fields_to_update = {
-          "product_interest": extracted_metadata.get("product_interest"),
-          "event_type": extracted_metadata.get("event_type"),
-          "event_address": extracted_metadata.get("location"), # Map location to event_address
-          "event_state": extracted_metadata.get("state"), # Assuming AI extracts state
-          "event_city": extracted_metadata.get("city"), # Assuming AI extracts city
-          "event_postal_code": extracted_metadata.get("postal_code"), # Assuming AI extracts postal code
-          "duration_days": extracted_metadata.get("duration_days"),
-          "event_start_date": extracted_metadata.get("start_date"),
-          "event_end_date": extracted_metadata.get("end_date"),
-          "guest_count": extracted_metadata.get("guest_count"),
-          "required_stalls": extracted_metadata.get("required_stalls"),
-          "ada_required": extracted_metadata.get("ada_required"),
-          "budget_mentioned": extracted_metadata.get("budget_mentioned"),
-          "comments": extracted_metadata.get("comments"), # Map comments
-          "power_available": extracted_metadata.get("power_available"),
-          "water_available": extracted_metadata.get("water_available"),
-          # Add service_needed if AI extracts it, otherwise it remains from initial data
-          # "service_needed": extracted_metadata.get("service_needed"), 
-      }
+    extracted_metadata = classification_result.classification.metadata or {}
+    logfire.info("Updating classification_input with extracted metadata",
+                 metadata=extracted_metadata)
 
-      for field, value in fields_to_update.items():
-          if value is not None:
-              setattr(classification_input, field, value)
-              logfire.debug(f"Updated classification_input.{field}", value=value)
-  # --- End Update --- 
+    # Fields to update from extracted metadata
+    fields_to_update = {
+        "product_interest": extracted_metadata.get("product_interest"),
+        "event_type": extracted_metadata.get("event_type"),
+        # Map location to event_address
+        "event_address": extracted_metadata.get("location"),
+        # Assuming AI extracts state
+        "event_state": extracted_metadata.get("state"),
+        # Assuming AI extracts city
+        "event_city": extracted_metadata.get("city"),
+        # Assuming AI extracts postal code
+        "event_postal_code": extracted_metadata.get("postal_code"),
+        "duration_days": extracted_metadata.get("duration_days"),
+        "event_start_date": extracted_metadata.get("start_date"),
+        "event_end_date": extracted_metadata.get("end_date"),
+        "guest_count": extracted_metadata.get("guest_count"),
+        "required_stalls": extracted_metadata.get("required_stalls"),
+        "ada_required": extracted_metadata.get("ada_required"),
+        "budget_mentioned": extracted_metadata.get("budget_mentioned"),
+        "comments": extracted_metadata.get("comments"),  # Map comments
+        "power_available": extracted_metadata.get("power_available"),
+        "water_available": extracted_metadata.get("water_available"),
+        # Add service_needed if AI extracts it, otherwise it remains from initial data
+        # "service_needed": extracted_metadata.get("service_needed"),
+    }
+
+    for field, value in fields_to_update.items():
+      if value is not None:
+        setattr(classification_input, field, value)
+        logfire.debug(f"Updated classification_input.{field}", value=value)
+  # --- End Update ---
 
   # HubSpot Integration (Update or Create)
   final_contact_id: Optional[str] = None
@@ -200,7 +223,7 @@ async def webhook_voice(
     background_tasks.add_task(
         _update_hubspot_lead_after_classification,
         classification_result,
-        classification_input, # Pass updated input
+        classification_input,  # Pass updated input
         hubspot_contact_id,
         hubspot_lead_id
     )

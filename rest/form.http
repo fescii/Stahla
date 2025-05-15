@@ -5,17 +5,17 @@ POST http://localhost:8000/api/v1/hubspot/test/contact
 Content-Type: application/json
 
 {
-  "What service do you need?": "Porta Potty",
-  "How Many Portable Toilet Stalls?": 1,
-  "Event or Job Address": "3035 New Street, New York, NY, USA",
-  "Postal code": "10001",
-  "City": "New York",
-  "Event start date": "2025-05-25",
-  "Event end date": "2025-05-25",
-  "First name": "Pau",
-  "Last name": "Melody",
-  "Phone number": "713253018",
-  "Email": "paumelodies@gmail.com",
-  "I consent to receive texts on the phone number provided": true
+  "what_service_do_you_need": "Porta Potty",
+  "how_many_portable_toilet_stalls_": 1,
+  "address": "3035 New Street, New York, NY, USA",
+  "zip": "10001",
+  "city": "New York",
+  "event_start_date": "2025-05-25",
+  "event_end_date": "2025-05-25",
+  "firstname": "Pau",
+  "lastname": "Melody",
+  "phone": "713253018",
+  "email": "paumelodies@gmail.com",
+  "by_submitting_this_form_you_consent_to_receive_texts": true
 }
 

@@ -1,0 +1,17 @@
+{
+  "knowledge": {
+    "vector_id": "KB-2e537845-67d3-4e3b-8fa6-5df82d6692de"
+  },
+  "tools": {
+    "location": {
+      "name": "BackgroundLocationLookupTool_v2",
+      "tool_id": "TL-29358830-2f06-4342-83b0-453265aedb56",
+      "timeout": 7000
+    },
+    "quote": {
+      "name": "StahlaQuoteTool_v2",
+      "tool_id": "TL-9cf9e441-f903-4073-9176-a422736444d3",
+      "timeout": 20000
+    }
+  }
+}

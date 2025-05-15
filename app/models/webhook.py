@@ -103,16 +103,18 @@ class HubSpotPropertyVersion(BaseModel):
   source_label: Optional[str] = Field(None, alias='source-label')
   timestamp: int
   # Add other potential fields if needed, allowing extras
+
   class Config:
-      extra = 'allow'
-      populate_by_name = True
+    extra = 'allow'
+    populate_by_name = True
 
 
 class HubSpotPropertyDetail(BaseModel):
   value: Any
   versions: List[HubSpotPropertyVersion]
+
   class Config:
-      extra = 'allow'
+    extra = 'allow'
 
 
 class HubSpotIdentity(BaseModel):
@@ -121,32 +123,37 @@ class HubSpotIdentity(BaseModel):
   timestamp: int
   is_primary: Optional[bool] = Field(None, alias='is-primary')
   source: Optional[str] = None
+
   class Config:
-      extra = 'allow'
-      populate_by_name = True
+    extra = 'allow'
+    populate_by_name = True
 
 
 class HubSpotIdentityProfile(BaseModel):
   vid: int
   identities: List[HubSpotIdentity]
   # Add other potential fields if needed, allowing extras
+
   class Config:
-      extra = 'allow'
+    extra = 'allow'
 
 
 class HubSpotAssociatedCompanyPropertyDetail(BaseModel):
-    value: Any
-    # Simplified for now, assuming we only need the value
-    class Config:
-        extra = 'allow'
+  value: Any
+  # Simplified for now, assuming we only need the value
+
+  class Config:
+    extra = 'allow'
+
 
 class HubSpotAssociatedCompany(BaseModel):
-    company_id: int = Field(..., alias='company-id')
-    portal_id: int = Field(..., alias='portal-id')
-    properties: Dict[str, HubSpotAssociatedCompanyPropertyDetail]
-    class Config:
-        extra = 'allow'
-        populate_by_name = True
+  company_id: int = Field(..., alias='company-id')
+  portal_id: int = Field(..., alias='portal-id')
+  properties: Dict[str, HubSpotAssociatedCompanyPropertyDetail]
+
+  class Config:
+    extra = 'allow'
+    populate_by_name = True
 
 
 class HubSpotContactDataPayload(BaseModel):
@@ -158,13 +165,16 @@ class HubSpotContactDataPayload(BaseModel):
   merged_vids: List[int] = Field(..., alias='merged-vids')
   portal_id: int = Field(..., alias='portal-id')
   is_contact: bool = Field(..., alias='is-contact')
-  properties: Dict[str, Optional[HubSpotPropertyDetail]] # Make detail optional as some props might be null
+  # Make detail optional as some props might be null
+  properties: Dict[str, Optional[HubSpotPropertyDetail]]
   form_submissions: List[Any] = Field(..., alias='form-submissions')
   list_memberships: List[Any] = Field(..., alias='list-memberships')
-  identity_profiles: List[HubSpotIdentityProfile] = Field(..., alias='identity-profiles')
+  identity_profiles: List[HubSpotIdentityProfile] = Field(
+      ..., alias='identity-profiles')
   merge_audits: List[Any] = Field(..., alias='merge-audits')
-  associated_company: Optional[HubSpotAssociatedCompany] = Field(None, alias='associated-company')
+  associated_company: Optional[HubSpotAssociatedCompany] = Field(
+      None, alias='associated-company')
 
   class Config:
-    extra = 'allow' # Allow fields not explicitly defined
-    populate_by_name = True # Allow using aliases like 'portal-id'
+    extra = 'allow'  # Allow fields not explicitly defined
+    populate_by_name = True  # Allow using aliases like 'portal-id'

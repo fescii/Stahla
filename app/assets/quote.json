@@ -1,0 +1,120 @@
+{
+  "name": "StahlaGetQuoteTool_v2",
+  "description": "Retrieves a detailed quote from the Stahla quoting API based on location, trailer type, rental duration, usage, and extras.",
+  "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/quote",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer 7%FRtf@34hi"
+  },
+  "input_schema": {
+    "example": {
+      "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA 94043",
+      "trailer_type": "2 Stall Restroom Trailer",
+      "rental_start_date": "2025-07-15",
+      "rental_days": 3,
+      "usage_type": "event",
+      "extras_list": [
+        {
+          "extra_id": "3kW Generator",
+          "qty": 1
+        }
+      ],
+      "contact_name": "Jane Doe",
+      "contact_email": "jane.doe@example.com",
+      "phone_number": "+15551234567",
+      "company_name": "Example Corp"
+    },
+    "type": "object",
+    "properties": {
+      "delivery_location": {
+        "type": "string",
+        "description": "Full delivery address string, processed by the location lookup tool."
+      },
+      "trailer_type": {
+        "type": "string",
+        "description": "Specific type of trailer or porta potty requested (e.g., '2 Stall Restroom Trailer', 'ADA Porta Potty'). Should align with Stahla product names."
+      },
+      "rental_start_date": {
+        "type": "string",
+        "format": "date",
+        "description": "Desired start date of rental (YYYY-MM-DD)."
+      },
+      "rental_days": {
+        "type": "number",
+        "description": "Total number of days for the rental."
+      },
+      "usage_type": {
+        "type": "string",
+        "description": "Intended use of the rental (e.g., 'event', 'commercial', 'construction', 'disaster_relief')."
+      },
+      "extras_list": {
+        "type": "array",
+        "description": "A list of additional items or services. Each item should be an object with 'extra_id' (string, e.g., '3kW Generator', 'pump_out', 'cleaning') and 'qty' (number).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "extra_id": {
+              "type": "string"
+            },
+            "qty": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "extra_id",
+            "qty"
+          ]
+        }
+      },
+      "contact_name": {
+        "type": "string",
+        "description": "Full name of the primary contact person."
+      },
+      "contact_email": {
+        "type": "string",
+        "description": "Email address of the contact person."
+      },
+      "phone_number": {
+        "type": "string",
+        "description": "Phone number of the contact person."
+      },
+      "company_name": {
+        "type": "string",
+        "description": "Name of the company, if applicable."
+      }
+    },
+    "required": [
+      "delivery_location",
+      "trailer_type",
+      "rental_start_date",
+      "rental_days",
+      "usage_type"
+    ]
+  },
+  "body": {
+    "delivery_location": "{{input.delivery_location}}",
+    "trailer_type": "{{input.trailer_type}}",
+    "rental_start_date": "{{input.rental_start_date}}",
+    "rental_days": "{{input.rental_days}}",
+    "usage_type": "{{input.usage_type}}",
+    "extras": "{{input.extras_list}}",
+    "customer_details": {
+      "name": "{{input.contact_name}}",
+      "email": "{{input.contact_email}}",
+      "phone": "{{input.phone_number}}",
+      "company": "{{input.company_name}}"
+    }
+  },
+  "response": {
+    "quote_api_success": "$.success",
+    "quote_id": "$.data.quote_id",
+    "estimated_total": "$.data.quote.budget_details.estimated_total",
+    "line_items_summary": "$.data.quote.line_items",
+    "quote_notes": "$.data.quote.notes",
+    "delivery_cost": "$.data.quote.delivery_details.total_delivery_cost",
+    "api_error_message": "$.error_message"
+  },
+  "speech": "Okay, Hang tight while I try to retrieve a quote for you based on the information you provided. This may take a few seconds.",
+  "timeout": 20000
+}

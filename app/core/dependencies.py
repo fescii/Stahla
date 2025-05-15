@@ -21,30 +21,33 @@ from app.services.bland import (
 # Dependency to get the LocationService instance
 # This service needs its own dependencies injected
 def get_location_service_dep(
-    redis_service: RedisService = Depends(get_redis_service),  # Use direct injector
+    redis_service: RedisService = Depends(
+        get_redis_service),  # Use direct injector
     mongo_service: MongoService = Depends(
         get_mongo_service
     ),  # Add mongo_service dependency
 ) -> LocationService:
-    # Instantiate LocationService with its dependencies
-    return LocationService(redis_service, mongo_service)
+  # Instantiate LocationService with its dependencies
+  return LocationService(redis_service, mongo_service)
 
 
 # Dependency to get the DashboardService instance
 # This service needs its own dependencies injected
 def get_dashboard_service_dep(
-    redis_service: RedisService = Depends(get_redis_service),  # Use direct injector
-    mongo_service: MongoService = Depends(get_mongo_service),  # Use direct injector
+    redis_service: RedisService = Depends(
+        get_redis_service),  # Use direct injector
+    mongo_service: MongoService = Depends(
+        get_mongo_service),  # Use direct injector
     # Removed sync_service from here, it's internal to DashboardService now
 ) -> DashboardService:
-    # Instantiate DashboardService with its dependencies
-    # sync_service will be initialized within DashboardService if needed
-    return DashboardService(redis_service=redis_service, mongo_service=mongo_service)
+  # Instantiate DashboardService with its dependencies
+  # sync_service will be initialized within DashboardService if needed
+  return DashboardService(redis_service=redis_service, mongo_service=mongo_service)
 
 
 # Dependency to get the BlandAIManager instance (the singleton)
 def get_bland_manager_dep() -> BlandAIManager:
-    return bland_manager
+  return bland_manager
 
 
 # Dependency to get the QuoteService instance

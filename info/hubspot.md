@@ -1,109 +1,131 @@
-# Form Input: from the website (Example Submission)
+I'll help you understand how Hubspot is used in this application and provide instructions for creating an API key, access token, and webhook for receiving triggered data from contact creation. Let me first check the relevant Hubspot files and usage in the codebase.
 
-What service do you need?  
-Porta Potty
+Based on my analysis of the codebase, I can see that this application integrates with HubSpot for lead management and CRM functionality. Let me provide instructions for the client on how to create an API key, access token, and set up a webhook for receiving triggered data from contact creation in HubSpot.
 
-How Many Portable Toilet Stalls?  
-1
+# Instructions for HubSpot Integration with Stahla AI SDR
 
-Event or Job Address  
-3035 Whitmore Street, Omaha, NE, USA
+## 1. Generate a HubSpot Private App Access Token
 
-Postal code  
-68112
+The application uses HubSpot's API for managing contacts, companies, deals, and more. To set up the integration:
 
-City  
-Omaha
+1. **Log in to your HubSpot account**: Go to [https://app.hubspot.com/](https://app.hubspot.com/)
 
-Event start date  
-5/25/25
+2. **Create a Private App**:
 
-Event end date  
-5/25/25
+   - Navigate to Settings (gear icon) > Integrations > Private Apps
+   - Click "Create private app"
+   - Fill in basic details:
+     - App name: "Stahla AI SDR"
+     - Description: "Integration for Stahla AI SDR application"
 
-First name  
-Carolyn
+3. **Set Required Scopes**:
+   Based on the code, the following scopes are needed:
 
-Last name  
-Lee
+   - `crm.objects.contacts.read` and `crm.objects.contacts.write`
+   - `crm.objects.companies.read` and `crm.objects.companies.write`
+   - `crm.objects.deals.read` and `crm.objects.deals.write`
+   - `crm.objects.owners.read`
+   - `crm.schemas.pipeline.read`
+   - `crm.associations.read` and `crm.associations.write`
 
-Phone number  
-4022083411
+4. **Create App and Copy Access Token**:
 
-Email  
-crawfordlee52@hotmail.com
+   - Click "Create app"
+   - After creation, you'll be shown the access token
+   - **Important**: This token is shown only once, so copy it immediately
 
-I consent to receive texts on the phone number provided  
-Yes
+5. **Update Environment Variables**:
+   - Open your .env file
+   - Set `HUBSPOT_ACCESS_TOKEN="your_access_token_here"`
 
----
+## 2. Update HubSpot Association Type IDs
 
-**Contact Properties:**
+The application uses specific association type IDs for connecting different objects in HubSpot. Update these in your .env file:
 
-*Properties marked with `*` are likely relevant inputs for the API based on the form.*
+```
+HUBSPOT_ASSOCIATION_TYPE_ID_DEAL_TO_CONTACT=1
+HUBSPOT_ASSOCIATION_TYPE_ID_DEAL_TO_COMPANY=2
+HUBSPOT_ASSOCIATION_TYPE_ID_COMPANY_TO_CONTACT=3
+HUBSPOT_ASSOCIATION_TYPE_ID_TICKET_TO_CONTACT=4
+HUBSPOT_ASSOCIATION_TYPE_ID_TICKET_TO_DEAL=5
+```
 
-| Property                                                     | Internal Name                                          | Notes / Confirmation Needed?                                                                                                                               |
-| :----------------------------------------------------------- | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| *What services do you need?                                  | `what_service_do_you_need_`                            | Multiple checkboxes. Options: Restroom Trailer, Shower Trailer, Laundry Trailer, Porta Potty, Trailer Repair / Pump Out, Other. Status: Already Created. |
-| How Many Restroom Stalls?                                    | `how_many_restroom_stalls_`                            | Number. Status: Already Created.                                                                                                                           |
-| How Many Shower Stalls?                                      | `how_many_shower_stalls_`                              | Number. Status: Already Created.                                                                                                                           |
-| How many laundry Units?                                      | `how_many_laundry_units_`                              | Number. Status: Already Created.                                                                                                                           |
-| Tell us how we can help                                      | `your_message`                                         | Multi-line text. Status: Already Created.                                                                                                                  |
-| Do you have water access available onsite?                   | `do_you_have_water_access_onsite_`                     | Single-line text. Status: Already Created.                                                                                                                 |
-| Do you have power access available onsite?                   | `do_you_have_power_access_onsite_`                     | Single-line text. Status: Already Created.                                                                                                                 |
-| Check this box if you need the ADA standards                 | `ada`                                                  | Single Checkbox. Status: Already Created.                                                                                                                  |
-| *How Many Portable Toilet Stalls?                            | `how_many_portable_toilet_stalls_`                     | Number. Status: Already Created.                                                                                                                           |
-| *Event or Job Address                                        | `event_or_job_address`                                 | Single-line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
-| *Postal code                                                 | `zip`                                                  | Single line text. Status: Already Created.                                                                                                                 |
-| *City                                                        | `city`                                                 | Single-line text. Status: Already Created.                                                                                                                 |
-| Street Address                                               | `address`                                              | Single line text. Status: Already Created.                                                                                                                 |
-| *Event start date                                            | `event_start_date`                                     | Date Picker. Mandatory: Yes. Status: Already Created.                                                                                                      |
-| Event end date                                               | `event_end_date`                                       | Date Picker. Status: Already Created.                                                                                                                      |
-| *First name                                                  | `firstname`                                            | Single-line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
-| *Last name                                                   | `lastname`                                             | Single-line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
-| *Phone number                                                | `phone`                                                | Phone number. Mandatory: Yes. Status: Already Created.                                                                                                     |
-| *Email                                                       | `email`                                                | Single line text. Mandatory: Yes. Status: Already Created.                                                                                                 |
-| *Message                                                     | `message`                                              | Multi-line text. Status: Already Created.                                                                                                                  |
-| *I consent to receive texts on the phone number provided     | `by_submitting_this_form_you_consent_to_receive_texts` | Single checkbox. Status: Already Created.                                                                                                                  |
-| AI Call Summary                                              | `ai_call_summary`                                      | Multi-line text. Mandatory: Yes. Status: Needs to be Created. Description: Summary of the AI-qualified call details.                                      |
-| AI Call Sentiment                                            | `ai_call_sentiment`                                    | Single line text. Status: Needs to be Created. Description: Assessment of prospect sentiment/tone.                                                         |
-| Call Recording URL                                           | `call_recording_url`                                   | Single-line text. Status: Needs to be Created. Description: URL link to the recorded call                                                                  |
-| Call Summary                                                 | `call_summary`                                         | Multi-line text. Status: Needs to be Created. Description: AI-generated summary of what was discussed on the call                                          |
+Replace the numbers with the actual association type IDs from your HubSpot account. You can find these in HubSpot's API documentation or by contacting HubSpot support.
 
----
+## 3. Set Default Pipeline and Stage Names
 
-**Lead Properties:**
+Configure the default pipeline settings in your .env file:
 
-| Property                             | Internal Name                         | Notes / Confirmation Needed?                                                                                                                               |
-| :----------------------------------- | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project Category                     | `project_category`                    | Single line text. Mandatory: Yes. Status: Needs to be Created. Description: Type of inquiry or project (e.g. Event, Construction, Facility, Disaster Relief, Other) for this lead; used to tailor qualification flow and branching logic. |
-| Units Needed (Description)           | `units_needed`                        | Multi-line text. Mandatory: Yes. Status: Needs to be Created. Description: Summary of quantity and type of units required (e.g.: “2-stall restroom trailer and 10 portable toilets”). |
-| Expected Attendance/Users            | `expected_attendance`                 | Number. Status: Needs to be Created. Description: Number of people the facilities need to support (for events or project capacity).                         |
-| ADA Accessible Required              | `ada_required`                        | Single checkbox. Mandatory: Yes. Status: Needs to be Created. Description: Indicates if ADA-compliant (handicap accessible) facilities are needed.         |
-| Additional Services Needed           | `additional_services_needed`          | Multi-line text. Status: Needs to be Created. Description: Other services or equipment needed beyond core rentals (e.g. tent, fencing, generator, water supply, dumpster). |
-| Other Facilities On-site             | `onsite_facilities`                   | Single checkbox. Status: Needs to be Created. Description: Whether there are existing facilities at the site.                                              |
-| Rental Start Date                    | `rental_start_date`                   | Date picker. Status: Needs to be Created. Description: When the unit(s) will be needed on site.                                                            |
-| Rental End Date                      | `rental_end_date`                     | Date picker. Status: Needs to be Created. Description: Expected end date or pickup date for the rental.                                                    |
-| Site Working Hours                   | `site_working_hours`                  | Single-line text. Status: Needs to be Created. Description: Working hours or access times at the site.                                                     |
-| Weekend Service Needed               | `weekend_service_needed`              | Single checkbox. Status: Needs to be Created. Description: Indicates if service is required over the weekend.                                              |
-| Cleaning/Restocking Needed           | `cleaning_service_needed`             | Single checkbox. Status: Needs to be Created. Description: Indicates prospect needs cleaning or restocking service.                                        |
-| On-site Contact Name                 | `onsite_contact_name`                 | Single-line text. Status: Needs to be Created. Description: Alternate on-site contact name for coordination.                                               |
-| On-site Contact Phone                | `onsite_contact_phone`                | Phone number. Status: Needs to be Created. Description: Phone number for the on-site contact.                                                              |
-| Site Ground Surface Type             | `site_ground_type`                    | Single-line text. Status: Needs to be Created. Description: Ground/terrain at the drop-off location (e.g. Concrete, Gravel, Grass).                         |
-| Site Obstacles/Access Notes          | `site_obstacles`                      | Multi-line text. Status: Needs to be Created. Description: Notes on access limitations or obstacles at the site.                                           |
-| Distance to Water Source (ft)        | `water_source_distance`               | Number. Status: Needs to be Created. Description: Approximate distance from unit location to nearest water source.                                         |
-| Distance to Power Source (ft)        | `power_source_distance`               | Number. Status: Needs to be Created. Description: Approximate distance from unit location to nearest power source.                                         |
-| Within Local Service Area            | `within_local_service_area`           | Single checkbox. Mandatory: Yes. Status: Needs to be Created. Description: Checked if location is within ~3 hours of a service hub.                         |
-| Consent to Partner Referral          | `partner_referral_consent`            | Single checkbox. Status: Needs to be Created. Description: Indicates if prospect agreed to share info with partner companies.                                |
-| Needs Human Follow-Up                | `needs_human_follow_up`               | Single checkbox. Status: Needs to be Created. Description: Flag for AI to escalate leads needing human clarification.                                      |
-| Quote Urgency                        | `quote_urgency`                       | Single line text. Mandatory: Yes. Status: Needs to be Created. Description: How quickly the prospect wants a quote or follow-up.                           |
-| AI Lead Type                         | `ai_lead_type`                        | Single line text. Status: Needs to be Created. Description: AI‑determined category of the lead (e.g. Event, Construction, etc.)                             |
-| AI Classification Reasoning          | `ai_classification_reasoning`         | Multi-line text. Status: Needs to be Created. Description: Explanation of the AI’s logic in classifying this lead                                          |
-| AI Classification Confidence         | `ai_classification_confidence`        | Number (decimal). Status: Needs to be Created. Description: Confidence score (0–1) for the AI’s classification                                             |
-| AI Routing Suggestion                | `ai_routing_suggestion`               | Single-line text. Status: Needs to be Created. Description: Pipeline or stage the AI recommends routing this lead into                                     |
-| AI Intended Use                      | `ai_intended_use`                     | Single line text. Status: Needs to be Created. Description: AI‑identified intended purpose for this inquiry                                                |
-| AI Qualification Notes               | `ai_qualification_notes`              | Multi-line text. Status: Needs to be Created. Description: Key notes from the AI’s qualification assessment                                                |
-| Number of Stalls (from Call/Form)    | `number_of_stalls`                    | Number (integer). Status: Needs to be Created. Description: How many stalls were requested (from call or form)                                             |
-| Event Duration Days (from Call/Form) | `event_duration_days`                 | Number (integer). Status: Needs to be Created. Description: Number of days the prospect needs the units                                                    |
-| Guest Count Estimate (from Call/Form)| `guest_count_estimate`                | Number (integer). Status: Needs to be Created. Description: Estimated attendee count (optional)                                                            |
-| AI Estimated Value                   | `ai_estimated_value`                  | Number (currency). Status: Needs to be Created. Description: AI‑calculated estimate of deal value                                                          |
+```
+HUBSPOT_DEFAULT_DEAL_PIPELINE_NAME="Sales Pipeline"
+HUBSPOT_DEFAULT_TICKET_PIPELINE_NAME="Support Pipeline"
+HUBSPOT_DEFAULT_LEAD_LIFECYCLE_STAGE="lead"
+```
+
+Modify these values to match your actual HubSpot pipeline and stage names.
+
+## 4. Configure HubSpot Webhook for Contact Creation
+
+To set up a webhook that triggers when new contacts are created:
+
+1. **Navigate to Webhooks Settings**:
+
+   - Go to Settings > Integrations > Webhooks
+   - Click "Create webhook"
+
+2. **Configure the Webhook**:
+
+   - Name: "Stahla Contact Creation"
+   - Target URL: `https://your-app-domain.com/api/v1/webhook/hubspot`
+   - Authentication:
+     - Choose "No authentication" (the app handles verification internally)
+
+3. **Select Trigger Event**:
+
+   - Under "Contact properties", select "Create"
+   - Optionally, you can also select "Update" if you want to receive updates to contacts
+
+4. **Throttling and Retry Settings**:
+
+   - Set throttling rate as desired (default is fine)
+   - Enable retries for failed deliveries
+
+5. **Complete Setup**:
+   - Click "Create webhook" to activate
+
+## 5. Testing the Integration
+
+After setting up the HubSpot integration, you can test it using the app's test endpoints:
+
+1. **Test Contact Creation**:
+
+   - Use the `/api/v1/test/contact` endpoint with a sample contact payload
+   - This will create a new contact in HubSpot
+
+2. **Test Lead Creation**:
+
+   - Use the `/api/v1/test/lead` endpoint to create a lead
+   - This will create a contact, company, and deal in HubSpot
+
+3. **Verify Webhook Reception**:
+   - Create a new contact in HubSpot manually
+   - Check your application logs to confirm the webhook was received
+
+## Important Notes
+
+1. **Access Token Security**: The HubSpot access token has full permissions for the granted scopes. Keep it secure and never expose it in client-side code.
+
+2. **Token Expiration**: Private App tokens don't expire, but you can revoke and regenerate them as needed for security.
+
+3. **Webhook Verification**: For production, consider implementing signature verification for HubSpot webhooks to ensure the requests come from HubSpot.
+
+4. **Pipeline and Stage IDs**: If you change your HubSpot pipelines, make sure to update the corresponding IDs in your configuration.
+
+5. **Cache TTL**: The application caches HubSpot pipelines, stages, and owners for performance. You can adjust these TTL values if needed:
+   ```
+   CACHE_TTL_HUBSPOT_PIPELINES=3600
+   CACHE_TTL_HUBSPOT_STAGES=3600
+   CACHE_TTL_HUBSPOT_OWNERS=3600
+   ```
+
+By following these steps, your client will have a fully configured HubSpot integration with the Stahla AI SDR application, including API access and webhook setup for receiving contact creation events.

@@ -1,0 +1,128 @@
+﻿Dropdown/Mutiple checkbox Properties:
+Internal Name
+	Values
+	what_service_do_you_need_
+	
+
+Lebal
+	Internal Name
+	Restroom Trailer
+	Restroom Trailer
+	Shower Trailer
+	Shower Trailer
+	Laundry Trailer
+	Laundry Trailer
+	Porta Potty
+	Porta Potty
+	Trailer Repair / Pump Out
+	Trailer Repair / Pump Out
+	Other
+	Other
+	
+
+	project_category
+	Dropdown
+
+
+Label
+	Internal Name
+	Event / Porta Potty
+	Event / Porta Potty
+	Construction / Porta Potty
+	Construction / Porta Potty
+	Small Event / Trailer / Local
+	Small Event / Trailer / Local
+	Small Event / Trailer / Not Local
+	Small Event / Trailer / Not Local
+	Large Event / Trailer / Local
+	Large Event / Trailer / Local
+	Large Event / Trailer / Not Local
+	Large Event / Trailer / Not Local
+	Disaster Relief / Trailer / Local
+	Disaster Relief / Trailer / Local
+	Disaster Relief / Trailer / Not Local
+	Disaster Relief / Trailer / Not Local
+	Construction / Company Trailer / Local
+	Construction / Company Trailer / Local
+	Construction / Company Trailer / Not Local
+	Construction / Company Trailer / Not Local
+	Facility / Trailer / Local
+	Facility / Trailer / Local
+	Facility / Trailer / Not Local
+	Facility / Trailer / Not Local
+	
+
+	additional_services_needed
+	This should be a multi line text
+	site_ground_type
+	
+
+Name
+	Internal
+	Cement
+	Cement
+	Gravel
+	Gravel
+	Dirt
+	Dirt
+	Grass
+	Grass
+	
+
+	
+
+	company
+	Company Size
+	company_size
+	quote_urgency
+	
+
+
+
+Name
+	Internal Name
+	Short-Term 
+	Short-Term
+	Long-Term/Planning 
+	Long-Term/Planning 
+	Medium-Term 
+	Medium-Term
+	Immediate/Urgent
+	Immediate/Urgent
+	Other
+	Other
+	
+
+	ai_call_sentiment
+	
+
+Name
+	Internal
+	positive
+	positive
+	neutral
+	neutral
+	negative
+	negative
+	
+
+	ai_lead_type
+	
+
+
+
+Name
+	Internal
+	Services
+	Services
+	Logistics
+	Logistics
+	Leads
+	Leads
+	Disqualify
+	Disqualify
+	
+
+	ai_intended_use
+	Should be a singe line text
+	:

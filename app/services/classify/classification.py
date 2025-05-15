@@ -40,7 +40,7 @@ class ClassificationManager:
         postal_code: Postal/ZIP code if available
     """
     # Import enhanced location utils that support all location fields
-    from app.utils.location_enhanced import determine_locality_from_description
+    from app.utils.location import determine_locality_from_description
     return determine_locality_from_description(
         location_description=location_description,
         state_code=state_code,
@@ -78,31 +78,35 @@ class ClassificationManager:
         value += 300  # Base value for handwashing station
 
     # Scale by quantity and duration
-    # Use stall_count (renamed from required_stalls)
-    if input_data.stall_count:
+    # Use number_of_stalls (which might have been populated by alias stall_count)
+    current_stall_count = getattr(
+        input_data, 'number_of_stalls', getattr(input_data, 'required_stalls', None))
+    if current_stall_count:
       # Higher stall counts increase value proportionally
-      if input_data.stall_count >= 20:
+      if current_stall_count >= 20:
         value *= 2.5  # Significant increase for large quantities
-      elif input_data.stall_count >= 10:
+      elif current_stall_count >= 10:
         value *= 1.8  # Moderate increase for medium quantities
-      elif input_data.stall_count >= 5:
+      elif current_stall_count >= 5:
         value *= 1.4  # Small increase for smaller quantities
 
-    if input_data.duration_days:
+    current_duration_days = getattr(input_data, 'duration_days', None)
+    if current_duration_days:
       # Longer durations significantly increase value
-      if input_data.duration_days >= 30:
+      if current_duration_days >= 30:
         value *= 3.0  # Monthly rental factor
-      elif input_data.duration_days >= 14:
+      elif current_duration_days >= 14:
         value *= 2.0  # Two-week rental factor
-      elif input_data.duration_days >= 7:
+      elif current_duration_days >= 7:
         value *= 1.5  # One-week rental factor
-      elif input_data.duration_days >= 3:
+      elif current_duration_days >= 3:
         value *= 1.2  # Weekend rental factor
 
     logfire.info(f"Estimated deal value: ${value:.2f}",
-                 product_interest=input_data.product_interest,
-                 stalls=input_data.stall_count,  # Updated field name
-                 duration=input_data.duration_days)
+                 product_interest=getattr(
+        input_data, 'product_interest', None),
+        stalls=current_stall_count,  # Use the resolved stall count
+        duration=current_duration_days)
 
     return value
 
@@ -113,11 +117,12 @@ class ClassificationManager:
     logfire.info("Starting lead classification.",
                  input_source=input_data.source)
 
-    # If intended_use is not explicitly set, try to infer it from service_needed or event_type
-    # Use service_needed (renamed from lead_type_guess)
-    if not input_data.intended_use and (input_data.service_needed or input_data.event_type):
+    # If intended_use is not explicitly set, try to infer it from what_service_do_you_need_ or event_type
+    if not getattr(input_data, 'intended_use', None) and \
+       (getattr(input_data, 'what_service_do_you_need_', None) or getattr(input_data, 'event_type', None)):
       source_text = (
-          input_data.service_needed or input_data.event_type or "").lower()
+          getattr(input_data, 'what_service_do_you_need_', None) or
+          getattr(input_data, 'event_type', None) or "").lower()
 
       # Simple mapping based on keywords (could be more sophisticated)
       if "small" in source_text and "event" in source_text:
@@ -135,24 +140,29 @@ class ClassificationManager:
         input_data.intended_use = "Small Event"
 
     # Determine locality if not already set
-    if input_data.is_local is None:
+    if getattr(input_data, 'is_local', None) is None:  # Check is_local first
       input_data.is_local = self._determine_locality(
-          location_description=input_data.event_address,  # Use event_address
-          state_code=input_data.event_state,
-          city=input_data.event_city,
-          postal_code=input_data.event_postal_code
+          location_description=getattr(input_data, 'service_address', getattr(
+              input_data, 'event_location_description', None)),
+          state_code=getattr(input_data, 'state', getattr(
+              input_data, 'event_state', None)),
+          city=getattr(input_data, 'city', getattr(
+              input_data, 'event_city', None)),
+          postal_code=getattr(input_data, 'zip', getattr(
+              input_data, 'event_postal_code', None))
       )
 
     try:
       # Use Marvin for classification if enabled in settings
       if settings.LLM_PROVIDER.lower() == "marvin" and settings.MARVIN_API_KEY:
-        # --- Update call to handle ClassificationOutput --- 
+        # --- Update call to handle ClassificationOutput ---
         classification_output: ClassificationOutput = await marvin_classification_manager.get_lead_classification(input_data)
         classification = classification_output.lead_type
         reasoning = classification_output.reasoning
         # Extract owner_team from metadata if present
-        owner_team = classification_output.metadata.get("assigned_owner_team", "None") 
-        # --- End Update --- 
+        owner_team = classification_output.metadata.get(
+            "assigned_owner_team", "None")
+        # --- End Update ---
         logfire.info("Using Marvin for lead classification",
                      classification=classification)
       else:
@@ -182,41 +192,115 @@ class ClassificationManager:
       if not input_data.product_interest:
         confidence -= 0.15
         requires_review = True
-      # Use stall_count (renamed from required_stalls)
-      if not input_data.stall_count:
+
+      # Use number_of_stalls (populated by alias stall_count) or fallback to required_stalls
+      current_stall_count_for_confidence = getattr(
+          input_data, 'number_of_stalls', getattr(input_data, 'required_stalls', None))
+      if not current_stall_count_for_confidence:
         confidence -= 0.05
-      if not input_data.duration_days:
+
+      if not getattr(input_data, 'duration_days', None):
         confidence -= 0.05
-      if input_data.is_local is None:
+      if getattr(input_data, 'is_local', None) is None:
         confidence -= 0.05
 
       # Estimate deal value (internal use only, not setting HubSpot 'amount')
       estimated_value = self._estimate_deal_value(input_data)
 
-      # Store additional metadata
-      # --- Update metadata creation to use classification_output --- 
+      # Store additional metadata, using HubSpot internal property names where possible
+      # or clear, descriptive keys for internal use.
       metadata = {
+          # Classification-derived fields
           "assigned_owner_team": owner_team,
-          "estimated_value": estimated_value,  # Keep internal estimate
-          "is_local": input_data.is_local,
-          "intended_use": input_data.intended_use,
+          "estimated_value": estimated_value,
           "has_complete_info": confidence > 0.8,
-          # Add other relevant fields from input_data to metadata if needed for HubSpot update
-          "qualification_notes": reasoning,  # Example: Use reasoning as qualification notes
-          "stall_count": input_data.stall_count,
-          "event_duration_days": input_data.duration_days,
-          "guest_count": input_data.guest_count,
-          "ada_required": input_data.ada_required,
-          "power_available": input_data.power_available,
-          "water_available": input_data.water_available,
-          "call_recording_url": str(input_data.call_recording_url) if input_data.call_recording_url else None,
-          "call_summary": input_data.call_summary,
-          "call_duration_seconds": input_data.call_duration_seconds
+          "qualification_notes": reasoning,
+
+          # Fields from ClassificationInput, mapped to HubSpot internal names or descriptive keys
+          "is_local": getattr(input_data, 'is_local', None),
+          "within_local_service_area": getattr(input_data, 'is_in_service_area', None),
+          "intended_use": getattr(input_data, 'intended_use', None),
+          # Mapping from general intended_use
+          "ai_intended_use": getattr(input_data, 'intended_use', None),
+
+          # Contact related info
+          "firstname": getattr(input_data, 'firstname', None),
+          "lastname": getattr(input_data, 'lastname', None),
+          "email": getattr(input_data, 'email', None),
+          "phone": getattr(input_data, 'phone', None),
+          "company": getattr(input_data, 'company', None),
+
+          # Service and Product Details
+          "what_service_do_you_need_": getattr(input_data, 'what_service_do_you_need_', None),
+          "product_type_interest": getattr(input_data, 'product_type_interest', None),
+          "units_needed": getattr(input_data, 'units_needed', None),
+          "how_many_portable_toilet_stalls_": getattr(input_data, 'how_many_portable_toilet_stalls_', None),
+          "how_many_restroom_stalls_": getattr(input_data, 'how_many_restroom_stalls_', None),
+          "how_many_shower_stalls_": getattr(input_data, 'how_many_shower_stalls_', None),
+          "how_many_laundry_units_": getattr(input_data, 'how_many_laundry_units_', None),
+          "number_of_stalls": getattr(input_data, 'number_of_stalls', getattr(input_data, 'required_stalls', None)),
+          "ada_required": getattr(input_data, 'ada_required', None),
+          "shower_required": getattr(input_data, 'shower_required', None),
+          "handwashing_needed": getattr(input_data, 'handwashing_needed', None),
+          "additional_services_needed": getattr(input_data, 'additional_services_needed', None),
+
+          # Event/Project Details
+          "project_category": getattr(input_data, 'project_category', getattr(input_data, 'event_type', None)),
+          "event_type": getattr(input_data, 'event_type', None),
+          "event_or_job_address": getattr(input_data, 'service_address', getattr(input_data, 'event_location_description', None)),
+          "service_address": getattr(input_data, 'service_address', None),
+          "address": getattr(input_data, 'service_address', getattr(input_data, 'event_location_description', None)),
+          "city": getattr(input_data, 'city', getattr(input_data, 'event_city', None)),
+          "state": getattr(input_data, 'state', getattr(input_data, 'event_state', None)),
+          "zip": getattr(input_data, 'zip', getattr(input_data, 'event_postal_code', None)),
+          "address_type": getattr(input_data, 'address_type', None),
+          "site_ground_type": getattr(input_data, 'site_ground_type', getattr(input_data, 'delivery_surface', None)),
+          "site_ground_level": getattr(input_data, 'site_ground_level', None),
+          "site_obstacles": getattr(input_data, 'site_obstacles', getattr(input_data, 'delivery_obstacles', None)),
+
+          # Timing Information
+          "event_start_date": getattr(input_data, 'rental_start_date', getattr(input_data, 'start_date', None)),
+          "event_end_date": getattr(input_data, 'rental_end_date', getattr(input_data, 'end_date', None)),
+          "rental_start_date": getattr(input_data, 'rental_start_date', getattr(input_data, 'start_date', None)),
+          "rental_end_date": getattr(input_data, 'rental_end_date', getattr(input_data, 'end_date', None)),
+          "event_duration_days": getattr(input_data, 'duration_days', None),
+
+          # Attendance & Usage
+          "expected_attendance": getattr(input_data, 'expected_attendance', getattr(input_data, 'guest_count', None)),
+          "guest_count_estimate": getattr(input_data, 'guest_count', None),
+          "onsite_facilities": getattr(input_data, 'other_facilities_available', None),
+          "site_working_hours": getattr(input_data, 'working_hours', None),
+          "weekend_service_needed": getattr(input_data, 'weekend_usage', None),
+
+          # Utility Information
+          "do_you_have_power_access_onsite_": getattr(input_data, 'power_available', None),
+          "do_you_have_water_access_onsite_": getattr(input_data, 'water_available', None),
+          "power_source_distance": getattr(input_data, 'power_source_distance', None),
+          "water_source_distance": getattr(input_data, 'water_source_distance', None),
+          "power_path_cross": getattr(input_data, 'power_path_cross', None),
+          "water_path_cross": getattr(input_data, 'water_path_cross', None),
+
+          # Consent & Follow-up
+          "by_submitting_this_form_you_consent_to_receive_texts": getattr(input_data, 'by_submitting_this_form_you_consent_to_receive_texts', None),
+          "partner_referral_consent": getattr(input_data, 'referral_accepted', None),
+          "recording_consent_given": getattr(input_data, 'recording_consent_given', None),
+          "contact_consent_given": getattr(input_data, 'contact_consent_given', None),
+          "follow_up_call_scheduled": getattr(input_data, 'follow_up_call_scheduled', None),
+
+          # Decision and Quoting
+          "quote_urgency": getattr(input_data, 'quote_urgency', getattr(input_data, 'quote_needed_by', None)),
+          "decision_timeline": getattr(input_data, 'decision_timeline', getattr(input_data, 'decision_timing', None)),
+
+          # Call Details
+          "call_summary": getattr(input_data, 'call_summary', None),
+          "call_recording_url": str(getattr(input_data, 'call_recording_url', None)) if getattr(input_data, 'call_recording_url', None) else None,
+          "full_transcript": getattr(input_data, 'full_transcript', None),
+          "call_duration_seconds": getattr(input_data, 'call_duration_seconds', None),
       }
-      # Merge metadata from Marvin classification if it exists
-      if classification_output and classification_output.metadata:
-          metadata.update(classification_output.metadata)
-      # --- End Update --- 
+      # Merge metadata from Marvin classification if it exists and it's enabled
+      if settings.LLM_PROVIDER.lower() == "marvin" and settings.MARVIN_API_KEY and classification_output and classification_output.metadata:
+        metadata.update(classification_output.metadata)
+      # --- End Update ---
 
       # Prepare output
       output = ClassificationOutput(
@@ -229,25 +313,26 @@ class ClassificationManager:
       )
 
     except Exception as e:
-      # --- Add more specific error logging --- 
+      # --- Add more specific error logging ---
       error_type = type(e).__name__
       error_message = str(e)
       logfire.error(
-          "Error caught during classification process", 
-          error_type=error_type, 
-          error_message=error_message, 
-          exc_info=True, # Ensure traceback is logged
+          "Error caught during classification process",
+          error_type=error_type,
+          error_message=error_message,
+          exc_info=True,  # Ensure traceback is logged
           input_data_summary={f: getattr(input_data, f, None) for f in [
-              'source', 'email', 'phone', 'intended_use', 'is_local', 
+              'source', 'email', 'phone', 'intended_use', 'is_local',
               'product_interest', 'stall_count', 'duration_days'
-          ]} # Log key input fields
-      ) # --- End specific error logging ---
-      
+          ]}  # Log key input fields
+      )  # --- End specific error logging ---
+
       # Default output on error
       output = ClassificationOutput(
           lead_type="Leads",  # Default to Leads on error for human review
-          reasoning=f"Error during classification: {error_message}", # Use captured message
+          reasoning=f"Error during classification: {error_message}",
           confidence=0.3,  # Low confidence when error occurs
+          routing_suggestion=None,  # Explicitly provide routing_suggestion as None
           requires_human_review=True,
           metadata={"error": error_message, "error_type": error_type}
       )
