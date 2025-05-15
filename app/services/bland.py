@@ -18,8 +18,6 @@ from app.models.bland import (
 from app.models.blandlog import BlandCallStatus
 from app.models.error import ErrorLog
 from app.services.mongo.mongo import MongoService
-
-
 from app.core.config import settings
 
 # --- Bland AI Manager ---
@@ -27,6 +25,10 @@ from app.core.config import settings
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 PATHWAY_JSON_PATH = os.path.join(_PROJECT_ROOT, "app", "assets", "call.json")
+LOCATION_TOOL_JSON_PATH = os.path.join(
+    _PROJECT_ROOT, "app", "assets", "location.json")
+QUOTE_TOOL_JSON_PATH = os.path.join(
+    _PROJECT_ROOT, "app", "assets", "quote.json")
 
 
 class BlandAIManager:
@@ -47,7 +49,11 @@ class BlandAIManager:
     self.api_key = api_key
     self.base_url = base_url
     self.pathway_definition = self._load_pathway_definition()
+    self.location_tool_definition = self._load_location_tool_definition()
+    self.quote_tool_definition = self._load_quote_tool_definition()
     self.pathway_id = pathway_id_setting
+    self.location_tool_id = settings.BLAND_LOCATION_TOOL_ID  # Use settings object
+    self.quote_tool_id = settings.BLAND_QUOTE_TOOL_ID    # Use settings object
     self.mongo_service = mongo_service
     self.background_tasks = background_tasks
 
@@ -81,6 +87,58 @@ class BlandAIManager:
     except Exception as e:
       logfire.error(
           f"Error loading pathway definition from {PATHWAY_JSON_PATH}: {e}",
+          exc_info=True,
+      )
+      return {}
+
+  def _load_location_tool_definition(self) -> Dict[str, Any]:
+    """Loads the location tool definition from the JSON file."""
+    try:
+      with open(LOCATION_TOOL_JSON_PATH, "r") as f:
+        location_data = json.load(f)
+        logfire.info(
+            f"Successfully loaded location tool definition from {LOCATION_TOOL_JSON_PATH}"
+        )
+        return location_data
+    except FileNotFoundError:
+      logfire.error(
+          f"Location tool definition file not found at {LOCATION_TOOL_JSON_PATH}. Cannot load location tool."
+      )
+      return {}
+    except json.JSONDecodeError as e:
+      logfire.error(
+          f"Error decoding JSON from {LOCATION_TOOL_JSON_PATH}: {e}", exc_info=True
+      )
+      return {}
+    except Exception as e:
+      logfire.error(
+          f"Error loading location tool definition from {LOCATION_TOOL_JSON_PATH}: {e}",
+          exc_info=True,
+      )
+      return {}
+
+  def _load_quote_tool_definition(self) -> Dict[str, Any]:
+    """Loads the quote tool definition from the JSON file."""
+    try:
+      with open(QUOTE_TOOL_JSON_PATH, "r") as f:
+        quote_data = json.load(f)
+        logfire.info(
+            f"Successfully loaded quote tool definition from {QUOTE_TOOL_JSON_PATH}"
+        )
+        return quote_data
+    except FileNotFoundError:
+      logfire.error(
+          f"Quote tool definition file not found at {QUOTE_TOOL_JSON_PATH}. Cannot load quote tool."
+      )
+      return {}
+    except json.JSONDecodeError as e:
+      logfire.error(
+          f"Error decoding JSON from {QUOTE_TOOL_JSON_PATH}: {e}", exc_info=True
+      )
+      return {}
+    except Exception as e:
+      logfire.error(
+          f"Error loading quote tool definition from {QUOTE_TOOL_JSON_PATH}: {e}",
           exc_info=True,
       )
       return {}
@@ -191,6 +249,140 @@ class BlandAIManager:
       )
       # Error already logged by _make_request if mongo_service was provided.
 
+  async def _sync_location_tool(self) -> None:
+    """
+    Attempts to update the location tool using the definition from location.json.
+    Logs errors to MongoDB if self.mongo_service is available.
+    """
+    logfire.info("Starting location tool synchronization check...")
+
+    if not self.location_tool_definition:
+      logfire.error(
+          "Location tool sync failed: Definition not loaded from location.json."
+      )
+      if self.mongo_service:
+        error_details = {
+            "service_name": "BlandAIManager._sync_location_tool",
+            "error_type": "LocationToolDefinitionError",
+            "message": "Location tool sync failed: Definition not loaded from location.json.",
+            "details": {"location_json_path": LOCATION_TOOL_JSON_PATH},
+        }
+        if self.background_tasks:
+          self.background_tasks.add_task(
+              self.mongo_service.log_error_to_db, **error_details
+          )
+        else:
+          await self.mongo_service.log_error_to_db(**error_details)
+      return
+
+    endpoint = f"/v1/tools/{self.location_tool_id}"
+    logfire.info(
+        f"Attempting to update location tool using POST {endpoint}",
+        payload=self.location_tool_definition,
+    )
+
+    json_data = {
+        "name": self.location_tool_definition.get("name"),
+        "description": self.location_tool_definition.get("description"),
+        "url": self.location_tool_definition.get("url"),
+        "headers": self.location_tool_definition.get("headers", {}),
+        "input_schema": self.location_tool_definition.get("input_schema", {}),
+        "type": self.location_tool_definition.get("type", "object"),
+        "properties": self.location_tool_definition.get("properties", {}),
+        "required": self.location_tool_definition.get("required", []),
+        "body": self.location_tool_definition.get("body", {}),
+        "response": self.location_tool_definition.get("response", {}),
+        "speech": self.location_tool_definition.get("speech", None),
+        "timeout": self.location_tool_definition.get("timeout", 10000),
+    }
+
+    update_result = await self._make_request(
+        "POST",
+        endpoint,
+        json_data=json_data,
+        mongo_service=self.mongo_service,
+        background_tasks=self.background_tasks,
+    )
+
+    if update_result.status == "success":
+      logfire.info("Location tool sync successful.")
+    else:
+      logfire.error(
+          f"Location tool sync failed: {update_result.message}",
+          details=update_result.details,
+      )
+
+  async def _sync_quote_tool(self) -> None:
+    """
+    Attempts to update the quote tool using the definition from quote.json.
+    Logs errors to MongoDB if self.mongo_service is available.
+    """
+    logfire.info("Starting quote tool synchronization check...")
+
+    if not self.quote_tool_definition:
+      logfire.error(
+          "Quote tool sync failed: Definition not loaded from quote.json."
+      )
+      if self.mongo_service:
+        error_details = {
+            "service_name": "BlandAIManager._sync_quote_tool",
+            "error_type": "QuoteToolDefinitionError",
+            "message": "Quote tool sync failed: Definition not loaded from quote.json.",
+            "details": {"quote_json_path": QUOTE_TOOL_JSON_PATH},
+        }
+        if self.background_tasks:
+          self.background_tasks.add_task(
+              self.mongo_service.log_error_to_db, **error_details
+          )
+        else:
+          await self.mongo_service.log_error_to_db(**error_details)
+      return
+
+    endpoint = f"/v1/tools/{self.quote_tool_id}"
+    logfire.info(
+        f"Attempting to update quote tool using POST {endpoint}",
+        payload=self.quote_tool_definition,
+    )
+
+    json_data = {
+        "name": self.quote_tool_definition.get("name"),
+        "description": self.quote_tool_definition.get("description"),
+        "url": self.quote_tool_definition.get("url"),
+        "headers": self.quote_tool_definition.get("headers", {}),
+        "input_schema": self.quote_tool_definition.get("input_schema", {}),
+        "type": self.quote_tool_definition.get("type", "object"),
+        "properties": self.quote_tool_definition.get("properties", {}),
+        "required": self.quote_tool_definition.get("required", []),
+        "body": self.quote_tool_definition.get("body", {}),
+        "response": self.quote_tool_definition.get("response", {}),
+        "speech": self.quote_tool_definition.get("speech", None),
+        "timeout": self.quote_tool_definition.get("timeout", 10000),
+    }
+
+    update_result = await self._make_request(
+        "POST",
+        endpoint,
+        json_data=json_data,
+        mongo_service=self.mongo_service,
+        background_tasks=self.background_tasks,
+    )
+
+    if update_result.status == "success":
+      logfire.info("Quote tool sync successful.")
+    else:
+      logfire.error(
+          f"Quote tool sync failed: {update_result.message}",
+          details=update_result.details,
+      )
+
+  async def _sync_bland(self) -> None:
+    """Synchronizes all Bland.ai definitions: pathway, location tool, and quote tool."""
+    logfire.info("Starting synchronization of all Bland.ai definitions...")
+    await self._sync_pathway()
+    await self._sync_location_tool()
+    await self._sync_quote_tool()
+    logfire.info("Completed synchronization of all Bland.ai definitions.")
+
   async def close(self):
     """Gracefully closes the HTTP client."""
     await self._client.aclose()
@@ -235,14 +427,7 @@ class BlandAIManager:
 
     return result
 
-  async def _make_request(
-          self,
-          method: str,
-          endpoint: str,
-          json_data: Optional[Dict] = None,
-          mongo_service: Optional[MongoService] = None,
-          background_tasks: Optional[BackgroundTasks] = None,
-  ) -> BlandApiResult:
+  async def _make_request(self, method: str, endpoint: str, json_data: Optional[Dict] = None, mongo_service: Optional[MongoService] = None,  background_tasks: Optional[BackgroundTasks] = None) -> BlandApiResult:
     """
     Helper method to make requests to the Bland API.
     Logs errors to MongoDB if mongo_service is provided.
@@ -395,73 +580,98 @@ class BlandAIManager:
           log_retry_reason: Optional[str] = None,
   ) -> BlandApiResult:
     """
-    Initiates a callback using the Bland.ai /call endpoint.
-    Logs the attempt to MongoDB via background task.
-    The contact_id (HubSpot ID) must be passed in request_data.metadata.
-    Passes retry-specific information for detailed logging.
+    Initiates a callback using the Bland.ai /v1/calls endpoint.
+    Logs the attempt and result to MongoDB.
+    The contact_id is added to the call's metadata.
+    Prioritizes pathway_id over task if self.pathway_id is configured.
     """
     endpoint = "/v1/calls"
-    payload = request_data.model_dump(exclude_none=True)
 
-    if "metadata" not in payload or payload["metadata"] is None:
-      payload["metadata"] = {}
-    payload["metadata"]["contact_id"] = contact_id
+    # Start payload directly from the Pydantic model, using aliases and excluding None values.
+    # Fields like 'request_data' or 'dynamic_data' will only be included if they are
+    # non-None in the request_data object.
+    payload = request_data.model_dump(by_alias=True, exclude_none=True)
+
+    # Ensure 'request_data' is present in the payload, defaulting to an empty dict if not provided.
+    payload.setdefault("request_data", {})
+
+    # Ensure 'metadata' is present and includes the contact_id.
+    # If 'metadata' was provided in request_data (and was a dict), its existing values are preserved.
+    # If 'metadata' was not provided, it's initialized as an empty dict here before adding contact_id.
+    metadata_in_payload = payload.setdefault("metadata", {})
+    metadata_in_payload["contact_id"] = contact_id
 
     pathway_id_used_for_call: Optional[str] = None
-    task_sent_to_bland: Optional[str] = None
+    # Get initial task from payload, which came from request_data.task
+    task_sent_to_bland: Optional[str] = payload.get("task")
 
     if self.pathway_id:
       payload["pathway_id"] = self.pathway_id
       pathway_id_used_for_call = self.pathway_id
+      # If pathway_id is used, Bland API docs imply 'task' should not be specified or can interfere.
       payload.pop("task", None)
-      task_sent_to_bland = None
+      task_sent_to_bland = None  # Task is not sent if pathway_id is used
       logfire.info(
-          f"Using pathway_id: {self.pathway_id} for call to {request_data.phone_number}."
+          f"Using pathway_id: {self.pathway_id} for call to {request_data.phone_number} for contact_id: {contact_id}."
       )
-    elif "task" not in payload or not payload["task"]:
+    elif not task_sent_to_bland:  # No self.pathway_id and task is empty or not provided in request_data
       default_task = "Follow up with the lead regarding their recent inquiry and gather necessary details."
       payload["task"] = default_task
       task_sent_to_bland = default_task
       logfire.warn(
-          "No pathway_id configured and no task provided or task was empty. Using default task for call."
+          f"No pathway_id configured and no task provided in request for contact_id: {contact_id}. Using default task: '{default_task}'"
       )
-    else:
-      task_sent_to_bland = payload["task"]
+    else:  # No self.pathway_id, but task was provided in request_data
+      # task_sent_to_bland is already set from payload.get("task")
       logfire.info(
-          "Using task provided in request data for call (no pathway ID)."
+          f"Using task from request_data for call to {request_data.phone_number} for contact_id: {contact_id} (no pathway_id configured)."
       )
 
-    if "webhook" in payload and payload["webhook"] is not None:
+    # Bland API expects webhook URL as a string
+    if payload.get("webhook") is not None:
       payload["webhook"] = str(payload["webhook"])
 
-    if self.background_tasks and self.mongo_service:  # Add check for existence
+    # Log call attempt (pre-API call)
+    if self.background_tasks and self.mongo_service:
       self.background_tasks.add_task(
-          self.mongo_service.log_bland_call_attempt,  # Use self.mongo_service
+          self.mongo_service.log_bland_call_attempt,
           contact_id=contact_id,
           phone_number=request_data.phone_number,
           task=task_sent_to_bland,
           pathway_id_used=pathway_id_used_for_call,
           initial_status=BlandCallStatus.PENDING,
-          call_id_bland=None,
+          call_id_bland=None,  # Not known yet
           retry_of_call_id=log_retry_of_call_id,
           retry_reason=log_retry_reason,
-          voice_id=request_data.voice_id,
+          # Use what's in payload, preferring 'voice'
+          voice_id=payload.get("voice") or payload.get("voice_id"),
           webhook_url=str(
               request_data.webhook) if request_data.webhook else None
+      )
+    else:
+      logfire.warn(
+          "MongoService or BackgroundTasks not available for pre-call logging.",
+          contact_id=contact_id,
+          method="initiate_callback"
       )
 
     logfire.info(
         f"Initiating Bland callback for contact_id: {contact_id}",
         phone=request_data.phone_number,
+        # Log sorted keys for consistency
+        payload_keys=sorted(list(payload.keys()))
     )
+
     api_result = await self._make_request(
         "POST",
         endpoint,
         json_data=payload,
-        mongo_service=self.mongo_service,  # Use self.mongo_service
-        background_tasks=self.background_tasks,  # Use self.background_tasks
+        mongo_service=self.mongo_service,
+        background_tasks=self.background_tasks,
     )
 
+    # Log call result (post-API call)
+    current_time = datetime.utcnow()
     if api_result.status == "error":
       logfire.error(
           f"Bland API call initiation failed for contact_id: {contact_id}. Error: {api_result.message}",
@@ -471,42 +681,68 @@ class BlandAIManager:
           "$set": {
               "status": BlandCallStatus.FAILED.value,
               "error_message": api_result.message,
-              "updated_at": datetime.utcnow(),
+              "updated_at": current_time,
               "bland_error_details": api_result.details,
           }
       }
-      if self.background_tasks and self.mongo_service:  # Add check
+      if self.background_tasks and self.mongo_service:
         self.background_tasks.add_task(
-            self.mongo_service.update_bland_call_log_internal,  # Use self.mongo_service
+            self.mongo_service.update_bland_call_log_internal,
             contact_id=contact_id,
             update_data=failure_update_data,
         )
-    elif api_result.call_id:
-      success_init_update_data = {
-          "$set": {
-              "call_id_bland": api_result.call_id,
-              "status": BlandCallStatus.PENDING.value,
-              "updated_at": datetime.utcnow(),
-              "error_message": None,
-          },
-          "$unset": {"bland_error_details": ""},
-      }
-      if self.background_tasks and self.mongo_service:  # Add check
-        self.background_tasks.add_task(
-            self.mongo_service.update_bland_call_log_internal,  # Use self.mongo_service
+      else:
+        logfire.warn(
+            "MongoService or BackgroundTasks not available for logging call failure.",
             contact_id=contact_id,
-            update_data=success_init_update_data,
+            method="initiate_callback"
         )
+    elif api_result.call_id:  # Success and call_id is present
       logfire.info(
           f"Bland call initiated successfully for contact_id: {contact_id}. Bland Call ID: {api_result.call_id}"
       )
+      success_init_update_data = {
+          "$set": {
+              "call_id_bland": api_result.call_id,
+              # Call is initiated, pending completion/webhook
+              "status": BlandCallStatus.PENDING.value,
+              "updated_at": current_time,
+              "error_message": None,  # Clear any previous error
+          },
+          # Clear previous error details
+          "$unset": {"bland_error_details": ""},
+      }
+      if self.background_tasks and self.mongo_service:
+        self.background_tasks.add_task(
+            self.mongo_service.update_bland_call_log_internal,
+            contact_id=contact_id,
+            update_data=success_init_update_data,
+        )
+      else:
+        logfire.warn(
+            "MongoService or BackgroundTasks not available for logging call success.",
+            contact_id=contact_id,
+            method="initiate_callback"
+        )
+    # API call did not return 'error' status but also no call_id (unexpected)
+    else:
+      logfire.warn(
+          f"Bland API call for contact_id: {contact_id} returned status '{api_result.status}' but no call_id. This may indicate an issue.",
+          message=api_result.message,
+          details=api_result.details,
+          payload_sent_keys=sorted(list(payload.keys()))
+      )
+      # Consider if a specific DB status update is needed here, e.g., to an 'UNKNOWN' or 'FAILED_NO_CALL_ID' state.
+      # For now, the log entry would remain in PENDING status from the initial log_bland_call_attempt.
 
     return api_result
 
   async def retry_call(
           self,
           contact_id: str,
+          # mongo_service is passed but initiate_callback uses self.mongo_service
           mongo_service: MongoService,
+          # background_tasks is passed but initiate_callback uses self.background_tasks
           background_tasks: BackgroundTasks,
           retry_reason: Optional[str] = "User initiated retry",
   ) -> BlandApiResult:
@@ -518,13 +754,19 @@ class BlandAIManager:
     logfire.info(
         f"Attempting to retry call for contact_id: {contact_id} with reason: '{retry_reason}'"
     )
+    # Ensure the BlandAIManager instance has mongo_service and background_tasks if they are to be used by initiate_callback
+    # This is crucial if this retry_call method is invoked in a context where self.mongo_service
+    # or self.background_tasks might not be the same as the ones passed here.
+    # For now, assuming initiate_callback will use self.mongo_service and self.background_tasks which should be set.
+
+    # Uses passed mongo_service for this fetch
     original_log_doc = await mongo_service.get_bland_call_log(contact_id)
 
     if not original_log_doc:
       logfire.error(
           f"Retry failed: Original call log not found for contact_id: {contact_id}"
       )
-      # Log this specific error to general error logs
+      # Log this specific error to general error logs using the passed background_tasks and mongo_service
       background_tasks.add_task(
           mongo_service.log_error_to_db,
           service_name="BlandAIManager.retry_call",
@@ -563,11 +805,10 @@ class BlandAIManager:
     if not original_log_doc.get("pathway_id_used") and original_log_doc.get("task"):
       task_for_retry = original_log_doc.get("task")
 
+    webhook_for_retry: Optional[HttpUrl] = None
     webhook_str = original_log_doc.get("webhook_url")
-    webhook_for_retry: Optional[Any] = None
     if webhook_str:
       from pydantic import HttpUrl, ValidationError
-
       try:
         webhook_for_retry = HttpUrl(webhook_str)
       except ValidationError as e:
@@ -592,6 +833,7 @@ class BlandAIManager:
         background_tasks.add_task(
             mongo_service.log_error_to_db,
             service_name="BlandAIManager.retry_call",
+            # Or more specific UnexpectedWebhookParsingError
             error_type="WebhookParsingError",
             message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
             details={
@@ -602,26 +844,55 @@ class BlandAIManager:
             },
         )
 
+    # Extract relevant fields from the original log for the new call request.
+    # Ensure these keys exist in your BlandCallLog documents or handle their absence.
+    # Assuming your log stores these under 'request_data_variables' and 'metadata_variables' respectively.
+    # If they are stored directly as 'request_data' and 'metadata' in the log, use those keys.
+    original_request_data = original_log_doc.get("request_data_variables")
+    original_metadata = original_log_doc.get("metadata_variables")
+
+    # If metadata is not explicitly stored, you might want to reconstruct it,
+    # at least with the contact_id for consistency, though initiate_callback will add it if missing.
+    if original_metadata is None:
+      # Basic metadata if none was logged
+      original_metadata = {"contact_id": contact_id}
+    else:
+      # Ensure contact_id is present
+      original_metadata.setdefault("contact_id", contact_id)
+
     new_call_request = BlandCallbackRequest(
         phone_number=phone_number,
         task=task_for_retry,
-        voice_id=original_log_doc.get("voice_id"),
+        voice=original_log_doc.get("voice_id") or original_log_doc.get(
+            "voice"),  # Prefer 'voice' if logged, fallback to 'voice_id'
         transfer_phone_number=original_log_doc.get("transfer_phone_number"),
         webhook=webhook_for_retry,
-        request_data=original_log_doc.get("request_data_variables"),
+        # Ensure request_data is at least an empty dict
+        request_data=original_request_data if original_request_data is not None else {},
+        metadata=original_metadata,  # Pass reconstructed or original metadata
         max_duration=original_log_doc.get("max_duration"),
+        record=original_log_doc.get("record_call") or original_log_doc.get(
+            "record"),  # Check for common log keys
+        first_sentence=original_log_doc.get("first_sentence"),
+        wait_for_greeting=original_log_doc.get("wait_for_greeting")
+        # Add other fields from original_log_doc as needed, matching BlandCallbackRequest fields
     )
 
     original_bland_call_id = original_log_doc.get("call_id_bland")
 
     logfire.info(
-        f"Reconstructed call request for retry of contact_id: {contact_id}. Original Bland Call ID: {original_bland_call_id}"
+        f"Reconstructed call request for retry of contact_id: {contact_id}. Original Bland Call ID: {original_bland_call_id}",
+        retry_request_keys=sorted(
+            list(new_call_request.model_dump(exclude_none=True).keys()))
     )
 
+    # initiate_callback uses self.mongo_service and self.background_tasks.
+    # Ensure the BlandAIManager instance (self) has these attributes correctly set if they were
+    # intended to be the ones passed to this retry_call method.
+    # If mongo_service and background_tasks passed to retry_call are different and should be used by
+    # the subsequent initiate_callback, then initiate_callback would need to be refactored to accept them as parameters.
     return await self.initiate_callback(
         request_data=new_call_request,
-        mongo_service=mongo_service,
-        background_tasks=background_tasks,
         contact_id=contact_id,
         log_retry_of_call_id=original_bland_call_id,
         log_retry_reason=retry_reason,
@@ -759,7 +1030,7 @@ async def sync_bland_pathway_on_startup(
   # Update the manager instance with the service instances
   bland_manager.mongo_service = mongo_service
   bland_manager.background_tasks = background_tasks
-  await bland_manager._sync_pathway()
+  await bland_manager.sync_all_definitions()
 
 
 # Note: This sync function needs to be called during FastAPI startup.

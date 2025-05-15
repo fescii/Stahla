@@ -116,5 +116,5 @@
     "api_error_message": "$.error_message"
   },
   "speech": "Okay, Hang tight while I try to retrieve a quote for you based on the information you provided. This may take a few seconds.",
-  "timeout": 20000
+  "timeout": 10000
 }

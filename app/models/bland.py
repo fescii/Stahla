@@ -96,21 +96,40 @@ class BlandCallbackRequest(BaseModel):
       None, description="A description or prompt for the AI agent's task during the call. Will be overridden by BlandAIManager if script is loaded.")
   # Define other parameters required by Bland's /call endpoint
   # See https://docs.bland.ai/api-reference/endpoint/call
-  voice_id: Optional[int] = Field(
-      None, alias="voice_id", description="ID of the desired voice.")
+  voice_id: Optional[str] = Field(  # Changed from int to str to match Bland docs (e.g., "maya")
+      # Alias to 'voice' as per Bland docs
+      None, alias="voice", description="Voice of the AI agent. Can be ID or name like 'maya'.")
   first_sentence: Optional[str] = Field(
-      None, alias="first_sentence", description="The first sentence the agent should say.")
+      # Removed alias, field name matches API
+      None, description="The first sentence the agent should say.")
   wait_for_greeting: Optional[bool] = Field(
-      None, alias="wait_for_greeting", description="Whether to wait for a greeting.")
+      # Removed alias, field name matches API
+      None, description="Whether to wait for a greeting.")
   record: Optional[bool] = Field(
       None, description="Whether to record the call.")
-  amd: Optional[bool] = Field(
-      None, description="Enable answering machine detection.")
-  webhook: Optional[str] = Field(
+  webhook: Optional[HttpUrl] = Field(  # Changed to HttpUrl for validation
       None, description="Webhook URL to send call results to (overrides default).")
+
+  # Fields for HubSpot/form data integration as per user request
+  request_data: Optional[Dict[str, Any]] = Field(
+      None, description="Data accessible to the AI agent during the call (e.g., from HubSpot).")
   metadata: Optional[Dict[str, Any]] = Field(
-      None, description="Custom data to associate with the call.")
-  # Add other relevant parameters like language, max_duration, etc.
+      None, description="Custom data to associate with the call, returned in webhooks (e.g., source, HubSpot IDs).")
+
+  # Other common Bland API parameters (add more as needed based on usage)
+  transfer_phone_number: Optional[str] = Field(
+      None, description="Phone number to transfer to if conditions are met.")
+  max_duration: Optional[int] = Field(
+      None, description="Maximum duration of the call in minutes.")
+  # Example of another parameter from Bland docs
+  # model: Optional[Literal['base', 'turbo']] = Field(None, description="Select a model to use for your call.")
+  # temperature: Optional[float] = Field(None, description="A value between 0 and 1 that controls the randomness of the LLM.")
+  # dynamic_data: Optional[List[Dict[str, Any]]] = Field(None, description="Integrate data from external APIs into your agent’s knowledge.")
+  # tools: Optional[List[Dict[str, Any]]] = Field(None, description="Tools for the agent to interact with APIs.")
+
+  class Config:
+    extra = 'allow'  # Allow other fields to be passed through to Bland API
+    populate_by_name = True  # Allow using alias names for instantiation
 
 
 class BlandCallbackResponse(BlandBaseModel):

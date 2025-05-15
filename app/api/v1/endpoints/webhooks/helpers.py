@@ -56,52 +56,81 @@ def _is_form_complete(payload: FormPayload) -> bool:
 async def _trigger_bland_call(payload: FormPayload):
   """
   Triggers a Bland.ai call if the form is incomplete.
+  Populates request_data for the AI agent and metadata for tracking.
   """
   if not settings.BLAND_API_KEY:
     logfire.warn("Bland API key not configured, skipping call.")
     return
 
-  # Extract necessary info, providing defaults or empty strings if None
   phone_number = payload.phone or ""
-  first_name = payload.firstname or "Lead"
-  # Create a task description based on available info - Use correct fields from FormPayload
-  task_description = f"Follow up with {first_name} regarding their interest in {payload.product_interest or 'restroom solutions'}. "
-  task_description += f"They submitted an incomplete form from {getattr(payload, 'source_url', None) or 'the website'}."
-  # task_description += f"Key details provided: Event Type: {payload.event_type or 'N/A'}, Location: {payload.event_location_description or 'N/A'}."
-  task_description += f"Key details provided: Event Address: {payload.event_location_description or 'N/A'}."
-  task_description += "Goal is to gather missing details (like duration, guest count, specific needs) and qualify the lead."
-
   if not phone_number:
     logfire.error(
         "Cannot trigger Bland call: Phone number is missing.", email=payload.email)
     return
 
-  # Prepare metadata to pass to Bland, including original form data
-  # Flatten the payload into the metadata for easier access by the AI script
-  metadata_to_pass = payload.model_dump(exclude_none=True)
-  metadata_to_pass["source"] = "web_form_incomplete"  # Add source identifier
+  first_name = payload.firstname or "Lead"
+
+  # Data for the AI agent
+  agent_request_data = {
+      "firstname": payload.firstname,
+      "lastname": payload.lastname,
+      "email": payload.email,
+      "phone": payload.phone,
+      "product_interest": payload.product_interest,
+      "event_location_description": payload.event_location_description,
+      "start_date": payload.start_date,
+      "company": payload.company,
+      "source_url": getattr(payload, 'source_url', None)
+      # Add any other fields from FormPayload that the agent might need
+  }
+  # Filter out None values from agent_request_data
+  agent_request_data = {k: v for k,
+                        v in agent_request_data.items() if v is not None}
+
+  # Metadata for tracking and webhook context
+  # Initialize metadata with everything from agent_request_data
+  call_metadata = agent_request_data.copy()
+  # Add/overwrite with specific metadata fields
+  call_metadata.update({
+      "source": "web_form_incomplete",
+      # For easier association if contact_id is email
+      "form_payload_email": payload.email,
+      "form_payload_phone": payload.phone,
+      "form_source_url": getattr(payload, 'source_url', None)
+      # Add other specific identifiers if needed, e.g., form_id if available
+  })
+  call_metadata = {k: v for k, v in call_metadata.items() if v is not None}
 
   webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
 
+  # The task description here is for context; actual task might be driven by Bland AI pathway script
+  # which can use the `request_data` and `metadata`.
+  # task_string = f"Follow up with {first_name} regarding their interest in {payload.product_interest or 'restroom solutions'}. They submitted an incomplete form from {getattr(payload, 'source_url', None) or 'the website'}. Key details provided: Event Address: {payload.event_location_description or 'N/A'}. Goal is to gather missing details and qualify the lead."
+
   callback_request = BlandCallbackRequest(
       phone_number=phone_number,
-      task=None,  # Task is now loaded from script in BlandAIManager
+      task=None,  # Assuming pathway/script uses request_data
       first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental form you submitted. Is now a good time?",
       wait_for_greeting=True,
       record=True,
-      amd=True,
-      voice_id=1,
+      # amd=True, # AMD is not a standard field in BlandCallbackRequest model
+      voice=settings.BLAND_VOICE_ID or "1",  # Use configured voice or default "1"
       webhook=webhook_url,
-      metadata=metadata_to_pass
+      request_data=agent_request_data,
+      metadata=call_metadata
   )
 
   logfire.info(
-      # Log the metadata
-      f"Triggering Bland call to {phone_number}", metadata=metadata_to_pass)
+      f"Triggering Bland call to {phone_number} from form payload.",
+      request_data=agent_request_data,
+      metadata=call_metadata
+  )
   try:
+    # contact_id for logging purposes, can be email or a more stable ID if available
+    call_contact_id = payload.email or payload.phone or "unknown_form_contact"
     call_result = await bland_manager.initiate_callback(
-        callback_request,
-        contact_id=payload.email or "unknown_contact",
+        request_data=callback_request,  # Pass the updated callback_request
+        contact_id=call_contact_id,
         log_retry_of_call_id=None,
         log_retry_reason=None,
     )
@@ -454,113 +483,106 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, contact_properties: d
   Triggers a Bland.ai call for an incomplete HubSpot contact.
   Includes contact_id in metadata. Lead ID is no longer passed.
   Uses HubSpot internal property names from contact_properties.
+  Populates request_data for the AI agent and metadata for tracking.
   """
   if not settings.BLAND_API_KEY:
     logfire.warn(
-        "Bland API key not configured, skipping call for HubSpot contact.")  # Updated log message
+        "Bland API key not configured, skipping call for HubSpot contact.")
     return
 
-  # Use internal names from contact_properties dict
-  phone_number = contact_properties.get("phone")
+  phone_number_raw = contact_properties.get("phone")
 
-  # --- ADD CHECK FOR NONE PHONE NUMBER ---
-  if not phone_number:
+  if not phone_number_raw:
     logfire.error(
         "Cannot trigger Bland call for HubSpot contact: Phone number is missing in contact_properties.",
         contact_id=contact_id
     )
     return
-  # --- END CHECK ---
 
-  first_name = contact_properties.get("firstname", "Lead")
-  service_needed = contact_properties.get(
-      "what_service_do_you_need_", "restroom solutions")
-  event_address = contact_properties.get("event_or_job_address", "N/A")
-
-  # --- Format Phone Number using BLAND_PHONE_PREFIX ---
-  # Remove non-digit characters
-  # Now phone_number is guaranteed to be a string here
-  digits_only = re.sub(r'\D', '', phone_number)
-  formatted_phone_number = digits_only  # Start with digits
+  # Phone number formatting (ensure this logic is robust for your needs)
+  digits_only = re.sub(r'\\D', '', str(phone_number_raw))
+  formatted_phone_number = digits_only
   prefix_to_use = settings.BLAND_PHONE_PREFIX
-
   if prefix_to_use:
-    # Normalize prefix for checking (e.g., remove leading '+')
-    prefix_digits = re.sub(r'\D', '', prefix_to_use)
-    # Check if the number already starts with the prefix digits
+    prefix_digits = re.sub(r'\\D', '', prefix_to_use)
     if digits_only.startswith(prefix_digits):
-      logfire.info(
-          f"Phone number digits already start with prefix digits '{prefix_digits}'. Using digits only.", contact_id=contact_id)
-      # Decide if we should still prepend the original prefix (e.g., with '+')
-      # Assuming the goal is E.164 or similar, use the original prefix if it contains non-digits like '+'
-      if prefix_to_use != prefix_digits:
+      if prefix_to_use != prefix_digits:  # e.g. prefix is +1, digits_only starts with 1
         formatted_phone_number = prefix_to_use + \
-            digits_only[len(prefix_digits)
-                            :]  # Reconstruct with original prefix
-      else:
-        # Use digits only if prefix was just digits
-        formatted_phone_number = digits_only
+            digits_only[len(prefix_digits):]
+      # else: formatted_phone_number is already correct (digits_only)
     else:
-      # Prepend the original prefix (e.g., '+1') if it's defined and not already present
       formatted_phone_number = prefix_to_use + digits_only
-      logfire.info(
-          f"Prepended BLAND_PHONE_PREFIX '{prefix_to_use}' to phone number digits.", contact_id=contact_id)
-  else:
-    # If no prefix is defined, log a warning
-    logfire.warn(
-        "BLAND_PHONE_PREFIX not set in environment. Using digits only for phone number.", contact_id=contact_id)
-    # Fallback to digits only if no prefix is set
-    formatted_phone_number = digits_only
-
-  logfire.info(
-      f"Formatted phone number for Bland call: {formatted_phone_number} (from {phone_number})", contact_id=contact_id)
-  # --- End Phone Number Formatting ---
+  # ... (logging for formatted_phone_number) ...
 
   if not formatted_phone_number:
     logfire.error(
-        # Updated log message
         "Cannot trigger Bland call for HubSpot contact: Formatted phone number is empty.",
         contact_id=contact_id
     )
     return
 
-  task_description = f"Follow up with {first_name} regarding their interest in {service_needed}. "
-  task_description += f"They submitted a HubSpot form. "
-  task_description += f"Key details provided: Event Address: {event_address}. "
-  task_description += "Goal is to gather missing details (like duration, guest count, quote urgency, specific needs) and qualify the lead."
+  first_name = contact_properties.get("firstname", "Lead")
 
-  # Pass all fetched contact properties as metadata
-  metadata_to_pass = contact_properties.copy()  # Start with all contact properties
-  # Add source identifier
-  metadata_to_pass["source"] = "hubspot_incomplete_contact"
-  # Ensure contact ID is included
-  metadata_to_pass["hubspot_contact_id"] = contact_id
+  # Data for the AI agent from HubSpot contact properties
+  agent_request_data = {
+      "firstname": contact_properties.get("firstname"),
+      "lastname": contact_properties.get("lastname"),
+      "email": contact_properties.get("email"),
+      "phone": phone_number_raw,  # Original phone for agent context if needed
+      "formatted_phone_to_dial": formatted_phone_number,  # Actual number dialed
+      "service_needed": contact_properties.get("what_service_do_you_need_"),
+      "event_address": contact_properties.get("event_or_job_address"),
+      "event_start_date": contact_properties.get("event_start_date"),
+      "event_end_date": contact_properties.get("event_end_date"),
+      "company": contact_properties.get("company"),
+      # Add other relevant HubSpot properties for the agent
+  }
+  agent_request_data = {k: v for k,
+                        v in agent_request_data.items() if v is not None}
+
+  # Metadata for tracking and webhook context
+  # Initialize metadata with everything from agent_request_data
+  call_metadata = agent_request_data.copy()
+  # Add/overwrite with specific metadata fields
+  call_metadata.update({
+      "source": "hubspot_incomplete_contact",
+      "hubspot_contact_id": contact_id,
+      # Include a few key original properties if useful for webhook processing
+      # These might already be in agent_request_data, update ensures they are set if different or adds them
+      "original_email": contact_properties.get("email"),
+      # phone_number_raw is from contact_properties.get("phone")
+      "original_phone": phone_number_raw
+  })
+  call_metadata = {k: v for k, v in call_metadata.items() if v is not None}
 
   webhook_url = f"{settings.APP_BASE_URL}{settings.API_V1_STR}/webhook/voice"
 
+  # task_description = f"Follow up with {first_name} regarding their interest in {service_needed}. They submitted a HubSpot form. Key details provided: Event Address: {event_address}. Goal is to gather missing details and qualify the lead."
+
   callback_request = BlandCallbackRequest(
-      phone_number=formatted_phone_number,  # Use formatted number
-      task=None,  # Task is now loaded from script in BlandAIManager
-      voice_id=1,
+      phone_number=formatted_phone_number,
+      task=None,  # Assuming pathway/script uses request_data
+      voice=settings.BLAND_VOICE_ID or "1",  # Use configured voice or default "1"
       first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental inquiry you submitted through our website. Is now a good time?",
       wait_for_greeting=True,
       record=True,
-      amd=True,
+      # amd=True, # AMD is not a standard field in BlandCallbackRequest model
       webhook=webhook_url,
-      metadata=metadata_to_pass
+      request_data=agent_request_data,
+      metadata=call_metadata
   )
 
   logfire.info(
-      # Updated log message
       f"Triggering Bland call for HubSpot contact {contact_id} to {formatted_phone_number}",
-      metadata=metadata_to_pass  # Log the full metadata
+      request_data=agent_request_data,
+      metadata=call_metadata
   )
   try:
     call_result = await bland_manager.initiate_callback(
-        callback_request,  # Use the callback request
-        contact_id=contact_id,  # Pass contact_id for logging
-        log_retry_of_call_id=None,  # No retry ID for new call
-        log_retry_reason=None,  # No retry reason for new call
+        request_data=callback_request,
+        contact_id=contact_id,
+        log_retry_of_call_id=None,
+        log_retry_reason=None,
     )
     if call_result.status == "success":
       logfire.info("Bland call for HubSpot contact initiated successfully.",  # Updated log message

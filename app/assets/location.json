@@ -30,5 +30,5 @@
     "lookup_message": "$.data.message"
   },
   "speech": null,
-  "timeout": 7000
+  "timeout": 10000
 }

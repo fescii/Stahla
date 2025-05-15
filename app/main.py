@@ -108,7 +108,7 @@ async def lifespan(app: FastAPI):
       # Startup tasks can log synchronously
       app.state.bland_manager.background_tasks = None
       asyncio.create_task(
-          app.state.bland_manager._sync_pathway()  # Call without arguments
+          app.state.bland_manager._sync_bland()  # Call without arguments
       )
       logfire.info("Bland pathway sync task scheduled.")
     elif not mongo_service_instance:

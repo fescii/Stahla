@@ -44,10 +44,9 @@ async def initiate_bland_call(
       # Depending on policy, we might prevent this or allow overwriting/new attempt.
       # For now, proceeding.
 
+    # mongo_service and background_tasks are now expected to be part of the bland_manager instance
     api_result = await bland_manager.initiate_callback(
         request_data=call_request,
-        mongo_service=mongo_service,
-        background_tasks=background_tasks,
         contact_id=contact_id
     )
     if api_result.status == "error":
@@ -83,10 +82,13 @@ async def retry_bland_call(
     if not original_log:
       return GenericResponse.error(message=f"No call log found for contact_id: {contact_id} to retry.", status_code=404)
 
+    # mongo_service and background_tasks are now expected to be part of the bland_manager instance
+    # or handled within the retry_call method itself if it needs to use the ones passed to this endpoint.
+    # Based on recent refactoring of initiate_callback, retry_call likely uses instance attributes.
     api_result = await bland_manager.retry_call(
         contact_id=contact_id,
-        mongo_service=mongo_service,
-        background_tasks=background_tasks,
+        # mongo_service=mongo_service, # Removed, BlandAIManager.retry_call should use its own instance of mongo_service
+        # background_tasks=background_tasks, # Removed, BlandAIManager.retry_call should use its own instance of background_tasks
         retry_reason=retry_reason
     )
 
