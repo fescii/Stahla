@@ -161,16 +161,18 @@ export default class Overview extends HTMLElement {
     // Show dashboard with actual data
     return /* html */ `
       <div class="container">
+        <div class="header">
+          <h1>Dashboard Overview</h1>
+          <p class="subtitle">Stats and status overview of SDR AI & Pricing Platform</p>
+        </div>
         ${this._getDashboardOverviewHTML()}
         <div class="dashboard-grid">
           <div class="main-content">
             ${this._getExternalServicesPanelHTML()}
-            ${this._getRecentErrorsPanelHTML()}
             ${this._getCacheStatisticsPanelHTML()}
           </div>
               
           <div class="sidebar">
-            ${this._getSyncStatusPanelHTML()}
             ${this._getCacheLastUpdatedPanelHTML()}
           </div>
         </div>
@@ -294,49 +296,20 @@ export default class Overview extends HTMLElement {
             </div>
         </div>
         <div class="panel-body">
-            <div class="services-list">
-                ${services
-                  .map(
-                    (service) => /* html */ `
-                <div class="service-item" title="${
-                  service.details || ""
-                }" tabindex="0" role="button" aria-label="Service: ${
-                      service.name
-                    }, Status: ${service.status}">
-                    <div class="service-info">
-                        <div class="service-name">
-                            ${service.name}
-                            ${
-                              service.details
-                                ? `
-                            <span class="tooltip-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                            </span>
-                            `
-                                : ""
-                            }
-                        </div>
-                        ${
-                          service.last_checked
-                            ? `
-                        <div class="service-timestamp">
-                            <span>${this._formatDate(
-                              service.last_checked
-                            )}</span>
-                        </div>
-                        `
-                            : ""
-                        }
-                    </div>
-                    <span class="status-indicator status-${service.status.toLowerCase()}"></span>
-                    <div class="service-status">
-                        ${service.status}
-                    </div>
-                </div>
-                `
-                  )
-                  .join("")}
-            </div>
+           <div class="services-cards">
+             ${services.map(service => /* html */ `
+               <div class="service-card" title="${service.details || ''}" tabindex="0" role="button" aria-label="Service: ${service.name}, Status: ${service.status}">
+                 <div class="service-card-header">
+                   <div class="service-card-title">${service.name}</div>
+                   <span class="status-indicator status-${service.status.toLowerCase()}"></span>
+                 </div>
+                 <div class="service-card-body">
+                   <div class="service-status">${service.status}</div>
+                   ${service.last_checked ? `<div class="service-timestamp">${this._formatDate(service.last_checked)}</div>` : ''}
+                 </div>
+               </div>
+             `).join('')}
+           </div>
         </div>
     </div>
     `;
@@ -782,7 +755,29 @@ export default class Overview extends HTMLElement {
           color: var(--text-color);
         }
 
-         div.loader-container {
+        .header {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+
+        .header > h1 {
+          font-size: 1.875rem;
+          font-weight: 600;
+          margin: 0;
+          padding: 0;
+          color: var(--title-color);
+          line-height: 1.2;
+        }
+
+        .header > p.subtitle {
+          color: var(--gray-color);
+          margin: 0;
+          padding: 0;
+          font-size: .9rem;
+        }
+
+        div.loader-container {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -954,7 +949,7 @@ export default class Overview extends HTMLElement {
         }
         
         .panel-actions { display: flex; gap: 0.5rem; }
-        .panel-body { padding: 10px 0; }
+        .panel-body { padding: 10px 0; width: 100%; }
 
         .panel-body.update-time {
           display: flex;
@@ -1049,7 +1044,6 @@ export default class Overview extends HTMLElement {
           font-size: 0.875rem; 
           font-weight: 500;
           white-space: nowrap;
-          padding: 5px 10px;
           border-radius: 6px;
           transition: background-color 0.2s ease, transform 0.2s ease;
         }
@@ -1115,30 +1109,48 @@ export default class Overview extends HTMLElement {
         
         .chart-container { width: 100%; height: 300px; margin-top: 1rem; }
         
-        .cache-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-        .cache-metric { padding: 1rem; border-radius: 8px; background-color: var(--hover-background); text-align: center; }
-        .cache-metric-value { font-size: 1.5rem; font-weight: 600; color: var(--title-color); margin-bottom: 0.5rem; }
-        .cache-metric-label { font-size: 0.875rem; color: var(--gray-color); }
+        .cache-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+        .cache-metric {
+          background-color: var(--background);
+          border: var(--border);
+          border-radius: 8px;
+          box-shadow: var(--card-box-shadow-alt);
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .cache-metric:hover {
+          transform: translateY(-3px);
+          box-shadow: var(--card-box-shadow);
+        }
         
         /* Hit Rate Charts Styling */
         .hit-rate-grid { 
-          display: flex; 
-          flex-flow: column;
-          gap: 25px; 
-          margin-top: 1.5rem; 
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1rem;
+          margin-top: 1.5rem;
         }
         
         .hit-rate-chart { 
-          padding: 15px;
+          padding: 1rem;
           border-radius: 12px;
-          background-color: var(--hover-background);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+          background-color: var(--background);
+          border: var(--border);
+          box-shadow: var(--card-box-shadow-alt);
           transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        
         .hit-rate-chart:hover {
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          box-shadow: var(--card-box-shadow);
         }
         
         .hit-rate-header {
@@ -1368,21 +1380,68 @@ export default class Overview extends HTMLElement {
           -moz-border-radius: 50px;
         }
 
-        .tooltip-icon {
-          display: inline-flex;
-          margin-left: 5px;
+        /* External Services Cards */
+        .services-cards {
+          display: flex;
+          flex-flow: row wrap;
+          justify-content: space-between;
+          gap: 20px;
+          width: 100%;
+          margin: 1rem 0;
+        }
+        .service-card {
+          background-color: var(--background);
+          border: var(--border);
+          border-radius: 8px;
+          padding: 1rem;
+          min-width: 150px;
+          display: flex;
+          flex-direction: column;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .service-card:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--card-box-shadow);
+        }
+        .service-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+        .service-card-title {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--title-color);
+        }
+        .service-card-body {
+          font-size: 0.875rem;
+          color: var(--text-color);
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .service-status {
+          font-weight: 500;
+          color: var(--accent-color);
+        }
+        .service-timestamp {
+          font-size: 0.75rem;
           color: var(--gray-color);
-          opacity: 0.7;
-          transition: opacity 0.2s ease, color 0.2s ease;
-          vertical-align: middle;
         }
-        
-        .service-item:hover .tooltip-icon {
-          opacity: 1;
-          color: var(--accent-color, #0d6efd);
+        .service-details {
+          font-size: 0.75rem;
+          color: var(--gray-color);
         }
-        
-        /* Dark mode specific styles */
+
+        @keyframes l22-0 {
+          100% {transform: rotate(1turn)}
+        }
+
+        @keyframes l22 {
+          100% {transform: rotate(1turn) translate(150%)}
+        }
+
         @media (prefers-color-scheme: dark) {
           .progress-bar {
             background-color: #374151; /* A darker gray for dark mode */

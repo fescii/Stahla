@@ -2,8 +2,21 @@
 
 ### Variables
 @base_url = http://localhost:8000/api/v1
-@auth_token = your_auth_token_here
+
 @content_type = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{base_url}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@auth_token = {{login.response.body.data.access_token}}
 
 ### Initiate Bland Call
 # @name InitiateCall

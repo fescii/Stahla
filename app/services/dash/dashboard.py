@@ -327,11 +327,11 @@ class DashboardService:
         # Process each service status
         for service_name, status_data in latest_statuses.items():
           service_display_name = {
-              "mongodb": "MongoDB",
+              "mongodb": "Mongo",
               "redis": "Redis",
-              "bland_ai": "Bland.ai API",
-              "hubspot": "HubSpot API",
-              "google_sheets": "Google Sheets Sync",
+              "bland_ai": "Bland",
+              "hubspot": "HubSpot",
+              "google_sheets": "Sheet",
           }.get(service_name, service_name.title())
 
           service_status = status_data.get("status", "UNKNOWN").upper()

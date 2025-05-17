@@ -49,7 +49,7 @@ Authorization: {{auth_token}}
 ###
 // ### Example with an Atlanta address
 # Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache hits later
-POST {{host}}/api/v1/webhook/location/lookup
+POST {{host}}/api/v1/webhook/location/lookup/sync
 Content-Type: application/json
 Authorization: {{auth_token}}
 

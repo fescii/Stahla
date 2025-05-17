@@ -1026,6 +1026,9 @@ class QuoteService:
     Builds a complete quote response based on the request.
     """
     logger.info(f"Building quote for request_id: {request.request_id}")
+    # ADDED: start_time for internal build_quote timing if needed for more granular logging later
+    # build_start_time = time.perf_counter()
+
     line_items: List[LineItem] = []
     subtotal = 0.0
     delivery_details_for_response: Optional[DeliveryCostDetails] = (
@@ -1109,7 +1112,10 @@ class QuoteService:
     # For more granular logging within _calculate_trailer_cost, it would need to become async
     # or use a background task for logging, which is complex to pass down.
     seasonal_config = catalog.get("seasonal_multipliers", {})
-    trailer_cost_result = self._calculate_trailer_cost(  # This remains sync
+    loop = asyncio.get_running_loop()
+    trailer_cost_result = await loop.run_in_executor(
+        None,  # Use the default ThreadPoolExecutor
+        self._calculate_trailer_cost,
         request.trailer_type,
         request.rental_days,
         request.usage_type,
@@ -1151,8 +1157,13 @@ class QuoteService:
       subtotal += trailer_cost
 
     # 4. Calculate Delivery Cost - Pass seasonal multiplier and description
-    rate_multiplier, season_desc = self._determine_seasonal_multiplier(
-        request.rental_start_date, seasonal_config
+    # Determine seasonal multiplier for delivery cost calculation
+    loop = asyncio.get_running_loop()  # Ensure loop is defined here as well
+    rate_multiplier, season_desc = await loop.run_in_executor(
+        None,  # Use the default ThreadPoolExecutor
+        self._determine_seasonal_multiplier,
+        request.rental_start_date,
+        seasonal_config
     )
 
     delivery_calculation_result = (
@@ -1249,8 +1260,7 @@ class QuoteService:
           "product_name": trailer_product.get("name", "Unknown Product"),
           "product_description": trailer_product.get("description", None),
           "base_rate": trailer_product.get("base_rate", 0.0),
-          # Ensure adjusted_rate lookup handles potential errors
-          "adjusted_rate": next((item.total for item in line_items if "Trailer Rental" in item.description and isinstance(item.total, (int, float))), 0.0),
+          "adjusted_rate": trailer_cost if trailer_cost is not None else 0.0,  # MODIFIED
           "features": trailer_product.get("features", []),
           "stall_count": trailer_product.get("stalls", None),
           "is_ada_compliant": "ada" in request.trailer_type.lower(),
@@ -1358,15 +1368,16 @@ class QuoteService:
     if distance_result:
       geocoded_coords = None
       try:
-        # Try to get geocoded coordinates if available (geocode_location is a synchronous function)
-        lat, lon = geocode_location(request.delivery_location)
+        # Try to get geocoded coordinates if available
+        loop = asyncio.get_running_loop()
+        lat, lon = await loop.run_in_executor(None, geocode_location, request.delivery_location)
         if lat is not None and lon is not None:
           geocoded_coords = {
               "latitude": lat,
               "longitude": lon
           }
       except Exception as e:
-        logger.warning(f"Failed to geocode location: {e}")
+        logger.warning(f"Failed to geocode location during quote build: {e}")
 
       # Determine service area type
       service_area_type = "Primary"
@@ -1406,6 +1417,8 @@ class QuoteService:
         "calculation_time_ms": None,  # Would need timing code
         "warnings": ["Delivery distance is estimated."] if is_distance_estimated else []
     }
+
+    # metadata["calculation_time_ms"] = int((time.perf_counter() - build_start_time) * 1000) # If internal timing was added
 
     # 7. Construct Enhanced Response
     from app.models.quote import RentalDetails, ProductDetails, BudgetDetails
@@ -1620,10 +1633,18 @@ class QuoteService:
     )
 
     # Step 1: Geocode the delivery location
-    lat, lon = geocode_location(delivery_location_str)
+    lat, lon = None, None  # Initialize
+    try:
+      loop = asyncio.get_running_loop()
+      lat, lon = await loop.run_in_executor(None, geocode_location, delivery_location_str)
+    except Exception as e:
+      logger.error(
+          f"Exception during fallback geocoding for '{delivery_location_str}': {e}", exc_info=True)
+      # lat, lon will remain None
+
     if lat is None or lon is None:
       logger.error(
-          f"Fallback geocoding failed for location: '{delivery_location_str}'"
+          f"Fallback geocoding failed for location: '{delivery_location_str}' (lat or lon is None after attempt)"
       )
       return None
 

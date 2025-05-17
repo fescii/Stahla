@@ -11,6 +11,7 @@ from app.core.config import settings
 
 # Import models using the correct path
 from app.models.location import LocationLookupRequest as ModelLocationLookupRequest
+from app.models.location import LocationLookupResponse  # Added import
 from app.models.quote import QuoteRequest, QuoteResponse
 from app.models.common import GenericResponse, MessageResponse
 
@@ -44,10 +45,6 @@ router = APIRouter()
 
 # --- Using LocationLookupRequest from models/location.py ---
 # No need to redefine it here since we imported it
-
-
-# --- Endpoints ---
-
 
 @router.post(
     "/location/lookup",
@@ -100,6 +97,97 @@ async def webhook_location_lookup(
 
 
 @router.post(
+    "/location/lookup/sync",
+    response_model=GenericResponse[LocationLookupResponse],
+    summary="Synchronous Location Distance Calculation for Testing",
+    description="Accepts a delivery location, calculates the distance to the nearest branch, and returns the result immediately. This endpoint is for testing and waits for the calculation to complete.",
+)
+async def webhook_location_lookup_sync(
+        payload: ModelLocationLookupRequest,
+        # Keep for consistency, though not strictly needed for sync logic other than counters
+        background_tasks: BackgroundTasks,
+        location_service: LocationService = Depends(get_location_service_dep),
+        redis_service: RedisService = Depends(get_redis_service),
+        api_key: str = Depends(get_api_key),
+) -> GenericResponse[LocationLookupResponse]:
+  """
+  Webhook endpoint to perform synchronous calculation of location distance.
+  - Validates API Key.
+  - Receives `delivery_location`.
+  - Calls `location_service.get_distance_to_nearest_branch` directly.
+  - Returns the `DistanceResult` and processing time.
+  """
+  logger.info(
+      f"Received synchronous location_lookup request for: {payload.delivery_location}"
+  )
+  start_time = time.perf_counter()
+
+  try:
+    distance_result = await location_service.get_distance_to_nearest_branch(
+        payload.delivery_location, background_tasks
+    )
+    end_time = time.perf_counter()
+    processing_time_ms = int((end_time - start_time) * 1000)
+
+    if distance_result:
+      logger.info(
+          f"Successfully calculated distance for {payload.delivery_location} in {processing_time_ms}ms."
+      )
+      # Increment counter for successful sync lookups (can use existing or new key)
+      background_tasks.add_task(
+          # You might want a new key for sync lookups
+          increment_request_counter_bg, redis_service, TOTAL_LOCATION_LOOKUPS_KEY
+      )
+      return GenericResponse(
+          data=LocationLookupResponse(
+              distance_result=distance_result,
+              processing_time_ms=processing_time_ms,
+              message="Location lookup successful."
+          )
+      )
+    else:
+      end_time = time.perf_counter()
+      processing_time_ms = int((end_time - start_time) * 1000)
+      logger.warning(
+          f"Could not determine distance for {payload.delivery_location} after {processing_time_ms}ms."
+      )
+      # Increment error counter or a specific counter for failed sync lookups
+      background_tasks.add_task(
+          log_error_bg,
+          redis_service,
+          "LocationSyncError",
+          "Failed to determine distance",
+          {"delivery_location": payload.delivery_location},
+      )
+      return GenericResponse.error(
+          message="Failed to determine distance for the provided location.",
+          data=LocationLookupResponse(processing_time_ms=processing_time_ms,
+                                      message="Failed to determine distance.")  # Include time even on failure
+      )
+
+  except Exception as e:
+    end_time = time.perf_counter()
+    processing_time_ms = int((end_time - start_time) * 1000)
+    logger.exception(
+        f"Unexpected error during synchronous location lookup for {payload.delivery_location} after {processing_time_ms}ms: {e}",
+        exc_info=e
+    )
+    background_tasks.add_task(
+        log_error_bg,
+        redis_service,
+        type(e).__name__,
+        str(e),
+        {"delivery_location": payload.delivery_location},
+    )
+    return GenericResponse.error(
+        message="An internal error occurred during location lookup.",
+        details={"error_type": type(e).__name__},
+        data=LocationLookupResponse(
+            processing_time_ms=processing_time_ms, message=f"Internal error: {type(e).__name__}")
+    )
+
+
+@router.post(
     "/quote",
     # Updated response_model
     response_model=GenericResponse[QuoteResponse],
@@ -118,29 +206,41 @@ async def webhook_quote(
         ),  # Use direct injector for error logging
         api_key: str = Depends(get_api_key),
 ) -> GenericResponse[QuoteResponse]:  # Updated return type hint
-  """
-  Webhook endpoint to generate a comprehensive price quote with detailed information:
-  - Standard pricing details with itemized line items
-  - Detailed location information including nearest branch, distance, and service area type
-  - Complete rental information with dates, duration, and applicable rates
-  - Product specifications including features and capabilities
-  - Budget breakdown with tax estimates, equivalent rates, and cost categorization
-  - Rich metadata about the quote generation process
-
-  Middleware handles request/response logging automatically.
-  """
   request_id = payload.request_id
+
+  # ADDED: Start timer
+  start_time = time.perf_counter()
 
   try:
     logger.info(f"Received quote webhook for request_id: {request_id}")
-    quote_response = await quote_service.build_quote(payload)
+    # This is QuoteResponse
+    quote_response_data = await quote_service.build_quote(payload)
+
+    # ADDED: End timer, calculate duration, and update metadata
+    end_time = time.perf_counter()
+    processing_time_ms = int((end_time - start_time) * 1000)
+
+    # quote_response_data is of type QuoteResponse.
+    # QuoteResponse has a 'metadata' field of type QuoteMetadata.
+    # QuoteMetadata has a 'calculation_time_ms' field.
+    # The build_quote service initializes metadata (likely to None for this field), so it should exist.
+    if quote_response_data.metadata:
+      quote_response_data.metadata.calculation_time_ms = processing_time_ms
+    else:
+      # This case implies an issue with QuoteResponse model instantiation or initialization
+      # as 'metadata: QuoteMetadata' is a required field in QuoteResponse.
+      logger.warning(
+          f"Metadata object not found or is None in QuoteResponse for request_id: {request_id}. "
+          f"Cannot set calculation_time_ms. This indicates an issue with QuoteResponse model integrity."
+      )
+
     # Increment total and success counters
     background_tasks.add_task(
         increment_request_counter_bg, redis_service, TOTAL_QUOTE_REQUESTS_KEY)
     background_tasks.add_task(
         increment_request_counter_bg, redis_service, SUCCESS_QUOTE_REQUESTS_KEY)
     # Return GenericResponse on success
-    return GenericResponse(data=quote_response)
+    return GenericResponse(data=quote_response_data)
   except ValueError as ve:
     logger.warning(
         f"Value error building quote for request {request_id}: {ve}")

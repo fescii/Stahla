@@ -5,25 +5,33 @@ from typing import Optional
 
 # Define the missing request model
 class LocationLookupRequest(BaseModel):
-    delivery_location: str = Field(
-        ...,
-        description="Full delivery address for distance lookup.",
-        example="1600 Amphitheatre Parkway, Mountain View, CA 94043",
-    )
+  delivery_location: str = Field(
+      ...,
+      description="Full delivery address for distance lookup.",
+      example="1600 Amphitheatre Parkway, Mountain View, CA 94043",
+  )
 
 
 class BranchLocation(BaseModel):
-    """Represents a Stahla branch location."""
+  """Represents a Stahla branch location."""
 
-    name: str = Field(..., description="Name of the Stahla branch.")
-    address: str = Field(..., description="Full address of the Stahla branch.")
+  name: str = Field(..., description="Name of the Stahla branch.")
+  address: str = Field(..., description="Full address of the Stahla branch.")
 
 
 class DistanceResult(BaseModel):
-    """Represents the result of a distance calculation."""
+  """Represents the result of a distance calculation."""
 
-    nearest_branch: BranchLocation
-    delivery_location: str
-    distance_miles: float = Field(..., description="Driving distance in miles")
-    distance_meters: int = Field(..., description="Driving distance in meters")
-    duration_seconds: int = Field(..., description="Driving duration in seconds")
+  nearest_branch: BranchLocation
+  delivery_location: str
+  distance_miles: float = Field(..., description="Driving distance in miles")
+  distance_meters: int = Field(..., description="Driving distance in meters")
+  duration_seconds: int = Field(..., description="Driving duration in seconds")
+
+
+class LocationLookupResponse(BaseModel):
+  """Response model for synchronous location lookup."""
+
+  distance_result: Optional[DistanceResult] = None
+  processing_time_ms: Optional[int] = None
+  message: Optional[str] = None  # For errors or other messages

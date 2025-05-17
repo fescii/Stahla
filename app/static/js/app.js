@@ -11,6 +11,7 @@ export default class AppMain extends HTMLElement {
     window.app = this;
     this.mql = window.matchMedia('(max-width: 660px)');
     this.render();
+    this.currentUrl = window.location.pathname;
     window.addEventListener('popstate', this.handlePopState);
   }
 
@@ -29,6 +30,99 @@ export default class AppMain extends HTMLElement {
   connectedCallback() {
     this.setUpEvents();
     this._setupSpecialNavs();
+    this._setupNavLinks(); // Add navigation link event handlers
+    this._loadInitialContent(); // Load content based on current URL
+  }
+
+  _loadInitialContent() {
+    // Get the current path from the browser
+    const currentPath = window.location.pathname;
+    
+    // Update active navigation item based on the current URL
+    this._updateActiveNavItem(currentPath);
+    
+    // Load the content for this URL
+    if (this.getNavContents[currentPath]) {
+      const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
+      if (container) {
+        container.innerHTML = this.getNavContents[currentPath];
+      }
+    } else if (currentPath !== '/' && currentPath !== '/overview') {
+      // If path is not in nav contents and not the root path, show 404/default
+      const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
+      if (container) {
+        container.innerHTML = this.getNavContents.default;
+      }
+    }
+    // If it's the root path, the default content will be loaded by initContent
+  }
+
+  _setupNavLinks() {
+    if (!this.shadowRoot) {
+      console.warn('Shadow root not available for _setupNavLinks. Ensure component is fully initialized.');
+      return;
+    }
+
+    // Get all navigation links
+    const navLinks = this.shadowRoot.querySelectorAll('section.nav a[href]');
+    
+    navLinks.forEach(link => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        
+        const url = link.getAttribute('href');
+        
+        // Update active class for main nav items
+        this._updateActiveNavItem(url);
+        
+        // Update URL in browser and navigate
+        this.push(url, { kind: 'app', html: this.getNavContents[url] || this.getNavContents.default }, '');
+        
+        // Perform the navigation
+        this.navigate(url);
+      });
+    });
+  }
+
+  _updateActiveNavItem(url) {
+    // Remove active class from all items
+    const allNavItems = this.shadowRoot.querySelectorAll('section.nav li');
+    allNavItems.forEach(item => item.classList.remove('active'));
+    
+    // Add active class to the current nav item
+    if (url === '/' || url === '/overview') {
+      const overviewItem = this.shadowRoot.querySelector('li.overview');
+      if (overviewItem) overviewItem.classList.add('active');
+    } else {
+      // Extract the path segments
+      const urlSegments = url.split('/').filter(segment => segment);
+      
+      if (urlSegments.length > 0) {
+        // Try to find the nav item with the class matching the last segment
+        const segment = urlSegments[urlSegments.length - 1];
+        let navItem = this.shadowRoot.querySelector(`li.${segment}`);
+        
+        // If not found, try the first segment
+        if (!navItem && urlSegments.length > 0) {
+          navItem = this.shadowRoot.querySelector(`li.${urlSegments[0]}`);
+        }
+        
+        if (navItem) {
+          navItem.classList.add('active');
+          
+          // If it's in a dropdown, also mark the parent as active and expand the dropdown
+          const parentLi = navItem.closest('ul.dropdown')?.closest('li');
+          if (parentLi) {
+            parentLi.classList.add('active');
+            
+            // Expand the dropdown if it's collapsed
+            if (parentLi.classList.contains('collapsed')) {
+              this._expandDropdown(parentLi);
+            }
+          }
+        }
+      }
+    }
   }
 
   getRenderedContent = contentContainer => {
@@ -39,7 +133,13 @@ export default class AppMain extends HTMLElement {
     // set display to flex
     this.style.setProperty('display', 'flex')
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-    if(container) this.initContent();
+    const currentPath = window.location.pathname;
+    
+    // Only initialize default content if we're at the root or there's no specific content for this path
+    if (container && (currentPath === '/' || !this.getNavContents[currentPath])) {
+      this.initContent();
+    }
+    
     // request user to enable notifications
     this.checkNotificationPermission();
   }
@@ -113,15 +213,24 @@ export default class AppMain extends HTMLElement {
     }, 5000);
   }
 
-  navigate = content => {
-    this.content = content;
+  navigate = url => {
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
 
     // set the loader
     container.innerHTML = this.getLoader();
     window.scrollTo(0, 0);
-    // set the content
-    this.setContent(container)
+    
+    // Update current URL reference
+    this.currentUrl = url;
+
+    // check if the URL is in the nav contents
+    if (this.getNavContents[url]) {
+      this.updateHistory(this.getNavContents[url]);
+      return;
+    }
+
+    // if the URL is not in the nav contents, show the 404 page
+    this.updateHistory(this.getNavContents.default);
   }
 
   replaceHistory = state => {
@@ -140,7 +249,7 @@ export default class AppMain extends HTMLElement {
    */
   push(url, state = {}, title = '') {
     window.history.pushState(state, title, url);
-    // this.handleUIUpdate({ url, state });
+    this.currentUrl = url;
   }
 
   /**
@@ -151,22 +260,34 @@ export default class AppMain extends HTMLElement {
    */
   replace(url, state = {}, title = '') {
     window.history.replaceState(state, title, url);
-    // this.handleUIUpdate({ url, state });
+    this.currentUrl = url;
   }
 
   handlePopState = event => {
     const state = event.state;
-    // console.log('App state', state);
+    const url = window.location.pathname;
+    
+    // First update active navigation with proper expansion of dropdowns
+    this._updateActiveNavItem(url);
+    
     if (state && state.kind === 'app') {
-      this.updateHistory(state.html)
+      // Update content
+      this.updateHistory(state.html);
+    } else {
+      // If no state or not our app state, still handle the content
+      const content = this.getNavContents[url] || this.getNavContents.default;
+      this.updateHistory(content);
     }
+    
+    // Update current URL reference
+    this.currentUrl = url;
   }
 
   updateHistory = content => {
     // scroll to the top of the page
     window.scrollTo(0, 0);
     this.content = content;
-    const container = this.shadowObj.querySelector('section.flow');
+    const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
     container.innerHTML = this.getLoader();
     
     setTimeout(() => {
@@ -230,7 +351,7 @@ export default class AppMain extends HTMLElement {
 			// if the theme is system
 			if (currentTheme === 'system') {
 				// set the theme
-				setTheme('system');
+				this.setTheme('system');
 				return;
 			}
 		})
@@ -304,6 +425,33 @@ export default class AppMain extends HTMLElement {
     });
   }
 
+  getNavContents = {
+    "/": /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
+    "/status": /* HTML */`<services-status api="/dashboard/services/status"></services-status>`,
+    "/overview": /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
+    "/hubspot": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/cache": /* HTML */`<cache-search api="/dashboard/cache/search"></cache-search>`,
+    "/users/all": /* HTML */`<users-list api="/auth/users"></users-list>`,
+    "/users/add": /* HTML */`<add-user api="/auth/users" method="POST"></add-user>`,
+    "/users/profile": /* HTML */`<user-profile api="/auth/me"></user-profile>`,
+    "/pricing/location": /* HTML */`<location-lookup api="/webhook/location/lookup/sync"></location-lookup>`,
+    "/pricing/quote": /* HTML */`<quote-form api="/webhook/quote"></quote-form>`,
+    "/docs/api": /* HTML */`<docs-api type="docs" api="/docs/api"></docs-api>`,
+    "/docs/code": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/docs/features": /* HTML */`<docs-features type="docs" api="/docs/features"></docs-features>`,
+    "/docs/services": /* HTML */`<docs-services type="docs" api="/docs/services"></docs-services>`,
+    "/docs/webhooks": /* HTML */`<docs-webhooks type="docs" api="/docs/webhooks"></docs-webhooks>`,
+    "/bland/all": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/bland/add": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/bland/failed": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/bland/recent": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/sheet/config": /* HTML */`<sheet-config api="/dashboard/sheet/config"></sheet-config>`,
+    "/sheet/generators": /* HTML */`<sheet-generators api="/dashboard/sheet/generators"></sheet-generators>`,
+    "/sheet/products": /* HTML */`<sheet-products api="/dashboard/sheet/products"></sheet-products>`,
+    "/sheet/branches": /* HTML */`<sheet-branches api="/dashboard/sheet/branches"></sheet-branches>`,
+    default: /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
+  }
+
   getTemplate = () => {
     // Show HTML Here
     return `
@@ -350,12 +498,12 @@ export default class AppMain extends HTMLElement {
     return /* html */`
       ${this.getLogoNav()}
       ${this.getMainLinksNav()}
-      ${this.getSheetsNav()}
-      ${this.getCacheNav()}
-      ${this.getPricingNav()}
-      ${this.getBlandNav()}
       ${this.getDocsNav()}
       ${this.getUserNav()}
+      ${this.getBlandNav()}
+      ${this.getSheetsNav()}
+      ${this.getPricingNav()}
+      ${this.getTweakNav()}
     `;
   }
 
@@ -386,43 +534,46 @@ export default class AppMain extends HTMLElement {
             <span class="text">Overview</span>
           </a>
         </li>
-        <li class="hubspot">
-          <a href="/hubspot">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="hubspot">
-              <path fill="currentColor" d="M22.75 14.358c0-3.056-2.221-5.587-5.132-6.033V5.437c.815-.347 1.313-1.116 1.313-2.011 0-1.223-.974-2.245-2.189-2.245s-2.175 1.022-2.175 2.245c0 .895.499 1.664 1.313 2.011v2.869a5.979 5.979 0 0 0-1.989.638c-1.286-.98-5.472-4.017-7.865-5.85a2.46 2.46 0 0 0 .093-.647A2.443 2.443 0 0 0 3.681 0 2.441 2.441 0 0 0 1.25 2.447a2.442 2.442 0 0 0 2.431 2.452c.456 0 .88-.136 1.248-.356l7.6 5.377-.002-.001a6.099 6.099 0 0 0-1.9 4.434c0 1.373.452 2.639 1.211 3.656l-2.305 2.334a1.892 1.892 0 0 0-.652-.117c-.503 0-.974.197-1.327.553-.354.356-.549.834-.549 1.341s.196.98.549 1.336c.354.356.829.544 1.328.544.503 0 .974-.183 1.332-.544a1.888 1.888 0 0 0 .461-1.903l2.329-2.353a6.006 6.006 0 0 0 3.693 1.261c3.347 0 6.053-2.733 6.053-6.103zm-6.055 3.229c-1.774 0-3.213-1.448-3.213-3.234s1.438-3.234 3.213-3.234c1.774 0 3.213 1.448 3.213 3.234s-1.439 3.234-3.213 3.234z"></path>
+        <li class="status">
+          <a href="/status">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+              <circle cx="12" cy="18" r="3" stroke="currentColor" stroke-width="1.5"></circle>
+              <path d="M12 15V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+              <path d="M22 13C22 7.47715 17.5228 3 12 3C6.47715 3 2 7.47715 2 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
             </svg>
-            <span class="text">Hubspot</span>
+            <span class="text">Status</span>
           </a>
         </li>
-        <li class="errors">
-          <a href="/errors">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
-              <path d="M17 15V17M17.009 19H17M22 17C22 19.7614 19.7614 22 17 22C14.2386 22 12 19.7614 12 17C12 14.2386 14.2386 12 17 12C19.7614 12 22 14.2386 22 17Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-              <path d="M14.384 9.43749C13.7591 8.85581 12.9211 8.5 12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 12.9211 8.85581 13.7591 9.43749 14.384" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-              <path d="M9.78 20.436C9.33442 19.9904 9.18844 19.8566 8.90573 19.7389C8.62149 19.6204 8.3257 19.6161 7.69171 19.6161C6.1838 19.6161 5.32083 19.6161 4.85239 19.1476C4.38394 18.6792 4.38394 17.8162 4.38394 16.3083C4.38394 15.6777 4.37981 15.3817 4.26299 15.0987C4.14573 14.8147 3.93965 14.6022 3.49166 14.1541C2.92759 13.59 2 12.8859 2 12C2 11.114 2.92756 10.4099 3.49166 9.84585C3.93756 9.39996 4.14378 9.18799 4.26137 8.90515C4.37951 8.62098 4.38394 8.32526 4.38394 7.69171C4.38394 6.1838 4.38394 5.32083 4.85239 4.85239C5.32083 4.38394 6.1838 4.38394 7.69171 4.38394C8.32091 4.38394 8.61661 4.38 8.89929 4.26379C9.18454 4.14652 9.39688 3.94064 9.84585 3.49166C10.4099 2.92756 11.2104 2 12 2C12.7896 2 13.59 2.92759 14.1541 3.49167C14.6029 3.94037 14.8155 4.14637 15.1001 4.26355C15.3827 4.37992 15.6787 4.38394 16.3083 4.38394C17.8162 4.38394 18.6792 4.38394 19.1476 4.85239C19.6161 5.32083 19.6161 6.1838 19.6161 7.69171C19.6161 8.32383 19.6202 8.6196 19.7378 8.90321C19.8555 9.18695 19.9891 9.3211 20.436 9.768" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        <li class="cache">
+          <a href="/cache">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor"  fill="none">
+              <path d="M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z" stroke="currentColor" stroke-width="1.8" />
+              <path d="M2.5 12H21.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M13 7L17 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="8.25" cy="7" r="1.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="8.25" cy="17" r="1.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M13 17L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span class="text">Errors</span>
+            <span class="text">Cache</span>
           </a>
         </li>
       </ul>
     `;
   }
 
-  getCacheNav = () => {
+  getUserNav = () => {
     return /* html */`
       <ul class="special nav">
-        <li class="cache">
+        <li class="users">
           <div class="link-section">
             <span class="left">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor"  fill="none">
-                <path d="M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z" stroke="currentColor" stroke-width="1.8" />
-                <path d="M2.5 12H21.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M13 7L17 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <circle cx="8.25" cy="7" r="1.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <circle cx="8.25" cy="17" r="1.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M13 17L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M13 11C13 8.79086 11.2091 7 9 7C6.79086 7 5 8.79086 5 11C5 13.2091 6.79086 15 9 15C11.2091 15 13 13.2091 13 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M11.0386 7.55773C11.0131 7.37547 11 7.18927 11 7C11 4.79086 12.7909 3 15 3C17.2091 3 19 4.79086 19 7C19 9.20914 17.2091 11 15 11C14.2554 11 13.5584 10.7966 12.9614 10.4423" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M15 21C15 17.6863 12.3137 15 9 15C5.68629 15 3 17.6863 3 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M21 17C21 13.6863 18.3137 11 15 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <span class="text">Cache</span>
+              <span class="text">Users</span>
             </span>
             <span class="right">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
@@ -431,11 +582,15 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
-            <li class="search">
-              <a href="/cache/search"><span class="text">Search</span></a>
+            <li class="all">
+              <a href="/users/all"><span class="text">All</span></a>
             </li>
-            <li class="clear">
-              <a href="/cache/clear"><span class="text">Clear</span></a>
+            <li class="add">
+              <a href="/users/add"><span class="text">Add</span></a>
+            </li>
+            <li class="profile">
+              <a href="/users/profile"><span class="text">Profile</span></a>
+            </li>
           </ul>
         </li>
       </ul>
@@ -462,14 +617,11 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
-            <li class="location">
-              <a href="/pricing/location"><span class="text">Location</span></a>
-            </li>
             <li class="quote">
               <a href="/pricing/quote"><span class="text">Quote</span></a>
             </li>
-            <li class="test">
-              <a href="/pricing/test"><span class="text">Test</span></a>
+            <li class="location">
+              <a href="/pricing/location"><span class="text">Location</span></a>
             </li>
           </ul>
         </li>
@@ -496,14 +648,17 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
-            <li class="recent">
-              <a href="/bland/recent"><span class="text">Recent</span></a>
+            <li class="all">
+              <a href="/bland/all"><span class="text">All</span></a>
+            </li>
+            <li class="add">
+              <a href="/bland/add"><span class="text">Test</span></a>
             </li>
             <li class="failed">
               <a href="/bland/failed"><span class="text">Failed</span></a>
             </li>
-            <li class="all">
-              <a href="/bland/all"><span class="text">All Calls</span></a>
+            <li class="recent">
+              <a href="/bland/recent"><span class="text">Recent</span></a>
             </li>
           </ul>
         </li>
@@ -533,20 +688,18 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
-            <li class="sync">
-              <a href="/sheets/sync"><span class="text">Sync</span></a>
+            <li class="config">
+              <a href="/sheets/config"><span class="text">Config</span></a>
             </li>
             <li class="products">
               <a href="/sheets/products"><span class="text">Products</span></a>
             </li>
-            <li class="generators">
-              <a href="/sheets/generators"><span class="text">Generators</span></a>
-            </li>
             <li class="branches">
               <a href="/sheets/branches"><span class="text">Branches</span></a>
             </li>
-            <li class="config">
-              <a href="/sheets/config"><span class="text">Config</span></a>
+            <li class="generators">
+              <a href="/sheets/generators"><span class="text">Generators</span></a>
+            </li>
           </ul>
         </li>
       </ul>
@@ -575,19 +728,19 @@ export default class AppMain extends HTMLElement {
           </div>
           <ul class="dropdown">
             <li class="api">
-              <a href="/docs/api"><span class="text">API</span></a>
+              <a href="/docs/api"><span class="text">Api</span></a>
             </li>
-            <li class="webhooks">
-              <a href="/docs/webhooks"><span class="text">Webhooks</span></a>
-            </li>
-            <li class="services">
-              <a href="/docs/services"><span class="text">Services</span></a>
+            <li class="code">
+              <a href="/docs/code"><span class="text">Code</span></a>
             </li>
             <li class="features">
               <a href="/docs/features"><span class="text">Features</span></a>
             </li>
-            <li class="code">
-              <a href="/docs/code"><span class="text">Source Code</span></a>
+            <li class="services">
+              <a href="/docs/services"><span class="text">Services</span></a>
+            </li>
+            <li class="webhooks">
+              <a href="/docs/webhooks"><span class="text">Webhooks</span></a>
             </li>
           </ul>
         </li>
@@ -595,7 +748,7 @@ export default class AppMain extends HTMLElement {
     `;
   }
 
-  getUserNav = () => {
+  getTweakNav = () => {
     return /* html */`
       <ul class="main user nav">
         <li class="updates">
@@ -635,7 +788,7 @@ export default class AppMain extends HTMLElement {
         <p class="copyright">Copyright &copy;<span class="year">${year}</span><span class="company"> Stahla Services</span>. All rights reserved.</p>
         <ul class="links">
           <li><a href="/terms">Terms of Service</a></li>
-          <li><a href="/developer">Developer</a></li>
+          <li><a href="mailto:isfescii@gmail.com">Developer</a></li>
           <li><a href="/privacy">Privacy</a></li>
           <li><a href="/contact">Contact</a></li>
         </ul>
@@ -656,7 +809,6 @@ export default class AppMain extends HTMLElement {
     return /* html */`
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" class="injected-svg" data-src="https://cdn.hugeicons.com/icons/checkmark-circle-02-solid-standard.svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="img" color="currentColor">
         <path fill-rule="evenodd" clip-rule="evenodd" d="M11.75 22.5C5.81294 22.5 1 17.6871 1 11.75C1 5.81294 5.81294 1 11.75 1C17.6871 1 22.5 5.81294 22.5 11.75C22.5 17.6871 17.6871 22.5 11.75 22.5ZM16.5182 9.39018C16.8718 8.9659 16.8145 8.33534 16.3902 7.98177C15.9659 7.62821 15.3353 7.68553 14.9818 8.10981L10.6828 13.2686L8.45711 11.0429C8.06658 10.6524 7.43342 10.6524 7.04289 11.0429C6.65237 11.4334 6.65237 12.0666 7.04289 12.4571L10.0429 15.4571C10.2416 15.6558 10.5146 15.7617 10.7953 15.749C11.076 15.7362 11.3384 15.606 11.5182 15.3902L16.5182 9.39018Z" fill="currentColor"></path>
-      </svg>
     `;
   }
 
@@ -1206,5 +1358,34 @@ export default class AppMain extends HTMLElement {
         }
 	    </style>
     `;
+  }
+
+  _expandDropdown(parentLi) {
+    if (!parentLi) return;
+    
+    // Remove collapsed class
+    parentLi.classList.remove('collapsed');
+    parentLi.classList.add('active');
+    
+    // Get the dropdown and expand it
+    const dropdown = parentLi.querySelector('ul.dropdown');
+    if (dropdown) {
+      // Set max height to scrollHeight to show the dropdown
+      dropdown.style.maxHeight = (dropdown.scrollHeight + 7) + 'px';
+    }
+    
+    // Close other dropdowns
+    const specialNavUls = this.shadowRoot.querySelectorAll('section.nav > ul.nav.special');
+    specialNavUls.forEach(ul => {
+      const item = ul.querySelector('li');
+      if (item && item !== parentLi) {
+        item.classList.add('collapsed');
+        item.classList.remove('active');
+        const otherDropdown = item.querySelector('ul.dropdown');
+        if (otherDropdown) {
+          otherDropdown.style.maxHeight = '0px';
+        }
+      }
+    });
   }
 }

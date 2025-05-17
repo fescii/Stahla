@@ -136,22 +136,52 @@ export default class AppHome extends HTMLElement {
     `;
   }
 
+  // users:: 
+  getUserProfile = () => {
+    return /* html */`
+      <user-profile api="/auth/me"></user-profile>
+    `;
+  }
+
+  getUsersList = () => {
+    return /* html */`
+      <users-list api="/auth/users"></users-list>
+    `;
+  }
+
+  getAddUser = () => {
+    return /* html */`
+      <add-user api="/auth/users" method="POST"></add-user>
+    `;
+  }
+
+  // Quote::
+  getLocationLookup = () => {
+    return /* html */`
+      <location-lookup api="/webhook/location/lookup/sync"></location-lookup>
+    `;
+  }
+
+  getQuoteForm = () => {
+    return /* html */`
+      <quote-form api="/webhook/quote"></quote-form>
+    `;
+  }
+
+  getSoonPage = () => {
+    return /* html */`
+      <soon-page url="/soon"></soon-page>
+    `;
+  }
+
   getBody = () => {
     return /* html */`
       <div class="feeds">
         <div class="content-container">
-          ${this.getCacheSearch()}
+          ${this.getSoonPage()}
         </div>
       <div>
     `;
-  }
-
-  getInfo = () => {
-    return /*html*/`
-      <info-container docs="/about/docs" new="/about/new"
-       feedback="/about/feedback" request="/about/request" code="/about/code" donate="/about/donate" contact="/about/contact" company="https://github.com/aduki-hub">
-      </info-container>
-    `
   }
 
   getStyles() {

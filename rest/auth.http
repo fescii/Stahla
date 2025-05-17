@@ -28,9 +28,9 @@ Content-Type: {{contentType}}
 Authorization: Bearer {{authToken}}
 
 {
-    "email": "newuser@example.com",
+    "email": "john@doe.com",
     "password": "StrongPassword123!",
-    "full_name": "New User",
+    "name": "John Doe",
     "is_active": true,
     "is_admin": false
 }

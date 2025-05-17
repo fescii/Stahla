@@ -4,7 +4,7 @@
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union, Literal  # Added Literal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
 from cachetools import TTLCache
@@ -66,10 +66,12 @@ from app.models.hubspot import (
 logger = logging.getLogger(__name__)
 
 
-def _is_valid_iso_date(date_str: str) -> bool:
+def _is_valid_iso_date(date_input: Any) -> bool:
   """Checks if a string is a valid YYYY-MM-DD date."""
+  if not isinstance(date_input, str):
+    return False
   try:
-    datetime.strptime(date_str, "%Y-%m-%d")
+    datetime.strptime(date_input, "%Y-%m-%d")
     return True
   except ValueError:
     return False
@@ -189,33 +191,32 @@ class HubSpotManager:
   @staticmethod
   def _convert_date_to_timestamp_ms(date_str: Optional[str]) -> Optional[int]:
     """
-    Convert YYYY-MM-DD date string to HubSpot-compatible millisecond Unix timestamp.
+    Convert YYYY-MM-DD date string to a HubSpot-compatible millisecond Unix timestamp,
+    representing midnight UTC of that date.
     Returns None if the date_str is None, empty, or invalid.
     """
     if not date_str:
       return None
     try:
-      # Attempt to parse common date formats, prioritize YYYY-MM-DD
+      # _is_valid_iso_date already checks if date_str is a string and valid "YYYY-MM-DD"
       if _is_valid_iso_date(date_str):
-        dt_object = datetime.strptime(date_str, "%Y-%m-%d")
+        # Parse the date string to a date object
+        date_object = datetime.strptime(date_str, "%Y-%m-%d").date()
+        # Create a datetime object for midnight UTC on that date
+        dt_midnight_utc = datetime.combine(date_object, datetime.min.time(), tzinfo=timezone.utc)
+        # Convert to millisecond timestamp
+        timestamp_ms = int(dt_midnight_utc.timestamp() * 1000)
+        logger.debug(f"Converted date string '{date_str}' to midnight UTC timestamp {timestamp_ms}")
+        return timestamp_ms
       else:
-        # Fallback for other potential formats if necessary, or raise error
-        # For now, strict on YYYY-MM-DD based on typical AI output
+        # This case should ideally not be hit if called after _is_valid_iso_date check,
+        # but kept for robustness if called directly with an invalid format.
         logger.warning(
-            f"Invalid date format for HubSpot: '{date_str}'. Expected YYYY-MM-DD.")
+            f"Invalid date format passed to _convert_date_to_timestamp_ms: '{date_str}'. Expected YYYY-MM-DD.")
         return None
-
-      # HubSpot expects UTC timestamps. Assuming input dates are naive and represent local time.
-      # If dates are already in UTC, this can be simplified.
-      # For this conversion, we'll assume the date is at the beginning of the day in UTC.
-      # Make naive for timestamp conversion
-      dt_object_utc = dt_object.replace(tzinfo=None)
-      timestamp_ms = int(dt_object_utc.timestamp() * 1000)
-      logger.debug(f"Converted date '{date_str}' to timestamp {timestamp_ms}")
-      return timestamp_ms
-    except ValueError as e:
+    except ValueError as e: # Catch errors from strptime or timestamp conversion
       logger.warning(
-          f"Error converting date string '{date_str}' to timestamp: {e}")
+          f"Error converting date string '{date_str}' to timestamp in _convert_date_to_timestamp_ms: {e}")
       return None
 
   async def search_objects(
@@ -354,45 +355,67 @@ class HubSpotManager:
       return await self.get_contact(contact_id)  # Return current state
 
     try:
-      # Convert date strings to timestamps
-      if 'event_start_date' in props_dict_for_update:
-        props_dict_for_update['event_start_date'] = self._convert_date_to_timestamp_ms(
-            props_dict_for_update.get('event_start_date'))
-      if 'event_end_date' in props_dict_for_update:
-        props_dict_for_update['event_end_date'] = self._convert_date_to_timestamp_ms(
-            props_dict_for_update.get('event_end_date'))
-
-      # Filter out None values that resulted from failed conversion to avoid sending nulls for dates if conversion failed
-      final_props_for_update = {k: v for k, v in props_dict_for_update.items(
-      ) if v is not None or k not in ['event_start_date', 'event_end_date']}
-      # Ensure we don't accidentally remove other legitimate None values if they are meant to clear a field.
-      # The above filter is a bit aggressive for updates. Let's refine it:
-      # We only want to remove date fields if their conversion resulted in None.
-      # Other fields explicitly set to None by the input `properties` model should be preserved if they were set.
+      # Normalize date fields to midnight UTC timestamps
+      logger.debug(f"Original properties for contact update {contact_id}: {props_dict_for_update}")
 
       processed_props = {}
       for key, value in props_dict_for_update.items():
-        if key in ['event_start_date', 'event_end_date']:
-          converted_date = self._convert_date_to_timestamp_ms(
-              value)  # value is original string here
-          if converted_date is not None:
-            processed_props[key] = converted_date
-          # If conversion fails (returns None), we don't add the key, effectively unsetting it or leaving it as is.
-          # If you want to explicitly clear it on HubSpot, send "".
-        else:
-          processed_props[key] = value
+        if key in ['event_start_date', 'event_end_date']:  # Add other known date fields if any
+          if value is None:
+            logger.debug(f"Date field '{key}' is None. Skipping update for this field.")
+            # If HubSpot requires sending an empty string to clear a date, add: processed_props[key] = ""
+            continue
 
-      if not processed_props:  # If all properties were dates and all failed conversion
-        logger.warning(
-            f"Update contact for ID {contact_id}: all properties were date-related and failed conversion or were None. Skipping API call.")
+          final_midnight_utc_timestamp = None
+          if isinstance(value, str):
+            if _is_valid_iso_date(value):  # Handles "YYYY-MM-DD"
+              final_midnight_utc_timestamp = self._convert_date_to_timestamp_ms(value) # This method should already ensure midnight UTC
+            else:  # Attempt to parse as a stringified integer timestamp
+              try:
+                ms_timestamp = int(value)
+                # Convert to datetime, normalize to midnight UTC, then back to timestamp
+                dt_obj_utc = datetime.fromtimestamp(ms_timestamp / 1000, tz=timezone.utc)
+                dt_midnight_utc = dt_obj_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+                final_midnight_utc_timestamp = int(dt_midnight_utc.timestamp() * 1000)
+              except ValueError:
+                logger.warning(f"Date string '{value}' for key '{key}' is not 'YYYY-MM-DD' and not a parsable integer timestamp. Field will not be sent.")
+                continue # Skip this field if format is unrecognized
+          elif isinstance(value, int):  # Handles integer timestamps
+            ms_timestamp = value
+            # Convert to datetime, normalize to midnight UTC, then back to timestamp
+            dt_obj_utc = datetime.fromtimestamp(ms_timestamp / 1000, tz=timezone.utc)
+            dt_midnight_utc = dt_obj_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            final_midnight_utc_timestamp = int(dt_midnight_utc.timestamp() * 1000)
+          elif isinstance(value, datetime):  # Handles datetime objects
+             dt_obj = value
+             # Ensure datetime is UTC
+             dt_obj_utc = dt_obj.astimezone(timezone.utc) if dt_obj.tzinfo else dt_obj.replace(tzinfo=timezone.utc)
+             # Normalize to midnight UTC
+             dt_midnight_utc = dt_obj_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+             final_midnight_utc_timestamp = int(dt_midnight_utc.timestamp() * 1000)
+          else:
+            if value is not None: # Log only if value was not None initially
+                logger.warning(f"Unexpected type for date field '{key}': {type(value)}. Value: '{value}'. Field will not be sent.")
+            continue # Skip this field if type is unrecognized
+
+          if final_midnight_utc_timestamp is not None:
+            processed_props[key] = final_midnight_utc_timestamp
+            logger.info(f"Normalized date field '{key}': original value '{value}', sent as timestamp {final_midnight_utc_timestamp}")
+          elif value is not None: # Original value was not None, but conversion failed
+             logger.warning(f"Could not convert value '{value}' for date field '{key}' to a midnight UTC timestamp. Field will not be sent.")
+        else:  # Not a date field
+          processed_props[key] = value
+      
+      if not processed_props:
+        logger.info(f"No properties to update for contact {contact_id} after processing.")
         return await self.get_contact(contact_id)
 
       logger.debug(
           f"Processed contact properties for HubSpot update: {processed_props}")
 
-      simple_public_object_input = ContactSimplePublicObjectInput(
-          properties=processed_props
-      )
+      simple_public_object_input = ContactSimplePublicObjectInput(properties=processed_props)
+      logger.debug(f"Attempting to update contact {contact_id} with processed properties: {simple_public_object_input.properties}")
+
       api_response = await asyncio.to_thread(
           self.client.crm.contacts.basic_api.update,
           contact_id=contact_id,
@@ -725,22 +748,25 @@ class HubSpotManager:
       deal_props_dict = properties.model_dump(exclude_none=True)
 
       # Convert date properties to timestamps
-      date_fields_to_convert = ['closedate', 'rental_start_date', 'rental_end_date'] # Add any other custom date fields here
+      # Add any other custom date fields here
+      date_fields_to_convert = ['closedate',
+                                'rental_start_date', 'rental_end_date']
       for date_field in date_fields_to_convert:
-          if deal_props_dict.get(date_field):
-              deal_props_dict[date_field] = self._convert_date_to_timestamp_ms(deal_props_dict[date_field])
+        if deal_props_dict.get(date_field):
+          deal_props_dict[date_field] = self._convert_date_to_timestamp_ms(
+              deal_props_dict[date_field])
 
       # Filter out None values that resulted from failed conversion for date fields
       # Other fields are preserved as is from model_dump
       final_deal_props = {}
       for k, v in deal_props_dict.items():
-          if k in date_fields_to_convert:
-              if v is not None: # Value was successfully converted
-                  final_deal_props[k] = v
-              # If v is None (conversion failed or original was None and resulted in None), it's omitted.
-          else:
-              final_deal_props[k] = v
-      
+        if k in date_fields_to_convert:
+          if v is not None:  # Value was successfully converted
+            final_deal_props[k] = v
+          # If v is None (conversion failed or original was None and resulted in None), it's omitted.
+        else:
+          final_deal_props[k] = v
+
       # Ensure pipeline and dealstage are set, defaulting if necessary, using final_deal_props
       if "pipeline" not in final_deal_props or "dealstage" not in final_deal_props:
         logger.debug(
@@ -751,7 +777,7 @@ class HubSpotManager:
         )
         if default_pipeline and default_pipeline.id and default_pipeline.stages:
           # Update final_deal_props directly
-          final_deal_props["pipeline"] = default_pipeline.id 
+          final_deal_props["pipeline"] = default_pipeline.id
           first_stage = min(
               default_pipeline.stages,
               key=lambda s: (
@@ -763,7 +789,7 @@ class HubSpotManager:
           )
           if first_stage and first_stage.id:
             # Update final_deal_props directly
-            final_deal_props["dealstage"] = first_stage.id 
+            final_deal_props["dealstage"] = first_stage.id
             logger.info(
                 f"Set deal to pipeline '{default_pipeline.label}' ({default_pipeline.id}) and stage '{first_stage.label}' ({first_stage.id})"
             )
@@ -1809,20 +1835,17 @@ class HubSpotManager:
       return HubSpotApiResult(
           status="error",
           entity_type="lead",
-          message=response["message"],
-          details={"errors": response["errors"]}
+
       )
     except (ObjectApiException, DealApiException) as e:
       error_info = await _handle_api_error(e, "lead creation main process")
-      logger
+      # logger # Stray logger commented out
       response["errors"].append(
           {"step": "hubspot_api_main", "details": error_info})
       return HubSpotApiResult(
           status="error",
-          entity_type="lead",
-          message=response["message"],
-          details={"errors": response["errors"],
-                   "original_error_info": error_info}
+                   entity_type="lead",
+          message=error_info.get("error", "A HubSpot API error occurred during lead creation.")
       )
     except Exception as e:
       logger.error(

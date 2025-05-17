@@ -1,6 +1,7 @@
 export default class CacheSearch extends HTMLElement {
   constructor() {
     super();
+    console.log("CacheSearch constructor called");
     this.shadowObj = this.attachShadow({ mode: "open" });
     this.app = window.app;
     this.api = this.app.api;
@@ -22,30 +23,114 @@ export default class CacheSearch extends HTMLElement {
       { value: "sync:last_successful_timestamp", label: "Last Sync Timestamp" },
       { value: "sync:*", label: "All Sync Data" }
     ];
-    this.selectedOption = "pricing:catalog";
+    
+    // Initialize with Maps Cache Counters option
+    this.selectedOption = "dash:cache:maps:*";
+    console.log("Initial selectedOption set to:", this.selectedOption);
+    
     this.render();
   }
 
   render() {
+    console.log("Rendering component, searchData:", this.searchData ? "exists" : "null", "selectedOption:", this.selectedOption);
     this.shadowObj.innerHTML = this.getTemplate();
+    
     // Set up event listeners after each render
     setTimeout(() => {
+      console.log("Setting up event listeners after render");
       this._setupEventListeners();
+      
+      // Ensure select has correct value after rendering
+      const searchSelect = this.shadowObj.querySelector('#search-select');
+      if (searchSelect) {
+        console.log("Select before update:", searchSelect.value);
+        searchSelect.value = this.selectedOption;
+        console.log("Select after update:", searchSelect.value);
+      }
     }, 0);
   }
 
+  // Method specifically for the first-time load
+  _triggerInitialSearch() {
+    console.log("Triggering initial search for:", this.selectedOption);
+    
+    // Reset any potential blocking states
+    this._block = false;
+    this._loading = false;
+    
+    // Directly call the search API to load the initial data
+    this.api.get(`${this.url}?pattern=${this.selectedOption}`, { content: "json" })
+      .then(response => {
+        console.log("Initial search response received");
+        
+        // Process the response similar to _handleSearch
+        if (response.status_code === 401 || 
+            (response.error_message && response.error_message.includes("validate credentials"))) {
+          console.log("Authentication required for search access");
+          this.app.showAccess();
+          return;
+        }
+
+        if (!response.success || !response.data) {
+          this._empty = true;
+          this.searchData = null;
+        } else {
+          this._empty = false;
+          this.searchData = response;
+          console.log("Initial search completed successfully");
+        }
+        
+        // Render with the new data
+        this.render();
+        
+        // Set up event listeners for the newly rendered content
+        setTimeout(() => {
+          this._setupPricingEntryListeners();
+          this._setupCounterTabListeners();
+        }, 100);
+      })
+      .catch(error => {
+        console.error("Error during initial search:", error);
+        this._empty = true;
+        this.searchData = null;
+        this.render();
+      });
+  }
+
   connectedCallback() {
-    // Set up search form and event listeners after the component is connected
+    console.log("connectedCallback fired");
+    
+    // Make sure the component is fully initialized before triggering the search
     setTimeout(() => {
+      console.log("connectedCallback timeout fired");
+      console.log("Current selectedOption:", this.selectedOption);
+      
+      // Set up event listeners
       this._setupEventListeners();
-    }, 100);
+      
+      // Ensure the select element is set to the right value
+      const searchSelect = this.shadowObj.querySelector('#search-select');
+      if (searchSelect) {
+        searchSelect.value = this.selectedOption;
+        console.log("Search select value set to:", searchSelect.value);
+      }
+      
+      // Trigger the initial search
+      this._triggerInitialSearch();
+    }, 300);
   }
 
   _setupEventListeners() {
     // Search form submission
     const searchForm = this.shadowObj.querySelector('.search-form');
     if (searchForm) {
-      searchForm.addEventListener('submit', (e) => {
+      // Remove any existing event listeners to prevent duplicates
+      const oldForm = searchForm.cloneNode(true);
+      searchForm.parentNode.replaceChild(oldForm, searchForm);
+      
+      // Add the event listener to the new form
+      oldForm.addEventListener('submit', (e) => {
+        console.log("Search form submitted");
         e.preventDefault();
         e.stopPropagation();
         this._handleSearch();
@@ -58,6 +143,7 @@ export default class CacheSearch extends HTMLElement {
     if (searchSelect) {
       searchSelect.addEventListener('change', (e) => {
         this.selectedOption = e.target.value;
+        console.log("Selected option changed to:", this.selectedOption);
       });
     }      
     
@@ -130,13 +216,26 @@ export default class CacheSearch extends HTMLElement {
 
   // Handle search action
   _handleSearch = async () => {
-    if (this._block || !this.selectedOption) return;
+    console.log("_handleSearch called, selectedOption:", this.selectedOption, "block:", this._block);
+    
+    // Make sure we have a valid selection and we're not already processing
+    if (this._block) {
+      console.log("Search blocked because _block is true");
+      return;
+    }
+    
+    if (!this.selectedOption) {
+      console.log("Search blocked because selectedOption is empty");
+      return;
+    }
 
+    console.log("Proceeding with search for:", this.selectedOption);
     this._loading = true;
     this._block = true;
     this.render();
 
     try {
+      console.log("Fetching data from:", `${this.url}?pattern=${this.selectedOption}`);
       const response = await this.api.get(`${this.url}?pattern=${this.selectedOption}`, { content: "json" });
       
       // Check for 401 Unauthorized response
@@ -166,10 +265,14 @@ export default class CacheSearch extends HTMLElement {
       this._empty = false;
       
       this.searchData = response;
+      console.log("Search completed successfully, got data:", response);
+      
+      // Render with the new data
       this.render();
       
       // Set up event listeners for the newly rendered content
       setTimeout(() => {
+        console.log("Setting up event listeners for new content");
         this._setupPricingEntryListeners();
         this._setupCounterTabListeners();
       }, 100);
@@ -1572,11 +1675,11 @@ export default class CacheSearch extends HTMLElement {
 
         .search-select {
           width: 100%;
-          padding: 0.75rem 1rem;
+          padding: 8px 15px;
           font-size: 1rem;
           background-color: var(--background);
           border: var(--border);
-          border-radius: 0.375rem;
+          border-radius: 12px;
           color: var(--text-color);
           appearance: none;
           cursor: pointer;
@@ -1595,11 +1698,11 @@ export default class CacheSearch extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.75rem 1.25rem;
+          padding: 8px 15px;
           background: var(--action-linear);
           color: var(--white-color);
           border: var(--action-border);
-          border-radius: 0.375rem;
+          border-radius: 12px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
