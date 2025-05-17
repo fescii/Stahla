@@ -1,0 +1,101 @@
+// This file will temporarily hold our new implementation of _getMapsCountersHTML method
+
+_getMapsCountersHTML = (data) => {
+  if (!data || data.length === 0) {
+    return this._getEmptyStateHTML();
+  }
+  
+  // Find hits and misses counters
+  const hitsCounter = data.find(item => item.key === 'dash:cache:maps:hits');
+  const missesCounter = data.find(item => item.key === 'dash:cache:maps:misses');
+  
+  // Extract hits and misses values
+  const hits = hitsCounter ? parseInt(hitsCounter.value_preview) : 0;
+  const misses = missesCounter ? parseInt(missesCounter.value_preview) : 0;
+  const total = hits + misses;
+  
+  // Calculate hit rate percentage
+  const hitRate = total > 0 ? ((hits / total) * 100).toFixed(1) : 0;
+  
+  // Get formatted timestamp for the most recent counter
+  const lastUpdated = hitsCounter?.timestamp || missesCounter?.timestamp 
+    ? new Date(Math.max(
+        hitsCounter?.timestamp ? new Date(hitsCounter.timestamp).getTime() : 0, 
+        missesCounter?.timestamp ? new Date(missesCounter.timestamp).getTime() : 0
+      )).toLocaleString() 
+    : 'Unknown';
+  
+  // Template with hit rate card and counter cards
+  return /* html */ `
+    <div class="results-container">
+      <div class="results-header">
+        <h2 class="results-title">Maps Cache Counters</h2>
+        <div class="results-meta">
+          <span>Last Updated: <strong>${lastUpdated}</strong></span>
+        </div>
+        <button class="export-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export JSON
+        </button>
+      </div>
+      
+      <div class="maps-cache-overview">
+        <div class="hit-rate-card">
+          <h3 class="hit-rate-title">Cache Hit Rate</h3>
+          <div class="hit-rate-value ${parseFloat(hitRate) >= 90 ? 'high' : parseFloat(hitRate) >= 70 ? 'medium' : 'low'}">
+            ${hitRate}%
+          </div>
+          <div class="hit-rate-detail">
+            <span>${total.toLocaleString()} total requests</span>
+          </div>
+        </div>
+        
+        <div class="maps-counters">
+          <div class="counter-card hits">
+            <h3 class="counter-name">Cache Hits</h3>
+            <p class="counter-value">${hits.toLocaleString()}</p>
+            <p class="counter-percentage">${total > 0 ? ((hits / total) * 100).toFixed(1) : 0}%</p>
+            <div class="counter-bar">
+              <div class="counter-bar-fill" style="width: ${total > 0 ? ((hits / total) * 100) : 0}%"></div>
+            </div>
+          </div>
+          
+          <div class="counter-card misses">
+            <h3 class="counter-name">Cache Misses</h3>
+            <p class="counter-value">${misses.toLocaleString()}</p>
+            <p class="counter-percentage">${total > 0 ? ((misses / total) * 100).toFixed(1) : 0}%</p>
+            <div class="counter-bar">
+              <div class="counter-bar-fill" style="width: ${total > 0 ? ((misses / total) * 100) : 0}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="maps-counters-explainer">
+        <h3>About Cache Hit Rate</h3>
+        <p>
+          The hit rate shows how often the application is able to retrieve maps data from the cache 
+          rather than making external API calls. A higher hit rate indicates better performance and 
+          reduced external API usage.
+        </p>
+        <div class="optimization-tips">
+          <h4>Optimization Tips</h4>
+          <ul>
+            ${parseFloat(hitRate) < 70 ? `
+              <li>Consider increasing the TTL (time-to-live) for map cache entries.</li>
+              <li>Review the most common location lookups and ensure they're being cached.</li>
+              <li>Check the cache eviction policy to ensure important entries aren't being removed prematurely.</li>
+            ` : ''}
+            ${parseFloat(hitRate) >= 90 ? `
+              <li>Your maps cache is performing well! Continue monitoring for any changes.</li>
+            ` : ''}
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+};

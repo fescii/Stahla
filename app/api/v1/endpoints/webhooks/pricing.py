@@ -1,5 +1,6 @@
 # filepath: /home/femar/AO3/Stahla/app/api/v1/endpoints/webhooks/pricing.py
 import logging
+import logfire  # Import logfire
 from typing import Annotated
 import time  # For latency calculation
 
@@ -78,7 +79,8 @@ async def webhook_location_lookup(
 
   # Add background tasks
   background_tasks.add_task(
-      location_service.prefetch_distance, payload.delivery_location
+      # Pass background_tasks here
+      location_service.prefetch_distance, payload.delivery_location, background_tasks
   )
   background_tasks.add_task(
       increment_request_counter_bg, redis_service, TOTAL_LOCATION_LOOKUPS_KEY
@@ -132,11 +134,21 @@ async def webhook_quote(
   try:
     logger.info(f"Received quote webhook for request_id: {request_id}")
     quote_response = await quote_service.build_quote(payload)
+    # Increment total and success counters
+    background_tasks.add_task(
+        increment_request_counter_bg, redis_service, TOTAL_QUOTE_REQUESTS_KEY)
+    background_tasks.add_task(
+        increment_request_counter_bg, redis_service, SUCCESS_QUOTE_REQUESTS_KEY)
     # Return GenericResponse on success
     return GenericResponse(data=quote_response)
   except ValueError as ve:
     logger.warning(
         f"Value error building quote for request {request_id}: {ve}")
+    # Increment total and error counters
+    background_tasks.add_task(
+        increment_request_counter_bg, redis_service, TOTAL_QUOTE_REQUESTS_KEY)
+    background_tasks.add_task(
+        increment_request_counter_bg, redis_service, ERROR_QUOTE_REQUESTS_KEY)
     background_tasks.add_task(
         log_error_bg,
         redis_service,
@@ -151,6 +163,11 @@ async def webhook_quote(
     logger.exception(
         f"Unexpected error building quote for request {request_id}", exc_info=e
     )
+    # Increment total and error counters
+    background_tasks.add_task(
+        increment_request_counter_bg, redis_service, TOTAL_QUOTE_REQUESTS_KEY)
+    background_tasks.add_task(
+        increment_request_counter_bg, redis_service, ERROR_QUOTE_REQUESTS_KEY)
     background_tasks.add_task(
         log_error_bg,
         redis_service,

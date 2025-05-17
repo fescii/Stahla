@@ -34,3 +34,25 @@ Authorization: {{auth_token}}
 {
   "delivery_location": "Main St, Omaha, NE 68102"
 }
+
+
+### Example with an address that is not near a configured Stahla branch
+# Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache misses later
+POST {{host}}/api/v1/webhook/location/lookup
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+  "delivery_location": "123 Main St, Omaha, NE 68102"
+}
+
+###
+// ### Example with an Atlanta address
+# Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache hits later
+POST {{host}}/api/v1/webhook/location/lookup
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+  "delivery_location": "123 Peachtree St NE, Atlanta, GA 30303"
+}

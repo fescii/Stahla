@@ -39,18 +39,29 @@ SYNC_INTERVAL_SECONDS = 60 * 60 * 24  # Sync every 1 day
 
 # Helper to clean currency strings
 def _clean_currency(value: Any) -> Optional[float]:
-  if value is None or value == "n/a":
+  if value is None:
     return None
   if isinstance(value, (int, float)):
     return float(value)
   if isinstance(value, str):
-    # Remove $, commas, and whitespace
-    cleaned = re.sub(r"[$,\s]", "", value)
-    try:
-      return float(cleaned)
-    except ValueError:
-      logfire.warning(f"Could not convert currency string '{value}' to float.")
+    normalized_value = value.strip().lower()
+    if normalized_value == "n/a" or not normalized_value:  # Handles empty strings and "n/a"
       return None
+
+    # Remove currency symbols and commas
+    cleaned_value = value.replace("$", "").replace(",", "").strip()
+
+    if not cleaned_value:  # Handles cases like value being only "$" or ","
+      return None
+    try:
+      return float(cleaned_value)
+    except ValueError:
+      logfire.warning(
+          f"Could not parse currency string to float. Input: '{value}'")
+      return None
+  # If value is not None, int, float, or str, it's an unexpected type for currency.
+  logfire.warning(
+      f"Unexpected type for currency cleaning: {type(value)}, value: '{value}'")
   return None
 
 
@@ -309,8 +320,8 @@ class SheetSyncService:
     )
     return parsed_config
 
-  @staticmethod
   def _parse_seasonal_dates(
+      self, # Add self as the first argument
       raw_key_values: Dict[str, Any],
   ) -> Dict[str, Dict[str, Any]]:
     """
@@ -391,344 +402,148 @@ class SheetSyncService:
       generators_data: List[List[Any]],
       config: Dict[str, Any],
   ) -> Dict[str, Any]:
-    pricing_catalog = {
+    """Parses product and generator data from sheet rows into structured dictionaries."""
+    pricing_catalog: Dict[str, Any] = {
         "products": {},
         "generators": {},
         "delivery": config.get("delivery", {}),
         "seasonal_multipliers": config.get("seasonal_multipliers", {}),
+        "last_updated": datetime.utcnow().isoformat(),
     }
 
     # --- Parse Products ---
     if products_data and len(products_data) > 1:
-      product_headers_raw = [str(h).strip() for h in products_data[0]]
-      product_headers_lower = [h.lower() for h in product_headers_raw]
-      logfire.debug(f"Product headers (raw): {product_headers_raw}")
+      product_headers = [
+          str(h).strip().lower() for h in products_data[0]
+      ]  # Normalize headers
+      product_data_rows = products_data[1:]
+      logfire.info(
+          f"SheetSyncService: Parsing {len(product_data_rows)} product rows with headers: {product_headers}"
+      )
 
-      id_col_idx = -1
-      name_col_idx = -1
+      for i, row_data in enumerate(product_data_rows):
+        if not any(row_data):  # Skip entirely empty rows
+          logfire.debug(f"Skipping empty product row {i+2}")
+          continue
 
-      for idx, header_l in enumerate(product_headers_lower):
-        mapped_field = PRODUCT_HEADER_MAP.get(header_l)
-        if mapped_field == "id":
-          id_col_idx = idx
-        elif mapped_field == "name":
-          name_col_idx = idx
-
-      if id_col_idx != -1:
-        logfire.info(
-            f"Product 'id' field will be sourced from column '{product_headers_raw[id_col_idx]}' (index {id_col_idx})."
-        )
-      else:
-        logfire.error(
-            "CRITICAL: Product 'id' column not found. PRODUCT_HEADER_MAP must map a sheet column to 'id'. Product parsing will likely fail for all rows."
-        )
-
-      if name_col_idx != -1:
-        logfire.info(
-            f"Product 'name' field will be sourced from column '{product_headers_raw[name_col_idx]}' (index {name_col_idx})."
-        )
-      else:
-        logfire.warning(
-            "Product 'name' column not mapped in PRODUCT_HEADER_MAP. Product names will default to their IDs."
-        )
-
-      for i, row in enumerate(products_data[1:]):
-        if id_col_idx == -1:
-          if i == 0:
-            logfire.error(
-                "Skipping all product parsing as 'id' column mapping is missing in PRODUCT_HEADER_MAP."
+        product_dict: Dict[str, Any] = {"extras": {}}
+        # Ensure row_data has enough elements for all headers
+        # Map values based on PRODUCT_HEADER_MAP
+        for sheet_header, pydantic_field in PRODUCT_HEADER_MAP.items():
+          try:
+            col_index = product_headers.index(sheet_header)
+            raw_value = row_data[col_index] if col_index < len(
+                row_data) else None
+            # Clean currency for pricing fields, otherwise store raw
+            if "rate" in pydantic_field or "weekly" in pydantic_field or "event" in pydantic_field:
+              product_dict[pydantic_field] = _clean_currency(raw_value)
+            else:
+              product_dict[pydantic_field] = str(
+                  raw_value).strip() if raw_value is not None else None
+          except ValueError:  # Header not found
+            logfire.debug(
+                f"Header \'{sheet_header}\' not found in product sheet. Field \'{pydantic_field}\' will be None."
             )
-          break
+            product_dict[pydantic_field] = None
+          except IndexError:
+            logfire.warning(
+                f"Product row {i+2} is shorter than expected. Header \'{sheet_header}\' (index {col_index}) out of bounds. Field \'{pydantic_field}\' will be None."
+            )
+            product_dict[pydantic_field] = None
 
-        product_id_value = None
-        if len(row) > id_col_idx:
-          product_id_value = str(row[id_col_idx]).strip()
+        # Default 'name' to 'id' if 'name' wasn't explicitly mapped or is empty
+        if not product_dict.get("name") and product_dict.get("id"):
+          product_dict["name"] = product_dict["id"]
 
-        if not product_id_value:
+        # If 'id' is still missing or empty after mapping, skip this product
+        if not product_dict.get("id"):
           logfire.warning(
-              f"Skipping product row {i+2} (sheet row): empty or missing ID from mapped 'id' column ('{product_headers_raw[id_col_idx]}' index {id_col_idx}). Row: {row}"
+              f"Skipping product row {i+2} due to missing ID (Primary Column)."
           )
           continue
 
-        product_name_value = product_id_value
-        if (
-            name_col_idx != -1
-            and len(row) > name_col_idx
-            and str(row[name_col_idx]).strip()
-        ):
-          product_name_value = str(row[name_col_idx]).strip()
-        elif name_col_idx != -1:
-          logfire.debug(
-              f"Product {product_id_value}: Mapped 'name' column ('{product_headers_raw[name_col_idx]}') is empty. Name defaults to ID."
-          )
-
-        product_entry = {
-            "id": product_id_value,
-            "name": product_name_value,
-            "extras": {},
-        }
-
-        for col_idx_loop, header_l_loop in enumerate(product_headers_lower):
-          if col_idx_loop >= len(
-              row
-          ):  # Ensure we don't go out of bounds for the current row
-            continue
-
-          # 1. Skip if this column was already used for the main 'id' or 'name' fields.
-          if col_idx_loop == id_col_idx:
-            continue
-          if name_col_idx != -1 and col_idx_loop == name_col_idx:
-            continue
-
-          # 2. Special handling for a column literally named 'primary column'
-          #    IF it was NOT the source for 'id' or 'name' (already handled by above).
-          if header_l_loop == "primary column":
-            logfire.debug(
-                f"Product {product_id_value}: Explicitly ignoring data from column '{product_headers_raw[col_idx_loop]}' (header: 'primary column') as it's not the designated id/name source and special handling is requested."
+        # Populate 'extras' from known extra service headers
+        for extra_header in KNOWN_PRODUCT_EXTRAS_HEADERS:
+          try:
+            col_index = product_headers.index(extra_header)
+            raw_value = row_data[col_index] if col_index < len(
+                row_data) else None
+            # Extras are also currency values
+            product_dict["extras"][extra_header.replace(
+                " ", "_")] = _clean_currency(raw_value)
+          except ValueError:
+            # It's okay if an extra header isn't present for all products
+            pass
+          except IndexError:
+            logfire.warning(
+                f"Product row {i+2} is shorter than expected when looking for extra \'{extra_header}\'. It will be skipped for this product."
             )
-            continue
 
-          value_raw = row[col_idx_loop]
-          pydantic_field = PRODUCT_HEADER_MAP.get(header_l_loop)
-
-          if pydantic_field:
-            # 'id' and 'name' source columns are skipped by prior 'continue' statements.
-            # Thus, pydantic_field here will be for other attributes.
-            if pydantic_field in [
-                "weekly_7_day",
-                "rate_28_day",
-                "rate_2_5_month",
-                "rate_6_plus_month",
-                "rate_18_plus_month",
-                "event_standard",
-                "event_premium",
-                "event_premium_plus",
-                "event_premium_platinum",
-            ]:
-              product_entry[pydantic_field] = _clean_currency(value_raw)
-            else:
-              # For any other mapped fields that are not currency (and not id/name)
-              product_entry[pydantic_field] = (
-                  str(value_raw).strip()
-                  if value_raw is not None
-                  else None
-              )
-          elif header_l_loop in KNOWN_PRODUCT_EXTRAS_HEADERS:
-            extra_key = (
-                header_l_loop.replace(" ", "_")
-                .replace("/", "_")
-                .replace("(", "")
-                .replace(")", "")
-                .replace("<", "")
-                .replace(">", "")
-            )
-            product_entry["extras"][extra_key] = _clean_currency(value_raw)
-
-        if not product_entry.get(
-            "name"
-        ):  # Should be set, but as a final fallback
-          logfire.error(
-              f"Product {product_id_value}: Name field is unexpectedly missing after parsing. Defaulting to ID."
-          )
-          product_entry["name"] = product_id_value
-
-        if not product_entry["extras"]:
-          del product_entry["extras"]
-        pricing_catalog["products"][product_id_value] = product_entry
-      logfire.info(
-          f"SheetSyncService: Parsed {len(pricing_catalog['products'])} products."
-      )
+        product_id = product_dict["id"]
+        pricing_catalog["products"][product_id] = product_dict
+        logfire.debug(f"Parsed product: {product_id} -> {product_dict}")
     else:
-      logfire.warning("No product data or only headers found for products.")
+      logfire.warning(
+          "No product data or only headers found in products_data.")
 
     # --- Parse Generators ---
     if generators_data and len(generators_data) > 1:
-      gen_headers_raw = [str(h).strip() for h in generators_data[0]]
-      gen_headers_lower = [h.lower() for h in gen_headers_raw]
-      logfire.debug(f"Generator headers (raw): {gen_headers_raw}")
+      generator_headers = [
+          str(h).strip().lower() for h in generators_data[0]
+      ]  # Normalize headers
+      generator_data_rows = generators_data[1:]
+      logfire.info(
+          f"SheetSyncService: Parsing {len(generator_data_rows)} generator rows with headers: {generator_headers}"
+      )
 
-      id_col_idx_gen = -1
-      name_col_idx_gen = -1
+      for i, row_data in enumerate(generator_data_rows):
+        if not any(row_data):  # Skip entirely empty rows
+          logfire.debug(f"Skipping empty generator row {i+2}")
+          continue
 
-      for idx, header_l in enumerate(gen_headers_lower):
-        mapped_field = GENERATOR_HEADER_MAP.get(header_l)
-        if mapped_field == "id":
-          id_col_idx_gen = idx
-        elif mapped_field == "name":
-          name_col_idx_gen = idx
-
-      if id_col_idx_gen != -1:
-        logfire.info(
-            f"Generator 'id' field will be sourced from column '{gen_headers_raw[id_col_idx_gen]}' (index {id_col_idx_gen})."
-        )
-      else:
-        logfire.error(
-            "CRITICAL: Generator 'id' column not found. GENERATOR_HEADER_MAP must map a sheet column to 'id'. Generator parsing will fail."
-        )
-
-      if name_col_idx_gen != -1:
-        logfire.info(
-            f"Generator 'name' field will be sourced from column '{gen_headers_raw[name_col_idx_gen]}' (index {name_col_idx_gen})."
-        )
-      else:
-        logfire.warning(
-            "Generator 'name' column not mapped in GENERATOR_HEADER_MAP. Generator names will default to their IDs."
-        )
-
-      for i, row in enumerate(generators_data[1:]):
-        if id_col_idx_gen == -1:
-          if i == 0:
-            logfire.error(
-                "Skipping all generator parsing as 'id' column mapping is missing in GENERATOR_HEADER_MAP."
+        generator_dict: Dict[str, Any] = {}
+        # Ensure row_data has enough elements for all headers
+        # Map values based on GENERATOR_HEADER_MAP
+        for sheet_header, pydantic_field in GENERATOR_HEADER_MAP.items():
+          try:
+            col_index = generator_headers.index(sheet_header)
+            raw_value = row_data[col_index] if col_index < len(
+                row_data) else None
+            # Apply _clean_currency to all generator rate fields
+            if "rate" in pydantic_field:  # Ensures all rate fields are cleaned
+              generator_dict[pydantic_field] = _clean_currency(raw_value)
+            else:  # For 'id' and 'name' (which defaults to 'id')
+              generator_dict[pydantic_field] = str(
+                  raw_value).strip() if raw_value is not None else None
+          except ValueError:  # Header not found
+            logfire.debug(
+                f"Header \'{sheet_header}\' not found in generator sheet. Field \'{pydantic_field}\' will be None."
             )
-          break
+            generator_dict[pydantic_field] = None
+          except IndexError:
+            logfire.warning(
+                f"Generator row {i+2} is shorter than expected. Header \'{sheet_header}\' (index {col_index}) out of bounds. Field \'{pydantic_field}\' will be None."
+            )
+            generator_dict[pydantic_field] = None
 
-        generator_id_value = None
-        if len(row) > id_col_idx_gen:
-          generator_id_value = str(row[id_col_idx_gen]).strip()
+        # Default 'name' to 'id' if 'name' wasn't explicitly mapped or is empty
+        if not generator_dict.get("name") and generator_dict.get("id"):
+          generator_dict["name"] = generator_dict["id"]
 
-        if not generator_id_value:
+        # If 'id' is still missing or empty after mapping, skip this generator
+        if not generator_dict.get("id"):
           logfire.warning(
-              f"Skipping generator row {i+2}: empty or missing ID from mapped 'id' column ('{gen_headers_raw[id_col_idx_gen]}' index {id_col_idx_gen}). Row: {row}"
+              f"Skipping generator row {i+2} due to missing ID (Generator Rental)."
           )
           continue
 
-        generator_name_value = generator_id_value
-        if (
-            name_col_idx_gen != -1
-            and len(row) > name_col_idx_gen
-            and str(row[name_col_idx_gen]).strip()
-        ):
-          generator_name_value = str(row[name_col_idx_gen]).strip()
-        elif name_col_idx_gen != -1:
-          logfire.debug(
-              f"Generator {generator_id_value}: Mapped 'name' column ('{gen_headers_raw[name_col_idx_gen]}') is empty. Name defaults to ID."
-          )
-
-        generator_entry = {
-            "id": generator_id_value,
-            "name": generator_name_value,
-        }
-
-        for col_idx_loop, header_l_loop in enumerate(gen_headers_lower):
-          if col_idx_loop >= len(row):  # Ensure we don't go out of bounds
-            continue
-
-          # 1. Skip if this column was already used for the main 'id' or 'name' fields.
-          if col_idx_loop == id_col_idx_gen:
-            continue
-          if name_col_idx_gen != -1 and col_idx_loop == name_col_idx_gen:
-            continue
-
-          # 2. Special handling for a column literally named 'primary column'
-          #    IF it was NOT the source for 'id' or 'name' for generators.
-          if header_l_loop == "primary column":
-            logfire.debug(
-                f"Generator {generator_id_value}: Explicitly ignoring data from column '{gen_headers_raw[col_idx_loop]}' (header: 'primary column') as it's not the designated id/name source for generators and special handling is requested."
-            )
-            continue
-
-          value_raw = row[col_idx_loop]
-          pydantic_field = GENERATOR_HEADER_MAP.get(header_l_loop)
-
-          if pydantic_field:
-            # 'id' and 'name' source columns are skipped by prior 'continue' statements.
-            if pydantic_field in [
-                "rate_event",
-                "rate_7_day",
-                "rate_28_day",
-            ]:
-              # Handle 'n/a' values for generators (especially for large generators event rates)
-              cleaned_value = _clean_currency(value_raw)
-
-              if (
-                  cleaned_value is None
-                  and pydantic_field == "rate_event"
-                  and "kw generator" in generator_id_value.lower()
-              ):
-                # For large generators, n/a for event rate is expected
-                logfire.debug(
-                    f"Generator {generator_id_value}: {pydantic_field} is n/a, which is expected for larger generators"
-                )
-              elif cleaned_value is None:
-                logfire.warning(
-                    f"Generator {generator_id_value}: Could not parse {pydantic_field} value: '{value_raw}'"
-                )
-
-              generator_entry[pydantic_field] = str(
-                  cleaned_value) if cleaned_value is not None else ""
-            else:
-              # For any other mapped fields that are not currency (and not id/name)
-              generator_entry[pydantic_field] = (
-                  str(value_raw).strip()
-                  if value_raw is not None
-                  else ""
-              )
-
-        if not generator_entry.get(
-            "name"
-        ):  # Should be set, but as a final fallback
-          logfire.error(
-              f"Generator {generator_id_value}: Name field is unexpectedly missing after parsing. Defaulting to ID."
-          )
-          generator_entry["name"] = generator_id_value
-
-        pricing_catalog["generators"][generator_id_value] = generator_entry
-      logfire.info(
-          f"SheetSyncService: Parsed {len(pricing_catalog['generators'])} generators."
-      )
+        generator_id = generator_dict["id"]
+        pricing_catalog["generators"][generator_id] = generator_dict
+        logfire.debug(f"Parsed generator: {generator_id} -> {generator_dict}")
     else:
       logfire.warning(
-          "No generator data or only headers found for generators.")
+          "No generator data or only headers found in generators_data.")
 
-    # Handle edge cases and apply business logic fixes to the data
-    pricing_catalog = self._handle_csv_edge_cases(pricing_catalog)
-
-    logfire.info(
-        f"SheetSyncService: Applied edge case handling to pricing data with {len(pricing_catalog['products'])} products and {len(pricing_catalog['generators'])} generators"
-    )
-
-    # Validate the parsed data
-    validation_issues = self._validate_parsed_data(pricing_catalog)
-
-    # Log validation results
-    products_with_issues = validation_issues["products"]
-    generators_with_issues = validation_issues["generators"]
-
-    if products_with_issues:
-      logfire.warning(
-          f"SheetSyncService: Found {len(products_with_issues)} products with missing pricing fields: {products_with_issues}"
-      )
-
-    if generators_with_issues:
-      logfire.warning(
-          f"SheetSyncService: Found {len(generators_with_issues)} generators with missing pricing fields: {generators_with_issues}"
-      )
-
-    # Log detailed product pricing for verification
-    for product_id, product in pricing_catalog["products"].items():
-      product_prices = {
-          k: v
-          for k, v in product.items()
-          if k != "extras" and k not in ["id", "name"]
-      }
-      logfire.debug(f"Product pricing for '{product_id}': {product_prices}")
-      if "extras" in product:
-        logfire.debug(
-            f"Product extras for '{product_id}': {product.get('extras', {})}"
-        )
-
-    # Log detailed generator pricing for verification
-    for generator_id, generator in pricing_catalog["generators"].items():
-      generator_prices = {
-          k: v for k, v in generator.items() if k not in ["id", "name"]
-      }
-      logfire.debug(
-          f"Generator pricing for '{generator_id}': {generator_prices}")
-
-    logfire.info(
-        f"SheetSyncService: Successfully parsed pricing catalog. Products: {len(pricing_catalog['products'])}, Generators: {len(pricing_catalog['generators'])}."
-    )
     return pricing_catalog
 
   async def sync_full_catalog(
@@ -1419,12 +1234,7 @@ class SheetSyncService:
         if generator.get("rate_7_day") is not None:
           # For larger generators without event rates, we can calculate a default rate
           # based on the 7-day rate
-          generator["rate_event"] = (
-              generator["rate_7_day"] * 0.5
-          )  # 50% of weekly rate as event rate
-          logfire.debug(
-              f"Generator '{generator_id}': Added default rate_event=${generator['rate_event']:.2f} (50% of rate_7_day)"
-          )
+          pass # Explicitly do nothing if we want to keep None
 
     return pricing_catalog
 

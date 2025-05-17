@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <!-- Add CORS headers via meta tags -->
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+  <meta http-equiv="Cross-Origin-Resource-Policy" content="cross-origin">
+  <!-- Add favicons -->
+  <link rel="icon" type="image/png" href="/static/img/favi.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/favi.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favi.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favi.png">
+  <meta name="theme-color" content="#4285f4" />
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/res.css">
+  <script type="module">
+    import AppMain from '/static/js/app.js'
+    customElements.define('app-main', AppMain)
+    const node = document.getElementById('root')
+    node.innerHTML = /* HTML */`
+      <app-main>
+        <app-home api="/api/v1" name="Main Page" type="page"></app-home>
+      </app-main>
+    `
+  </script>
+</head>
+<body>
+  <div class="root" id="root"></div> 
+</body>
+</html>

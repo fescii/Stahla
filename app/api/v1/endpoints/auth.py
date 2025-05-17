@@ -1,9 +1,9 @@
 # filepath: app/api/v1/endpoints/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from typing import Any, List  # Import List
 import logfire
 import uuid  # Import uuid
+from pydantic import BaseModel # Add BaseModel import
 
 from app.models.user import Token, User, UserCreate, UserUpdate  # Import User models
 from app.models.common import GenericResponse  # Import GenericResponse
@@ -17,22 +17,28 @@ from app.core.security import get_current_user, get_current_active_admin
 router = APIRouter()
 
 
+# Define a Pydantic model for the JSON request body
+class TokenRequest(BaseModel):
+    username: str
+    password: str
+
+
 @router.post("/token", response_model=GenericResponse[Token])  # Use GenericResponse
 async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    token_request: TokenRequest,  # Changed from form_data to token_request
     auth_service: AuthService = Depends(get_auth_service),  # Use direct injector
 ) -> Any:
     """
     OAuth2 compatible token login, get an access token for future requests.
-    Uses form data (username=email, password=password).
+    Accepts JSON body with username and password.
     """
-    # Correctly log the username field from the form data
-    logfire.info(f"Token request received for username: {form_data.username}")
+    # Correctly log the username field from the token_request
+    logfire.info(f"Token request received for username: {token_request.username}")
     user = await auth_service.authenticate_user(
-        email=form_data.username, password=form_data.password
+        email=token_request.username, password=token_request.password
     )
     if not user:
-        logfire.warning(f"Authentication failed for username: {form_data.username}")
+        logfire.warning(f"Authentication failed for username: {token_request.username}")
         # Return error using GenericResponse - FastAPI handles status code via exception
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -43,7 +49,7 @@ async def login_for_access_token(
         # return GenericResponse.error(message="Incorrect email or password")
     elif not user.is_active:
         logfire.warning(
-            f"Authentication attempt for inactive user: {form_data.username}"
+            f"Authentication attempt for inactive user: {token_request.username}"
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
@@ -52,7 +58,7 @@ async def login_for_access_token(
     access_token = auth_service.create_access_token(
         data={"sub": user.email}  # Use email as the subject
     )
-    logfire.info(f"Access token generated successfully for user: {form_data.username}")
+    logfire.info(f"Access token generated successfully for user: {token_request.username}")
     # Return success using GenericResponse
     return GenericResponse[Token](
         data=Token(access_token=access_token, token_type="bearer")

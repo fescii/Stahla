@@ -12,9 +12,12 @@
 
 # @name login
 POST {{host}}{{api_v1}}/auth/token
-Content-Type: application/x-www-form-urlencoded
+Content-Type: application/json
 
-username={{admin_email}}&password={{admin_password}}
+{
+  "username": "{{admin_email}}",
+  "password": "{{admin_password}}"
+}
 
 ###
 
@@ -69,6 +72,75 @@ x-access-token: {{jwt_token}}
 
 # Search Cache Keys (Example: pricing catalog)
 GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=pricing:catalog
+x-access-token: {{jwt_token}}
+
+
+###
+
+
+# Search Cache Keys (Pricing - All)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=pricing:*
+x-access-token: {{jwt_token}}
+
+###
+
+
+# Search Cache Keys (Maps - Specific Location Example)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=maps:distance:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Maps - All)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=maps:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Dashboard - Quote Requests)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=dash:requests:quote:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Dashboard - Location Lookups)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=dash:requests:location:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Dashboard - GMaps API)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=dash:gmaps:api:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Dashboard - Pricing Cache Hits/Misses)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=dash:cache:pricing:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Dashboard - Maps Cache Hits/Misses)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=dash:cache:maps:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Dashboard - All)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=dash:*
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Sync - Last Successful Timestamp Exact)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=sync:last_successful_timestamp
+x-access-token: {{jwt_token}}
+
+###
+
+# Search Cache Keys (Sync - All)
+GET {{host}}{{api_v1}}/dashboard/cache/search?pattern=sync:*
 x-access-token: {{jwt_token}}
 
 ###

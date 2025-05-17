@@ -1,5 +1,6 @@
 # filepath: app/core/dependencies.py
-from fastapi import Request, HTTPException, status, Depends  # Keep Depends
+# Add BackgroundTasks
+from fastapi import Request, HTTPException, status, Depends, BackgroundTasks
 from typing import Optional
 
 # Import Service Classes and their *actual* injectors
@@ -28,6 +29,7 @@ def get_location_service_dep(
     ),  # Add mongo_service dependency
 ) -> LocationService:
   # Instantiate LocationService with its dependencies
+  # BackgroundTasks will be injected into the specific methods that need it (e.g., API endpoints)
   return LocationService(redis_service, mongo_service)
 
 

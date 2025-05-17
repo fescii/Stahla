@@ -24,11 +24,13 @@ from app.services.email import EmailManager
 from app.services.hubspot import HubSpotManager
 from app.services.bland import bland_manager
 from app.api.v1.api import api_router_v1
+from app.api.v1.endpoints import home  # Import home router
 from app.core.config import settings
 import logfire
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import asyncio
 from dotenv import load_dotenv
@@ -243,6 +245,12 @@ app.add_middleware(
 
 # Mount the API router
 app.include_router(api_router_v1, prefix=settings.API_V1_STR)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Include the home router at the root
+app.include_router(home.router)  # Added home router at root
 
 
 # Root endpoint (optional)

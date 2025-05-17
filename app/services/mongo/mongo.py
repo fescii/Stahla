@@ -23,6 +23,7 @@ SHEET_BRANCHES_COLLECTION = "sheet_branches"
 SHEET_CONFIG_COLLECTION = "sheet_config"
 BLAND_CALL_LOGS_COLLECTION = "bland_call_logs"
 ERROR_LOGS_COLLECTION = "error_logs"  # New collection for general errors
+STATS_COLLECTION = "dashboard_stats"  # Collection for dashboard counters
 
 mongo_service_instance: Optional["MongoService"] = None
 
@@ -48,9 +49,31 @@ async def shutdown_mongo_service():
     logfire.info("Attempting to shut down MongoDB service...")
     await mongo_service_instance.close_mongo_connection()
     mongo_service_instance = None
-    logfire.info("MongoDB service shut down successfully.")
-  else:
-    logfire.info("MongoDB service not running or already shut down.")
+
+
+async def get_mongo_service() -> "MongoService":  # Changed to async
+  """
+  FastAPI dependency injector for MongoService.
+  Returns the initialized mongo_service_instance.
+  Raises HTTPException if the service is not available.
+  """
+  global mongo_service_instance  # Ensure we are using the global instance
+  if mongo_service_instance is None:
+    logfire.error(
+        "get_mongo_service: mongo_service_instance is None. MongoDB might not have started correctly."
+    )
+    # Attempt to initialize it if it's None, as a fallback, though startup should handle this.
+    # This might be problematic if called before lifespan startup is complete.
+    # Consider if this fallback is desired or if it should strictly rely on startup.
+    logfire.info(
+        "get_mongo_service: Attempting to initialize mongo_service_instance as it was None.")
+    await startup_mongo_service()  # Try to start it if not already started
+    if mongo_service_instance is None:  # Check again after attempting startup
+      raise HTTPException(
+          status_code=503,
+          detail="MongoDB service is not available. Initialization may have failed.",
+      )
+  return mongo_service_instance
 
 
 class MongoService:
@@ -246,6 +269,13 @@ class MongoService:
       logfire.info(
           f"Indexes ensured for collection '{SERVICE_STATUS_COLLECTION}'."
       )
+
+      # Index for stats collection
+      stats_collection = self.db[STATS_COLLECTION]
+      # Removed unique=True
+      await stats_collection.create_index([("_id", ASCENDING)], name="stats_id_idx")
+      logfire.info(
+          f"Index 'stats_id_idx' ensured for collection '{STATS_COLLECTION}'.")
 
     except Exception as e:
       logfire.error(f"Error creating MongoDB indexes: {e}", exc_info=True)
@@ -474,6 +504,107 @@ class MongoService:
           f"Failed to log report '{report_type}' to MongoDB: {e}", exc_info=True
       )
       return None
+
+  async def increment_request_stat(self, stat_name: str, success: bool):
+    """Increments a counter for a given statistic (e.g., quote_requests) in MongoDB."""
+    logfire.info(
+        f"increment_request_stat: Attempting for '{stat_name}', success: {success}. DB state: {'DB available' if self.db is not None else 'DB NOT AVAILABLE'}")
+
+    if self.db is None:
+      logfire.error(
+          f"increment_request_stat: MongoDB database is not initialized. Cannot increment stat for {stat_name}."
+      )
+      return
+
+    # Log database and collection names
+    db_name = self.db.name
+    collection_name_actual = STATS_COLLECTION
+    logfire.info(
+        f"increment_request_stat: Operating on DB: '{db_name}', Collection: '{collection_name_actual}'")
+
+    collection = self.db[collection_name_actual]
+    query = {"_id": stat_name}
+    update = {
+        "$inc": {
+            "total": 1,
+            "successful": 1 if success else 0,
+            "failed": 1 if not success else 0,
+        }
+    }
+    try:
+      result = await collection.update_one(query, update, upsert=True)
+      logfire.info(
+          f"increment_request_stat: Upsert for '{stat_name}' (success: {success}). Matched: {result.matched_count}, Modified: {result.modified_count}, UpsertedId: {result.upserted_id}"
+      )
+
+      # DEBUG: Attempt to read the document immediately after upsert
+      doc_after_upsert = await collection.find_one({"_id": stat_name})
+      if doc_after_upsert:
+        logfire.info(
+            f"increment_request_stat: DEBUG READ AFTER UPSERT for '{stat_name}' FOUND: {doc_after_upsert}")
+      else:
+        logfire.warning(
+            f"increment_request_stat: DEBUG READ AFTER UPSERT for '{stat_name}' NOT FOUND.")
+
+    except Exception as e:
+      logfire.error(
+          f"increment_request_stat: Failed for '{stat_name}' in MongoDB: {e}",
+          exc_info=True,
+          stat_name=stat_name,
+          success=success,
+      )
+
+  async def get_dashboard_stats(self) -> Dict[str, Dict[str, int]]:
+    """Retrieves dashboard statistics like quote requests and location lookups from MongoDB."""
+    logfire.info(
+        f"get_dashboard_stats: Attempting. DB state: {'DB available' if self.db is not None else 'DB NOT AVAILABLE'}")
+    if self.db is None:
+      logfire.error(
+          "get_dashboard_stats: MongoDB database is not initialized. Cannot fetch stats."
+      )
+      return {}
+
+    # Log database and collection names
+    db_name = self.db.name
+    collection_name_actual = STATS_COLLECTION
+    logfire.info(
+        f"get_dashboard_stats: Operating on DB: '{db_name}', Collection: '{collection_name_actual}'")
+
+    collection = self.db[collection_name_actual]
+    stats_to_fetch = ["quote_requests", "location_lookups"]
+    dashboard_data: Dict[str, Dict[str, int]] = {}
+
+    try:
+      for stat_name in stats_to_fetch:
+        doc = await collection.find_one({"_id": stat_name})
+        if doc:
+          dashboard_data[stat_name] = {
+              "total": doc.get("total", 0),
+              "successful": doc.get("successful", 0),
+              "failed": doc.get("failed", 0),
+          }
+          # Log found stats
+          logfire.info(
+              f"Found stat '{stat_name}': Total={doc.get('total', 0)}, Success={doc.get('successful', 0)}, Failed={doc.get('failed', 0)}")
+        else:
+          logfire.warning(  # Changed to warning for better visibility
+              f"No document found for stat_name: '{stat_name}' in {STATS_COLLECTION}. Returning zeros."
+          )
+          dashboard_data[stat_name] = {
+              "total": 0, "successful": 0, "failed": 0}
+      # Changed to info
+      logfire.info(f"Successfully retrieved dashboard stats: {dashboard_data}")
+      return dashboard_data
+    except Exception as e:
+      logfire.error(
+          f"Failed to retrieve dashboard stats from MongoDB: {e}", exc_info=True
+      )
+      # Return default structure on error
+      for stat_name in stats_to_fetch:
+        if stat_name not in dashboard_data:
+          dashboard_data[stat_name] = {
+              "total": 0, "successful": 0, "failed": 0}
+      return dashboard_data
 
   async def get_recent_reports(
       self, report_type: Optional[Union[str, List[str]]] = None, limit: int = 100
@@ -731,104 +862,3 @@ class MongoService:
         }
 
         # If call_id_bland is explicitly None for this retry attempt (e.g. previous one failed before getting it, and this one hasn
-
-  async def update_bland_call_log_completion(
-      self,
-      contact_id: str,
-      call_id_bland: str,
-      status: BlandCallStatus,
-      transcript_payload: Optional[List[Dict[str, Any]]],
-      summary_text: Optional[str],
-      classification_payload: Optional[Dict[str, Any]],
-      full_webhook_payload: Dict[str, Any],
-      call_completed_timestamp: datetime,
-      bland_processing_result_payload: Dict[str, Any],
-      processing_status_message: Optional[str]
-  ) -> bool:
-    """
-    Updates a Bland call log upon completion and processing of the webhook.
-    Uses contact_id (as _id) and call_id_bland to identify the correct log entry.
-    """
-    db = await self.get_db()
-    collection = db[BLAND_CALL_LOGS_COLLECTION]
-    current_time = datetime.utcnow()
-
-    query = {
-        "_id": contact_id,
-        "call_id_bland": call_id_bland  # Ensure we update the specific call attempt
-    }
-
-    update_fields = {
-        "status": status.value,
-        "updated_at": current_time,
-        "completed_at_bland": call_completed_timestamp,  # Timestamp from Bland payload
-        "transcript_payload": transcript_payload,
-        "summary_text": summary_text,
-        "classification_payload": classification_payload,
-        "full_webhook_payload": full_webhook_payload,
-        "bland_processing_result": bland_processing_result_payload,
-        "processing_status_message": processing_status_message,
-        "error_message": None  # Clear any previous error message for this attempt if now completed
-    }
-    # Remove None values to avoid overwriting existing fields with None if not provided
-    update_fields = {k: v for k, v in update_fields.items() if v is not None}
-
-    update_doc = {"$set": update_fields}
-
-    try:
-      result = await collection.update_one(query, update_doc)
-      if result.matched_count > 0:
-        logfire.info(
-            f"Successfully updated Bland call log completion for contact_id: {contact_id}, call_id_bland: {call_id_bland}",
-            contact_id=contact_id, call_id_bland=call_id_bland, modified_count=result.modified_count
-        )
-        return True
-      else:
-        logfire.warning(
-            f"No Bland call log found to update for completion with contact_id: {contact_id} and call_id_bland: {call_id_bland}",
-            contact_id=contact_id, call_id_bland=call_id_bland
-        )
-        # Attempt to find by contact_id only if specific call_id_bland wasn't found,
-        # this might indicate a mismatch or a log that wasn't updated with call_id_bland yet.
-        # Check if call_id_bland was never set
-        fallback_query = {"_id": contact_id, "call_id_bland": None}
-        fallback_result = await collection.update_one(fallback_query, update_doc)
-        if fallback_result.matched_count > 0:
-          logfire.info(
-              f"Successfully updated Bland call log completion via fallback for contact_id: {contact_id} (original call_id_bland: {call_id_bland})",
-              contact_id=contact_id, call_id_bland=call_id_bland, modified_count=fallback_result.modified_count
-          )
-          return True
-        else:
-          logfire.error(
-              f"Fallback update also failed for Bland call log completion. contact_id: {contact_id}",
-              contact_id=contact_id, call_id_bland=call_id_bland
-          )
-          return False
-    except Exception as e:
-      logfire.error(
-          f"Error updating Bland call log completion for contact_id: {contact_id}, call_id_bland: {call_id_bland}: {e}",
-          exc_info=True, contact_id=contact_id, call_id_bland=call_id_bland, error_details=str(e)
-      )
-      return False
-
-# --- Dependency Injector Function ---
-
-
-async def get_mongo_service() -> MongoService:
-  """
-  FastAPI dependency injector for MongoService.
-  Returns the initialized mongo_service_instance.
-  Raises HTTPException if the service is not available.
-  """
-  if mongo_service_instance is None:
-    logfire.error(
-        "get_mongo_service: mongo_service_instance is None. MongoDB might not have started correctly."
-    )
-    raise HTTPException(
-        status_code=503,
-        detail="MongoDB service is not available. Initialization may have failed.",
-    )
-  return mongo_service_instance
-
-  # --- Sheet Sync Specific Methods ---

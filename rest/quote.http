@@ -52,6 +52,6 @@ Authorization: {{auth_token}}
   "rental_start_date": "2025-09-05",
   "rental_days": 4,
   "usage_type": "event",
-  "extras": []
+  "extras": [{"extra_id": "3kW Generator", "qty": 1}]
 }
 

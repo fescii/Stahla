@@ -5,8 +5,7 @@ import asyncio
 import logfire  # Import logfire for enhanced logging
 from datetime import date  # Ensure date is imported
 from typing import Any, Dict, List, Optional, Tuple, Literal  # Import Literal
-
-from fastapi import Depends  # Add Depends import
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from app.utils.location import geocode_location, SERVICE_HUBS, get_distance_km
 
 from app.models.quote import (
@@ -744,11 +743,21 @@ class QuoteService:
 
       # --- Generator Pricing ---
       if extra_id in generators_catalog:
+        # ADDED VERBOSE LOGGING
+        logger.warning(
+            f"Processing generator: {extra_id}. Catalog type: {type(generators_catalog)}. Keys: {list(generators_catalog.keys()) if isinstance(generators_catalog, dict) else 'Not a dict'}")
         gen_info = generators_catalog[extra_id]
+        logger.warning(
+            f"Generator '{extra_id}' gen_info type: {type(gen_info)}, value: {gen_info}")
+
         gen_name = gen_info.get("name", extra_id)
         rate_event = gen_info.get("rate_event")
         rate_7_day = gen_info.get("rate_7_day")
         rate_28_day = gen_info.get("rate_28_day")
+
+        # Log the retrieved rates for the specific generator
+        logger.warning(
+            f"Generator '{extra_id}': Retrieved rate_event: {rate_event} (type: {type(rate_event)}), rate_7_day: {rate_7_day} (type: {type(rate_7_day)}), rate_28_day: {rate_28_day} (type: {type(rate_28_day)})")
 
         # Check if this is a large generator where event rates might be N/A
         is_large_generator = "kw generator" in extra_id.lower() and not (
@@ -757,11 +766,13 @@ class QuoteService:
 
         # For event pricing (≤3 days)
         if rental_days <= 3:
-          if rate_event is not None:
+          # Check type
+          if rate_event is not None and isinstance(rate_event, (int, float)):
             item_cost = rate_event * qty
             unit_price = rate_event
             description = f"{qty}x {gen_name} (Event <= 3 days)"
-          elif is_large_generator and rate_7_day is not None:
+          # Check type
+          elif is_large_generator and rate_7_day is not None and isinstance(rate_7_day, (int, float)):
             # For large generators (20kW+) that don't have event rates, use daily rate derived from weekly
             daily_rate = rate_7_day / 3.5  # Approx. daily rate from weekly
             item_cost = daily_rate * rental_days * qty
@@ -776,8 +787,9 @@ class QuoteService:
                 f"Using derived daily rate ({daily_rate_str}) for large generator \'{extra_id}\' event pricing"
             )
           else:
-            # For smaller generators that should have event rates but don't, try weekly
-            if rate_7_day is not None:
+            # For smaller generators that should have event rates but don't, or if rate_event was not numeric
+            # Check type
+            if rate_7_day is not None and isinstance(rate_7_day, (int, float)):
               item_cost = (
                   rate_7_day * qty
               )  # Use full weekly rate as fallback
@@ -786,25 +798,30 @@ class QuoteService:
                   f"{qty}x {gen_name} (Event - Weekly Rate Fallback)"
               )
               logger.info(
-                  f"Falling back to weekly rate for generator '{extra_id}' for event pricing"
+                  f"Falling back to weekly rate for generator '{extra_id}' for event pricing (event rate missing or invalid)."
               )
             else:
               item_cost = None  # Will be caught below
+              logger.warning(
+                  f"No valid event or fallback weekly rate for generator '{extra_id}' for event pricing.")
 
         # For weekly pricing (4-7 days)
-        elif rental_days <= 7 and rate_7_day is not None:
+        # Check type
+        elif rental_days <= 7 and rate_7_day is not None and isinstance(rate_7_day, (int, float)):
           item_cost = rate_7_day * qty
           unit_price = rate_7_day
           description = f"{qty}x {gen_name} (<= 7 days)"
 
         # For 28-day pricing (8-28 days)
-        elif rental_days <= 28 and rate_28_day is not None:
+        # Check type
+        elif rental_days <= 28 and rate_28_day is not None and isinstance(rate_28_day, (int, float)):
           item_cost = rate_28_day * qty
           unit_price = rate_28_day
           description = f"{qty}x {gen_name} (<= 28 days)"
 
         # For longer than 28 days, prorate 28-day rate
-        elif rate_28_day is not None:
+        # Check type
+        elif rate_28_day is not None and isinstance(rate_28_day, (int, float)):
           num_periods = rental_days / 28
           item_cost = rate_28_day * num_periods * qty
           unit_price = None  # Prorated, unit price is complex
@@ -813,7 +830,8 @@ class QuoteService:
           )
 
         # Fallback: prorate weekly if no 28-day rate
-        elif rate_7_day is not None:
+        # Check type
+        elif rate_7_day is not None and isinstance(rate_7_day, (int, float)):
           num_weeks = math.ceil(rental_days / 7)
           item_cost = rate_7_day * num_weeks * qty
           unit_price = None  # Prorated, unit price is complex
@@ -1046,7 +1064,8 @@ class QuoteService:
     )
 
     distance_result = await self.location_service.get_distance_to_nearest_branch(
-        request.delivery_location
+        request.delivery_location,
+        background_tasks=BackgroundTasks(),  # Pass background tasks for async
     )
     if not distance_result:
       logger.warning(

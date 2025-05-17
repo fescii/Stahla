@@ -21,6 +21,8 @@ marvin>=1.2.0 # If using Marvin as LLM_PROVIDER
 # openai>=1.0.0 # If using OpenAI directly
 # anthropic>=0.20.0 # If using Anthropic directly
 # google-generativeai>=0.4.0 # If using Gemini directly
+jinja2>=3.0.0 # For HTML templating
+aiofiles>=23.0.0 # For serving static files
 
 # Date and Time Handling
 python-dateutil>=2.8.2
