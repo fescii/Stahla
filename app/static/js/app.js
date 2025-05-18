@@ -85,9 +85,17 @@ export default class AppMain extends HTMLElement {
   }
 
   _updateActiveNavItem(url) {
+    // Find all expanded dropdowns first to maintain their visibility state
+    const expandedDropdowns = Array.from(this.shadowRoot.querySelectorAll('section.nav > ul.nav.special > li:not(.collapsed)'));
+    
     // Remove active class from all items
     const allNavItems = this.shadowRoot.querySelectorAll('section.nav li');
     allNavItems.forEach(item => item.classList.remove('active'));
+    
+    // Re-add active class to expanded dropdowns to maintain vertical line
+    expandedDropdowns.forEach(dropdown => {
+      dropdown.classList.add('active');
+    });
     
     // Add active class to the current nav item
     if (url === '/' || url === '/overview') {
@@ -293,7 +301,7 @@ export default class AppMain extends HTMLElement {
     setTimeout(() => {
       // set the content
       container.innerHTML = this.content;
-    }, 3000);
+    }, 1000);
   }
 
   registerComponents = () => {
@@ -413,7 +421,7 @@ export default class AppMain extends HTMLElement {
           // Toggle the clicked one
           if (isCurrentlyCollapsed) { // If it was collapsed, open it
             item.classList.remove('collapsed');
-            item.classList.add('active'); // Add active class for the vertical line
+            item.classList.add('active'); // Add active class for the vertical line regardless of child selection
             dropdown.style.maxHeight = ( dropdown.scrollHeight + 7) + 'px'; // Add some padding
           } else { // If it was open, close it
             item.classList.add('collapsed');
@@ -491,7 +499,7 @@ export default class AppMain extends HTMLElement {
     setTimeout(() => {
       // set the content
       container.innerHTML = this.content;
-    }, 3000);
+    }, 1000);
   }
 
   getMainNav = () => {
@@ -689,16 +697,16 @@ export default class AppMain extends HTMLElement {
           </div>
           <ul class="dropdown">
             <li class="config">
-              <a href="/sheets/config"><span class="text">Config</span></a>
+              <a href="/sheet/config"><span class="text">Config</span></a>
             </li>
             <li class="products">
-              <a href="/sheets/products"><span class="text">Products</span></a>
+              <a href="/sheet/products"><span class="text">Products</span></a>
             </li>
             <li class="branches">
-              <a href="/sheets/branches"><span class="text">Branches</span></a>
+              <a href="/sheet/branches"><span class="text">Branches</span></a>
             </li>
             <li class="generators">
-              <a href="/sheets/generators"><span class="text">Generators</span></a>
+              <a href="/sheet/generators"><span class="text">Generators</span></a>
             </li>
           </ul>
         </li>
@@ -1363,7 +1371,7 @@ export default class AppMain extends HTMLElement {
   _expandDropdown(parentLi) {
     if (!parentLi) return;
     
-    // Remove collapsed class
+    // Remove collapsed class and add active class to show vertical line
     parentLi.classList.remove('collapsed');
     parentLi.classList.add('active');
     

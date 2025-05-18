@@ -749,10 +749,15 @@ export default class Overview extends HTMLElement {
       <style>
         :host {
           display: block; /* Ensure the host element behaves as a block */
+          width: 100%;
           background-color: var(--background);
           font-family: var(--font-text), sans-serif;
           line-height: 1.6;
           color: var(--text-color);
+        }
+
+        * {
+          box-sizing: border-box;
         }
 
         .header {

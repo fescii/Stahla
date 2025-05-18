@@ -437,7 +437,7 @@ export default class ServicesStatus extends HTMLElement {
   }
 
   getWrongMessage = () => {
-    return `
+    return /* html */ `
       <div class="finish">
         <h2 class="finish__title">Something went wrong!</h2>
         <p class="desc">
@@ -453,12 +453,18 @@ export default class ServicesStatus extends HTMLElement {
       <style>
         :host {
           display: block;
+          width: 100%;
           font-family: var(--font-main), -apple-system, BlinkMacSystemFont, sans-serif;
           color: var(--text-color);
         }
 
+        * {
+          box-sizing: border-box;
+        }
+
         .container {
           padding: 1.5rem;
+          width: 100%;
           background-color: var(--background);
           min-height: 100vh;
         }

@@ -116,7 +116,7 @@ export default class AccessPopup extends HTMLElement {
     document.cookie = `x-access-token=${token}; expires=${expires}; path=/`;
 
     // Redirect to dashboard
-    this.app.showDashboard();
+    this.app.navigate(window.location.href);
   }
 
   removeServerStatus(form) {

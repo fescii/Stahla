@@ -307,14 +307,20 @@ export default class SheetGenerators extends HTMLElement {
       <style>
         :host {
           display: block;
+          width: 100%;
           font-family: var(--font-main), -apple-system, BlinkMacSystemFont, sans-serif;
           color: var(--text-color);
+        }
+
+        * {
+          box-sizing: border-box;
         }
 
         .container {
           padding: 1.5rem;
           background-color: var(--background);
           min-height: 100vh;
+          width: 100%;
         }
 
         .loader-container {

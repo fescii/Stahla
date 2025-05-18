@@ -1633,6 +1633,7 @@ export default class CacheSearch extends HTMLElement {
       <style>
         :host {
           display: block;
+          width: 100%;
           font-family: var(--font-main), -apple-system, BlinkMacSystemFont, sans-serif;
           color: var(--text-color);
         }
@@ -1642,6 +1643,7 @@ export default class CacheSearch extends HTMLElement {
         }
 
         .container {
+          width: 100%;
           padding: 1.5rem;
           background-color: var(--background);
           min-height: 100vh;
