@@ -138,48 +138,129 @@ class LocationService:
       return None
 
     loop = asyncio.get_running_loop()
+    tried_normalized = False
+    final_result_data: Optional[Dict[str, Any]] = None
+
+    # Attempt 1: Original destination
     try:
+      logfire.info(
+          f"Attempting Google Maps API call for origin: '{origin}', destination: '{destination}' (original)")
       await increment_request_counter_bg(
           self.redis_service, GMAPS_API_CALLS_KEY
-      )  # Increment API call counter
-      func_call = functools.partial(
-          self.gmaps.distance_matrix,
+      )
+      func_call_orig = functools.partial(
+          self.gmaps.distance_matrix,  # type: ignore
           origins=[origin],
-          destinations=[destination],
+          destinations=[destination],  # Original destination
           mode="driving",
       )
-      result = await loop.run_in_executor(None, func_call)
+      result_orig = await loop.run_in_executor(None, func_call_orig)
 
-      if (
-          result.get("status") == "OK"
-          and result["rows"][0]["elements"][0]["status"] == "OK"
-      ):
-        element = result["rows"][0]["elements"][0]
+      gmaps_status_orig = result_orig.get("status")
+      element_status_orig = (
+          result_orig["rows"][0]["elements"][0].get("status")
+          if gmaps_status_orig == "OK" and result_orig.get("rows") and result_orig["rows"][0].get("elements")
+          # if gmaps_status itself is an error
+          else "N/A" if gmaps_status_orig == "OK" else gmaps_status_orig
+      )
+
+      if gmaps_status_orig == "OK" and element_status_orig == "OK":
+        element = result_orig["rows"][0]["elements"][0]
         distance_meters = element["distance"]["value"]
         duration_seconds = element["duration"]["value"]
         distance_miles = distance_meters * MILES_PER_METER
         logfire.info(
-            f"Google Maps distance: {distance_miles:.2f} miles, Duration: {duration_seconds}s for {origin} -> {destination}"
+            f"Google Maps distance (original): {distance_miles:.2f} miles, Duration: {duration_seconds}s for {origin} -> {destination}"
         )
-        return {
+        final_result_data = {
             "distance_miles": round(distance_miles, 2),
             "distance_meters": distance_meters,
             "duration_seconds": duration_seconds,
             "origin": origin,
             "destination": destination,
         }
-      else:
-        gmaps_status = result.get("status")
-        element_status = (
-            result["rows"][0]["elements"][0].get("status")
-            if result.get("rows") and result["rows"][0].get("elements")
-            else "N/A"
-        )
-        msg = f"Google Maps API error for '{origin}' -> '{destination}': GMaps Status: {gmaps_status}, Element Status: {element_status}"
+      elif element_status_orig == "ZERO_RESULTS":
+        logfire.warning(
+            f"Google Maps API returned ZERO_RESULTS for original destination: '{destination}'. Attempting normalization.")
+        normalized_destination = destination.split(',')[0].strip()
+        if normalized_destination and normalized_destination.lower() != destination.lower():
+          tried_normalized = True
+          logfire.info(
+              f"Attempting Google Maps API call for origin: '{origin}', destination: '{normalized_destination}' (normalized)")
+          # Increment API call counter again for the second distinct API call
+          await increment_request_counter_bg(
+              self.redis_service, GMAPS_API_CALLS_KEY
+          )
+          func_call_norm = functools.partial(
+              self.gmaps.distance_matrix,  # type: ignore
+              origins=[origin],
+              destinations=[normalized_destination],
+              mode="driving",
+          )
+          result_norm = await loop.run_in_executor(None, func_call_norm)
+          gmaps_status_norm = result_norm.get("status")
+          element_status_norm = (
+              result_norm["rows"][0]["elements"][0].get("status")
+              if gmaps_status_norm == "OK" and result_norm.get("rows") and result_norm["rows"][0].get("elements")
+              else "N/A" if gmaps_status_norm == "OK" else gmaps_status_norm
+          )
+
+          if gmaps_status_norm == "OK" and element_status_norm == "OK":
+            element_norm = result_norm["rows"][0]["elements"][0]
+            distance_meters_norm = element_norm["distance"]["value"]
+            duration_seconds_norm = element_norm["duration"]["value"]
+            distance_miles_norm = distance_meters_norm * MILES_PER_METER
+            logfire.info(
+                f"Google Maps distance (normalized): {distance_miles_norm:.2f} miles, Duration: {duration_seconds_norm}s for {origin} -> {normalized_destination}"
+            )
+            final_result_data = {
+                "distance_miles": round(distance_miles_norm, 2),
+                "distance_meters": distance_meters_norm,
+                "duration_seconds": duration_seconds_norm,
+                "origin": origin,
+                "destination": destination,  # Return original destination for consistency
+            }
+          else:
+            # Normalized attempt also failed
+            msg = f"Google Maps API error for normalized_destination '{normalized_destination}' (original: '{destination}'): GMaps Status: {gmaps_status_norm}, Element Status: {element_status_norm}"
+            logfire.warning(msg)
+            await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
+            await self.mongo_service.log_error_to_db(
+                service_name="LocationService._get_distance_from_google",
+                error_type="GoogleMapsAPINormalizedFailed",
+                message=msg,
+                details={
+                    "origin": origin,
+                    "original_destination": destination,
+                    "normalized_destination_attempt": normalized_destination,
+                    "gmaps_status_normalized": gmaps_status_norm,
+                    "element_status_normalized": element_status_norm,
+                    "full_response_normalized": result_norm,
+                    "gmaps_status_original": gmaps_status_orig,  # from first attempt
+                    "element_status_original": element_status_orig,  # from first attempt
+                    "full_response_original": result_orig,  # from first attempt
+                },
+            )
+        else:  # Original was ZERO_RESULTS, and normalized is same or empty
+          msg = f"Google Maps API error for '{destination}': GMaps Status: {gmaps_status_orig}, Element Status: {element_status_orig}. No distinct normalized version to try or normalized is empty."
+          logfire.warning(msg)
+          await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
+          await self.mongo_service.log_error_to_db(
+              service_name="LocationService._get_distance_from_google",
+              error_type="GoogleMapsAPIError",  # Keep as general API error
+              message=msg,
+              details={
+                  "origin": origin,
+                  "destination": destination,
+                  "gmaps_status": gmaps_status_orig,
+                  "element_status": element_status_orig,
+                  "full_response": result_orig,
+              },
+          )
+      else:  # Original attempt failed with something other than ZERO_RESULTS or OK/OK
+        msg = f"Google Maps API error for '{destination}': GMaps Status: {gmaps_status_orig}, Element Status: {element_status_orig}"
         logfire.warning(msg)
-        await increment_request_counter_bg(
-            self.redis_service, GMAPS_API_ERRORS_KEY
-        )  # Increment API error counter
+        await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
         await self.mongo_service.log_error_to_db(
             service_name="LocationService._get_distance_from_google",
             error_type="GoogleMapsAPIError",
@@ -187,20 +268,21 @@ class LocationService:
             details={
                 "origin": origin,
                 "destination": destination,
-                "gmaps_status": gmaps_status,
-                "element_status": element_status,
-                "full_response": result,
+                "gmaps_status": gmaps_status_orig,
+                "element_status": element_status_orig,
+                "full_response": result_orig,
             },
         )
-        return None
-    except (
-        ApiError,
-        HTTPError,
-        Timeout,
-        TransportError,
-    ) as e:  # Catch specific Google Maps client errors
+
+      return final_result_data
+
+    except (ApiError, HTTPError, Timeout, TransportError) as e:
       msg = f"Google Maps API client error for '{origin}' -> '{destination}': {type(e).__name__} - {str(e)}"
       logfire.error(msg, exc_info=True)
+      # Increment error counter if it hasn't been for this specific attempt path
+      # The GMAPS_API_CALLS_KEY is incremented at the start of each attempt.
+      # GMAPS_API_ERRORS_KEY should be incremented if an attempt fails.
+      # If an ApiError occurs, it implies the attempt failed before we could check status codes.
       await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
       await self.mongo_service.log_error_to_db(
           service_name="LocationService._get_distance_from_google",
@@ -209,6 +291,7 @@ class LocationService:
           details={
               "origin": origin,
               "destination": destination,
+              "tried_normalized": tried_normalized,
               "exception_type": type(e).__name__,
               "args": e.args,
           },
@@ -225,6 +308,7 @@ class LocationService:
           details={
               "origin": origin,
               "destination": destination,
+              "tried_normalized": tried_normalized,
               "exception_type": type(e).__name__,
               "args": e.args,
           },

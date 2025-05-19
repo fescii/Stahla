@@ -6,7 +6,8 @@ from typing import Dict, Any, Optional, List
 import os
 import json
 from fastapi import BackgroundTasks
-from datetime import datetime
+from datetime import datetime, timezone
+from pydantic import HttpUrl, ValidationError
 
 # Import models
 from app.models.bland import (
@@ -626,7 +627,7 @@ class BlandAIManager:
     )
 
     # Log call result (post-API call)
-    current_time = datetime.utcnow()
+    current_time = datetime.now(timezone.utc)
     if api_result.status == "error":
       logfire.error(
           f"Bland API call initiation failed for contact_id: {contact_id}. Error: {api_result.message}",
@@ -751,16 +752,27 @@ class BlandAIManager:
       logfire.error(
           f"Retry failed: Original call log for contact_id: {contact_id} is missing phone number."
       )
-      self.background_tasks.add_task(
-          self.mongo_service.log_error_to_db,
-          service_name="BlandAIManager.retry_call",
-          error_type="DataValidationError",
-          message="Original call log missing phone number.",
-          details={
-              "contact_id": contact_id,
-              "original_log_doc_id": str(original_log_doc.get("_id")),
-          },
-      )
+      if self.background_tasks is not None:
+        self.background_tasks.add_task(
+            self.mongo_service.log_error_to_db,
+            service_name="BlandAIManager.retry_call",
+            error_type="DataValidationError",
+            message="Original call log missing phone number.",
+            details={
+                "contact_id": contact_id,
+                "original_log_doc_id": str(original_log_doc.get("_id")),
+            },
+        )
+      else:
+        await self.mongo_service.log_error_to_db(
+            service_name="BlandAIManager.retry_call",
+            error_type="DataValidationError",
+            message="Original call log missing phone number.",
+            details={
+                "contact_id": contact_id,
+                "original_log_doc_id": str(original_log_doc.get("_id")),
+            },
+        )
       return BlandApiResult(
           status="error",
           message="Original call log missing phone number.",
@@ -774,41 +786,65 @@ class BlandAIManager:
     webhook_for_retry: Optional[HttpUrl] = None
     webhook_str = original_log_doc.get("webhook_url")
     if webhook_str:
-      from pydantic import HttpUrl, ValidationError
       try:
         webhook_for_retry = HttpUrl(webhook_str)
       except ValidationError as e:
         logfire.warn(
             f"Could not parse original webhook_url '{webhook_str}' for retry due to validation error: {e}. Proceeding without webhook for retry."
         )
-        self.background_tasks.add_task(
-            self.mongo_service.log_error_to_db,
-            service_name="BlandAIManager.retry_call",
-            error_type="WebhookParsingError",
-            message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
-            details={
-                "contact_id": contact_id,
-                "webhook_url_string": webhook_str,
-                "validation_error": str(e),
-            },
-        )
+        if self.background_tasks is not None:
+          self.background_tasks.add_task(
+              self.mongo_service.log_error_to_db,
+              service_name="BlandAIManager.retry_call",
+              error_type="WebhookParsingError",
+              message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
+              details={
+                  "contact_id": contact_id,
+                  "webhook_url_string": webhook_str,
+                  "validation_error": str(e),
+              },
+          )
+        else:
+          await self.mongo_service.log_error_to_db(
+              service_name="BlandAIManager.retry_call",
+              error_type="WebhookParsingError",
+              message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
+              details={
+                  "contact_id": contact_id,
+                  "webhook_url_string": webhook_str,
+                  "validation_error": str(e),
+              },
+          )
       except Exception as e:
         logfire.warn(
             f"Could not parse original webhook_url '{webhook_str}' for retry due to unexpected error: {e}. Proceeding without webhook for retry."
         )
-        self.background_tasks.add_task(
-            self.mongo_service.log_error_to_db,
-            service_name="BlandAIManager.retry_call",
-            # Or more specific UnexpectedWebhookParsingError
-            error_type="WebhookParsingError",
-            message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
-            details={
-                "contact_id": contact_id,
-                "webhook_url_string": webhook_str,
-                "error_type_name": type(e).__name__,
-                "error_args": e.args,
-            },
-        )
+        if self.background_tasks is not None:
+          self.background_tasks.add_task(
+              self.mongo_service.log_error_to_db,
+              service_name="BlandAIManager.retry_call",
+              # Or more specific UnexpectedWebhookParsingError
+              error_type="WebhookParsingError",
+              message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
+              details={
+                  "contact_id": contact_id,
+                  "webhook_url_string": webhook_str,
+                  "error_type_name": type(e).__name__,
+                  "error_args": e.args,
+              },
+          )
+        else:
+          await self.mongo_service.log_error_to_db(
+              service_name="BlandAIManager.retry_call",
+              error_type="WebhookParsingError",
+              message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
+              details={
+                  "contact_id": contact_id,
+                  "webhook_url_string": webhook_str,
+                  "error_type_name": type(e).__name__,
+                  "error_args": e.args,
+              },
+          )
 
     # Extract relevant fields from the original log for the new call request.
     # Ensure these keys exist in your BlandCallLog documents or handle their absence.
@@ -937,20 +973,30 @@ class BlandAIManager:
     # Log the processed data and update call status in MongoDB
     # Use the new method name: update_bland_call_log_completion
     # Ensure all required arguments are passed
-    update_success = await self.mongo_service.update_bland_call_log_completion(
-        contact_id=contact_id_from_meta,
-        call_id_bland=payload.call_id,
-        status=BlandCallStatus.COMPLETED,  # Changed to use existing enum member
-        transcript_payload=payload.transcripts,  # Pass the original transcripts
-        summary_text=processing_result.summary,
-        classification_payload=processing_result.classification,
-        full_webhook_payload=payload.model_dump(
-            mode='json'),  # Ensure BSON-compatible types
-        call_completed_timestamp=payload.completed_at or datetime.utcnow(),
-        bland_processing_result_payload=processing_result.model_dump(
-            mode='json'),  # Ensure BSON-compatible types
-        processing_status_message=processing_result.message
-    )
+    update_success = False
+    if self.mongo_service is not None:
+      update_success = await self.mongo_service.update_bland_call_log_completion(
+          contact_id=contact_id_from_meta,
+          call_id_bland=payload.call_id or "",
+          status=BlandCallStatus.COMPLETED,  # Changed to use existing enum member
+          transcript_payload=payload.transcripts,  # Pass the original transcripts
+          summary_text=processing_result.summary,
+          classification_payload=processing_result.classification,
+          full_webhook_payload=payload.model_dump(
+              mode='json'),  # Ensure BSON-compatible types
+          call_completed_timestamp=(
+              payload.completed_at if isinstance(payload.completed_at, datetime)
+              else datetime.fromisoformat(payload.completed_at) if isinstance(payload.completed_at, str)
+              else datetime.now(timezone.utc)
+          ),
+          bland_processing_result_payload=processing_result.model_dump(
+              mode='json'),  # Ensure BSON-compatible types
+          processing_status_message=processing_result.message
+      )
+    else:
+      logfire.error(
+          f"MongoService is not available; cannot update MongoDB log for call_id: {payload.call_id}, contact_id: {contact_id_from_meta}."
+      )
 
     if not update_success:
       logfire.warning(
@@ -985,9 +1031,7 @@ bland_manager = BlandAIManager(
 )
 
 
-async def sync_bland_pathway_on_startup(
-        mongo_service: Depends(get_mongo_service),
-):
+async def sync_bland_pathway_on_startup(mongo_service: MongoService):
   logfire.info(
       "Attempting to sync Bland definitions on application startup...")
   bland_manager.mongo_service = mongo_service

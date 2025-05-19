@@ -14,7 +14,6 @@ from app.models.bland import BlandCallbackRequest  # Models from bland.py
 # Models from bland_call_log.py -> blandlog.py
 from app.models.blandlog import BlandCallStatus, BlandCallStats, PaginatedBlandCallResponse, BlandCallLog
 from app.models.common import GenericResponse  # Added import
-from datetime import datetime
 
 router = APIRouter()
 
@@ -97,10 +96,10 @@ async def retry_bland_call(
           f"API: Call retry failed for contact_id {contact_id}. Error: {api_result.message}")
       error_message = "Bland API error during call retry."
       status_code = 502
-      if "Original call log not found" in api_result.message:
+      if api_result.message and "Original call log not found" in api_result.message:
         error_message = f"Original call log for contact_id {contact_id} disappeared before retry."
         status_code = 404
-      elif "missing phone number" in api_result.message:
+      elif api_result.message and "missing phone number" in api_result.message:
         error_message = f"Original call log for contact_id {contact_id} is incomplete for retry (missing phone number)."
         status_code = 400
       return GenericResponse.error(message=error_message, details=api_result.model_dump(), status_code=status_code)

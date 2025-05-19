@@ -161,8 +161,8 @@ async def webhook_location_lookup_sync(
       )
       return GenericResponse.error(
           message="Failed to determine distance for the provided location.",
-          data=LocationLookupResponse(processing_time_ms=processing_time_ms,
-                                      message="Failed to determine distance.")  # Include time even on failure
+          details=LocationLookupResponse(processing_time_ms=processing_time_ms,
+                                         message="Failed to determine distance.")  # Include time even on failure
       )
 
   except Exception as e:
@@ -181,8 +181,7 @@ async def webhook_location_lookup_sync(
     )
     return GenericResponse.error(
         message="An internal error occurred during location lookup.",
-        details={"error_type": type(e).__name__},
-        data=LocationLookupResponse(
+        details=LocationLookupResponse(
             processing_time_ms=processing_time_ms, message=f"Internal error: {type(e).__name__}")
     )
 

@@ -5,9 +5,12 @@ import json
 import logfire  # Import logfire
 
 from app.models.dash.dashboard import RequestLogEntry
+from app.services import mongo
 from app.services.redis.redis import RedisService
 # Import the singleton instance and alias it
-from app.services.mongo.mongo import MongoService, mongo_service_instance as mongo_service
+from app.services.mongo.mongo import get_mongo_service
+from fastapi import Depends
+from app.services.mongo.mongo import get_mongo_service, MongoService
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +45,8 @@ async def log_request_response_bg(redis: RedisService, endpoint: str, request_id
     )
     # Use the injected RedisService instance
     client = await redis.get_client()
-    await client.lpush(RECENT_REQUESTS_KEY, log_entry.model_dump_json())
-    await client.ltrim(RECENT_REQUESTS_KEY, 0, MAX_LOG_ENTRIES - 1)
+    client.lpush(RECENT_REQUESTS_KEY, log_entry.model_dump_json())
+    client.ltrim(RECENT_REQUESTS_KEY, 0, MAX_LOG_ENTRIES - 1)
     await client.close()
     logger.debug(
         f"Logged request {request_id} to Redis list {RECENT_REQUESTS_KEY}")
@@ -78,6 +81,7 @@ async def log_error_bg(
   logfire.error(
       f"Background Error Logged: Key='{error_key}', Msg='{error_message}', Context={context}")
 
+  mongo_service = await get_mongo_service()
   # Log to MongoDB using the imported singleton instance
   if mongo_service:
     logfire.info(
@@ -121,6 +125,7 @@ async def log_success_bg(
   logfire.info(
       f"Background Success Logged: Key='{success_key}', Details={details}")
 
+  mongo_service = await get_mongo_service()
   # Log to MongoDB using the imported singleton instance
   if mongo_service:
     logfire.info(
@@ -142,18 +147,3 @@ async def log_success_bg(
   else:
     logfire.warning(
         f"Skipping MongoDB success log for '{success_key}': Mongo service not initialized.")
-
-  # Optional: Log simple success count to Redis
-  # try:
-  #     await redis.increment(f"dash:success:{success_key}:count")
-  # except Exception as e:
-  #     logger.error(f"Failed to increment Redis success counter for '{success_key}': {e}", exc_info=True)
-
-# Example of how you might adapt other logging functions if needed
-# async def log_gmaps_call_bg(redis: RedisService, mongo: MongoService = mongo_service):
-#     await increment_request_counter_bg(redis, GMAPS_API_CALLS_KEY)
-#     await mongo.log_report(report_type="gmaps_call", data={}, success=True)
-
-# async def log_gmaps_error_bg(redis: RedisService, error_msg: str, mongo: MongoService = mongo_service):
-#     await increment_request_counter_bg(redis, GMAPS_API_ERRORS_KEY)
-#     await mongo.log_report(report_type="gmaps_error", data={"error": error_msg}, success=False, error_message=error_msg)
