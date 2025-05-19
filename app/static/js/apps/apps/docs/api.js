@@ -149,6 +149,15 @@ export default class ApiDocs extends HTMLElement {
         
         <h3>Response Format</h3>
         <p>All responses are returned in JSON format. Successful responses include a <code>data</code> property containing the requested information. Error responses include an <code>error</code> property with details about what went wrong.</p>
+         <h3>Validation Errors</h3>
+        <p>Validation errors (422 status code) include field-specific error details:</p>
+        <div class="code-block"><pre><code>{ 
+  "success": boolean,
+  "data": object/null,
+  "error": object/null
+}</code></pre>
+          <button class="copy-btn" data-text='{"success":false,"data":{},"error":{"field":"email","message":"Invalid email format"}}'>Copy</button>
+        </div>
       </section>
     `;
   }
@@ -197,12 +206,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="health" class="endpoint-group ${this.state.activeSection === 'health' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Health Check</h3>
         
-        <div class="endpoint" data-endpoint="health-check">
+        <div class="endpoint expanded" data-endpoint="health-check">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/health/</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -242,12 +251,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="classification" class="endpoint-group ${this.state.activeSection === 'classification' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Classification</h3>
         
-        <div class="endpoint" data-endpoint="classification">
+        <div class="endpoint expanded" data-endpoint="classification">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/classify/</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -312,12 +321,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="docs" class="endpoint-group ${this.state.activeSection === 'docs' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Documentation</h3>
         
-        <div class="endpoint" data-endpoint="documentation">
+        <div class="endpoint expanded" data-endpoint="documentation">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/docs/{doc_path:path}</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -342,12 +351,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="webhooks" class="endpoint-group ${this.state.activeSection === 'webhooks' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Webhooks</h3>
         
-        <div class="endpoint" data-endpoint="form-webhook">
+        <div class="endpoint expanded" data-endpoint="form-webhook">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/webhook/form</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -395,12 +404,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="voice-webhook">
+        <div class="endpoint expanded" data-endpoint="voice-webhook">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/webhook/voice</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -445,12 +454,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="hubspot-webhook">
+        <div class="endpoint expanded" data-endpoint="hubspot-webhook">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/webhook/hubspot</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -472,12 +481,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="pricing-location-lookup">
+        <div class="endpoint expanded" data-endpoint="pricing-location-lookup">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/webhook/pricing/location_lookup</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -504,12 +513,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="pricing-quote">
+        <div class="endpoint expanded" data-endpoint="pricing-quote">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/webhook/pricing/quote</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -636,12 +645,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="test" class="endpoint-group ${this.state.activeSection === 'test' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Testing</h3>
         
-        <div class="endpoint" data-endpoint="test-connection">
+        <div class="endpoint expanded" data-endpoint="test-connection">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/test/connection</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -709,12 +718,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="test-mock-call">
+        <div class="endpoint expanded" data-endpoint="test-mock-call">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/test/mock-call</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -770,12 +779,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="test-webhook-trigger">
+        <div class="endpoint expanded" data-endpoint="test-webhook-trigger">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/test/webhook-trigger</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -832,12 +841,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="errors" class="endpoint-group ${this.state.activeSection === 'errors' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Error Logs</h3>
         
-        <div class="endpoint" data-endpoint="errors-list">
+        <div class="endpoint expanded" data-endpoint="errors-list">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/errors/</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -911,12 +920,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="error-details">
+        <div class="endpoint expanded" data-endpoint="error-details">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/errors/{error_id}</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -988,12 +997,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="error-resolve">
+        <div class="endpoint expanded" data-endpoint="error-resolve">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/errors/{error_id}/resolve</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1042,12 +1051,12 @@ export default class ApiDocs extends HTMLElement {
       <section id="bland" class="endpoint-group ${this.state.activeSection === 'bland' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Bland AI Calls</h3>
         
-        <div class="endpoint" data-endpoint="bland-initiate">
+        <div class="endpoint expanded" data-endpoint="bland-initiate">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/bland/initiate</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1103,12 +1112,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="bland-retry">
+        <div class="endpoint expanded" data-endpoint="bland-retry">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/bland/retry/{contact_id}</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1142,12 +1151,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="bland-stats">
+        <div class="endpoint expanded" data-endpoint="bland-stats">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/bland/stats</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1178,12 +1187,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="bland-logs">
+        <div class="endpoint expanded" data-endpoint="bland-logs">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/bland/logs</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1250,12 +1259,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="bland-logs-failed">
+        <div class="endpoint expanded" data-endpoint="bland-logs-failed">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/bland/logs/failed</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1275,12 +1284,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="bland-logs-completed">
+        <div class="endpoint expanded" data-endpoint="bland-logs-completed">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/bland/logs/completed</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1303,395 +1312,7 @@ export default class ApiDocs extends HTMLElement {
     `;
   }
 
-  getStyles() {
-    return /* html */ `
-      <style>
-        :host {
-          display: block;
-          width: 100%;
-          font-family: var(--font-main);
-          color: var(--text-color);
-          line-height: 1.6;
-        }
-        
-        *,
-        *:after,
-        *:before {
-          box-sizing: border-box;
-          font-family: inherit;
-          -webkit-box-sizing: border-box;
-        }
-
-        *:focus {
-          outline: inherit !important;
-        }
-
-        *::-webkit-scrollbar {
-          width: 0;
-          display: none;
-          visibility: hidden;
-        }
-
-        *::-webkit-scrollbar-track {
-          display: none;
-          visibility: hidden;
-          background: var(--scroll-bar-background);
-        }
-
-        *::-webkit-scrollbar-thumb {
-          width: 0;
-          display: none;
-          visibility: hidden;
-          background: var(--scroll-bar-linear);
-          border-radius: 50px;
-        }
-        
-        .api-docs {
-          width: 100%;
-          padding: 0 10px;
-          margin: 0;
-          display: flex;
-          flex-flow: column;
-          gap: 20px;
-        }
-        
-        .api-docs-header {
-          padding: 20px 0 0;
-        }
-        
-        .api-docs-header h1 {
-          font-size: 2rem;
-          font-weight: 600;
-          margin: 0;
-          padding: 0;
-          line-height: 1.4;
-          color: var(--title-color);
-        }
-        
-        .api-docs-header p {
-          font-size: 1rem;
-          margin: 0;
-          padding: 0;
-          color: var(--gray-color);
-        }
-        
-        .api-docs-content {
-          display: flex;
-          width: 100%;
-          flex-flow: row-reverse;
-          justify-content: space-between;
-          gap: 20px;
-        }
-        
-        .api-docs-sidebar {
-          width: 250px;
-          padding: 20px 0;
-          height: 100vh;
-          overflow-y: auto;
-          position: sticky;
-          top: 0;
-        }
-        
-        .sidebar-content {
-          padding: 0 1rem;
-        }
-        
-        .mobile-toggle {
-          display: none;
-          margin-bottom: 1rem;
-        }
-        
-        .mobile-toggle button {
-          background: none;
-          border: none;
-          color: var(--text-color);
-          cursor: pointer;
-          padding: 0.5rem;
-        }
-        
-        .nav-sections {
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .nav-section {
-          margin-bottom: 0.5rem;
-          position: relative;
-        }
-        
-        .nav-section.collapsed .subnav {
-          display: none;
-        }
-        
-        .nav-section.expanded .subnav {
-          display: block;
-          animation: fadeIn 0.2s ease-in-out;
-        }
-        
-        .nav-link {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.5rem 0;
-          color: var(--text-color);
-          text-decoration: none;
-          cursor: pointer;
-          font-size: 0.95rem;
-        }
-        
-        .nav-link:hover {
-          color: var(--accent-color);
-        }
-        
-        .nav-link.active {
-          color: var(--accent-color);
-          font-weight: 500;
-        }
-        
-        .nav-link.sub {
-          padding-left: 1rem;
-          font-size: 0.9rem;
-        }
-        
-        .expand-icon {
-          font-weight: bold;
-        }
-        
-        .subnav {
-          margin-top: 0.25rem;
-          margin-bottom: 0.5rem;
-        }
-        
-        .api-docs-main {
-          padding: 20px 0;
-          width: calc(100% - 270px);
-          min-height: 100vh;
-        }
-        
-        .api-content-container {
-          max-width: 800px;
-        }
-        
-        .content-section {
-          display: none;
-          animation: fadeIn 0.3s ease-in-out;
-        }
-        
-        .content-section.active {
-          display: block;
-        }
-        
-        .endpoint-group {
-          display: none;
-          margin-bottom: 2rem;
-        }
-        
-        .endpoint-group.active {
-          display: block;
-        }
-        
-        .endpoint {
-          margin-bottom: 1.5rem;
-          overflow: hidden;
-        }
-        
-        .endpoint-header {
-          display: flex;
-          align-items: center;
-          padding: 0.75rem 1rem;
-          border-radius: 6px;
-          background-color: var(--hover-background);
-          cursor: pointer;
-        }
-        
-        .endpoint-header:hover {
-          background-color: var(--que-background);
-        }
-        
-        .method {
-          font-family: var(--font-mono);
-          font-weight: 600;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
-          margin-right: 0.75rem;
-          font-size: 0.8rem;
-        }
-        
-        .method.get {
-          background-color: #34d39926;
-          color: #0ca678;
-        }
-        
-        .method.post {
-          background-color: #228be624;
-          color: #1971c2;
-        }
-        
-        .method.put {
-          background-color: #f59f0026;
-          color: #e67700;
-        }
-        
-        .method.delete {
-          background-color: #ff8d6a26;
-          color: var(--error-color);
-        }
-        
-        .path {
-          font-family: var(--font-mono);
-          font-size: 0.9rem;
-          flex: 1;
-        }
-        
-        .toggle-btn {
-          background: none;
-          border: none;
-          color: var(--gray-color);
-          cursor: pointer;
-          font-size: 1.25rem;
-          padding: 0 0.5rem;
-        }
-        
-        .endpoint-body {
-          display: none;
-          padding: 7px 0;
-        }
-        
-        .endpoint.expanded .endpoint-body {
-          display: block;
-          animation: fadeIn 0.2s ease-in-out;
-        }
-        
-        .endpoint.expanded .toggle-btn .icon {
-          content: "-";
-        }
-        
-        .loading {
-          padding: 2rem;
-          text-align: center;
-          color: var(--gray-color);
-        }
-        
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        
-        h2 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin: 0;
-          padding: 0;
-          line-height: 1.4;
-          color: var(--title-color);
-        }
-        
-        h3 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin: 2rem 0 1rem;
-          color: var(--title-color);
-        }
-        
-        h4 {
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 1.5rem 0 0.5rem;
-          color: var(--label-color);
-        }
-        
-        p {
-          margin-bottom: 1rem;
-        }
-        
-        ul, ol {
-          margin-left: 1.5rem;
-          margin-bottom: 1.5rem;
-        }
-        
-        li {
-          margin-bottom: 0.25rem;
-        }
-        
-        code {
-          font-family: var(--font-mono);
-          background-color: var(--hover-background);
-          border-radius: 3px;
-          padding: 0.2rem 0.4rem;
-          font-size: 0.875rem;
-        }
-        
-        .code-block {
-          position: relative;
-          margin: 1rem 0 1.5rem;
-          background: var(--hover-background);
-          border-radius: 6px;
-          overflow: hidden;
-        }
-        
-        .code-block pre {
-          overflow-x: auto;
-          padding: 1rem;
-          font-family: var(--font-mono);
-          font-size: 0.85rem;
-        }
-        
-        .copy-btn {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          background: var(--background);
-          border: var(--border);
-          border-radius: 4px;
-          padding: 0.25rem 0.5rem;
-          font-size: 0.8rem;
-          cursor: pointer;
-          color: var(--gray-color);
-          box-shadow: var(--card-box-shadow-alt);
-        }
-        
-        .copy-btn:hover {
-          background-color: var(--hover-background);
-          color: var(--accent-color);
-        }
-        
-        /* Mobile styles */
-        @media (max-width: 768px) {
-          .api-docs-content {
-            flex-direction: column;
-          }
-          
-          .api-docs-sidebar {
-            flex: none;
-            width: 100%;
-            height: auto;
-            border-right: none;
-            border-bottom: var(--border);
-            position: relative;
-            padding: 1rem;
-          }
-          
-          .mobile-toggle {
-            display: block;
-          }
-          
-          .nav-sections {
-            display: none;
-          }
-          
-          .nav-sections.expanded {
-            display: flex;
-          }
-          
-          .api-docs-main {
-            padding: 1rem;
-            min-height: auto;
-          }
-        }
-      </style>
-    `;
-  }
-  
+   
   getContentForSection(section) {
     switch(section) {
       case 'introduction':
@@ -1746,12 +1367,12 @@ export default class ApiDocs extends HTMLElement {
         <h3>Auth</h3>
         <p>Endpoints for managing user authentication and API keys.</p>
         
-        <div class="endpoint" data-endpoint="auth-token">
+        <div class="endpoint expanded" data-endpoint="auth-token">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/auth/token</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1787,12 +1408,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="auth-refresh">
+        <div class="endpoint expanded" data-endpoint="auth-refresh">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/auth/refresh</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1826,12 +1447,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="auth-revoke">
+        <div class="endpoint expanded" data-endpoint="auth-revoke">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/auth/revoke</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1856,12 +1477,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="api-keys-list">
+        <div class="endpoint expanded" data-endpoint="api-keys-list">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/auth/api-keys</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -1902,12 +1523,12 @@ export default class ApiDocs extends HTMLElement {
           </div>
         </div>
         
-        <div class="endpoint" data-endpoint="api-keys-create">
+        <div class="endpoint expanded" data-endpoint="api-keys-create">
           <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/auth/api-keys</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -2355,15 +1976,28 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
     
     // Set up the initial content event listeners
     this._setupContentEventListeners();
-    
-    // Expand all endpoints by default
-    this._expandAllEndpoints();
   }
+
+  /**
+   * Toggle the expansion of an endpoint
+  */
+  _expandAllEndpoints() {
+    // Add all endpoints ids to state.expandedEndpoints
+    const endpoints = this.shadowObj.querySelectorAll('.endpoint');
+    endpoints.forEach(endpoint => {
+      const endpointId = endpoint.dataset.endpoint;
+      if (endpointId) {
+        this.state.expandedEndpoints.add(endpointId);
+      }
+    });
+  } 
   
   /**
    * Set up event listeners for content elements that will be re-added when content changes
    */
   _setupContentEventListeners() {
+    // Expand all endpoints by default
+    this._expandAllEndpoints();
     // Handle endpoint toggles
     const toggleButtons = this.shadowObj.querySelectorAll('#content-container .toggle-btn');
     toggleButtons.forEach(button => {
@@ -2445,6 +2079,8 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
       const expandIcon = navSection.querySelector('.expand-icon');
       if (expandIcon) expandIcon.textContent = '−';
     }
+    
+    // No need to re-render the entire component
   }
   
   /**
@@ -2539,7 +2175,15 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
    * @param {HTMLElement} button - The toggle button element
    */
   _toggleEndpoint(endpoint, endpointId, button) {
-    if (this.state.expandedEndpoints.has(endpointId)) {
+    if (!this.state.expandedEndpoints.has(endpointId)) {
+      this.state.expandedEndpoints.add(endpointId);
+      endpoint.classList.add('expanded');
+      endpoint.classList.remove('collapsed');
+
+      // Update the toggle button icon
+      const icon = button.querySelector('.icon');
+      if (icon) icon.textContent = '−';
+    } else {
       this.state.expandedEndpoints.delete(endpointId);
       endpoint.classList.remove('expanded');
       endpoint.classList.add('collapsed');
@@ -2547,14 +2191,6 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
       // Update the toggle button icon
       const icon = button.querySelector('.icon');
       if (icon) icon.textContent = '+';
-    } else {
-      this.state.expandedEndpoints.add(endpointId);
-      endpoint.classList.add('expanded');
-      endpoint.classList.remove('collapsed');
-      
-      // Update the toggle button icon
-      const icon = button.querySelector('.icon');
-      if (icon) icon.textContent = '−';
     }
   }
   
@@ -2563,12 +2199,12 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
       <section id="dashboard" class="endpoint-group ${this.state.activeSection === 'dashboard' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
         <h3>Dashboard</h3>
         
-        <div class="endpoint" data-endpoint="dashboard-metrics">
+        <div class="endpoint expanded" data-endpoint="dashboard-metrics">
           <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/dashboard/metrics</span>
             <button class="toggle-btn" aria-label="Toggle details">
-              <span class="icon">+</span>
+              <span class="icon">−</span>
             </button>
           </div>
           <div class="endpoint-body">
@@ -2591,6 +2227,470 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
           </div>
         </div>
       </section>
+    `;
+  }
+
+  getStyles() {
+    return /* html */ `
+      <style>
+        :host {
+          display: block;
+          width: 100%;
+          font-family: var(--font-main);
+          color: var(--text-color);
+          line-height: 1.6;
+        }
+        
+        *,
+        *:after,
+        *:before {
+          box-sizing: border-box;
+          font-family: inherit;
+          -webkit-box-sizing: border-box;
+        }
+
+        *:focus {
+          outline: inherit !important;
+        }
+        
+        *::-webkit-scrollbar {
+          width: 3px;
+        }
+
+        *::-webkit-scrollbar-track {
+          background: var(--scroll-bar-background);
+        }
+
+        *::-webkit-scrollbar-thumb {
+          width: 3px;
+          background: var(--scroll-bar-linear);
+          border-radius: 50px;
+        }
+        
+        .api-docs {
+          width: 100%;
+          padding: 0 10px;
+          margin: 0;
+          display: flex;
+          flex-flow: column;
+          gap: 20px;
+        }
+        
+        .api-docs-header {
+          padding: 20px 0 0;
+        }
+        
+        .api-docs-header h1 {
+          font-size: 2rem;
+          font-weight: 600;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
+          color: var(--title-color);
+        }
+        
+        .api-docs-header p {
+          font-size: 1rem;
+          margin: 0;
+          padding: 0;
+          color: var(--gray-color);
+        }
+        
+        .api-docs-content {
+          display: flex;
+          width: 100%;
+          flex-flow: row-reverse;
+          justify-content: space-between;
+          gap: 20px;
+        }
+        
+        .api-docs-sidebar {
+          width: 260px;
+          position: sticky;
+          top: 20px;
+          height: 100vh;
+          padding-right: 10px;
+          overflow-y: auto;
+          position: sticky;
+          overflow: auto;
+          -ms-overflow-style: none; /* IE 11 */
+          scrollbar-width: none; /* Firefox 64 */
+        }
+
+        .api-docs-sidebar::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .sidebar-content {
+          border-radius: 8px;
+          background-color: var(--background);
+        }
+        
+        .mobile-toggle {
+          display: none;
+        }
+        
+        .mobile-toggle button {
+          background: none;
+          border: none;
+          color: var(--text-color);
+          cursor: pointer;
+          padding: 5px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .nav-sections {
+          padding: 0;
+        }
+        
+        .nav-section {
+          padding: 0;
+          margin-bottom: 5px;
+          position: relative;
+          transition: all 0.3s ease;
+        }
+        
+        .nav-section .subnav {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease-in-out;
+        }
+        
+        .nav-section.collapsed > .subnav {
+          max-height: 0;
+        }
+        
+        .nav-section.expanded > .subnav {
+          max-height: 500px; /* Large enough to accommodate content */
+        }
+        
+        .nav-link {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 15px;
+          font-size: 0.9rem;
+          color: var(--text-color);
+          text-decoration: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .nav-link:hover {
+          background-color: var(--hover-background);
+        }
+        
+        .nav-link.active {
+          background-color: var(--tab-background);
+          color: var(--accent-color);
+          font-weight: 500;
+        }
+        
+        .nav-link.parent {
+          font-weight: 600;
+          color: var(--text-color);
+        }
+        
+        .nav-link.sub {
+          padding-left: 32px;
+          font-size: 0.9rem;
+          position: relative;
+          display: flex;
+        }
+
+        div.subnav > a.nav-link.sub::before {
+          content: '-';
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 1;
+        }
+          content: '-';
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 1;
+        }
+        
+        .expand-icon {
+          font-weight: bold;
+          transition: transform 0.3s ease;
+        }
+        
+        .nav-section.collapsed .expand-icon {
+          transform: rotate(0deg);
+        }
+        
+        .nav-section.expanded .expand-icon {
+          transform: rotate(180deg);
+        }
+        
+        .api-docs-main {
+          padding: 20px 0;
+          width: calc(100% - 270px);
+          min-height: 100vh;
+        }
+        
+        .api-content-container {
+          max-width: 800px;
+        }
+        
+        .content-section {
+          display: none;
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .content-section.active {
+          display: block;
+        }
+        
+        .endpoint-group {
+          display: none;
+          margin-bottom: 2rem;
+        }
+        
+        .endpoint-group.active {
+          display: block;
+        }
+        
+        .endpoint {
+          margin-bottom: 1.5rem;
+          overflow: hidden;
+          transition: all 0.3s ease;
+        }
+        
+        .endpoint-header {
+          display: flex;
+          align-items: center;
+          padding: 0.75rem 1rem;
+          margin: 0 0 1rem;
+          border-radius: 6px;
+          background-color: var(--hover-background);
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+        }
+        
+        .endpoint-header:hover {
+          background-color: var(--que-background);
+        }
+        
+        .method {
+          font-family: var(--font-mono);
+          font-weight: 600;
+          padding: 0.2rem 0.5rem;
+          border-radius: 4px;
+          margin-right: 0.75rem;
+          font-size: 0.8rem;
+        }
+        
+        .method.get {
+          background-color: #34d39926;
+          color: #0ca678;
+        }
+        
+        .method.post {
+          background-color: #228be624;
+          color: #1971c2;
+        }
+        
+        .method.put {
+          background-color: #f59f0026;
+          color: #e67700;
+        }
+        
+        .method.delete {
+          background-color: #ff8d6a26;
+          color: var(--error-color);
+        }
+        
+        .path {
+          font-family: var(--font-mono);
+          font-size: 0.9rem;
+          flex: 1;
+        }
+        
+        .toggle-btn {
+          background: none;
+          border: none;
+          color: var(--gray-color);
+          cursor: pointer;
+          font-size: 1.25rem;
+          padding: 0 0.5rem;
+        }
+        
+        .toggle-btn .icon {
+          transition: transform 0.3s ease;
+          display: inline-block;
+        }
+        
+        .endpoint:not(.expanded) .toggle-btn .icon {
+          transform: rotate(180deg);
+        }
+        
+        .endpoint-body {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.5s ease-in-out, opacity 0.3s ease-in-out;
+          opacity: 0;
+        }
+        
+        .endpoint.expanded .endpoint-body {
+          max-height: 2000px; /* Large enough to accommodate content */
+          padding: 7px 0;
+          opacity: 1;
+        }
+        
+        .loading {
+          padding: 2rem;
+          text-align: center;
+          color: var(--gray-color);
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h2 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin: 0;
+          padding: 0 0 1rem;
+          line-height: 1.4;
+          color: var(--title-color);
+        }
+        
+        h3 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin: 0;
+          padding: 0 0 1rem;
+          color: var(--title-color);
+        }
+        
+        h4 {
+          font-size: 1rem;
+          font-weight: 600;
+          line-height: 1.4;
+          margin: 0;
+          padding: 0 0 1rem;
+          color: var(--label-color);
+        }
+        
+        p {
+          margin: 0 0 1rem;
+          line-height: 1.3;
+        }
+        
+        ul, ol {
+          margin-left: 15px;
+          margin-bottom: 0;
+        }
+        
+        li {
+          margin-bottom: 0.25rem;
+        }
+        
+        code {
+          font-family: var(--font-mono);
+          background-color: var(--hover-background);
+          border-radius: 3px;
+          padding: 0.2rem 0.4rem;
+          font-size: 0.875rem;
+        }
+        
+        .code-block {
+          position: relative;
+          margin: 1rem 0 1.5rem;
+          background: var(--hover-background);
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        
+        .code-block pre {
+          overflow-x: auto;
+          padding: 5px 10px;
+          font-family: var(--font-mono);
+          font-size: 0.85rem;
+        }
+        
+        .copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: var(--background);
+          border: var(--border);
+          border-radius: 4px;
+          padding: 0.25rem 0.5rem;
+          font-size: 0.8rem;
+          cursor: pointer;
+          color: var(--gray-color);
+          box-shadow: var(--card-box-shadow-alt);
+          transition: all 0.2s ease;
+        }
+        
+        .copy-btn:hover {
+          background-color: var(--hover-background);
+          color: var(--accent-color);
+        }
+        
+        /* Mobile styles */
+        @media (max-width: 768px) {
+          .api-docs-content {
+            flex-direction: column;
+          }
+          
+          .api-docs-sidebar {
+            width: 100%;
+            position: relative;
+            top: 0;
+            height: auto;
+            max-height: 300px;
+            overflow-y: hidden;
+          }
+          
+          .mobile-toggle {
+            display: block;
+            padding: 10px 15px;
+            border-bottom: var(--border);
+          }
+          
+          .mobile-toggle button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .nav-sections {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+          }
+          
+          .nav-sections.expanded {
+            max-height: 500px;
+            overflow-y: auto;
+            transition: max-height 0.5s ease-in;
+            padding: 15px 0;
+          }
+          }
+          
+          .api-docs-main {
+          padding: 1rem;
+          min-height: auto;
+          }
+        }
+      </style>
     `;
   }
 }

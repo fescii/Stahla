@@ -33,7 +33,7 @@ Author URL: https://femar.co.ke
   --stat-background: #f1f1f1;
   --attachement-background: var(var(--tab-background));
   --font-main: "Inter";
-  --font-text: "Instrument Sans";
+  --font-text: var(--font-main);
   --font-mono: "Jetbrains Mono";
   --font-read: "Work Sans";
 

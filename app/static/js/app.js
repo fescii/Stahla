@@ -75,11 +75,11 @@ export default class AppMain extends HTMLElement {
         // Update active class for main nav items
         this._updateActiveNavItem(url);
         
-        // Update URL in browser and navigate
-        this.push(url, { kind: 'app', html: this.getNavContents[url] || this.getNavContents.default }, '');
-        
-        // Perform the navigation
-        this.navigate(url);
+        // Get content for the URL
+        const content = this.getNavContents[url] || this.getNavContents.default;
+
+        // Navigate to the URL with the content as state
+        this.navigate(url, { kind: 'app', html: content });
       });
     });
   }
@@ -221,9 +221,10 @@ export default class AppMain extends HTMLElement {
     }, 5000);
   }
 
-  navigate = url => {
+  navigate = (url, state) => {
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-
+    const content = state ? state : this.getNavContents[url] || this.getNavContents.default;
+    this.push(url, content, url);
     // set the loader
     container.innerHTML = this.getLoader();
     window.scrollTo(0, 0);
@@ -445,10 +446,13 @@ export default class AppMain extends HTMLElement {
     "/pricing/location": /* HTML */`<location-lookup api="/webhook/location/lookup/sync"></location-lookup>`,
     "/pricing/quote": /* HTML */`<quote-form api="/webhook/quote"></quote-form>`,
     "/docs/api": /* HTML */`<docs-api type="docs" api="/docs/api"></docs-api>`,
-    "/docs/code": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/docs/code": /* HTML */`<docs-code type="docs" api="/docs/code"></docs-code>`,
     "/docs/features": /* HTML */`<docs-features type="docs" api="/docs/features"></docs-features>`,
     "/docs/services": /* HTML */`<docs-services type="docs" api="/docs/services"></docs-services>`,
     "/docs/webhooks": /* HTML */`<docs-webhooks type="docs" api="/docs/webhooks"></docs-webhooks>`,
+    "/docs/marvin": /* HTML */`<docs-marvin type="docs" api="/docs/marvin"></docs-marvin>`,
+    "/docs/faq": /* HTML */`<docs-faq type="docs" api="/docs/faq"></docs-faq>`,
+    "/docs/hubspot": /* HTML */`<docs-hubspot type="docs" api="/docs/hubspot"></docs-hubspot>`,
     "/bland/all": /* HTML */`<soon-page url="/soon"></soon-page>`,
     "/bland/add": /* HTML */`<soon-page url="/soon"></soon-page>`,
     "/bland/failed": /* HTML */`<soon-page url="/soon"></soon-page>`,
@@ -457,6 +461,8 @@ export default class AppMain extends HTMLElement {
     "/sheet/generators": /* HTML */`<sheet-generators api="/dashboard/sheet/generators"></sheet-generators>`,
     "/sheet/products": /* HTML */`<sheet-products api="/dashboard/sheet/products"></sheet-products>`,
     "/sheet/branches": /* HTML */`<sheet-branches api="/dashboard/sheet/branches"></sheet-branches>`,
+    "/updates": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/themes": /* HTML */`<soon-page url="/soon"></soon-page>`,
     default: /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
   }
 
@@ -736,10 +742,19 @@ export default class AppMain extends HTMLElement {
           </div>
           <ul class="dropdown">
             <li class="api">
-              <a href="/docs/api"><span class="text">Api</span></a>
+              <a href="/docs/api"><span class="text">APIs</span></a>
+            </li>
+            <li class="faq">
+              <a href="/docs/faq"><span class="text">FAQs</span></a>
             </li>
             <li class="code">
               <a href="/docs/code"><span class="text">Code</span></a>
+            </li>
+            <li class="marvin">
+              <a href="/docs/marvin"><span class="text">Marvin</span></a>
+            </li>
+            <li class="hubspot">
+              <a href="/docs/hubspot"><span class="text">Hubspot</span></a>
             </li>
             <li class="features">
               <a href="/docs/features"><span class="text">Features</span></a>
@@ -1171,17 +1186,19 @@ export default class AppMain extends HTMLElement {
 
         section.nav > ul.nav.special > li > ul.dropdown > li {
           width: calc(100% - 10px);
-          padding: 0;
-          margin: 0 0 0 10px; /* Indent sub-items */
+          padding: 0; /* Padding for sub-items */
+          margin: 0 0 0 5px; /* Indent sub-items */
           list-style-type: none;
+          position: relative;
+          display: flex;
         }
 
         section.nav > ul.nav.special > li > ul.dropdown > li > a {
-          padding: 7px 10px 7px; /* Padding for dropdown links */
+          padding: 7px 14px 7px 18px; /* Padding for dropdown links */
           display: flex;
           align-items: center;
           gap: 8px;
-          color: var(--text-color);
+          color: var(--gray-color);
           border-radius: 5px; /* Slightly smaller radius for sub-items */
           width: 100%;
           font-family: var(--font-text), sans-serif;
@@ -1191,7 +1208,9 @@ export default class AppMain extends HTMLElement {
           box-sizing: border-box;
         }
 
-        section.nav > ul.nav.special > li > ul.dropdown > li > a:hover,
+        section.nav > ul.nav.special > li > ul.dropdown > li > a:hover {
+          background: var(--gray-background); /* Consistent with normal nav item hover */
+        }
         section.nav > ul.nav.special > li > ul.dropdown > li.active > a {
           color: var(--accent-color);
           background: var(--tab-background); /* Consistent with normal nav item active/hover */
@@ -1202,25 +1221,26 @@ export default class AppMain extends HTMLElement {
           /* Instead of border, we use a pseudo-element for animation */
         }
 
-        /* New styles for the vertical animated line on ul.dropdown */
-        section.nav > ul.nav.special > li > ul.dropdown::before {
-          content: '';
+        section.nav > ul.nav.special > li > ul.dropdown > li::before {
+          content: '-';
           position: absolute;
-          left: 10px; /* Adjusted for a small offset */
-          top: 12px; /* Start from the top of the dropdown */
-          width: 2px; /* Width of the line */
-          background: var(--light-linear); /* Color of the line */
-          height: 0; /* Initially hidden, will be controlled by li.active */
-          transition: height 0.35s ease-in-out; /* Animation for height */
-          border-radius: 5px; /* Optional: if you want rounded corners for the line */
+          left: 5px;
+          top: 50%;
+          color: var(--gray-color);
+          transform: translateY(-50%);
+          z-index: 1;
         }
 
-        section.nav > ul.nav.special > li.active > ul.dropdown::before {
-          height: calc(100% - 22px); /* Full height minus the top offset */
-          max-height: calc(100% - 22px); /* Ensure it doesn't exceed the dropdown */
+        section.nav > ul.nav.special > li > ul.dropdown > li.active::before {
+          color: var(--accent-color);
+          transition: color 0.2s ease;
         }
-        /* END of new styles for special navs */
 
+        section.nav > ul.nav.special > li > ul.dropdown > li:hover::before {
+          color: var(--gray-color);
+          transition: color 0.2s ease;
+        }
+        
 
         section.flow {
           width: calc(100% - 220px);
