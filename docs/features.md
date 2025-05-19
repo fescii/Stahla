@@ -63,9 +63,12 @@ This document highlights the main features of the Stahla AI SDR application, bas
     *   Allows searching, viewing, and clearing specific cache keys (pricing catalog, individual maps results, maps results by pattern).
 *   **Authentication:** Includes placeholder authentication for dashboard access.
 
+## 9. Workflow Integration
+
+*   **n8n Connectivity:** Leverages n8n for orchestrating specific automation tasks and webhook workflows (e.g., triggering lead processing sequences).
+
 ## Non-Goals (for v1)
 
-*   Automated price quoting.
 *   Full analytics dashboard (relies on HubSpot reporting).
 *   SMS intake channel.
 *   Fully implemented frontend for the Operational Dashboard.

@@ -101,6 +101,7 @@ _ **Dashboard API:** Requires authentication (placeholder implementation current
   - **Response Body:** `{"message": "Location lookup accepted for background processing."}` (Status 202 Accepted)
 
 - **`POST /pricing/quote`**
+
   - **Description:** Calculates a comprehensive price quote with detailed information about the rental, product, location, and budget breakdown. Relies on cached pricing data (from Google Sheets) and cached location data (from `/location_lookup` or calculated on demand). Logs request/response data via background task.
   - **Auth:** Required (`Authorization: Bearer <PRICING_WEBHOOK_API_KEY>`)
   - **Request Body:** `QuoteRequest` model (defined in `app.models.quote`). Contains `request_id`, `delivery_location`, `trailer_type`, `rental_start_date`, `rental_days`, `usage_type`, `extras`.
@@ -199,6 +200,214 @@ _ **Dashboard API:** Requires authentication (placeholder implementation current
 
 ---
 
+### Authentication (`/api/v1/auth`)
+
+- **`POST /token`**
+  - **Description:** OAuth2 compatible token login, get an access token for future requests. Accepts JSON body with username and password.
+  - **Auth:** Not Required
+  - **Request Body:** `TokenRequest` model (defined in `app.api.v1.endpoints.auth`)
+    ```json
+    {
+      "username": "user@example.com",
+      "password": "securepassword"
+    }
+    ```
+  - **Response Body:** `GenericResponse[Token]` model (defined in `app.models.user` and `app.models.common`)
+    ```json
+    {
+      "data": {
+        "access_token": "string",
+        "token_type": "bearer"
+      },
+      "error": null
+    }
+    ```
+- **`GET /me`**
+  - **Description:** Get current logged-in user.
+  - **Auth:** Required (Bearer Token)
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[User]` model (defined in `app.models.user` and `app.models.common`)
+- **`POST /users/`**
+  - **Description:** Create a new user.
+  - **Auth:** Required (Bearer Token, Admin Only)
+  - **Request Body:** `UserCreate` model (defined in `app.models.user`)
+  - **Response Body:** `GenericResponse[User]` model (Status 201 CREATED)
+- **`GET /users/`**
+  - **Description:** Retrieve users.
+  - **Auth:** Required (Bearer Token, Admin Only)
+  - **Query Parameters:** `skip` (int, optional), `limit` (int, optional)
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[List[User]]` model
+- **`GET /users/{user_id}`**
+  - **Description:** Get a specific user by ID.
+  - **Auth:** Required (Bearer Token, Admin Only)
+  - **Path Parameters:** `user_id` (UUID)
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[User]` model
+- **`PUT /users/{user_id}`**
+  - **Description:** Update a user.
+  - **Auth:** Required (Bearer Token, Admin Only)
+  - **Path Parameters:** `user_id` (UUID)
+  - **Request Body:** `UserUpdate` model (defined in `app.models.user`)
+  - **Response Body:** `GenericResponse[User]` model
+- **`DELETE /users/{user_id}`**
+  - **Description:** Delete a user.
+  - **Auth:** Required (Bearer Token, Admin Only)
+  - **Path Parameters:** `user_id` (UUID)
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse` (e.g., `{"data": {"message": "User deleted successfully"}}`)
+
+---
+
+### Bland AI Calls (`/api/v1/bland`)
+
+- **`POST /initiate`**
+  - **Description:** Initiates a Bland.ai callback to a specified phone number. Associates the call with a HubSpot Contact ID.
+  - **Auth:** Required (Bearer Token)
+  - **Query Parameters:** `contact_id` (string, required) - HubSpot Contact ID.
+  - **Request Body:** `BlandCallbackRequest` model (defined in `app.models.bland`).
+    ```json
+    {
+      "phone_number": "+12345678900",
+      "task": "Follow up on incomplete form.",
+      "voice_id": 0,
+      "reduce_latency": true,
+      "transfer_phone_number": null,
+      "record": true,
+      "max_duration": 12,
+      "request_data": {},
+      "tools": [],
+      "pathway_id": null,
+      "amd": true,
+      "answered_by_enabled": false,
+      "interruption_threshold": 100,
+      "temperature": null,
+      "first_sentence": null,
+      "wait_for_greeting": false,
+      "webhook_url": null,
+      "language": "en",
+      "model": null,
+      "voice_settings": null
+    }
+    ```
+  - **Response Body:** `GenericResponse[BlandApiResult]` (Status 202 Accepted). `BlandApiResult` contains `call_id`, `status`, `message`.
+    ```json
+    {
+      "data": {
+        "call_id": "string",
+        "status": "success", // or "error"
+        "message": "Call initiated successfully." // or error message
+      },
+      "error": null
+    }
+    ```
+
+- **`POST /retry/{contact_id}`**
+  - **Description:** Retries a Bland.ai call for a given HubSpot Contact ID.
+  - **Auth:** Required (Bearer Token)
+  - **Path Parameters:** `contact_id` (string) - HubSpot Contact ID of the original call.
+  - **Query Parameters:** `retry_reason` (string, optional) - Reason for retrying.
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[BlandApiResult]` (Status 202 Accepted).
+
+- **`GET /stats`**
+  - **Description:** Retrieves statistics about Bland.ai calls (e.g., total calls, completed, failed).
+  - **Auth:** Required (Bearer Token)
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[BlandCallStats]` model (defined in `app.models.blandlog`).
+    ```json
+    {
+      "data": {
+        "total_calls": 0,
+        "pending_calls": 0,
+        "in_progress_calls": 0,
+        "completed_calls": 0,
+        "failed_calls": 0,
+        "last_updated": "2025-05-18T12:00:00Z"
+      },
+      "error": null
+    }
+    ```
+
+- **`GET /logs`**
+  - **Description:** Lists all Bland.ai call logs with pagination and filtering.
+  - **Auth:** Required (Bearer Token)
+  - **Query Parameters:**
+    - `page` (int, optional, default 1): Page number.
+    - `page_size` (int, optional, default 10): Number of items per page.
+    - `status` (BlandCallStatus enum, optional): Filter by call status (e.g., `completed`, `failed`, `pending`).
+    - `sort_field` (string, optional, default 'created_at'): Field to sort by.
+    - `sort_order` (string, optional, default 'desc'): Sort order ('asc' or 'desc').
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[PaginatedBlandCallResponse]` model (defined in `app.models.blandlog`).
+
+- **`GET /logs/failed`**
+  - **Description:** Lists failed Bland.ai call logs with pagination.
+  - **Auth:** Required (Bearer Token)
+  - **Query Parameters:** `page` (int, optional, default 1), `page_size` (int, optional, default 10).
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[PaginatedBlandCallResponse]`.
+
+- **`GET /logs/completed`**
+  - **Description:** Lists completed Bland.ai call logs with pagination.
+  - **Auth:** Required (Bearer Token)
+  - **Query Parameters:** `page` (int, optional, default 1), `page_size` (int, optional, default 10).
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[PaginatedBlandCallResponse]`.
+
+---
+
+### Testing (`/api/v1/test`)
+
+- **`POST /location`**
+  - **Description:** Tests the location service by calling `get_branch_and_distance` and returns the service's response along with processing time.
+  - **Auth:** Not Required (Assumed for internal testing)
+  - **Request Body:** `LocationLookupRequest` model (defined in `app.models.location`).
+    ```json
+    {
+      "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA"
+    }
+    ```
+  - **Response Body:** `GenericResponse[LocationServiceTestResponse]`. `LocationServiceTestResponse` contains `data` (with `branch`, `distance_km`, `error_message`) and `processing_time_ms`.
+    ```json
+    {
+      "data": {
+        "data": {
+          "branch": { /* BranchLocation model */ },
+          "distance_km": 123.45,
+          "error_message": null
+        },
+        "processing_time_ms": 50.75
+      },
+      "error": null
+    }
+    ```
+
+- **`POST /quote`**
+  - **Description:** Tests the quote service by calling `build_quote` and returns the service's response along with processing time.
+  - **Auth:** Not Required (Assumed for internal testing)
+  - **Request Body:** `QuoteRequest` model (defined in `app.models.quote`).
+  - **Response Body:** `GenericResponse[QuoteServiceTestResponse]`. `QuoteServiceTestResponse` contains `data` (which is a `QuoteResponse`) and `processing_time_ms`, `error_message`.
+
+---
+
+### Error Logs (`/api/v1/errors`)
+
+- **`GET /`**
+  - **Description:** Lists error logs recorded by the system with pagination and filtering.
+  - **Auth:** Not Required (Consider adding admin auth for sensitive logs)
+  - **Query Parameters:**
+    - `page` (int, optional, default 1): Page number.
+    - `page_size` (int, optional, default 10): Number of items per page.
+    - `service_name` (string, optional): Filter by service name.
+    - `error_type` (string, optional): Filter by error type.
+    - `sort_field` (string, optional, default 'timestamp'): Field to sort by.
+    - `sort_order` (string, optional, default 'desc'): Sort order ('asc' or 'desc').
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[PaginatedErrorLogResponse]` model (defined in `app.models.error`).
+
+---
+
 ## External API Interactions
 
 The application interacts with several external APIs via its service layer.
@@ -231,6 +440,37 @@ The application interacts with several external APIs via its service layer.
   - **`GET /crm/v3/pipelines/deals/{pipeline_id}/stages`**: Used by `get_stage_id`.
   - **`GET /crm/v3/owners/`**: Used by `get_owners`.
 - **Webhook Received:** The application has an endpoint `/api/v1/webhook/hubspot` intended for receiving HubSpot webhooks (implementation is basic).
+
+---
+
+### HubSpot Tests (`/api/v1/hubspot/test`)
+
+- **`POST /contact`**
+  - **Description:** Test endpoint to create or update a HubSpot contact. Uses the same logic as the main webhook flow but is callable directly.
+  - **Auth:** Not Required (Assumed for internal testing)
+  - **Request Body:** `HubSpotContactProperties` model (defined in `app.models.hubspot`).
+  - **Response Body:** `GenericResponse[HubSpotApiResult]`.
+
+- **`POST /lead`**
+  - **Description:** Test endpoint to create a HubSpot lead and optionally associate it with a contact.
+  - **Auth:** Not Required (Assumed for internal testing)
+  - **Request Body:** `HubSpotLeadProperties` model and optional `contact_id` (string) in the body.
+  - **Response Body:** `GenericResponse[HubSpotApiResult]`.
+
+- **`GET /owners`**
+  - **Description:** Test endpoint to fetch owners from HubSpot.
+  - **Auth:** Not Required (Assumed for internal testing)
+  - **Query Parameters:** `email` (string, optional).
+  - **Request Body:** None
+  - **Response Body:** `GenericResponse[List[dict]]`.
+
+- **`POST /create-sample-contact`**
+  - **Description:** Creates a HubSpot contact using data provided in the request body, validated against the `SampleContactForm` model. Useful for triggering the contact creation flow manually with specific data.
+  - **Auth:** Not Required (Assumed for internal testing)
+  - **Request Body:** `SampleContactForm` model (defined in `app.api.v1.endpoints.hubspot`).
+  - **Response Body:** `GenericResponse[HubSpotApiResult]`.
+
+---
 
 ### 3. Google Maps Distance Matrix API
 
