@@ -10,6 +10,14 @@ services:
       - ./docs:/code/static_docs # Mount the docs directory into the container
     env_file:
       - .env # Load environment variables from .env file
+    environment:
+      # Override the connection settings to use container names
+      MONGO_HOST: mongo
+      REDIS_URL: redis://redis:6379/0
+      # Database credentials must match those in MongoDB container
+      MONGO_USER: ${MONGO_USER:-stahla_app}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-app_password}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-stahla_dashboard}
     # Command to run the FastAPI app using Uvicorn with reload
     # Use app.main:app as the target, matching the new structure
     command:
@@ -33,12 +41,18 @@ services:
     ports:
       - "${MONGO_PORT:-27017}:27017"
     environment:
-      # Use renamed variables from .env for initial root user setup
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-mongoadmin} # Use new var name
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secret} # Use new var name
-      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-stahla}
+      # MongoDB root user credentials
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-mongoadmin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secret}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-stahla_dashboard}
+      # App-specific MongoDB credentials for the application user
+      MONGO_USER: ${MONGO_USER:-stahla_app}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-app_password}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-stahla_dashboard}
     volumes:
       - mongo_data:/data/db # Persist data
+      - ./mongo-init:/docker-entrypoint-initdb.d # MongoDB init scripts (will execute .sh and .js files)
+    command: ["--auth"]
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
