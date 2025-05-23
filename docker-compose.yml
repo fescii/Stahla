@@ -5,11 +5,15 @@ services:
     restart: always
     volumes:
       - ./app:/code/app # Mount the app directory to the new location
-      - ./assets:/code/app/assets # Mount assets relative to the new app location
+      - ./app/assets:/code/app/assets # Mount assets relative to the new app location
+      - ./app/static:/code/app/static # Mount static files relative to the new app location
       - ./info:/code/app/info # Mount info relative to the new app location
       - ./docs:/code/static_docs # Mount the docs directory into the container
     env_file:
       - .env # Load environment variables from .env file
+    labels:
+      - "fly.app=stahla"
+      - "fly.component=api"
     environment:
       # Override the connection settings to use container names
       MONGO_HOST: mongo

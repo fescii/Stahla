@@ -255,3 +255,127 @@ Once the application is running:
 - Integration with external monitoring/alerting systems for advanced metrics (latency P95, cache hit ratios, historical trends) and alerts.
 - Refinement of HubSpot dynamic ID fetching and call data persistence.
 - Dedicated Integration & Orchestration Layer (e.g., self-hosted n8n).
+
+## Deploying to Fly.io
+
+This application can be deployed to Fly.io with the provided Docker Compose setup. Follow these steps to deploy:
+
+### Prerequisites
+
+1. Install the Fly.io CLI (flyctl):
+
+   ```
+   # On macOS
+   brew install flyctl
+
+   # On Linux
+   curl -L https://fly.io/install.sh | sh
+
+   # On Windows (using PowerShell)
+   iwr https://fly.io/install.ps1 -useb | iex
+   ```
+
+2. Sign up and log in to Fly.io:
+
+   ```
+   flyctl auth signup
+   # OR
+   flyctl auth login
+   ```
+
+3. Ensure you have a valid `.env` file with all required environment variables.
+
+### Automated Deployment
+
+We've created a deployment script to simplify the process:
+
+1. Make the script executable (if not already):
+
+   ```
+   chmod +x deploy-to-fly.sh
+   ```
+
+2. Run the deployment script:
+   ```
+   ./deploy-to-fly.sh
+   ```
+
+This script will:
+
+- Check if you're logged in to Fly.io
+- Create a new Fly.io application if it doesn't exist
+- Set up your environment variables from `.env` as Fly.io secrets
+- Create volumes for MongoDB and Redis if needed
+- Deploy the application using your Docker Compose configuration
+
+### Manual Deployment
+
+If you prefer to deploy manually:
+
+1. Create a new Fly.io application:
+
+   ```
+   flyctl apps create stahla
+   ```
+
+2. Set environment variables from your `.env` file:
+
+   ```
+   # Example for setting individual variables
+   flyctl secrets set MONGO_DB_NAME=stahla_dashboard
+   ```
+
+3. Create volumes for MongoDB and Redis:
+
+   ```
+   flyctl volumes create mongo_data --size 1
+   flyctl volumes create redis_data --size 1
+   ```
+
+4. Deploy the application:
+   ```
+   flyctl deploy
+   ```
+
+### Monitoring Your Deployment
+
+- View deployment status: `flyctl status -a stahla`
+- Check logs: `flyctl logs -a stahla`
+- Open the application in a browser: `flyctl open -a stahla`
+
+### Scaling
+
+To scale your application on Fly.io:
+
+```
+# Scale to multiple instances
+flyctl scale count 3
+```
+
+For more information, refer to the [Fly.io documentation](https://fly.io/docs/apps/).
+
+## Deployment
+
+For deployment instructions, see [README-fly.md](./README-fly.md) for Fly.io deployment.
+
+### Cloud MongoDB Setup and Initialization
+
+This application uses a cloud MongoDB service (like MongoDB Atlas) for data storage.
+
+1. **Create a MongoDB Atlas account** (or use another cloud MongoDB service)
+2. **Create a MongoDB cluster**
+3. **Create a database user** with read/write permissions
+4. **Allow network access** from anywhere (or at least from Fly.io IP range)
+5. **Initialize the database** before deploying:
+
+```bash
+# Run the cloud MongoDB initialization script (connects to your cloud MongoDB)
+./initialize-mongodb.sh
+```
+
+This script will:
+1. Connect to your cloud MongoDB instance
+2. Create necessary collections
+3. Set up required indexes
+
+This needs to be done from your local machine because the Alpine Linux container in Fly.io doesn't support MongoDB Shell (mongosh) needed for initialization.

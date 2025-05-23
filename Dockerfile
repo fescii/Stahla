@@ -23,5 +23,6 @@ EXPOSE 8000
 # Define environment variable (optional, can be set in docker-compose.yml)
 # ENV NAME World
 
-# Command to run the app is specified in docker-compose.yml
-# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Command to run the app - for Fly.io deployment
+# In production, we don't use --reload
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
