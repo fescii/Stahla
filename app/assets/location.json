@@ -1,7 +1,7 @@
 {
   "name": "BackgroundLocationLookupTool_v2",
   "description": "Sends a full delivery address string to an internal API for background lookup, geocoding, distance calculation, and caching. Designed to be non-blocking for the conversation flow.",
-  "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/location/lookup",
+  "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/location/lookup/sync",
   "method": "POST",
   "headers": {
     "Content-Type": "application/json",
@@ -26,8 +26,11 @@
     "delivery_location": "{{input.delivery_location}}"
   },
   "response": {
+    "location_api_success": "$.success",
     "lookup_success": "$.success",
-    "lookup_message": "$.data.message"
+    "lookup_message": "$.data.message",
+    "delivery_location": "$.data.delivery_location",
+    "api_error_message": "$.error_message"
   },
   "speech": null,
   "timeout": 10000

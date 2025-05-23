@@ -1,0 +1,421 @@
+@url = https://api.bland.ai/v1/pathway/2b184e51-532c-46b1-a5b9-eeda443759a3
+@authorization = org_022cd2e7e821bc2096090cc6b18bfb924407919edd08033856a680fd17edcbc6f84064be784c8c7412e969
+
+
+POST {{url}}
+Content-Type: application/json
+Authorization: Bearer {{authorization}}
+
+{
+  "name": "Stahla_Services_Callback_Flow_v5_Completed",
+  "edges": [
+    {
+      "id": "edge_start_to_confirm_name",
+      "source": "start_call",
+      "target": "confirm_name",
+      "label": "{{is_now_good_time}} == true"
+    },
+    {
+      "id": "edge_start_to_ask_best_time",
+      "source": "start_call",
+      "target": "ask_best_time_to_call",
+      "label": "{{is_now_good_time}} == false"
+    },
+    {
+      "id": "edge_ask_best_time_to_end_reschedule",
+      "source": "ask_best_time_to_call",
+      "target": "end_call_reschedule",
+      "label": "Callback time provided"
+    },
+    {
+      "id": "edge_confirm_name_to_confirm_email",
+      "source": "confirm_name",
+      "target": "confirm_email",
+      "label": "Name confirmed"
+    },
+    {
+      "id": "edge_confirm_email_to_confirm_phone",
+      "source": "confirm_email",
+      "target": "confirm_phone",
+      "label": "Email confirmed"
+    },
+    {
+      "id": "edge_confirm_phone_to_confirm_company",
+      "source": "confirm_phone",
+      "target": "confirm_company",
+      "label": "Phone confirmed"
+    },
+    {
+      "id": "edge_confirm_company_to_confirm_address",
+      "source": "confirm_company",
+      "target": "confirm_address",
+      "label": "Company name confirmed/collected"
+    },
+    {
+      "id": "edge_confirm_address_to_delivery_address_type",
+      "source": "confirm_address",
+      "target": "delivery_address_type_node",
+      "label": "Address confirmed/collected"
+    },
+    {
+      "id": "edge_delivery_address_type_to_trigger_location_tool",
+      "source": "delivery_address_type_node",
+      "target": "trigger_background_location_processing_node",
+      "label": "Delivery address type collected"
+    },
+    {
+      "id": "edge_trigger_location_tool_to_check_service_area",
+      "source": "trigger_background_location_processing_node",
+      "target": "check_service_area_logic_node",
+      "label": "Location lookup triggered"
+    },
+    {
+      "id": "edge_check_service_area_to_oos",
+      "source": "check_service_area_logic_node",
+      "target": "handle_out_of_service_area",
+      "label": "{{is_in_service_area}} == false"
+    },
+    {
+      "id": "edge_check_service_area_to_determine_order_cat",
+      "source": "check_service_area_logic_node",
+      "target": "determine_order_category",
+      "label": "{{is_in_service_area}} == true"
+    },
+    {
+      "id": "edge_handle_oos_to_offer_referral",
+      "source": "handle_out_of_service_area",
+      "target": "offer_referral",
+      "label": "Out of service area"
+    },
+    {
+      "id": "edge_offer_referral_to_wants_referral",
+      "source": "offer_referral",
+      "target": "wants_referral_node",
+      "label": "{{offer_referral_consent}} == true"
+    },
+    {
+      "id": "edge_offer_referral_to_no_referral",
+      "source": "offer_referral",
+      "target": "no_referral_node",
+      "label": "{{offer_referral_consent}} == false"
+    },
+    {
+      "id": "edge_wants_referral_to_end_call",
+      "source": "wants_referral_node",
+      "target": "end_call_speak_final",
+      "label": "Referral accepted, end call"
+    },
+    {
+      "id": "edge_no_referral_to_end_call",
+      "source": "no_referral_node",
+      "target": "end_call_speak_final",
+      "label": "Referral declined, end call"
+    },
+    {
+      "id": "edge_determine_order_cat_to_determine_prod_type",
+      "source": "determine_order_category",
+      "target": "determine_product_type",
+      "label": "Order category determined"
+    },
+    {
+      "id": "edge_determine_prod_type_to_event_flow_start",
+      "source": "determine_product_type",
+      "target": "sa_ask_event_duration_days",
+      "label": "{{project_category}}.toLowerCase() == 'event'"
+    },
+    {
+      "id": "edge_determine_prod_type_to_construction_flow_start",
+      "source": "determine_product_type",
+      "target": "sb_ask_onsite_contact",
+      "label": "({{project_category}}.toLowerCase() == 'construction' || {{project_category}}.toLowerCase() == 'construction company' || {{project_category}}.toLowerCase() == 'facility')"
+    },
+    {
+      "id": "edge_determine_prod_type_to_disaster_flow_start",
+      "source": "determine_product_type",
+      "target": "ask_site_conditions_trailer",
+      "label": "{{project_category}}.toLowerCase() == 'disaster relief'"
+    },
+    {
+      "id": "edge_sa_duration_to_total_hours",
+      "source": "sa_ask_event_duration_days",
+      "target": "sa_ask_total_hours",
+      "label": "{{event_duration_days}} >= 2"
+    },
+    {
+      "id": "edge_sa_duration_to_attendees_short_event",
+      "source": "sa_ask_event_duration_days",
+      "target": "sa_ask_attendees",
+      "label": "{{event_duration_days}} < 2"
+    },
+    {
+      "id": "edge_sa_total_hours_to_extra_services",
+      "source": "sa_ask_total_hours",
+      "target": "sa_discuss_extra_services_multi_day_long_hours",
+      "label": "{{event_total_hours_a_day}} >= 8"
+    },
+    {
+      "id": "edge_sa_total_hours_to_attendees_short_hours",
+      "source": "sa_ask_total_hours",
+      "target": "sa_ask_attendees",
+      "label": "{{event_total_hours_a_day}} < 8"
+    },
+    {
+      "id": "edge_sa_discuss_extra_services_to_ask_gaps",
+      "source": "sa_discuss_extra_services_multi_day_long_hours",
+      "target": "sa_ask_for_servicing_gaps",
+      "label": "{{sa_accepts_discussion_extra_services}} == true"
+    },
+    {
+      "id": "edge_sa_discuss_extra_services_skip_gaps_to_attendees",
+      "source": "sa_discuss_extra_services_multi_day_long_hours",
+      "target": "sa_ask_attendees",
+      "label": "{{sa_accepts_discussion_extra_services}} == false"
+    },
+    {
+      "id": "edge_sa_ask_gaps_to_attendees",
+      "source": "sa_ask_for_servicing_gaps",
+      "target": "sa_ask_attendees",
+      "label": "Servicing gaps info collected"
+    },
+    {
+      "id": "edge_sa_attendees_to_other_facilities",
+      "source": "sa_ask_attendees",
+      "target": "sa_ask_other_facilities_on_site",
+      "label": "Attendees count collected"
+    },
+    {
+      "id": "edge_sa_other_facilities_to_ask_stalls",
+      "source": "sa_ask_other_facilities_on_site",
+      "target": "sa_ask_number_of_stalls",
+      "label": "Other facilities info collected"
+    },
+    {
+      "id": "edge_sa_ask_stalls_to_ada_event",
+      "source": "sa_ask_number_of_stalls",
+      "target": "sa_ask_ada_event",
+      "label": "{{stalls_exists}} == true"
+    },
+    {
+      "id": "edge_sa_ask_stalls_to_stalls_not_exist",
+      "source": "sa_ask_number_of_stalls",
+      "target": "sa_trailer_with_stalls_does_not_exist",
+      "label": "{{stalls_exists}} == false"
+    },
+    {
+      "id": "edge_sa_stalls_not_exist_to_ada_event",
+      "source": "sa_trailer_with_stalls_does_not_exist",
+      "target": "sa_ask_ada_event",
+      "label": "Alternative stall chosen"
+    },
+    {
+      "id": "edge_sa_ada_event_to_ask_site_conditions",
+      "source": "sa_ask_ada_event",
+      "target": "ask_site_conditions_trailer",
+      "label": "Event ADA info collected"
+    },
+    {
+      "id": "edge_sb_onsite_contact_to_working_hours",
+      "source": "sb_ask_onsite_contact",
+      "target": "sb_ask_working_hours",
+      "label": "Onsite contact info collected"
+    },
+    {
+      "id": "edge_sb_working_hours_to_weekend_use",
+      "source": "sb_ask_working_hours",
+      "target": "sb_ask_weekend_use",
+      "label": "Working hours collected"
+    },
+    {
+      "id": "edge_sb_weekend_use_to_ada",
+      "source": "sb_ask_weekend_use",
+      "target": "sb_ask_ada_construction",
+      "label": "Weekend use info collected"
+    },
+    {
+      "id": "edge_sb_ada_to_people_supported",
+      "source": "sb_ask_ada_construction",
+      "target": "sb_ask_people_supported",
+      "label": "Construction ADA info collected"
+    },
+    {
+      "id": "edge_sb_people_supported_to_other_facilities",
+      "source": "sb_ask_people_supported",
+      "target": "sb_ask_other_facilities_construction",
+      "label": "People supported count collected"
+    },
+    {
+      "id": "edge_sb_other_facilities_to_other_products",
+      "source": "sb_ask_other_facilities_construction",
+      "target": "sb_ask_other_products_construction",
+      "label": "Other facilities info collected"
+    },
+    {
+      "id": "edge_sb_other_products_to_cleaning",
+      "source": "sb_ask_other_products_construction",
+      "target": "sb_ask_cleaning_restocking",
+      "label": "Other products info collected"
+    },
+    {
+      "id": "edge_sb_cleaning_to_ask_site_conditions",
+      "source": "sb_ask_cleaning_restocking",
+      "target": "ask_site_conditions_trailer",
+      "label": "Cleaning info collected"
+    },
+    {
+      "id": "edge_ask_site_conditions_to_ask_duration_trailer",
+      "source": "ask_site_conditions_trailer",
+      "target": "ask_duration_trailer",
+      "label": "Site conditions collected"
+    },
+    {
+      "id": "edge_ask_duration_trailer_to_ask_rental_days",
+      "source": "ask_duration_trailer",
+      "target": "paq_ask_rental_days_trailer",
+      "label": "Start date collected"
+    },
+    {
+      "id": "edge_paq_ask_rental_days_to_ask_power",
+      "source": "paq_ask_rental_days_trailer",
+      "target": "ask_power_trailer",
+      "label": "Rental days collected"
+    },
+    {
+      "id": "edge_ask_power_trailer_yes_to_details",
+      "source": "ask_power_trailer",
+      "target": "power_available_ask_power_details",
+      "label": "{{trailer_power_available}} == true"
+    },
+    {
+      "id": "edge_ask_power_trailer_no_to_generator",
+      "source": "ask_power_trailer",
+      "target": "power_not_available_ask_generator",
+      "label": "{{trailer_power_available}} == false"
+    },
+    {
+      "id": "edge_power_details_to_ask_water",
+      "source": "power_available_ask_power_details",
+      "target": "ask_water_trailer",
+      "label": "Power details collected"
+    },
+    {
+      "id": "edge_ask_generator_to_ask_water",
+      "source": "power_not_available_ask_generator",
+      "target": "ask_water_trailer",
+      "label": "Generator info collected"
+    },
+    {
+      "id": "edge_ask_water_trailer_yes_to_details",
+      "source": "ask_water_trailer",
+      "target": "water_available_ask_water_details",
+      "label": "{{trailer_water_available}} == true"
+    },
+    {
+      "id": "edge_ask_water_trailer_no_to_service",
+      "source": "ask_water_trailer",
+      "target": "water_not_available_ask_water_service",
+      "label": "{{trailer_water_available}} == false"
+    },
+    {
+      "id": "edge_water_details_to_prepare_extras",
+      "source": "water_available_ask_water_details",
+      "target": "prepare_extras_for_api_node",
+      "label": "Water details collected"
+    },
+    {
+      "id": "edge_water_service_to_prepare_extras",
+      "source": "water_not_available_ask_water_service",
+      "target": "prepare_extras_for_api_node",
+      "label": "Water service info collected"
+    },
+    {
+      "id": "edge_prepare_extras_to_get_quote",
+      "source": "prepare_extras_for_api_node",
+      "target": "get_quote_webhook_node",
+      "label": "Extras prepared"
+    },
+    {
+      "id": "edge_get_quote_success_to_convey",
+      "source": "get_quote_webhook_node",
+      "target": "convey_quote_and_followup_offer_node",
+      "label": "{{quote_api_success}} == true && {{estimated_total}} != null"
+    },
+    {
+      "id": "edge_get_quote_failure_to_api_error",
+      "source": "get_quote_webhook_node",
+      "target": "api_error_quote_tool",
+      "label": "{{quote_api_success}} == false || {{estimated_total}} == null"
+    },
+    {
+      "id": "edge_convey_quote_sched_yes",
+      "source": "convey_quote_and_followup_offer_node",
+      "target": "handle_followup_scheduling",
+      "label": "{{schedule_follow_up}} == true"
+    },
+    {
+      "id": "edge_convey_quote_sched_no",
+      "source": "convey_quote_and_followup_offer_node",
+      "target": "ask_final_questions",
+      "label": "{{schedule_follow_up}} == false"
+    },
+    {
+      "id": "edge_api_error_sched_yes",
+      "source": "api_error_quote_tool",
+      "target": "handle_followup_scheduling",
+      "label": "{{schedule_follow_up_after_error}} == true"
+    },
+    {
+      "id": "edge_api_error_sched_no",
+      "source": "api_error_quote_tool",
+      "target": "ask_final_questions",
+      "label": "{{schedule_follow_up_after_error}} == false"
+    },
+    {
+      "id": "edge_handle_followup_to_ask_final",
+      "source": "handle_followup_scheduling",
+      "target": "ask_final_questions",
+      "label": "Follow-up scheduling info collected"
+    },
+    {
+      "id": "edge_ask_final_q_yes",
+      "source": "ask_final_questions",
+      "target": "answer_final_question_kb",
+      "label": "{{has_final_questions}} == true && {{final_questions_text}} != null && {{final_questions_text}} != ''"
+    },
+    {
+      "id": "edge_ask_final_q_no_direct_to_closing_with_followup",
+      "source": "ask_final_questions",
+      "target": "closing_with_followup_node",
+      "label": "({{has_final_questions}} == false || {{final_questions_text}} == null || {{final_questions_text}} == '') && ({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
+    },
+    {
+      "id": "edge_ask_final_q_no_direct_to_closing_without_followup",
+      "source": "ask_final_questions",
+      "target": "closing_without_followup_node",
+      "label": "({{has_final_questions}} == false || {{final_questions_text}} == null || {{final_questions_text}} == '') && {{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false"
+    },
+    {
+      "id": "edge_answer_kb_to_closing_with_followup",
+      "source": "answer_final_question_kb",
+      "target": "closing_with_followup_node",
+      "label": "({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
+    },
+    {
+      "id": "edge_answer_kb_to_closing_without_followup",
+      "source": "answer_final_question_kb",
+      "target": "closing_without_followup_node",
+      "label": "({{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false)"
+    },
+    {
+      "id": "edge_closing_with_followup_to_end",
+      "source": "closing_with_followup_node",
+      "target": "end_call_speak_final",
+      "label": "End call"
+    },
+    {
+      "id": "edge_closing_without_followup_to_end",
+      "source": "closing_without_followup_node",
+      "target": "end_call_speak_final",
+      "label": "End call"
+    }
+  ]
+}

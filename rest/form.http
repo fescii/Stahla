@@ -5,9 +5,9 @@ POST http://localhost:8000/api/v1/hubspot/test/contact
 Content-Type: application/json
 
 {
-  "what_service_do_you_need": "Porta Potty",
+  "what_service_do_you_need_": "Porta Potty",
   "how_many_portable_toilet_stalls_": 1,
-  "address": "3035 New Street, New York, NY, USA",
+  "event_or_job_address": "3035 New Street, New York, NY, USA",
   "zip": "10001",
   "city": "New York",
   "event_start_date": "2025-05-25",
@@ -16,6 +16,7 @@ Content-Type: application/json
   "lastname": "Femar",
   "phone": "713253018",
   "email": "fredrick.femar@gmail.com",
+  "message": "I need a porta potty for my wedding on May 25th, 2025.",
   "by_submitting_this_form_you_consent_to_receive_texts": true
 }
 

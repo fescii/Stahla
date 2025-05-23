@@ -113,6 +113,8 @@ async def _trigger_bland_call(payload: FormPayload):
       first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental form you submitted. Is now a good time?",
       wait_for_greeting=True,
       record=True,
+      max_duration=None,  # Assuming no max duration needed
+      transfer_phone_number=None,  # Assuming no transfer number needed
       # amd=True, # AMD is not a standard field in BlandCallbackRequest model
       voice=settings.BLAND_VOICE_ID or "1",  # Use configured voice or default "1"
       webhook=webhook_url,
@@ -194,50 +196,42 @@ async def _handle_hubspot_update(
         firstname=getattr(input_data, 'firstname', None),
         lastname=getattr(input_data, 'lastname', None),
         phone=getattr(input_data, 'phone', None),
-        event_or_job_address=getattr(input_data, 'event_address', None),
-        what_service_do_you_need_=getattr(input_data, 'service_needed', None),
+        event_or_job_address=getattr(input_data, 'event_or_job_address', None),
+        what_service_do_you_need_=getattr(
+            input_data, 'what_service_do_you_need_', None),
         event_start_date=getattr(input_data, 'event_start_date', None),
         event_end_date=getattr(input_data, 'event_end_date', None),
         by_submitting_this_form_you_consent_to_receive_texts=getattr(
-            input_data, 'text_consent', None),
+            input_data, 'by_submitting_this_form_you_consent_to_receive_texts', None),
         message=getattr(input_data, 'message', None),
-        how_many_portable_toilet_stalls_=getattr(input_data, 'stall_count', None) if getattr(
-            input_data, 'service_needed', '') == 'Porta Potty' else None,
-        # Map ada_required to 'ada' contact property
-        ada=getattr(input_data, 'ada_required', None),
-        # Add other relevant contact properties from input_data if needed
-        # Map relevant fields from properties.csv like city, zip, address if available in input_data
-        # Use getattr with fallback
-        city=getattr(input_data, 'event_city', None),
-        zip=getattr(input_data, 'event_postal_code',
-                    None),  # Use getattr with fallback
-        # Use getattr with fallback
-        address=getattr(input_data, 'event_address', None),
-        # Required parameters that were missing
+        how_many_portable_toilet_stalls_=getattr(
+            input_data, 'how_many_portable_toilet_stalls_', None),
+        ada=getattr(input_data, 'ada', None),
+        city=getattr(input_data, 'city', None),
+        zip=getattr(input_data, 'zip',
+                    None),
+        address=getattr(input_data, 'address', None),
         state=getattr(input_data, 'state', getattr(
             input_data, 'event_state', None)),
         how_many_restroom_stalls_=getattr(
-            input_data, 'restroom_stall_count', None),
+            input_data, 'how_many_restroom_stalls_', None),
         how_many_shower_stalls_=getattr(
-            input_data, 'shower_stall_count', None),
+            input_data, 'how_many_shower_stalls_', None),
         how_many_laundry_units_=getattr(
-            input_data, 'laundry_unit_count', None),
-        your_message=getattr(input_data, 'specific_message',
-                             getattr(input_data, 'message', None)),
+            input_data, 'how_many_laundry_units_', None),
+        your_message=getattr(input_data, 'your_message', None),
         do_you_have_water_access_onsite_=getattr(
-            input_data, 'water_access', None),
+            input_data, 'do_you_have_water_access_onsite_', None),
         do_you_have_power_access_onsite_=getattr(
-            input_data, 'power_access', None),
-        # Default to True if not specified
-        contact_consent_given=getattr(input_data, 'consent', True),
+            input_data, 'do_you_have_power_access_onsite_', None),
 
         # AI/Call related properties (if applicable to contact)
         ai_call_summary=classification_output.metadata.get(
-            "call_summary") if classification_output and classification_output.metadata else None,
+            "ai_call_summary") if classification_output and classification_output.metadata else None,
         call_recording_url=classification_output.metadata.get(
             "call_recording_url") if classification_output and classification_output.metadata else None,
         ai_call_sentiment=classification_output.metadata.get(
-            "call_sentiment") if classification_output and classification_output.metadata else None,
+            "ai_call_sentiment") if classification_output and classification_output.metadata else None,
         call_summary=classification_output.metadata.get(
             "call_summary") if classification_output and classification_output.metadata else None
     )
@@ -268,30 +262,21 @@ async def _handle_hubspot_update(
         # Map from ClassificationResult (check hubspot.md for Lead property names)
         project_category=classification_output.metadata.get(
             "event_type") if classification_output and classification_output.metadata else None,
-        units_needed=getattr(input_data, 'service_needed', None),
-        expected_attendance=getattr(input_data, 'guest_count', None),
-        ada_required=getattr(input_data, 'ada_required', None),
-        # Or map from specific classification field?
-        additional_services_needed=getattr(input_data, 'message', None),
-        # Add missing required parameters
+        units_needed=getattr(input_data, 'units_needed', None),
+        expected_attendance=getattr(input_data, 'expected_attendance', None),
+        ada_required=getattr(input_data, 'ada', None),
+        additional_services_needed=getattr(
+            input_data, 'additional_services_needed', None),
         onsite_facilities=classification_output.metadata.get(
             "onsite_facilities") if classification_output and classification_output.metadata else None,
         partner_referral_consent=getattr(
             input_data, 'partner_referral_consent', False),
-        decision_timeline=classification_output.metadata.get(
-            "decision_timeline") if classification_output and classification_output.metadata else None,
-        follow_up_call_scheduled=classification_output.metadata.get(
-            "follow_up_scheduled") if classification_output and classification_output.metadata else False,
-        shower_required=getattr(input_data, 'shower_required', False),
-        handwashing_needed=getattr(input_data, 'handwashing_needed', False),
         address_type=classification_output.metadata.get(
             "address_type") if classification_output and classification_output.metadata else None,
-        site_ground_level=classification_output.metadata.get(
-            "site_ground_level") if classification_output and classification_output.metadata else None,
-        power_path_cross=classification_output.metadata.get(
-            "power_path_cross") if classification_output and classification_output.metadata else False,
-        water_path_cross=classification_output.metadata.get(
-            "water_path_cross") if classification_output and classification_output.metadata else False,
+        power_source_distance=classification_output.metadata.get(
+            "power_source_distance") if classification_output and classification_output.metadata else False,
+        water_source_distance=classification_output.metadata.get(
+            "water_source_distance") if classification_output and classification_output.metadata else False,
         site_working_hours=classification_output.metadata.get(
             "site_working_hours") if classification_output and classification_output.metadata else None,
         weekend_service_needed=classification_output.metadata.get(
@@ -306,29 +291,30 @@ async def _handle_hubspot_update(
             "site_ground_type") if classification_output and classification_output.metadata else None,
         site_obstacles=classification_output.metadata.get(
             "site_obstacles") if classification_output and classification_output.metadata else None,
-        water_source_distance=classification_output.metadata.get(
-            "water_source_distance") if classification_output and classification_output.metadata else None,
-        power_source_distance=classification_output.metadata.get(
-            "power_source_distance") if classification_output and classification_output.metadata else None,
         within_local_service_area=classification_output.metadata.get(
-            "is_local") if classification_output and classification_output.metadata else None,
+            "within_local_service_area") if classification_output and classification_output.metadata else None,
         needs_human_follow_up=classification_output.requires_human_review if classification_output else True,
         quote_urgency=classification_output.metadata.get(
             "quote_urgency") if classification_output and classification_output.metadata else None,
-        # AI properties
         ai_lead_type=classification_output.lead_type if classification_output else None,
-        ai_classification_reasoning=classification_output.reasoning if classification_output else None,
-        ai_classification_confidence=classification_output.confidence if classification_output else None,
-        ai_routing_suggestion=classification_output.routing_suggestion if classification_output else None,
+        ai_classification_reasoning=classification_output.metadata.get(
+            "ai_classification_reasoning") if classification_output and classification_output.metadata else None,
+        ai_classification_confidence=classification_output.metadata.get(
+            "ai_classification_confidence") if classification_output and classification_output.metadata else None,
+        ai_routing_suggestion=classification_output.metadata.get(
+            "ai_routing_suggestion") if classification_output and classification_output.metadata else None,
         ai_intended_use=classification_output.metadata.get(
-            "intended_use") if classification_output and classification_output.metadata else None,
+            "ai_intended_use") if classification_output and classification_output.metadata else None,
         ai_qualification_notes=classification_output.metadata.get(
             "qualification_notes") if classification_output and classification_output.metadata else None,
-        number_of_stalls=getattr(input_data, 'stall_count', None),
-        event_duration_days=getattr(input_data, 'duration_days', None),
-        guest_count_estimate=getattr(input_data, 'guest_count', None),
+        number_of_stalls=classification_output.metadata.get(
+            "number_of_stalls") if classification_output and classification_output.metadata else None,
+        event_duration_days=classification_output.metadata.get(
+            "event_duration_days") if classification_output and classification_output.metadata else None,
+        guest_count_estimate=classification_output.metadata.get(
+            "guest_count_estimate") if classification_output and classification_output.metadata else None,
         ai_estimated_value=classification_output.metadata.get(
-            "estimated_value") if classification_output and classification_output.metadata else None,
+            "ai_estimated_value") if classification_output and classification_output.metadata else None,
     )
 
     # Remove None values before sending to HubSpot
@@ -566,6 +552,8 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, contact_properties: d
       first_sentence=f"Hi {first_name}, this is Stahla Assistant calling about the restroom rental inquiry you submitted through our website. Is now a good time?",
       wait_for_greeting=True,
       record=True,
+      max_duration=None,  # Assuming no max duration needed
+      transfer_phone_number=None,  # Assuming no transfer number needed
       # amd=True, # AMD is not a standard field in BlandCallbackRequest model
       webhook=webhook_url,
       request_data=agent_request_data,

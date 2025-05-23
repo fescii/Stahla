@@ -97,7 +97,7 @@ AI: (Check metadata first. If user already provided dates, confirm: "You mention
 
 (Single Day): "Okay, [Date], one day only. Got it." (Store Event_Date, Duration=1 day).
 
-(Multi-Day): "Alright, so from [Start Date] to [End Date], that's [X] days." (Store Date Range, Duration). *If duration > 1 day AND total usage hours >= 8, add:* "Okay, for multi-day events with that much usage, we might need to discuss servicing options..."
+(Multi-Day): "Alright, so from [Start Date] to [End Date], that's [X] days." (Store Date Range, Duration). _If duration > 1 day AND total usage hours >= 8, add:_ "Okay, for multi-day events with that much usage, we might need to discuss servicing options..."
 
 (For Construction/Facility/Longer Term): "Okay, starting around [Start Date] for about [Duration weeks/months]. Understood." (Store Start_Date, Duration).
 

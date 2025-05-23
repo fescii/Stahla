@@ -236,7 +236,7 @@ class BlandAIManager:
     else:
       logfire.error(
           f"Pathway sync failed: Could not update pathway {self.pathway_id}. Bland API Message: {update_result.message}",
-          details=update_result.details,
+          details=update_result,
       )
 
   async def _sync_location_tool(self) -> None:
@@ -783,11 +783,11 @@ class BlandAIManager:
     if not original_log_doc.get("pathway_id_used") and original_log_doc.get("task"):
       task_for_retry = original_log_doc.get("task")
 
-    webhook_for_retry: Optional[HttpUrl] = None
+    webhook_for_retry: Optional[str] = None
     webhook_str = original_log_doc.get("webhook_url")
     if webhook_str:
       try:
-        webhook_for_retry = HttpUrl(webhook_str)
+        webhook_for_retry = webhook_str.strip()
       except ValidationError as e:
         logfire.warn(
             f"Could not parse original webhook_url '{webhook_str}' for retry due to validation error: {e}. Proceeding without webhook for retry."

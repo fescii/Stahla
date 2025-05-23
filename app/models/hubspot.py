@@ -1,8 +1,18 @@
 # app/models/hubspot.py
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
-from typing import Optional, Dict, Any, List, Literal, Union  # Added Union
+from typing import Optional, Dict, Any, List, Literal, Union
 from datetime import datetime  # Added datetime import
+from enum import Enum
+
+
+class ServiceType(str, Enum):
+  RESTROOM_TRAILER = "Restroom Trailer"
+  SHOWER_TRAILER = "Shower Trailer"
+  LAUNDRY_TRAILER = "Laundry Trailer"
+  PORTA_POTTY = "Porta Potty"
+  TRAILER_REPAIR = "Trailer Repair / Pump Out"
+  OTHER = "Other"
 
 
 class HubSpotBaseModel(BaseModel):
@@ -71,10 +81,18 @@ class HubSpotContactProperties(BaseModel):
   message: Optional[str] = Field(
       None, alias="message")  # General message field
 
-  # Custom fields from properties.csv
-  # Maps to what_service_do_you_need_ from call metadata
+  # Using either ServiceType enum or string type with validation
   what_service_do_you_need_: Optional[str] = Field(
       None, alias="what_service_do_you_need_")
+
+  def validate_service_type(cls, v):
+    if v is None:
+      return v
+    valid_services = [service.value for service in ServiceType]
+    if v not in valid_services:
+      raise ValueError(
+          f"Invalid service type. Must be one of: {', '.join(valid_services)}")
+    return v
   how_many_restroom_stalls_: Optional[int] = Field(
       None, alias="how_many_restroom_stalls_")  # Number
   how_many_shower_stalls_: Optional[int] = Field(
@@ -137,11 +155,6 @@ class HubSpotContactResult(HubSpotBaseModel):
 # --- Lead Models ---
 
 class HubSpotLeadProperties(BaseModel):
-  """Properties for creating/updating a HubSpot lead based on properties.csv."""
-  # Removed firstname, lastname, email, phone as they belong to Contact
-  # Standard fields (if any applicable to Lead - check properties.csv)
-  # Example: lead_status: Optional[str] = Field(None, alias=\"lead_status\") # If you have a status field
-
   # Custom fields from properties.csv for Lead object
   project_category: Optional[str] = Field(
       None, alias="project_category")  # Maps to project_category from call
@@ -167,18 +180,9 @@ class HubSpotLeadProperties(BaseModel):
   onsite_contact_name: Optional[str] = Field(None, alias="onsite_contact_name")
   onsite_contact_phone: Optional[str] = Field(
       None, alias="onsite_contact_phone")  # Phone number
-  site_ground_type: Optional[str] = Field(
-      None, alias="site_ground_type")  # Maps to site_ground_type from call
   site_obstacles: Optional[str] = Field(
       None, alias="site_obstacles")  # Maps to site_obstacles from call
-  # Maps to water_source_distance from call (needs str->int conversion?)
-  water_source_distance: Optional[int] = Field(
-      None, alias="water_source_distance")
-  # Maps to power_source_distance from call (needs str->int conversion?)
-  power_source_distance: Optional[int] = Field(
-      None, alias="power_source_distance")
   within_local_service_area: Optional[bool] = Field(
-      # Maps to is_in_service_area from call
       None, alias="within_local_service_area")
   partner_referral_consent: Optional[bool] = Field(
       None, alias="partner_referral_consent")  # Maps to referral_accepted from call
@@ -206,24 +210,14 @@ class HubSpotLeadProperties(BaseModel):
       None, alias="guest_count_estimate")  # Number (integer)
   ai_estimated_value: Optional[float] = Field(
       None, alias="ai_estimated_value")  # Number (currency)
-  # Added based on call.json variables (assuming these exist or will be created in HubSpot)
-  decision_timeline: Optional[str] = Field(
-      None, alias="decision_timeline")  # Maps to decision_timing from call
-  follow_up_call_scheduled: Optional[bool] = Field(
-      # Maps to follow_up_call_scheduled from call
-      None, alias="follow_up_call_scheduled")
-  shower_required: Optional[bool] = Field(
-      None, alias="shower_required")  # Maps to shower_required from call
-  handwashing_needed: Optional[bool] = Field(
-      None, alias="handwashing_needed")  # Maps to handwashing_needed from call
   address_type: Optional[str] = Field(
       None, alias="address_type")  # Maps to address_type from call
-  site_ground_level: Optional[bool] = Field(
-      None, alias="site_ground_level")  # Maps to site_ground_level from call
-  power_path_cross: Optional[bool] = Field(
-      None, alias="power_path_cross")  # Maps to power_path_cross from call
-  water_path_cross: Optional[bool] = Field(
-      None, alias="water_path_cross")  # Maps to water_path_cross from call
+  site_ground_type: Optional[bool] = Field(
+      None, alias="site_ground_type")  # Maps to site_ground_type from call
+  power_source_distance: Optional[bool] = Field(
+      None, alias="power_source_distance")  # Maps to power_source_distance from call
+  water_source_distance: Optional[bool] = Field(
+      None, alias="water_source_distance")  # Maps to water_source_distance from call
 
   model_config = {
       "populate_by_name": True  # Allows using alias for HubSpot internal names
@@ -269,13 +263,6 @@ class HubSpotCompanyProperties(BaseModel):
   domain: Optional[str] = Field(None, alias="domain")
   # Maps to company_name from call
   name: Optional[str] = Field(None, alias="name")
-  # Add other relevant company properties if needed, e.g.:
-  # website: Optional[HttpUrl] = Field(None, alias="website")
-  # phone: Optional[str] = Field(None, alias="phone")
-  # city: Optional[str] = Field(None, alias="city")
-  # state: Optional[str] = Field(None, alias="state")
-  # zip: Optional[str] = Field(None, alias="zip")
-  # address: Optional[str] = Field(None, alias="address")
 
   model_config = {
       "populate_by_name": True
@@ -287,52 +274,7 @@ class HubSpotCompanyInput(HubSpotBaseModel):
   properties: HubSpotCompanyProperties
 
 
-# --- Deal Models ---
-
-class HubSpotDealProperties(BaseModel):
-  """Properties for creating/updating a HubSpot deal."""
-  dealname: Optional[str] = Field(None, alias="dealname")
-  amount: Optional[float] = Field(None, alias="amount")
-  dealstage: Optional[str] = Field(None, alias="dealstage")
-  pipeline: Optional[str] = Field(None, alias="pipeline")
-  # HubSpot expects YYYY-MM-DD or timestamp
-  closedate: Optional[str] = Field(None, alias="closedate")
-  hubspot_owner_id: Optional[str] = Field(None, alias="hubspot_owner_id")
-  # Add other relevant deal properties
-
-  model_config = {
-      "populate_by_name": True
-  }
-
-
-class HubSpotDealInput(HubSpotBaseModel):
-  """Input model for creating/updating a deal via the API endpoint."""
-  properties: HubSpotDealProperties
-
-
-# --- Ticket Models ---
-
-class HubSpotTicketProperties(BaseModel):
-  """Properties for creating/updating a HubSpot ticket."""
-  subject: Optional[str] = Field(None, alias="subject")
-  content: Optional[str] = Field(None, alias="content")
-  hs_pipeline: Optional[str] = Field(None, alias="hs_pipeline")
-  hs_pipeline_stage: Optional[str] = Field(None, alias="hs_pipeline_stage")
-  hubspot_owner_id: Optional[str] = Field(None, alias="hubspot_owner_id")
-  # Add other relevant ticket properties
-
-  model_config = {
-      "populate_by_name": True
-  }
-
-
-class HubSpotTicketInput(HubSpotBaseModel):
-  """Input model for creating/updating a ticket via the API endpoint."""
-  properties: HubSpotTicketProperties
-
-
 # --- Generic HubSpot Object Model ---
-
 class HubSpotObject(HubSpotBaseModel):
   """Generic model for HubSpot API objects, allowing any properties."""
   id: str
@@ -345,7 +287,6 @@ class HubSpotObject(HubSpotBaseModel):
 
 
 # --- Search Models ---
-
 class HubSpotSearchFilter(BaseModel):
   propertyName: str
   operator: Literal[

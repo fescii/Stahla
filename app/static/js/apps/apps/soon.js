@@ -2,7 +2,7 @@ export default class SoonPage extends HTMLElement {
   constructor() {
     super();
     this.app = window.app;
-    this.shadowObj = this.attachShadow({ mode: 'open' });
+    this.shadowObj = this.attachShadow({ mode: "open" });
     this.render();
   }
 
@@ -31,16 +31,15 @@ export default class SoonPage extends HTMLElement {
       <header class="header">
         <div class="header-content">
         <div class="badge-container">
-          <div class="badge">In Suggestion</div>
+          <div class="badge">Finalizing</div>
           <div class="status-indicator">
           <span class="pulse"></span>
-          <span class="status-text">80% Complete</span>
+          <span class="status-text">Testing stage</span>
           </div>
         </div>
-        <h1>Not Implemented</h1>
+        <h1>Finalizing</h1>
         <p class="subtitle">
-          This feature may be fully implemented on the backend but is not yet available in the user interface.
-          If you want this feature to be implemented in the user interface, please send a request.
+          We are in the final stages of development. We'll be updating this page in few hours with more information about bland AI call simulation.
         </p>
         <div class="header-actions">
           <a class="action-button primary" href="mailto:isfescii@gmail.com?subject=Request%20Implementation">Request Implementation</a>

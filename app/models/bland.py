@@ -107,7 +107,7 @@ class BlandCallbackRequest(BaseModel):
       None, description="Whether to wait for a greeting.")
   record: Optional[bool] = Field(
       None, description="Whether to record the call.")
-  webhook: Optional[HttpUrl] = Field(  # Changed to HttpUrl for validation
+  webhook: Optional[str] = Field(  # Changed to str for validation
       None, description="Webhook URL to send call results to (overrides default).")
 
   # Fields for HubSpot/form data integration as per user request

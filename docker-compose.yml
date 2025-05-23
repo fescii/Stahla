@@ -1,34 +1,81 @@
-version: '3.9' # Or a version compatible with your Docker installation
-
 services:
   api:
     build: . # Assumes Dockerfile is in the root directory
     container_name: stahla_api
-    ports:
-      - "8000:8000" # Map host port 8000 to container port 8000
+    restart: always
     volumes:
       - ./app:/code/app # Mount the app directory to the new location
       - ./assets:/code/app/assets # Mount assets relative to the new app location
       - ./info:/code/app/info # Mount info relative to the new app location
-      - ./docs:/static_docs # Mount the docs directory into the container
+      - ./docs:/code/static_docs # Mount the docs directory into the container
     env_file:
       - .env # Load environment variables from .env file
     # Command to run the FastAPI app using Uvicorn with reload
     # Use app.main:app as the target, matching the new structure
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
     depends_on:
-      - mongo # Add dependency on mongo
+      - mongo
+      - redis
 
   mongo:
     image: mongo:latest
+    container_name: stahla_mongo
+    restart: always
     ports:
-      - "27017:27017"
+      - "${MONGO_PORT:-27017}:27017"
     environment:
       # Use renamed variables from .env for initial root user setup
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-mongoadmin} # Use new var name
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secret} # Use new var name
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-stahla}
     volumes:
       - mongo_data:/data/db # Persist data
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  redis:
+    image: redis:alpine
+    container_name: stahla_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    build: ./nginx
+    container_name: stahla_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./app/static:/usr/share/nginx/html/static
+      - ./nginx/nginx.config:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+    environment:
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8000}
+      - API_V1_STR=${API_V1_STR:-/api/v1}
     # Optional: Add a healthcheck
     # healthcheck:
     #   test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
@@ -52,4 +99,5 @@ services:
 #      - "5432:5432"
 
 volumes:
-  mongo_data: # Add mongo_data volume definition
+  mongo_data: # MongoDB data persistence
+  redis_data: # Redis data persistence

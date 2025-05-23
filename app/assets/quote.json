@@ -18,6 +18,14 @@
         {
           "extra_id": "3kW Generator",
           "qty": 1
+        },
+        {
+          "extra_id": "pump_out",
+          "qty": 2
+        },
+        {
+          "extra_id": "cleaning",
+          "qty": 1
         }
       ],
       "contact_name": "Jane Doe",

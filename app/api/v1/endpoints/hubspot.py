@@ -1,9 +1,10 @@
 # app/api/v1/endpoints/hubspot.py
 
-from fastapi import APIRouter, HTTPException, status, Body
-from typing import List, Optional
+from datetime import datetime
+from fastapi import APIRouter, Body, HTTPException
+from typing import List, Optional, Literal, Dict, Any
 import logfire
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator, ValidationError
 
 # Import models
 from app.models.hubspot import (
@@ -12,23 +13,36 @@ from app.models.hubspot import (
     HubSpotApiResult,
     HubSpotContactResult,
     HubSpotLeadResult,
-    HubSpotLeadInput,  # Added HubSpotLeadInput
+    HubSpotLeadInput,
 )
 
 # Import common models
 from app.models.common import GenericResponse
-
-# Import the manager
 from app.services.hubspot import hubspot_manager
+from app.utils.hubspot import to_hubspot_midnight_unix
 
 router = APIRouter()
 
 
-# Define a Pydantic model for the sample form input
 class SampleContactForm(BaseModel):
   what_service_do_you_need_: Optional[str] = Field(
       None, alias="What service do you need?"
   )
+
+  @validator('what_service_do_you_need_')
+  def validate_service_type(cls, v):
+    valid_services = [
+        "Restroom Trailer",
+        "Shower Trailer",
+        "Laundry Trailer",
+        "Porta Potty",
+        "Trailer Repair / Pump Out",
+        "Other"
+    ]
+    if v is not None and v not in valid_services:
+      raise ValueError(
+          f"Invalid service type. Must be one of: {', '.join(valid_services)}")
+    return v
   how_many_portable_toilet_stalls_: Optional[int] = Field(
       None, alias="How Many Portable Toilet Stalls?"
   )
@@ -173,7 +187,7 @@ async def test_get_owners(email: Optional[str] = None):
 
 # Modified endpoint to accept form data in request body
 @router.post(
-    "/test/create-sample-contact",
+    "/test/contact",
     response_model=GenericResponse[HubSpotApiResult],
     summary="Create HubSpot Contact from Form Data",
     tags=["HubSpot Tests"],
@@ -185,8 +199,9 @@ async def create_contact_from_form_data(form_data: SampleContactForm = Body(...)
   Useful for triggering the contact creation flow manually with specific data.
   """
   logfire.info(
-      "Received request for /test/create-sample-contact with form data",
+      "Received request for /test/contact with form data",
       form_email=form_data.email,
+      service_type=form_data.what_service_do_you_need_,
   )
 
   # Map validated form data to HubSpotContactProperties
@@ -197,29 +212,37 @@ async def create_contact_from_form_data(form_data: SampleContactForm = Body(...)
       "event_or_job_address": form_data.event_or_job_address,
       "zip": form_data.zip,
       "city": form_data.city,
-      # Consider date conversion if needed by HubSpot
-      "event_start_date": form_data.event_start_date,
-      # Consider date conversion if needed by HubSpot
-      "event_end_date": form_data.event_end_date,
+      "event_start_date": to_hubspot_midnight_unix(form_data.event_start_date),
+      "event_end_date": to_hubspot_midnight_unix(form_data.event_end_date),
       "firstname": form_data.firstname,
       "lastname": form_data.lastname,
       "phone": form_data.phone,
       "email": form_data.email,
       "by_submitting_this_form_you_consent_to_receive_texts": form_data.by_submitting_this_form_you_consent_to_receive_texts,
-      # Add mappings for other HubSpotContactProperties if they can be derived from the form
-      # e.g., "address": form_data.event_or_job_address, # If address is same as event address
   }
 
-  try:
-    # Create the HubSpotContactProperties object, excluding None values
-    contact_props = HubSpotContactProperties(
-        **{k: v for k, v in hubspot_props_data.items() if v is not None}
-    )
+  # Enhanced logging of the mapped properties before creating the model
+  logfire.info("Mapped form data to HubSpot properties",
+               mapped_properties=hubspot_props_data)
 
+  try:
+    # Filter out None values and create the model
+    filtered_props = {k: v for k,
+                      v in hubspot_props_data.items() if v is not None}
+    logfire.info("Creating HubSpotContactProperties with filtered properties",
+                 filtered_props=filtered_props)
+
+    # Create the HubSpotContactProperties object
+    contact_props = HubSpotContactProperties(**filtered_props)
+
+    # Log the model after creation for verification
     logfire.info(
-        "Attempting to create/update contact from form data",
+        "HubSpotContactProperties model created",
+        model_properties=contact_props.model_dump(exclude_none=True),
         email=contact_props.email,
     )
+
+    # Attempt to create/update the contact in HubSpot
     result: HubSpotApiResult = await hubspot_manager.create_or_update_contact(
         contact_props
     )
@@ -246,6 +269,30 @@ async def create_contact_from_form_data(form_data: SampleContactForm = Body(...)
     logfire.exception(
         "Unexpected error during HubSpot contact creation from form data."
     )
+
+    # Check for ValidationError from Pydantic models
+    if isinstance(e, ValidationError):
+      validation_errors = e.errors()
+      logfire.error("Validation error in HubSpot contact form data",
+                    validation_errors=validation_errors)
+      return GenericResponse.error(
+          message="Validation error in form data",
+          details={"validation_errors": validation_errors},
+          status_code=422
+      )
+
+    # Check for Hubspot API specific errors
+    if "PROPERTY_DOESNT_EXIST" in str(e):
+      import re
+      property_match = re.search(r'Property "([^"]+)" does not exist', str(e))
+      if property_match:
+        invalid_property = property_match.group(1)
+        return GenericResponse.error(
+            message=f"HubSpot property validation error: '{invalid_property}' does not exist in HubSpot",
+            details={"invalid_property": invalid_property},
+            status_code=400
+        )
+
     return GenericResponse.error(
         message=f"An unexpected error occurred: {str(e)}", status_code=500
     )

@@ -1316,10 +1316,7 @@ class QuoteService:
     }
 
     # Create budget details
-    estimated_tax_rate = 0.08  # 8% is typical, but should come from config
-    estimated_taxes = round(subtotal * estimated_tax_rate, 2)
-    estimated_fees = 50.00  # Example value, should come from config
-    estimated_total = round(subtotal + estimated_taxes + estimated_fees, 2)
+    estimated_total = round(subtotal, 2)  # Total is just the subtotal now
 
     # Calculate equivalent rates
     daily_rate = round(
@@ -1352,8 +1349,6 @@ class QuoteService:
 
     budget_details = {
         "subtotal": round(subtotal, 2),
-        "estimated_taxes": estimated_taxes,
-        "estimated_fees": estimated_fees,
         "estimated_total": estimated_total,
         "daily_rate_equivalent": daily_rate,
         "weekly_rate_equivalent": weekly_rate,
@@ -1446,7 +1441,7 @@ class QuoteService:
         subtotal=round(subtotal, 2),
         delivery_tier_applied=delivery_tier_summary,  # The summary string
         delivery_details=delivery_details_for_response,  # The detailed object
-        notes="Quote is an estimate. Taxes not included. Final price subject to final confirmation.",
+        notes="Quote is an estimate. Taxes and environmental fees are not included in this quote. Final price subject to final confirmation.",
         rental_details=rental_details_model,
         product_details=product_details_model,
         budget_details=budget_details_model

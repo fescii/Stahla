@@ -47,102 +47,85 @@ def _extract_simple_properties(properties: Dict[str, Optional[HubSpotPropertyDet
 
 @router.post("/hubspot", summary="Handle HubSpot Direct Contact Data Webhook", response_model=GenericResponse[HubSpotWebhookResponseData])
 async def webhook_hubspot(
-    # Use the new payload model
+    # Use the updated payload model
     payload: HubSpotContactDataPayload = Body(...),
     background_tasks: BackgroundTasks = BackgroundTasks()
 ) -> GenericResponse[HubSpotWebhookResponseData]:
   """
   Receives direct contact data payload from HubSpot (e.g., via Workflow).
-  Checks completeness.
+  Processes the direct data from the webhook.
   If complete: Classifies data, creates/updates lead, notifies n8n.
-  If incomplete: Creates a basic lead, triggers Bland.ai call with lead_id.
+  If incomplete: Creates a basic lead, triggers Bland.ai call.
   """
-  logfire.info("Received HubSpot direct contact data payload.",
-               contact_vid=payload.vid)
+  logfire.info("Received HubSpot direct contact data payload.")
 
-  # --- Process the received contact data directly ---
-  contact_id = str(payload.vid)
+  # Convert the payload to a dict to process
+  contact_properties = payload.model_dump()
+
+  # Extract the contact ID if present
+  contact_id = str(contact_properties.get("contact_id", "unknown"))
   logfire.info(f"Processing direct data for contact ID: {contact_id}")
 
-  # 1. Extract Contact Properties from Payload
-  # No need to fetch, data is in the payload
-  if not payload.properties:
-    logfire.error("Received payload has no properties.", contact_id=contact_id)
-    # Consider returning an error response if appropriate
-    raise HTTPException(status_code=400, detail="Payload missing properties")
-
-  # Convert the detailed properties structure to a simple key-value dict
-  contact_properties = _extract_simple_properties(payload.properties)
-  logfire.info("Extracted contact properties from payload.",
-               contact_id=contact_id)
+  # Check if we have the essential data to process
+  if not payload.email:
+    logfire.error("Received payload missing email.", contact_id=contact_id)
+    raise HTTPException(status_code=400, detail="Payload missing email")
 
   # 2. Check if Contact Data is Complete
   is_complete = _is_hubspot_contact_complete(contact_properties)
 
-  # --- Lead creation is now deferred until after classification or Bland call ---
-  # REMOVED: Immediate lead creation block
-
-  # 4. Handle based on completeness
+  # 3. Handle based on completeness
   if is_complete:
     logfire.info("HubSpot contact data is complete. Proceeding with classification.",
                  contact_id=contact_id)
 
+    # Convert payload to FormPayload if needed
+    form_payload = payload.convert_to_form_payload()
+
     # Prepare ClassificationInput using the extracted properties
     classification_input = prepare_classification_input(
         source="hubspot_webhook_direct",  # Indicate the source
-        raw_data={"hubspot_contact_payload": payload.model_dump(
-            mode='json')},  # Store raw payload if needed
+        # Store raw payload if needed
+        raw_data={"hubspot_contact_payload": contact_properties},
         extracted_data={
-            "firstname": contact_properties.get("firstname"),
-            "lastname": contact_properties.get("lastname"),
-            "email": contact_properties.get("email"),
-            "phone": contact_properties.get("phone"),
-            "company": contact_properties.get("company"),
-            # Ensure 'message' exists or handle None
-            "message": contact_properties.get("message"),
-            "text_consent": contact_properties.get("by_submitting_this_form_you_consent_to_receive_texts"),
-            "service_needed": contact_properties.get("what_service_do_you_need_"),
-            "stall_count": contact_properties.get("how_many_portable_toilet_stalls_"),
-            # Ensure 'ada' exists or handle None
-            "ada_required": contact_properties.get("ada"),
-            "event_address": contact_properties.get("event_or_job_address"),
-            "event_city": contact_properties.get("city"),
-            "event_postal_code": contact_properties.get("zip"),
-            "event_start_date": contact_properties.get("event_start_date"),
-            "event_end_date": contact_properties.get("event_end_date"),
-            # Add any other relevant fields from contact_properties
+            "firstname": payload.firstname,
+            "lastname": payload.lastname,
+            "email": payload.email,
+            "phone": str(payload.phone) if payload.phone else None,
+            "message": payload.message,
+            "service_needed": payload.what_service_do_you_need_,
+            "stall_count": payload.how_many_portable_toilet_stalls_,
+            "event_address": payload.event_or_job_address,
+            "event_city": payload.city,
+            "event_postal_code": str(payload.zip) if payload.zip else None,
+            "event_start_date": payload.event_start_date,
+            "event_end_date": payload.event_end_date,
         }
     )
 
     # Classify
     classification_result = await classification_manager.classify_lead_data(classification_input)
-    logfire.info("Classification result received for HubSpot contact.",  # Removed lead_id
+    logfire.info("Classification result received for HubSpot contact.",
                  contact_id=contact_id,
                  classification=classification_result.model_dump(exclude={"input_data"}))
 
     # Create Lead, Update Lead, and Notify n8n (background)
-    # Pass contact_id instead of lead_id
     background_tasks.add_task(
         _update_hubspot_lead_after_classification,
         classification_result,
         classification_input,
-        contact_id  # Pass contact_id
-        # Removed lead_id
+        contact_id
     )
 
   else:  # Incomplete
     logfire.warn("HubSpot contact data incomplete. Triggering Bland.ai call.",
-                 contact_id=contact_id)  # Removed lead_id
+                 contact_id=contact_id)
 
     # Trigger Bland call (background)
-    # Pass contact_id instead of lead_id
     background_tasks.add_task(
         _trigger_bland_call_for_hubspot,
-        contact_id,  # Pass contact_id
-        # Removed lead_id
-        contact_properties  # Pass the extracted simple properties
+        contact_id,
+        contact_properties
     )
-
-  # Removed the loop and event-specific logic
 
   return GenericResponse(data=HubSpotWebhookResponseData(status="received", message="HubSpot direct contact data processed. Lead creation deferred."))

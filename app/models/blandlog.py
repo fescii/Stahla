@@ -57,11 +57,6 @@ class BlandCallLog(BaseModel):
   last_retry_attempt_at: Optional[datetime] = Field(
       default=None, description="Timestamp of the last retry attempt")
 
-  model_config = {
-      "populate_by_name": True,
-      "json_encoders": {datetime: lambda dt: dt.isoformat()},
-  }
-
   class Config:
     schema_extra = {
         "examples": {

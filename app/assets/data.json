@@ -5,13 +5,11 @@
   "tools": {
     "location": {
       "name": "BackgroundLocationLookupTool_v2",
-      "tool_id": "TL-29358830-2f06-4342-83b0-453265aedb56",
-      "timeout": 7000
+      "tool_id": "TL-29358830-2f06-4342-83b0-453265aedb56"
     },
     "quote": {
       "name": "StahlaQuoteTool_v2",
-      "tool_id": "TL-9cf9e441-f903-4073-9176-a422736444d3",
-      "timeout": 20000
+      "tool_id": "TL-9cf9e441-f903-4073-9176-a422736444d3"
     }
   }
 }

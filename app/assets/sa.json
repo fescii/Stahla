@@ -1,0 +1,179 @@
+{
+  {
+    "id": "sa_ask_event_duration_days",
+    "type": "Default",
+    "data": {
+      "name": "SA: Ask Event Duration (Days)",
+      "prompt": "For your {{project_category}}, how many days will it last?",
+      "extractVars": [
+        [
+          "event_duration_days",
+          "number",
+          "Number of days the event will last, if less then 1 day, set to 1."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_ask_total_hours",
+    "type": "Default",
+    "data": {
+      "name": "Ask Total Hours (if >1 day)",
+      "prompt": "Since it's a multi-day event ({{event_duration_days}} days), how many total hours a day will the {{product_type | default: 'units'}} be needed across all days?",
+      "extractVars": [
+        [
+          "event_total_hours_a_day",
+          "number",
+          "Total hours units will be needed for the multi-day event."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_discuss_extra_services_multi_day_long_hours",
+    "type": "Default",
+    "data": {
+      "name": "Discuss Extra Services (Multi-day, >=8hrs)",
+      "prompt": "Okay, for an event running {{event_duration_days}} days with {{event_total_hours_a_day}} hours a day of usage, we might need to discuss extra services like waste tank pumping, fresh water fill, cleaning, and restocking?",
+      "extractVars": [
+        [
+          "sa_accepts_discussion_extra_services",
+          "boolean",
+          "User acknowledges or is open to discussing extra servicing. (true/false)"
+        ],
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_ask_for_servicing_gaps",
+    "type": "Default",
+    "data": {
+      "name": "Ask for Servicing Gaps",
+      "prompt": "Will there be gaps between days for such servicing?",
+      "extractVars": [
+        [
+          "sa_gaps_for_servicing",
+          "boolean",
+          "Will there be gaps between event days for servicing? (true/false)"
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_ask_attendees",
+    "type": "Default",
+    "data": {
+      "name": "Ask Number of Attendees",
+      "prompt": "Approximately how many people will attend the event on its busiest day?",
+      "extractVars": [
+        [
+          "attendees_count",
+          "number",
+          "Estimated number of attendees at the event."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_ask_other_facilities_on_site",
+    "type": "Default",
+    "data": {
+      "name": "Ask Other Facilities On Site",
+      "prompt": "Are there any other restroom or handwashing facilities already available at the event site?",
+      "extractVars": [
+        [
+          "other_facilities_on_site",
+          "boolean",
+          "Whether other facilities are available on site. (true/false)"
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_ask_number_of_stalls",
+    "type": "Default",
+    "data": {
+      "name": "Ask Number of Stalls",
+      "prompt": "How many {{product_type | default: 'stalls'}} stalls will be needed for the event?",
+      "extractVars": [
+        [
+          "number_of_stalls",
+          "number",
+          "Number of stalls needed for the event."
+        ],
+        [
+          "stalls_exists",
+          "boolean",
+          "Whether the number of stalls exists in the system. (true/false), check from the list of available products; i.e ['1 Stall ADA Combo Trailer', '2 Stall Restroom Trailer', '3 Stall ADA Restroom Trailer', '4 Stall Restroom Trailer', '8 Stall Restroom Trailer', '10 Stall Restroom Trailer', '3 Stall Combo Trailer', '8 Stall Shower Trailer']."
+        ],
+        [
+          "products",
+          "array",
+          "If {{number_of_stalls}} exists, add the product to the list of products, e.g., ['2 Stall Restroom Trailer']. Choose from the following: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer. ADA Trailers are compliant with the Americans with Disabilities Act."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_trailer_with_stalls_does_not_exist",
+    "type": "Default",
+    "data": {
+      "name": "Trailer with Stalls Does Not Exist",
+      "prompt": "Unfortunately, we don't have a trailer with that many stalls available. We can offer you a combination of trailers or other options, choose from the following: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer.",
+      "extractVars": [
+        [
+          "products",
+          "array",
+          "List of available products that a user chooses, e.g., ['1 Stall ADA Combo Trailer', '2 Stall Restroom Trailer']. Choose from the following: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer, ADA Trailers are compliant with the Americans with Disabilities Act."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "sa_ask_ada_event",
+    "type": "Default",
+    "data": {
+      "name": "Ask ADA (Event)",
+      "prompt": "Will you have anyone there in a wheelchair or a walker? Do you need ADA (handicap accessible) facilities? We have options like the 1 Stall ADA Combo Trailer or the 3 Stall ADA Restroom Trailer.",
+      "extractVars": [
+        [
+          "ada_required",
+          "boolean",
+          "Whether ADA-compliant units are required for the event. (true/false)"
+        ],
+        [
+          "preferred_ada_products",
+          "array",
+          "If ADA is required, list the preferred ADA products, e.g., ['1 Stall ADA Combo Trailer', '3 Stall ADA Restroom Trailer']."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+}

@@ -191,10 +191,6 @@ class BudgetDetails(BaseModel):
 
   subtotal: float = Field(...,
                           description="Subtotal before taxes or additional fees.")
-  estimated_taxes: Optional[float] = Field(
-      None, description="Estimated taxes if applicable.")
-  estimated_fees: Optional[float] = Field(
-      None, description="Estimated additional fees if applicable.")
   estimated_total: float = Field(
       ..., description="Estimated total including taxes and fees if provided.")
   daily_rate_equivalent: Optional[float] = Field(

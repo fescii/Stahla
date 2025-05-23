@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Any, Dict
+from datetime import datetime
 
 
 class FormPayload(BaseModel):
@@ -94,7 +95,7 @@ class HubSpotWebhookPayload(BaseModel):
   }
 
 
-# --- New Models for Direct Contact Data Payload ---
+# --- HubSpot Models for Direct Contact Data Payload ---
 
 class HubSpotPropertyVersion(BaseModel):
   value: Any
@@ -158,23 +159,74 @@ class HubSpotAssociatedCompany(BaseModel):
 
 class HubSpotContactDataPayload(BaseModel):
   """
-  Pydantic model for the direct contact data payload received.
+  Pydantic model for the direct contact data payload received from HubSpot webhooks.
   """
-  vid: int
-  canonical_vid: int = Field(..., alias='canonical-vid')
-  merged_vids: List[int] = Field(..., alias='merged-vids')
-  portal_id: int = Field(..., alias='portal-id')
-  is_contact: bool = Field(..., alias='is-contact')
-  # Make detail optional as some props might be null
-  properties: Dict[str, Optional[HubSpotPropertyDetail]]
-  form_submissions: List[Any] = Field(..., alias='form-submissions')
-  list_memberships: List[Any] = Field(..., alias='list-memberships')
-  identity_profiles: List[HubSpotIdentityProfile] = Field(
-      ..., alias='identity-profiles')
-  merge_audits: List[Any] = Field(..., alias='merge-audits')
-  associated_company: Optional[HubSpotAssociatedCompany] = Field(
-      None, alias='associated-company')
+  # Contact identifiers
+  contact_id: Optional[int] = None
+
+  # Basic contact info
+  firstname: Optional[str] = None
+  lastname: Optional[str] = None
+  email: Optional[EmailStr] = None
+  phone: Optional[int] = None
+
+  # Location information
+  zip: Optional[int] = None
+  city: Optional[str] = None
+  event_or_job_address: Optional[str] = None
+
+  # Event details
+  event_start_date: Optional[int] = None  # Timestamp in milliseconds
+  event_end_date: Optional[int] = None    # Timestamp in milliseconds
+  message: Optional[str] = None
+
+  # Service details
+  what_service_do_you_need_: Optional[str] = None
+  how_many_portable_toilet_stalls_: Optional[int] = None
 
   class Config:
     extra = 'allow'  # Allow fields not explicitly defined
-    populate_by_name = True  # Allow using aliases like 'portal-id'
+    populate_by_name = True  # Allow using aliases
+
+  def convert_to_form_payload(self) -> FormPayload:
+    """
+    Converts HubSpot contact data to the internal FormPayload model
+    """
+    # Convert millisecond timestamps to dates if present
+    start_date = None
+    end_date = None
+    if self.event_start_date:
+      start_date = datetime.fromtimestamp(
+          self.event_start_date / 1000).strftime('%Y-%m-%d')
+    if self.event_end_date:
+      end_date = datetime.fromtimestamp(
+          self.event_end_date / 1000).strftime('%Y-%m-%d')
+
+    return FormPayload(
+        firstname=self.firstname,
+        lastname=self.lastname,
+        email=self.email,
+        phone=str(self.phone) if self.phone else None,
+        company=None,
+        product_interest=self.what_service_do_you_need_,
+        lead_type_guess=None,
+        event_type=None,
+        event_location_description=self.event_or_job_address,
+        event_state=None,
+        event_city=self.city,
+        event_postal_code=str(self.zip) if self.zip else None,
+        duration_days=None,
+        start_date=start_date,
+        end_date=end_date,
+        guest_count=None,
+        required_stalls=self.how_many_portable_toilet_stalls_,
+        ada_required=None,
+        budget_mentioned=None,
+        comments=self.message,
+        power_available=None,
+        water_available=None,
+        other_facilities_available=None,
+        other_products_needed=[],
+        form_id=None,
+        submission_timestamp=None
+    )

@@ -1,0 +1,99 @@
+{
+  {
+    "id": "pbq_ask_stall_count_or_ada_pp",
+    "type": "Default",
+    "data": {
+      "name": "PBQ: Ask Stall Count or ADA (Porta Potty)",
+      "prompt": "For the portable toilets, how many stalls are you looking for? Or would you like an ADA (handicap accessible) unit?",
+      "extractVars": [
+        [
+          "trailer_type",
+          "string",
+          "Set to 'Standard Porta Potty' or 'ADA Porta Potty' based on user response. This will be used as the main product type for the quote if current path is for Porta Potties."
+        ],
+        [
+          "pp_stall_count",
+          "number",
+          "Number of portable toilet stalls if not ADA. If ADA, this might be 1 or implicit."
+        ],
+        [
+          "pp_is_ada_specific_request",
+          "boolean",
+          "User specifically requests an ADA portable toilet. (true/false)"
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "pbq_ask_site_conditions_pp",
+    "type": "Default",
+    "data": {
+      "name": "PBQ: Ask Site Conditions (Porta Potty)",
+      "prompt": "Tell me about the delivery location for the portable toilet(s). Are there any low overhanging trees or anything lower than 13 feet on the way to the placement location? Is the ground flat? And is it on cement, gravel, dirt, or grass?",
+      "extractVars": [
+        [
+          "pp_site_low_clearance",
+          "boolean",
+          "Are there low clearance issues (under 13ft)? (true/false)"
+        ],
+        [
+          "pp_site_is_flat",
+          "boolean",
+          "Is the placement area flat? (true/false)"
+        ],
+        [
+          "pp_site_surface_type",
+          "string",
+          "Surface type (cement, gravel, dirt, grass, other)."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "pbq_ask_duration_pp",
+    "type": "Default",
+    "data": {
+      "name": "PBQ: Ask Duration (Porta Potty)",
+      "prompt": "What are the ideal delivery and pickup dates for the portable toilet(s)? We have an initial start date logged around {{request_data.event_start_date}} (timestamp). Can you confirm the start date as Month Day, Year? And the pickup date?",
+      "extractVars": [
+        [
+          "rental_start_date",
+          "string",
+          "Ideal delivery date (YYYY-MM-DD). Confirm or update based on {{request_data.event_start_date}}."
+        ],
+        [
+          "pp_pickup_date",
+          "string",
+          "Ideal pickup date (YYYY-MM-DD). Confirm or update based on {{request_data.event_end_date}} if available, otherwise collect new."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 100
+      }
+    }
+  },
+  {
+    "id": "pbq_calculate_rental_days_pp",
+    "type": "Default",
+    "data": {
+      "name": "PBQ: Calculate Rental Days (PP)",
+      "prompt": "Calculating duration for portable toilets from {{rental_start_date}} to {{pp_pickup_date}}.",
+      "extractVars": [
+        [
+          "rental_days",
+          "number",
+          "Calculate the number of rental days based on {{rental_start_date}} and {{pp_pickup_date}}. If {{event_duration_days}} is already set and seems more accurate, use that."
+        ]
+      ],
+      "modelOptions": {
+        "interruptionThreshold": 50
+      }
+    }
+  }
+}

@@ -1,30 +1,18 @@
 {
-  "name": "Stahla_Services_Quote_Conversation_v2",
+  "name": "Stahla_Services_Callback_Flow_v5_Completed",
   "nodes": [
     {
       "id": "start_call",
       "type": "Default",
       "data": {
-        "name": "Start Call and Introduction",
+        "name": "Start Call - Confirm Good Time",
+        "prompt": "Hi, this is Stahla Services following up on your recent inquiry. I’d like to confirm a few details with you. Is now a convenient time to talk?",
         "isStart": true,
-        "prompt": "Hello! Thanks for calling Stahla Services. My name is Alex, and I'm an AI assistant. How can I help you with your restroom or shower trailer needs today? Just so you know, this call may be recorded for quality assurance.",
-        "modelOptions": {
-          "interruptionThreshold": 100,
-          "temperature": 0.7
-        }
-      }
-    },
-    {
-      "id": "ask_name",
-      "type": "Default",
-      "data": {
-        "name": "Ask/Confirm Contact Name",
-        "prompt": "Great. To get started, could you please tell me your full name? If you've contacted us before, I can try to look you up with your first name {{request_data.firstname | default: ''}} and last name {{request_data.lastname | default: ''}}.",
         "extractVars": [
           [
-            "contact_name",
-            "string",
-            "The full name of the contact person. If they confirm a pre-filled name (e.g. from {{request_data.firstname}} {{request_data.lastname}}), capture that. If they provide a different name, capture the new full name."
+            "is_now_good_time",
+            "boolean",
+            "Whether now is a good time to talk. Capture true or false."
           ]
         ],
         "modelOptions": {
@@ -33,16 +21,56 @@
       }
     },
     {
-      "id": "ask_company_name",
+      "id": "ask_best_time_to_call",
       "type": "Default",
       "data": {
-        "name": "Ask Company Name",
-        "prompt": "Thanks, {{contact_name}}. And is there a company name associated with this request, or is it for personal use?",
+        "name": "Ask Best Time to Call Back",
+        "prompt": "Okay, no problem. When would be a better time for me to call you back?",
         "extractVars": [
           [
-            "company_name",
+            "best_time_to_call_back",
             "string",
-            "The name of the company or organization. Capture if provided. If personal, user might say 'no company' or 'personal'. Default to 'N/A' if not applicable or not provided."
+            "Preferred callback time if now isn't good (e.g., 'tomorrow morning', 'around 3 PM')."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "end_call_reschedule",
+      "type": "End Call",
+      "data": {
+        "name": "End Call - Reschedule",
+        "prompt": "Thanks for letting me know. I'll make a note to have us call you back {{best_time_to_call_back | default: 'at a more convenient time'}}. Have a great day!"
+      }
+    },
+    {
+      "id": "global_handle_user_question_kb",
+      "type": "Knowledge Base",
+      "data": {
+        "name": "Global: Answer User Question from KB",
+        "isGlobal": true,
+        "globalLabel": "User has a general question or needs help or asks something off-script",
+        "kb": "KB-2e537845-67d3-4e3b-8fa6-5df82d6692de",
+        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, state that you'll need to gather more details or that it will be covered in the quote.",
+        "modelOptions": {
+          "temperature": 0.6
+        }
+      }
+    },
+    {
+      "id": "confirm_name",
+      "type": "Default",
+      "data": {
+        "name": "Confirm Contact Name",
+        "prompt": "Great! Just to confirm, is your name {{request_data.firstname | default: ''}} {{request_data.lastname | default: ''}}? If not, please tell me your full name.",
+        "extractVars": [
+          [
+            "contact_name",
+            "string",
+            "The confirmed or corrected full name of the contact person. If they confirm {{request_data.firstname}} {{request_data.lastname}}, use that. Otherwise, capture the name they provide."
           ]
         ],
         "modelOptions": {
@@ -54,13 +82,13 @@
       "id": "confirm_email",
       "type": "Default",
       "data": {
-        "name": "Confirm Email Address",
-        "prompt": "Okay. And what's the best email address to send the quote and any information to? If you have one on file with us, it might be {{request_data.email | default: 'your usual email'}}.",
+        "name": "Confirm or Collect Email",
+        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? We might have {{request_data.email | default: 'an email on file'}}. If that's not correct or you'd like to use a different one, please tell me your email address.",
         "extractVars": [
           [
-            "contact_email",
+            "email",
             "string",
-            "The email address for sending the quote. Confirm if a pre-filled email (e.g. from {{request_data.email}}) is correct, or capture the new/corrected email if provided."
+            "The confirmed or provided email address. If they confirm {{request_data.email}}, use that. Otherwise, capture the new email."
           ]
         ],
         "modelOptions": {
@@ -72,13 +100,13 @@
       "id": "confirm_phone",
       "type": "Default",
       "data": {
-        "name": "Confirm Phone Number",
-        "prompt": "And is the best phone number to reach you at {{request_data.phone | default: 'the number you called from'}}?",
+        "name": "Confirm or Collect Phone",
+        "prompt": "And is the best phone number to reach you still {{request_data.phone | default: 'the number I called'}}? If not, please provide the best number.",
         "extractVars": [
           [
             "phone_number",
             "string",
-            "The best phone number for contact. Confirm if {{request_data.phone}} or the caller ID is correct, or capture an updated number."
+            "The confirmed or provided phone number. If they confirm {{request_data.phone}}, use that. Otherwise, capture the new number."
           ]
         ],
         "modelOptions": {
@@ -87,21 +115,16 @@
       }
     },
     {
-      "id": "ask_project_category",
+      "id": "confirm_company",
       "type": "Default",
       "data": {
-        "name": "Ask Project Category",
-        "prompt": "Thanks. To make sure I understand your needs, could you tell me if this is for a construction site, a special event like a wedding or festival, supplementing existing facilities, disaster relief, or something else? This helps us understand the usage type.",
+        "name": "Confirm or Collect Company Name",
+        "prompt": "And what is this order related to any company? If you not, just say 'none'. If you have a company name, please provide it.",
         "extractVars": [
           [
-            "project_category",
+            "company_name",
             "string",
-            "The type of project or event. Examples: Construction, Special Event, Facility Supplement, Disaster Relief, Other. This will help determine 'usage_type' for the quote API (e.g., 'event', 'commercial', 'construction'). Available options from CSV: Event / Porta Potty, Construction / Porta Potty, Small Event / Trailer / Local, Small Event / Trailer / Not Local, Large Event / Trailer / Local, Large Event / Trailer / Not Local, Disaster Relief / Trailer / Local, Disaster Relief / Trailer / Not Local, Construction / Company Trailer / Local, Construction / Company Trailer / Not Local, Facility / Trailer / Local, Facility / Trailer / Not Local."
-          ],
-          [
-            "usage_type",
-            "string",
-            "The intended usage type for the quote API. Extract from user's description of project category. Valid values: 'event', 'commercial', 'construction', 'disaster_relief', 'other'."
+            "The confirmed or provided company name. If they say 'none' or personal, set to 'none'. Otherwise, capture the company name they provide."
           ]
         ],
         "modelOptions": {
@@ -110,16 +133,16 @@
       }
     },
     {
-      "id": "ask_product_type",
+      "id": "confirm_address",
       "type": "Default",
       "data": {
-        "name": "Ask Product Type Interest",
-        "prompt": "Okay, and what type of product are you primarily interested in? For example, are you looking for a '2 Stall Restroom Trailer', 'Standard Porta Potty', 'ADA Porta Potty', '3 Stall Shower Trailer', or something else? Your initial request, if you made one online, might have mentioned {{request_data.what_service_do_you_need_ | default: 'a specific service'}}.",
+        "name": "Confirm or Collect Address",
+        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? Our records might show it as {{request_data.address | default: 'the address we have on file, or please provide the full address'}}. If that's not correct, or if no address is on file, please provide the full address, including street, city, state, and zip code.",
         "extractVars": [
           [
-            "trailer_type",
+            "delivery_location",
             "string",
-            "The specific type of trailer or porta potty requested. Guide the user to be specific, e.g., '2 Stall Restroom Trailer (Luxury)', 'Standard Porta Potty'. Try to match to Stahla product names like '2 Stall Restroom Trailer', '4 Stall Restroom Trailer', 'ADA Porta Potty'. Consider {{request_data.what_service_do_you_need_}} if available."
+            "The confirmed or provided full address (street, city, state, zip). If they confirm {{request_data.address}}, use that. Otherwise, capture the new address. Format the address as follows: '123 Main St, Springfield, IL 62704'. Accept general location names like 'downtown' or 'near the park' initially if user is vague, but aim to get a full address."
           ]
         ],
         "modelOptions": {
@@ -128,221 +151,20 @@
       }
     },
     {
-      "id": "ask_units_needed_description_capture",
+      "id": "delivery_address_type_node",
       "type": "Default",
       "data": {
-        "name": "Ask Units Needed Description",
-        "prompt": "Got it, a {{trailer_type}}. And how many of those units or stalls do you think you'll need? For example, 'one unit' or 'three stalls'. Your initial request might have mentioned {{request_data.how_many_portable_toilet_stalls_ | default: 'some units'}}, or {{request_data.how_many_restroom_stalls_}} restroom stalls, or {{request_data.how_many_shower_stalls_}} shower stalls.",
+        "name": "Confirm Delivery Address Type",
+        "prompt": "Can you tell me what type of location this is for delivery at {{delivery_location}}? Is it a business, a residence, or something else?",
         "extractVars": [
           [
-            "units_needed_description",
+            "location_type",
             "string",
-            "A description of the number of units or stalls for the specified 'trailer_type'. E.g., '1 unit', '2 stalls'. This is for context, the quote API takes 'trailer_type' which implies stall count for trailers."
+            "Type of location (business, residence, other)."
           ]
         ],
         "modelOptions": {
           "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "ask_ada_required",
-      "type": "Default",
-      "data": {
-        "name": "Ask ADA Required",
-        "prompt": "Will you require any ADA-compliant, handicap accessible units, or does the {{trailer_type}} you mentioned already cover that? Your initial request indicated {{request_data.ada | default: 'whether ADA was needed'}}.",
-        "extractVars": [
-          [
-            "ada_required_explicit",
-            "boolean",
-            "Indicates if ADA-compliant units are explicitly needed in addition to or as part of the main product. Capture true or false. Consider {{request_data.ada}}."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "ask_start_date",
-      "type": "Default",
-      "data": {
-        "name": "Ask Rental Start Date",
-        "prompt": "Thanks for clarifying those details. When are you looking to start the rental? Please provide the date. Your initial request mentioned a start of {{request_data.event_start_date | default: 'an unspecified date'}}.",
-        "extractVars": [
-          [
-            "rental_start_date",
-            "string",
-            "The requested start date for the rental. Please try to capture in YYYY-MM-DD format. Confirm or update based on {{request_data.event_start_date}}."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "ask_rental_duration_days",
-      "type": "Default",
-      "data": {
-        "name": "Ask Rental Duration in Days",
-        "prompt": "And for how many days will you need the rental starting from {{rental_start_date}}? For example, 3 days, 7 days, or 30 days. Your initial request might have implied a duration based on {{request_data.event_start_date}} and {{request_data.event_end_date}}.",
-        "extractVars": [
-          [
-            "rental_days",
-            "number",
-            "The total number of days for the rental. This should be a numerical value."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "ask_extras_generator",
-      "type": "Default",
-      "data": {
-        "name": "Ask Extras - Generator",
-        "prompt": "Some rentals require a generator for power. Will you need a generator? We have options like '3kW Generator' or '7kW Generator'. If so, which type and how many?",
-        "extractVars": [
-          [
-            "generator_type_requested",
-            "string",
-            "The type of generator requested (e.g., '3kW Generator', '7kW Generator', 'none'). If none, capture 'none' or leave blank."
-          ],
-          [
-            "generator_qty",
-            "number",
-            "The quantity of generators needed. Default to 1 if a type is mentioned but no quantity, or 0 if no generator needed."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "ask_extras_other",
-      "type": "Default",
-      "data": {
-        "name": "Ask Extras - Other Services",
-        "prompt": "Are there any other additional services or items you might need? For example, regular pump-out services, additional cleaning, hand sanitizer stations, or holding tanks? Your initial message {{request_data.your_message | default: ''}} might have mentioned some of these.",
-        "extractVars": [
-          [
-            "other_services_description",
-            "string",
-            "A description of other services or items needed (e.g., 'weekly pump-out', 'daily cleaning', 'none'). If none, capture 'none' or leave blank."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "prepare_extras_for_api",
-      "type": "Default",
-      "data": {
-        "name": "Prepare Extras List for API",
-        "prompt": "Okay, I'm noting down the extras. If {{generator_type_requested}} is not 'none' and not blank, one extra is {{generator_type_requested}} with quantity {{generator_qty}}. Other services: {{other_services_description}}. This information will be used to form the extras list for the quote.",
-        "extractVars": [
-          [
-            "extras_list_for_api",
-            "string",
-            "Construct a JSON string representing an array for the 'extras' field for the quote API. Example: If generator_type_requested is '3kW Generator' and generator_qty is 1, and other_services_description includes 'pump_out', the string might be '[{\"extra_id\": \"3kW Generator\", \"qty\": 1}, {\"extra_id\": \"pump_out\", \"qty\": 1}]'. If no extras, use '[]'. This requires careful LLM interpretation to map text to structured extra_ids and quantities."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 50,
-          "temperature": 0.3
-        }
-      }
-    },
-    {
-      "id": "check_metadata_address_prompt_node",
-      "type": "Default",
-      "data": {
-        "name": "Prompt for Address Confirmation or Collection",
-        "prompt": "Thanks! Now for the delivery location. Is the service address still {{request_data.event_or_job_address | default: 'the one you initially provided online'}}? This would be at {{request_data.address | default: ''}}, {{request_data.city | default: ''}}, {{request_data.zip | default: ''}}.",
-        "extractVars": [
-          [
-            "confirm_address_is_initial",
-            "boolean",
-            "User confirms if the service address is the same as the initially provided {{request_data.event_or_job_address}}. Capture true for yes (address is correct), false for no (address needs to be updated/collected)."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "prepare_address_from_metadata_node",
-      "type": "Default",
-      "data": {
-        "name": "Prepare Full Address from Metadata",
-        "prompt": "Okay, using the address you provided earlier.",
-        "extractVars": [
-          [
-            "delivery_location_full",
-            "string",
-            "Construct the full delivery address string from metadata: '{{request_data.address}}, {{request_data.city}}, {{request_data.state_abbreviation_from_metadata_or_lookup}} {{request_data.zip}}'. Ensure state is a 2-letter code if possible."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 50
-        }
-      }
-    },
-    {
-      "id": "collect_address",
-      "type": "Default",
-      "data": {
-        "name": "Collect Full Delivery Address",
-        "prompt": "Okay, could you please provide the full delivery address? This would include the street address, city, state (preferably as a 2-letter abbreviation), and zip code.",
-        "extractVars": [
-          [
-            "collected_street_address",
-            "string",
-            "The full street address for delivery (e.g., '123 Main St')."
-          ],
-          [
-            "collected_city",
-            "string",
-            "The city for delivery (e.g., 'Anytown')."
-          ],
-          [
-            "collected_state",
-            "string",
-            "The state for delivery (e.g., 'CA', 'California'). Please provide the 2-letter abbreviation."
-          ],
-          [
-            "collected_postal_code",
-            "string",
-            "The zip code for delivery (e.g., '90210')."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 100
-        }
-      }
-    },
-    {
-      "id": "prepare_address_from_collection_node",
-      "type": "Default",
-      "data": {
-        "name": "Prepare Full Address from Collection",
-        "prompt": "Got the new address details.",
-        "extractVars": [
-          [
-            "delivery_location_full",
-            "string",
-            "Construct the full delivery address string from collected parts: '{{collected_street_address}}, {{collected_city}}, {{collected_state}} {{collected_postal_code}}'. Ensure state is a 2-letter code if possible."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 50
         }
       }
     },
@@ -361,18 +183,18 @@
       "id": "check_service_area_logic_node",
       "type": "Default",
       "data": {
-        "name": "Check Service Area Logic (using state from address)",
-        "prompt": "Let me quickly check if that location is within our service area. The address is {{delivery_location_full}}. Our service states are AR, CO, IL, IA, KS, LA, MN, MO, MT, NE, NM, ND, OK, SD, TX, WI, WY. Based on the state in the address, is this in the service area?",
+        "name": "Check Service Area Logic",
+        "prompt": "Thanks, I've processed the location: {{delivery_location}}. (Location lookup status: {{lookup_message | default: 'Processed.'}}). Now, let me check if this is in our service area. Our service states are Arizona(AZ), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), and Wyoming (WY). Based on the state in the address, is it in our service area?",
         "extractVars": [
           [
-            "extracted_state_from_full_address",
+            "state",
             "string",
-            "Extract the 2-letter state abbreviation from the {{delivery_location_full}} string. For example, from '123 Main St, Anytown, CA 90210', extract 'CA'."
+            "Extract the 2-letter state abbreviation from the {{delivery_location}} string. For example, from '123 Main St, Anytown, CA 90210', extract 'CA'."
           ],
           [
             "is_in_service_area",
             "boolean",
-            "Determine if the extracted_state_from_full_address is one of AR, CO, IL, IA, KS, LA, MN, MO, MT, NE, NM, ND, OK, SD, TX, WI, WY. Set to true if it is, false otherwise."
+            "Determine if the extracted state is one of AZ, CO, IL, IA, KS, LA, MN, MO, MT, NE, NM, ND, OK, SD, TX, WI, WY. Set to true if it is, false otherwise."
           ]
         ],
         "modelOptions": {
@@ -385,7 +207,7 @@
       "type": "Default",
       "data": {
         "name": "Handle Out of Service Area",
-        "prompt": "Okay, it looks like the address provided, {{delivery_location_full}}, is outside our standard service area based on the state {{extracted_state_from_full_address}}. Unfortunately, we wouldn't be able to deliver our units there directly."
+        "prompt": "Okay, it looks like the address provided, {{delivery_location}}, is outside our standard service area based on the state {{state}}. Unfortunately, we wouldn't be able to deliver our units there directly."
       }
     },
     {
@@ -404,7 +226,7 @@
       }
     },
     {
-      "id": "closing_oos_referral",
+      "id": "wants_referral_node",
       "type": "Default",
       "data": {
         "name": "Closing - Out of Service with Referral",
@@ -412,7 +234,7 @@
       }
     },
     {
-      "id": "closing_oos_no_referral",
+      "id": "no_referral_node",
       "type": "Default",
       "data": {
         "name": "Closing - Out of Service No Referral",
@@ -420,207 +242,495 @@
       }
     },
     {
-      "id": "ask_site_details_paq_pbq_combined",
+      "id": "determine_order_category",
       "type": "Default",
       "data": {
-        "name": "Ask Site Details (Trailers/PortaPotties)",
-        "prompt": "Great, that's in our service area. Now, just a few quick questions about the delivery site at {{delivery_location_full}}. Is the delivery location a residence, business, event venue, construction site, or something else? Will the unit(s) be placed on level ground? And what type of surface will it be placed on – like grass, gravel, asphalt, concrete, or dirt? Finally, are there any potential obstacles for delivery, like narrow gates, low-hanging branches, or tight turns?",
+        "name": "Determine Order Category (Path A Start)",
+        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your specific needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
         "extractVars": [
           [
-            "delivery_address_type",
+            "project_category",
             "string",
-            "The type of delivery location (e.g., Residence, Business, Event venue, Construction site, Other)."
-          ],
-          [
-            "site_ground_level",
-            "boolean",
-            "Will the unit(s) be placed on level ground? (true/false)"
-          ],
-          [
-            "site_ground_type",
-            "string",
-            "The type of surface material (e.g., Grass, Gravel, Asphalt, Concrete, Dirt, Other). Options from CSV: Cement, Gravel, Dirt, Grass."
-          ],
-          [
-            "site_obstacles",
-            "string",
-            "Description of potential delivery obstacles (e.g., 'narrow gate 8ft wide', 'low branches', 'none')."
+            "The user's confirmed primary project category (Event, Construction, Disaster Relief, Construction Company, Facility)."
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
-      "id": "ask_trailer_specific_utilities_paq",
+      "id": "determine_product_type",
       "type": "Default",
       "data": {
-        "name": "Ask Trailer Utilities (Water/Power)",
-        "prompt": "For the {{trailer_type}}, we'll need to check on utilities. Will there be a standard garden hose water hookup available on site? If yes, roughly how far is it from where the trailer will be placed, and would the hose need to cross a walking or driving path? Also, is there a suitable power source available? If yes, how far is it, and would the cord need to cross a path? Your initial info was water: {{request_data.do_you_have_water_access_onsite_ | default: 'N/A'}}, power: {{request_data.do_you_have_power_access_onsite_ | default: 'N/A'}}.",
+        "name": "Determine Product Type",
+        "prompt": "And what type of product are you primarily interested in? For example, a Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or another Specialty Trailer? Our trailer options include: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, and 8 Stall Shower Trailer.",
         "extractVars": [
           [
-            "water_available",
-            "boolean",
-            "Is a water hookup available? Consider {{request_data.do_you_have_water_access_onsite_}}."
-          ],
-          [
-            "water_source_distance_range",
+            "product_type",
             "string",
-            "Distance to water source if available (e.g., '<50 ft', '50-100 ft', 'N/A')."
-          ],
-          [
-            "water_path_cross",
-            "boolean",
-            "Would water hose cross a path? (true/false/N/A)."
-          ],
-          [
-            "power_available",
-            "boolean",
-            "Is power available? Consider {{request_data.do_you_have_power_access_onsite_}}."
-          ],
-          [
-            "power_source_distance_range",
-            "string",
-            "Distance to power source if available (e.g., '<50 ft', '50-100 ft', 'N/A')."
-          ],
-          [
-            "power_path_cross",
-            "boolean",
-            "Would power cord cross a path? (true/false/N/A)."
+            "The user's confirmed primary product type focus (e.g., 'Porta Potty', 'Restroom Trailer', '2 Stall Restroom Trailer'). Try to match to one of: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer, Standard Porta Potty, ADA Porta Potty, Other Specialty Trailer."
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
-      "id": "ask_generator_if_no_power_paq",
+      "id": "sa_ask_event_duration_days",
       "type": "Default",
       "data": {
-        "name": "Ask Generator if No Power (Trailers)",
-        "prompt": "Okay, since suitable power isn't readily available for the trailer, would you like us to include options for renting a generator like the {{generator_type_requested | default: 'one we discussed'}} if you requested one, or a suitable one if not?",
+        "name": "Ask Event Duration (Days)",
+        "prompt": "For your {{project_category}}, how many days will it last?",
         "extractVars": [
+          [
+            "event_duration_days",
+            "number",
+            "Number of days the event will last, if less then 1 day, set to 1."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_total_hours",
+      "type": "Default",
+      "data": {
+        "name": "Ask Total Hours (if >1 day)",
+        "prompt": "Since it's a multi-day event ({{event_duration_days}} days), how many total hours a day will the {{product_type | default: 'units'}} be needed across all days?",
+        "extractVars": [
+          [
+            "event_total_hours_a_day",
+            "number",
+            "Total hours units will be needed per day for the multi-day event."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_discuss_extra_services_multi_day_long_hours",
+      "type": "Default",
+      "data": {
+        "name": "Discuss Extra Services (Multi-day, >=8hrs)",
+        "prompt": "Okay, for an event running {{event_duration_days}} days with {{event_total_hours_a_day}} hours a day of usage, we might need to discuss extra services like waste tank pumping, fresh water fill, cleaning, and restocking?",
+        "extractVars": [
+          [
+            "sa_accepts_discussion_extra_services",
+            "boolean",
+            "User acknowledges or is open to discussing extra servicing. (true/false)"
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_for_servicing_gaps",
+      "type": "Default",
+      "data": {
+        "name": "Ask for Servicing Gaps",
+        "prompt": "Will there be gaps between days for such servicing?",
+        "extractVars": [
+          [
+            "sa_gaps_for_servicing",
+            "boolean",
+            "Will there be gaps between event days for servicing? (true/false)"
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_attendees",
+      "type": "Default",
+      "data": {
+        "name": "Ask Number of Attendees",
+        "prompt": "Approximately how many people will attend the event on its busiest day?",
+        "extractVars": [
+          [
+            "attendees_count",
+            "number",
+            "Estimated number of attendees at the event."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_other_facilities_on_site",
+      "type": "Default",
+      "data": {
+        "name": "Ask Other Facilities On Site",
+        "prompt": "Are there any other restroom or handwashing facilities already available at the event site?",
+        "extractVars": [
+          [
+            "other_facilities_on_site",
+            "boolean",
+            "Whether other facilities are available on site. (true/false)"
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_number_of_stalls",
+      "type": "Default",
+      "data": {
+        "name": "Ask Number of Stalls/Units",
+        "prompt": "How many {{product_type | default: 'units'}} or stalls will be needed for the event? For trailers, you can specify stall count like '2 stalls' for a 2 Stall Restroom Trailer.",
+        "extractVars": [
+          [
+            "number_of_stalls_or_units_requested",
+            "string",
+            "User's request for number of stalls or units (e.g., '2 stalls', 'one 8 stall trailer', 'three porta potties')."
+          ],
+          [
+            "trailer_type",
+            "string",
+            "Refine or confirm the specific product based on stall request. If user says '2 stalls' and product_type was 'Restroom Trailer', confirm as '2 Stall Restroom Trailer'. If they ask for a stall count not available (e.g. '5 stalls'), this variable might remain the general type, and the next node will handle alternatives. Available products: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer, Standard Porta Potty, ADA Porta Potty."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_trailer_with_stalls_does_not_exist",
+      "type": "Default",
+      "data": {
+        "name": "Trailer with Stalls Does Not Exist",
+        "prompt": "Unfortunately, we don't have a trailer with exactly {{number_of_stalls_or_units_requested}} available. However, we can offer you options like our 1 Stall ADA Combo, 2 Stall Restroom, 3 Stall ADA Restroom, 4 Stall Restroom, 8 Stall Restroom, 10 Stall Restroom, 3 Stall Combo, or 8 Stall Shower Trailer. Would one of these, or perhaps a combination, work for you?",
+        "extractVars": [
+          [
+            "trailer_type",
+            "string",
+            "List of available products that a user chooses, e.g., '1 Stall ADA Combo Trailer', '2 Stall Restroom Trailer'. Choose from the following: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer. ADA Trailers are compliant with the Americans with Disabilities Act."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_ada_event",
+      "type": "Default",
+      "data": {
+        "name": "Ask ADA (Event)",
+        "prompt": "Will you have anyone there in a wheelchair or a walker? Do you need ADA (handicap accessible) facilities? We have options like the 1 Stall ADA Combo Trailer or the 3 Stall ADA Restroom Trailer, or an ADA Porta Potty.",
+        "extractVars": [
+          [
+            "ada_required",
+            "boolean",
+            "Whether ADA-compliant units are required for the event. (true/false)"
+          ],
+          [
+            "preferred_ada_products",
+            "string",
+            "If ADA is required, list the preferred ADA products, e.g., '1 Stall ADA Combo Trailer', '3 Stall ADA Restroom Trailer', 'ADA Porta Potty'."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "ask_site_conditions_trailer",
+      "type": "Default",
+      "data": {
+        "name": "Ask Site Conditions (Trailer)",
+        "prompt": "Tell me about the delivery location for the {{trailer_type | default: 'trailer'}}. Are there any low overhanging trees or anything lower than 13 feet on the way to the placement location? Is the ground flat? And is it on cement, gravel, dirt, or grass?",
+        "extractVars": [
+          [
+            "trailer_site_low_clearance",
+            "boolean",
+            "Are there low clearance issues (under 13ft)? (true/false)"
+          ],
+          [
+            "trailer_site_is_flat",
+            "boolean",
+            "Is the placement area flat? (true/false)"
+          ],
+          [
+            "trailer_site_surface_type",
+            "string",
+            "Surface type (cement, gravel, dirt, grass, other)."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "ask_duration_trailer",
+      "type": "Default",
+      "data": {
+        "name": "Ask Rental Start Date (Trailer/General)",
+        "prompt": "What is the ideal delivery date for the {{trailer_type | default: 'units'}}? We have an initial start date logged around {{request_data.event_start_date}}, which is a timestamp. Can you confirm the start date as Month Day, Year?",
+        "extractVars": [
+          [
+            "rental_start_date",
+            "string",
+            "Ideal delivery date (YYYY-MM-DD). Confirm or update based on {{request_data.event_start_date}}."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "paq_ask_rental_days_trailer",
+      "type": "Default",
+      "data": {
+        "name": "Ask Rental Days (Trailer/General)",
+        "prompt": "And for how many days do you need the {{trailer_type | default: 'units'}} starting from {{rental_start_date}}? You can say days, weeks, or months. If you are unsure, please provide your best estimate. We may have an end date from your initial request as {{request_data.event_end_date}} (timestamp).",
+        "extractVars": [
+          [
+            "rental_days",
+            "number",
+            "Number of rental days requested, convert the estimate to days, i.e 1 week = 7 days, 2 weeks = 14 days, 1 month = 30 days, etc."
+          ],
+          [
+            "event_end_date",
+            "string",
+            "Calculated pickup date (YYYY-MM-DD), based on {{rental_start_date}} and {{rental_days}}. Or confirmed from {{request_data.event_end_date}} if user confirms it."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 50
+        }
+      }
+    },
+    {
+      "id": "ask_power_trailer",
+      "type": "Default",
+      "data": {
+        "name": "Ask Power (Trailer)",
+        "prompt": "Do you have power available on-site for the {{trailer_type | default: 'trailer'}}? Typically, we need 1-3 dedicated 115 Volt, 15 Amp connections in non-freezing temperatures, or 2-4 in freezing temperatures.",
+        "extractVars": [
+          [
+            "trailer_power_available",
+            "boolean",
+            "Is power available on-site? (true/false)"
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "power_available_ask_power_details",
+      "type": "Default",
+      "data": {
+        "name": "Ask Power Details (Trailer - If Yes)",
+        "prompt": "Okay. How far would you estimate the power source is from the {{trailer_type | default: 'trailer'}} placement? (e.g., less than 50feet, 50-100feet, 100-200feet, over 200feet). And would the power cord need to cross a walking or driving path? If so, do you want to rent cord ramps?",
+        "extractVars": [
+          [
+            "trailer_power_distance",
+            "string",
+            "Estimated distance to power source."
+          ],
+          [
+            "trailer_power_cord_cross_path",
+            "boolean",
+            "Does cord cross a path? (true/false)"
+          ],
+          [
+            "trailer_wants_cord_ramps",
+            "boolean",
+            "Wants cord ramps? (true/false)"
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "power_not_available_ask_generator",
+      "type": "Default",
+      "data": {
+        "name": "Ask Generator (Trailer - If No Power or Requested)",
+        "prompt": "Since power isn't available (or if you prefer), would you like us to provide options for a generator? For usage less than 3 days, a 3kW or 7kW generator is often suitable. For longer usage or larger trailers, a 20kW or 30kW towable generator might be better. Our generator options are 3kW, 7kW, 20kW, and 30kW. Which type are you considering, if any?",
+        "extractVars": [
+          [
+            "wants_generator",
+            "boolean",
+            "Wants generator options? (true/false)"
+          ],
           [
             "generator_type_requested",
             "string",
-            "The type of generator requested (e.g., '3kW Generator', '7kW Generator', 'none'). If none, capture 'none' or leave blank."
+            "Specific generator type if requested (e.g., '3kW Generator', '7kW Generator', '20kW Generator', '30kW Generator'). Please select from 3kW, 7kW, 20kW, 30kW or state none."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "ask_water_trailer",
+      "type": "Default",
+      "data": {
+        "name": "Ask Water (Trailer)",
+        "prompt": "Do you have water available on site for the {{trailer_type | default: 'trailer'}}? Our specialty trailers typically need one connection to a standard garden hose.",
+        "extractVars": [
+          [
+            "trailer_water_available",
+            "boolean",
+            "Is water available on-site? (true/false)"
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "water_available_ask_water_details",
+      "type": "Default",
+      "data": {
+        "name": "Ask Water Details (Trailer - If Yes)",
+        "prompt": "Great. How far would you estimate the water source is from the {{trailer_type | default: 'trailer'}} placement? (e.g., less than 50feet, 50-100feet, 100-200feet, over 200feet). And would the hose need to cross a walking or driving path? If so, do you want to rent hose ramps?",
+        "extractVars": [
+          [
+            "trailer_water_distance",
+            "string",
+            "Estimated distance to water source."
           ],
           [
-            "confirm_generator_due_to_no_site_power",
+            "trailer_water_hose_cross_path",
             "boolean",
-            "User confirms or requests generator because site power is unavailable for the trailer. (true/false)"
+            "Does hose cross a path? (true/false)"
+          ],
+          [
+            "trailer_wants_hose_ramps",
+            "boolean",
+            "Wants hose ramps? (true/false)"
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
-      "id": "ask_contact_consent",
+      "id": "water_not_available_ask_water_service",
       "type": "Default",
       "data": {
-        "name": "Ask Contact Consent",
-        "prompt": "Almost done with the details! Lastly, for privacy reasons, do I have your permission to use the details we discussed to prepare your quote and to contact you via email or phone with that information and related follow-ups? We take your privacy seriously. Your initial consent to receive texts was {{request_data.by_submitting_this_form_you_consent_to_receive_texts | default: 'not specified'}}.",
+        "name": "Recommend Water Service (Trailer - If No Water)",
+        "prompt": "Since water isn't available on-site for the {{trailer_type | default: 'trailer'}}, we would recommend scheduling fresh water tank fills. Typically, one fill is needed per 3-5 hours of usage. Is this something you'd like to include?",
         "extractVars": [
           [
-            "contact_consent",
+            "wants_water_fill_service",
             "boolean",
-            "Does the user give permission to use their details for quote preparation and to be contacted via email or phone for this inquiry and related follow-ups? (true/false). Consider {{request_data.by_submitting_this_form_you_consent_to_receive_texts}}."
+            "Wants fresh water fill service? (true/false)"
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
-      "id": "recap_details",
+      "id": "prepare_extras_for_api_node",
       "type": "Default",
       "data": {
-        "name": "Recap Details",
-        "prompt": "Okay, {{contact_name | default: 'there'}}, thanks for providing all those details! Just to quickly recap: You're representing {{company_name | default: 'your organization or yourself'}} and your email is {{contact_email | default: 'your email'}}, phone {{phone_number}}. You're interested in a {{trailer_type | default: 'service'}} ({{units_needed_description | default: ''}}) for a {{project_category | default: 'project/event'}} (usage: {{usage_type}}) at {{delivery_location_full | default: 'your area'}}, starting around {{rental_start_date | default: 'unspecified date'}} for {{rental_days}} days. Extras include: Generator: {{generator_type_requested | default: 'N/A'}} (Qty: {{generator_qty | default: 0}}), Other: {{other_services_description | default: 'N/A'}}. Site details: type: {{delivery_address_type}}, ground level: {{site_ground_level | default: 'N/A'}}, surface: {{site_ground_type | default: 'N/A'}}, obstacles: {{site_obstacles | default: 'N/A'}}. For trailers: water: {{water_available | default: 'N/A'}}, power: {{power_available | default: 'N/A'}}. Does that all sound correct?",
+        "name": "Prepare Extras List for API",
+        "prompt": "Okay, I'm noting down the extras. Generator: {{generator_type_requested | default: 'N/A'}}. Other event services: {{other_products_needed_event | default: 'N/A'}}. Other construction services: {{other_products_needed_construction | default: 'N/A'}}. Water fill service: {{wants_water_fill_service | default: 'N/A'}}. This information will be used to form the extras list for the quote API.",
         "extractVars": [
           [
-            "details_recap_correct",
-            "boolean",
-            "User confirms if the recapped details are correct. Capture true if correct, false if there are corrections needed."
-          ]
-        ]
-      }
-    },
-    {
-      "id": "ask_quote_urgency",
-      "type": "Default",
-      "data": {
-        "name": "Ask Quote Urgency",
-        "prompt": "Excellent, thank you for confirming. To help our team prioritize, how soon were you hoping to receive the quote?",
-        "extractVars": [
-          [
-            "quote_urgency",
+            "extras_list",
             "string",
-            "How soon the user hopes to receive the quote. Options from CSV: Short-Term, Long-Term/Planning, Medium-Term, Immediate/Urgent, Other. Capture user's description."
+            "Construct a JSON string representing an array for the 'extras' field for the quote API. Example: If generator_type_requested is '3kW Generator', include '{\"extra_id\": \"3kW Generator\", \"qty\": 1}'. If other_products_needed includes 'pump_out', add {'extra_id': 'pump_out', 'qty': 1}. If wants_water_fill_service is true, add {'extra_id': 'water_fill_service', 'qty': 1}. If no extras, use '[]'. Available generators for extra_id: 3kW Generator, 7kW Generator, 20kW Generator, 30kW Generator. Other common extra_ids: 'pump_out', 'cleaning', 'water_fill_service'. Format as JSON array string: e.g., '[{\"extra_id\": \"3kW Generator\", \"qty\": 1}]' or '[]' if no extras."
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 50,
+          "temperature": 0.2
+        }
       }
     },
     {
-      "id": "ask_decision_timing",
-      "type": "Default",
-      "data": {
-        "name": "Ask Decision Timing",
-        "prompt": "Got it. And roughly when do you anticipate making a decision on the rental?",
-        "extractVars": [
-          [
-            "decision_timing",
-            "string",
-            "Roughly when the user anticipates making a decision on the rental (e.g., 'this week', 'next month', 'unsure')."
-          ]
-        ]
-      }
-    },
-    {
-      "id": "get_quote_webhook",
+      "id": "get_quote_webhook_node",
       "type": "Webhook",
       "data": {
-        "name": "Get Quote via API (Custom Tool v2)",
-        "tool_id": "TL-9cf9e441-f903-4073-9176-a422736444d3"
+        "name": "Get Quote (StahlaQuoteTool_v2)",
+        "tool_id": "TL-9cf9e441-f903-4073-9176-a422736444d3",
+        "prompt": "Okay, Hang tight while I try to retrieve a quote for you based on the information you provided. This may take a few seconds."
       }
     },
     {
-      "id": "convey_quote",
+      "id": "convey_quote_and_followup_offer_node",
       "type": "Default",
       "data": {
-        "name": "Convey Quote and Offer Follow-up",
-        "prompt": "Alright, I have the quote details. The estimated total is approximately ${{estimated_total | default: 'being finalized'}}. The Quote ID is {{quote_id | default: 'will be provided'}}. {{quote_notes | default: ''}}. We'll also email this full quote to {{contact_email | default: 'your email address'}}. Would you find it helpful to schedule a brief follow-up call for tomorrow or the next business day to go over the details together?",
+        "name": "Convey Quote & Offer Follow-up",
+        "prompt": "Alright, I have the quote details. The Quote ID is {{quote_id | default: 'being generated'}}, and the estimated total is approximately ${{estimated_total | default: 'being finalized'}}. {{quote_notes | default: ''}}. We'll also email this full quote to {{email}}. Would you find it helpful to schedule a brief follow-up call for tomorrow or the next business day to go over the details together?",
         "extractVars": [
           [
             "schedule_follow_up",
             "boolean",
             "User confirms if they want to schedule a follow-up call (true for yes, false for no)."
           ]
-        ]
-      }
-    },
-    {
-      "id": "cannot_quote_no_consent",
-      "type": "Default",
-      "data": {
-        "name": "Cannot Quote - No Consent",
-        "prompt": "Okay, I understand. Since I don't have permission to send the quote details via email or phone for this inquiry, I can't proceed with generating and sending the quote request right now. However, I've noted all the service details we discussed for our team should you decide to proceed later. Was there anything else I could help you with today?"
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
       "id": "api_error_quote_tool",
       "type": "Default",
       "data": {
-        "name": "API Error Handling (Quote Tool)",
-        "prompt": "Hmm, I encountered an issue while trying to retrieve the quote details just now ({{api_error_message | default: 'a technical difficulty'}}). Not to worry, I've saved all your information, and our team will prepare and email the detailed quote information to {{contact_email | default: 'your email address'}} as soon as possible. Would you still like to schedule a brief follow-up call for tomorrow or the next business day just to ensure you get the information and we can discuss it then?",
+        "name": "API Error Quote Tool",
+        "prompt": "I'm sorry, there was an issue generating your quote ({{api_error_message | default: 'a technical problem occurred'}}). Our team has been notified and will prepare it manually. We'll email it to {{email}}. Would you like to schedule a follow-up call for tomorrow or the next business day to discuss it once it's ready?",
         "extractVars": [
           [
             "schedule_follow_up_after_error",
             "boolean",
-            "User confirms if they want to schedule a follow-up call after an API error occurred (true for yes, false for no)."
+            "Whether to schedule a follow-up after a quote error."
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
       "id": "handle_followup_scheduling",
       "type": "Default",
       "data": {
-        "name": "Handle Follow-up Scheduling Confirmation",
-        "prompt": "Okay, great! I've made a note for our team to reach out and schedule that follow-up call with you for tomorrow or the next business day. They'll confirm a specific time that works for you."
+        "name": "Handle Follow-up Scheduling",
+        "prompt": "Okay, great! I've made a note for our team to reach out and schedule that follow-up call with you. What time generally works best for you tomorrow or the next business day?",
+        "extractVars": [
+          [
+            "followup_time_preference",
+            "string",
+            "The preferred time/day for a follow-up call."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
@@ -628,19 +738,22 @@
       "type": "Default",
       "data": {
         "name": "Ask Final Questions",
-        "prompt": "Before we wrap up, do you have any other questions for me right now about our services, the process, or anything else I can help clarify?",
+        "prompt": "Before we wrap up, do you have any other questions for me right now about our services or the process?",
         "extractVars": [
           [
             "has_final_questions",
             "boolean",
-            "Does the user have any other final questions? (true/false)"
+            "Whether the user has final questions."
           ],
           [
             "final_questions_text",
             "string",
-            "The user's final questions, if any. Capture the question text."
+            "The text of any final questions asked."
           ]
-        ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
       }
     },
     {
@@ -656,288 +769,378 @@
       }
     },
     {
-      "id": "closing_with_followup",
+      "id": "closing_with_followup_node",
       "type": "Default",
       "data": {
-        "name": "Closing with Follow-up Scheduled",
-        "prompt": "Okay then! Thank you again for your time today, {{contact_name | default: 'there'}}. Our team will be in touch soon to schedule that follow-up and will send over the quote details to {{contact_email | default: 'your email'}}. We appreciate you calling Stahla Services. Have a great day! Goodbye."
+        "name": "Closing with Follow-up Scheduled/Offered",
+        "prompt": "Thank you for your time, {{contact_name}}! We will be in touch regarding the follow-up {{followup_time_preference | default: 'soon'}}. The quote information will be sent to {{email}}. Have a great day! Goodbye."
       }
     },
     {
-      "id": "closing_without_followup",
+      "id": "closing_without_followup_node",
       "type": "Default",
       "data": {
         "name": "Closing without Follow-up Scheduled",
-        "prompt": "Alright. Thank you very much for providing all those details, {{contact_name | default: 'there'}}. We'll get that quote emailed over to {{contact_email | default: 'your email'}} shortly. If you have any questions in the meantime, please don't hesitate to call us back. Thanks for choosing Stahla Services. Have a wonderful day! Goodbye."
+        "prompt": "Thank you for your time, {{contact_name}}! The quote information will be sent to {{email}}. Feel free to contact us if you have more questions. Have a great day! Goodbye."
       }
     },
     {
       "id": "end_call_speak_final",
       "type": "End Call",
       "data": {
-        "name": "Final End Call Node",
-        "prompt": "Thank you for your time! Have a great day. Goodbye."
+        "name": "End Call Final",
+        "prompt": "Thank you for calling Stahla Services. Goodbye!"
       }
     }
   ],
   "edges": [
     {
-      "id": "edge_start_to_ask_name",
+      "id": "edge_start_to_confirm_name",
       "source": "start_call",
-      "target": "ask_name",
-      "label": "Continue after introduction"
+      "target": "confirm_name",
+      "label": "{{is_now_good_time}} == true"
     },
     {
-      "id": "edge_ask_name_to_ask_company",
-      "source": "ask_name",
-      "target": "ask_company_name",
-      "label": "Name collected"
+      "id": "edge_start_to_ask_best_time",
+      "source": "start_call",
+      "target": "ask_best_time_to_call",
+      "label": "{{is_now_good_time}} == false"
     },
     {
-      "id": "edge_ask_company_to_confirm_email",
-      "source": "ask_company_name",
+      "id": "edge_ask_best_time_to_end_reschedule",
+      "source": "ask_best_time_to_call",
+      "target": "end_call_reschedule",
+      "label": "Callback time provided"
+    },
+    {
+      "id": "edge_confirm_name_to_confirm_email",
+      "source": "confirm_name",
       "target": "confirm_email",
-      "label": "Company name collected"
+      "label": "Name confirmed"
     },
     {
       "id": "edge_confirm_email_to_confirm_phone",
       "source": "confirm_email",
       "target": "confirm_phone",
-      "label": "Email confirmed/collected"
+      "label": "Email confirmed"
     },
     {
-      "id": "edge_confirm_phone_to_ask_project_cat",
+      "id": "edge_confirm_phone_to_confirm_company",
       "source": "confirm_phone",
-      "target": "ask_project_category",
-      "label": "Phone confirmed/collected"
+      "target": "confirm_company",
+      "label": "Phone confirmed"
     },
     {
-      "id": "edge_ask_project_cat_to_ask_prod_type",
-      "source": "ask_project_category",
-      "target": "ask_product_type",
-      "label": "Project category and usage type collected"
+      "id": "edge_confirm_company_to_confirm_address",
+      "source": "confirm_company",
+      "target": "confirm_address",
+      "label": "Company name confirmed/collected"
     },
     {
-      "id": "edge_ask_prod_type_to_units_desc",
-      "source": "ask_product_type",
-      "target": "ask_units_needed_description_capture",
-      "label": "Product type collected"
+      "id": "edge_confirm_address_to_delivery_address_type",
+      "source": "confirm_address",
+      "target": "delivery_address_type_node",
+      "label": "Address confirmed/collected"
     },
     {
-      "id": "edge_units_desc_to_ask_ada",
-      "source": "ask_units_needed_description_capture",
-      "target": "ask_ada_required",
-      "label": "Units description collected"
-    },
-    {
-      "id": "edge_ask_ada_to_ask_start_date",
-      "source": "ask_ada_required",
-      "target": "ask_start_date",
-      "label": "ADA requirement collected"
-    },
-    {
-      "id": "edge_ask_start_date_to_ask_duration",
-      "source": "ask_start_date",
-      "target": "ask_rental_duration_days",
-      "label": "Start date collected"
-    },
-    {
-      "id": "edge_ask_duration_to_ask_extras_gen",
-      "source": "ask_rental_duration_days",
-      "target": "ask_extras_generator",
-      "label": "Rental days collected"
-    },
-    {
-      "id": "edge_ask_extras_gen_to_ask_extras_other",
-      "source": "ask_extras_generator",
-      "target": "ask_extras_other",
-      "label": "Generator info collected"
-    },
-    {
-      "id": "edge_ask_extras_other_to_prepare_extras",
-      "source": "ask_extras_other",
-      "target": "prepare_extras_for_api",
-      "label": "Other extras info collected"
-    },
-    {
-      "id": "edge_prepare_extras_to_check_address",
-      "source": "prepare_extras_for_api",
-      "target": "check_metadata_address_prompt_node",
-      "label": "Extras prepared for API"
-    },
-    {
-      "id": "edge_check_address_to_prep_meta_addr",
-      "source": "check_metadata_address_prompt_node",
-      "target": "prepare_address_from_metadata_node",
-      "label": "{{confirm_address_is_initial}} == true"
-    },
-    {
-      "id": "edge_check_address_to_collect_addr",
-      "source": "check_metadata_address_prompt_node",
-      "target": "collect_address",
-      "label": "{{confirm_address_is_initial}} == false"
-    },
-    {
-      "id": "edge_prep_meta_addr_to_trigger_bg_loc",
-      "source": "prepare_address_from_metadata_node",
+      "id": "edge_delivery_address_type_to_trigger_location_tool",
+      "source": "delivery_address_type_node",
       "target": "trigger_background_location_processing_node",
-      "label": "Address from metadata prepared"
+      "label": "Delivery address type collected"
     },
     {
-      "id": "edge_collect_addr_to_prep_coll_addr",
-      "source": "collect_address",
-      "target": "prepare_address_from_collection_node",
-      "label": "New address collected"
-    },
-    {
-      "id": "edge_prep_coll_addr_to_trigger_bg_loc",
-      "source": "prepare_address_from_collection_node",
-      "target": "trigger_background_location_processing_node",
-      "label": "Collected address prepared"
-    },
-    {
-      "id": "edge_trigger_bg_loc_to_check_svc_area",
+      "id": "edge_trigger_location_tool_to_check_service_area",
       "source": "trigger_background_location_processing_node",
       "target": "check_service_area_logic_node",
-      "label": "Continue after triggering background location lookup"
+      "label": "Location lookup triggered"
     },
     {
-      "id": "edge_check_svc_area_to_oos",
+      "id": "edge_check_service_area_to_oos",
       "source": "check_service_area_logic_node",
       "target": "handle_out_of_service_area",
       "label": "{{is_in_service_area}} == false"
     },
     {
-      "id": "edge_check_svc_area_to_site_details",
+      "id": "edge_check_service_area_to_determine_order_cat",
       "source": "check_service_area_logic_node",
-      "target": "ask_site_details_paq_pbq_combined",
+      "target": "determine_order_category",
       "label": "{{is_in_service_area}} == true"
     },
     {
-      "id": "edge_oos_to_offer_referral",
+      "id": "edge_handle_oos_to_offer_referral",
       "source": "handle_out_of_service_area",
       "target": "offer_referral",
-      "label": "Continue after OOS notification"
+      "label": "Out of service area"
     },
     {
-      "id": "edge_offer_referral_yes",
+      "id": "edge_offer_referral_to_wants_referral",
       "source": "offer_referral",
-      "target": "closing_oos_referral",
+      "target": "wants_referral_node",
       "label": "{{offer_referral_consent}} == true"
     },
     {
-      "id": "edge_offer_referral_no",
+      "id": "edge_offer_referral_to_no_referral",
       "source": "offer_referral",
-      "target": "closing_oos_no_referral",
+      "target": "no_referral_node",
       "label": "{{offer_referral_consent}} == false"
     },
     {
-      "id": "edge_closing_oos_referral_to_end",
-      "source": "closing_oos_referral",
+      "id": "edge_wants_referral_to_end_call",
+      "source": "wants_referral_node",
       "target": "end_call_speak_final",
-      "label": "End call after OOS referral"
+      "label": "Referral accepted, end call"
     },
     {
-      "id": "edge_closing_oos_no_referral_to_end",
-      "source": "closing_oos_no_referral",
+      "id": "edge_no_referral_to_end_call",
+      "source": "no_referral_node",
       "target": "end_call_speak_final",
-      "label": "End call after OOS no referral"
+      "label": "Referral declined, end call"
     },
     {
-      "id": "edge_site_details_to_trailer_utilities",
-      "source": "ask_site_details_paq_pbq_combined",
-      "target": "ask_trailer_specific_utilities_paq",
-      "label": "Site details collected, product is trailer-like (e.g. {{trailer_type}}.toLowerCase().includes('trailer'))"
+      "id": "edge_determine_order_cat_to_determine_prod_type",
+      "source": "determine_order_category",
+      "target": "determine_product_type",
+      "label": "Order category determined"
     },
     {
-      "id": "edge_site_details_to_contact_consent_for_pp",
-      "source": "ask_site_details_paq_pbq_combined",
-      "target": "ask_contact_consent",
-      "label": "Site details collected, product is porta potty (e.g. {{trailer_type}}.toLowerCase().includes('potty'))"
+      "id": "edge_determine_prod_type_to_event_flow_start",
+      "source": "determine_product_type",
+      "target": "sa_ask_event_duration_days",
+      "label": "{{project_category}}.toLowerCase() == 'event'"
     },
     {
-      "id": "edge_trailer_utilities_to_no_power_check",
-      "source": "ask_trailer_specific_utilities_paq",
-      "target": "ask_generator_if_no_power_paq",
-      "label": "{{power_available}} == false"
+      "id": "edge_determine_prod_type_to_construction_flow_start",
+      "source": "determine_product_type",
+      "target": "sb_ask_onsite_contact",
+      "label": "({{project_category}}.toLowerCase() == 'construction' || {{project_category}}.toLowerCase() == 'construction company' || {{project_category}}.toLowerCase() == 'facility')"
     },
     {
-      "id": "edge_trailer_utilities_to_contact_consent",
-      "source": "ask_trailer_specific_utilities_paq",
-      "target": "ask_contact_consent",
-      "label": "{{power_available}} == true"
+      "id": "edge_determine_prod_type_to_disaster_flow_start",
+      "source": "determine_product_type",
+      "target": "ask_site_conditions_trailer",
+      "label": "{{project_category}}.toLowerCase() == 'disaster relief'"
     },
     {
-      "id": "edge_no_power_check_to_contact_consent",
-      "source": "ask_generator_if_no_power_paq",
-      "target": "ask_contact_consent",
-      "label": "Generator check after no power for trailer complete"
+      "id": "edge_sa_duration_to_total_hours",
+      "source": "sa_ask_event_duration_days",
+      "target": "sa_ask_total_hours",
+      "label": "{{event_duration_days}} >= 2"
     },
     {
-      "id": "edge_contact_consent_yes",
-      "source": "ask_contact_consent",
-      "target": "recap_details",
-      "label": "{{contact_consent}} == true"
+      "id": "edge_sa_duration_to_attendees_short_event",
+      "source": "sa_ask_event_duration_days",
+      "target": "sa_ask_attendees",
+      "label": "{{event_duration_days}} < 2"
     },
     {
-      "id": "edge_contact_consent_no",
-      "source": "ask_contact_consent",
-      "target": "cannot_quote_no_consent",
-      "label": "{{contact_consent}} == false"
+      "id": "edge_sa_total_hours_to_extra_services",
+      "source": "sa_ask_total_hours",
+      "target": "sa_discuss_extra_services_multi_day_long_hours",
+      "label": "{{event_total_hours_a_day}} >= 8"
     },
     {
-      "id": "edge_recap_correct",
-      "source": "recap_details",
-      "target": "ask_quote_urgency",
-      "label": "{{details_recap_correct}} == true"
+      "id": "edge_sa_total_hours_to_attendees_short_hours",
+      "source": "sa_ask_total_hours",
+      "target": "sa_ask_attendees",
+      "label": "{{event_total_hours_a_day}} < 8"
     },
     {
-      "id": "edge_recap_incorrect_loop_to_name",
-      "source": "recap_details",
-      "target": "ask_name",
-      "label": "{{details_recap_correct}} == false"
+      "id": "edge_sa_discuss_extra_services_to_ask_gaps",
+      "source": "sa_discuss_extra_services_multi_day_long_hours",
+      "target": "sa_ask_for_servicing_gaps",
+      "label": "{{sa_accepts_discussion_extra_services}} == true"
     },
     {
-      "id": "edge_ask_quote_urgency_to_decision_time",
-      "source": "ask_quote_urgency",
-      "target": "ask_decision_timing",
-      "label": "Continue after quote urgency"
+      "id": "edge_sa_discuss_extra_services_skip_gaps_to_attendees",
+      "source": "sa_discuss_extra_services_multi_day_long_hours",
+      "target": "sa_ask_attendees",
+      "label": "{{sa_accepts_discussion_extra_services}} == false"
     },
     {
-      "id": "edge_ask_decision_time_to_get_quote",
-      "source": "ask_decision_timing",
-      "target": "get_quote_webhook",
-      "label": "Proceed to get quote"
+      "id": "edge_sa_ask_gaps_to_attendees",
+      "source": "sa_ask_for_servicing_gaps",
+      "target": "sa_ask_attendees",
+      "label": "Servicing gaps info collected"
     },
     {
-      "id": "edge_get_quote_success",
-      "source": "get_quote_webhook",
-      "target": "convey_quote",
+      "id": "edge_sa_attendees_to_other_facilities",
+      "source": "sa_ask_attendees",
+      "target": "sa_ask_other_facilities_on_site",
+      "label": "Attendees count collected"
+    },
+    {
+      "id": "edge_sa_other_facilities_to_ask_stalls",
+      "source": "sa_ask_other_facilities_on_site",
+      "target": "sa_ask_number_of_stalls",
+      "label": "Other facilities info collected"
+    },
+    {
+      "id": "edge_sa_ask_stalls_to_ada_event",
+      "source": "sa_ask_number_of_stalls",
+      "target": "sa_ask_ada_event",
+      "label": "{{stalls_exists}} == true"
+    },
+    {
+      "id": "edge_sa_ask_stalls_to_stalls_not_exist",
+      "source": "sa_ask_number_of_stalls",
+      "target": "sa_trailer_with_stalls_does_not_exist",
+      "label": "{{stalls_exists}} == false"
+    },
+    {
+      "id": "edge_sa_stalls_not_exist_to_ada_event",
+      "source": "sa_trailer_with_stalls_does_not_exist",
+      "target": "sa_ask_ada_event",
+      "label": "Alternative stall chosen"
+    },
+    {
+      "id": "edge_sa_ada_event_to_ask_site_conditions",
+      "source": "sa_ask_ada_event",
+      "target": "ask_site_conditions_trailer",
+      "label": "Event ADA info collected"
+    },
+    {
+      "id": "edge_sb_onsite_contact_to_working_hours",
+      "source": "sb_ask_onsite_contact",
+      "target": "sb_ask_working_hours",
+      "label": "Onsite contact info collected"
+    },
+    {
+      "id": "edge_sb_working_hours_to_weekend_use",
+      "source": "sb_ask_working_hours",
+      "target": "sb_ask_weekend_use",
+      "label": "Working hours collected"
+    },
+    {
+      "id": "edge_sb_weekend_use_to_ada",
+      "source": "sb_ask_weekend_use",
+      "target": "sb_ask_ada_construction",
+      "label": "Weekend use info collected"
+    },
+    {
+      "id": "edge_sb_ada_to_people_supported",
+      "source": "sb_ask_ada_construction",
+      "target": "sb_ask_people_supported",
+      "label": "Construction ADA info collected"
+    },
+    {
+      "id": "edge_sb_people_supported_to_other_facilities",
+      "source": "sb_ask_people_supported",
+      "target": "sb_ask_other_facilities_construction",
+      "label": "People supported count collected"
+    },
+    {
+      "id": "edge_sb_other_facilities_to_other_products",
+      "source": "sb_ask_other_facilities_construction",
+      "target": "sb_ask_other_products_construction",
+      "label": "Other facilities info collected"
+    },
+    {
+      "id": "edge_sb_other_products_to_cleaning",
+      "source": "sb_ask_other_products_construction",
+      "target": "sb_ask_cleaning_restocking",
+      "label": "Other products info collected"
+    },
+    {
+      "id": "edge_sb_cleaning_to_ask_site_conditions",
+      "source": "sb_ask_cleaning_restocking",
+      "target": "ask_site_conditions_trailer",
+      "label": "Cleaning info collected"
+    },
+    {
+      "id": "edge_ask_site_conditions_to_ask_duration_trailer",
+      "source": "ask_site_conditions_trailer",
+      "target": "ask_duration_trailer",
+      "label": "Site conditions collected"
+    },
+    {
+      "id": "edge_ask_duration_trailer_to_ask_rental_days",
+      "source": "ask_duration_trailer",
+      "target": "paq_ask_rental_days_trailer",
+      "label": "Start date collected"
+    },
+    {
+      "id": "edge_paq_ask_rental_days_to_ask_power",
+      "source": "paq_ask_rental_days_trailer",
+      "target": "ask_power_trailer",
+      "label": "Rental days collected"
+    },
+    {
+      "id": "edge_ask_power_trailer_yes_to_details",
+      "source": "ask_power_trailer",
+      "target": "power_available_ask_power_details",
+      "label": "{{trailer_power_available}} == true"
+    },
+    {
+      "id": "edge_ask_power_trailer_no_to_generator",
+      "source": "ask_power_trailer",
+      "target": "power_not_available_ask_generator",
+      "label": "{{trailer_power_available}} == false"
+    },
+    {
+      "id": "edge_power_details_to_ask_water",
+      "source": "power_available_ask_power_details",
+      "target": "ask_water_trailer",
+      "label": "Power details collected"
+    },
+    {
+      "id": "edge_ask_generator_to_ask_water",
+      "source": "power_not_available_ask_generator",
+      "target": "ask_water_trailer",
+      "label": "Generator info collected"
+    },
+    {
+      "id": "edge_ask_water_trailer_yes_to_details",
+      "source": "ask_water_trailer",
+      "target": "water_available_ask_water_details",
+      "label": "{{trailer_water_available}} == true"
+    },
+    {
+      "id": "edge_ask_water_trailer_no_to_service",
+      "source": "ask_water_trailer",
+      "target": "water_not_available_ask_water_service",
+      "label": "{{trailer_water_available}} == false"
+    },
+    {
+      "id": "edge_water_details_to_prepare_extras",
+      "source": "water_available_ask_water_details",
+      "target": "prepare_extras_for_api_node",
+      "label": "Water details collected"
+    },
+    {
+      "id": "edge_water_service_to_prepare_extras",
+      "source": "water_not_available_ask_water_service",
+      "target": "prepare_extras_for_api_node",
+      "label": "Water service info collected"
+    },
+    {
+      "id": "edge_prepare_extras_to_get_quote",
+      "source": "prepare_extras_for_api_node",
+      "target": "get_quote_webhook_node",
+      "label": "Extras prepared"
+    },
+    {
+      "id": "edge_get_quote_success_to_convey",
+      "source": "get_quote_webhook_node",
+      "target": "convey_quote_and_followup_offer_node",
       "label": "{{quote_api_success}} == true && {{estimated_total}} != null"
     },
     {
-      "id": "edge_get_quote_failure",
-      "source": "get_quote_webhook",
+      "id": "edge_get_quote_failure_to_api_error",
+      "source": "get_quote_webhook_node",
       "target": "api_error_quote_tool",
       "label": "{{quote_api_success}} == false || {{estimated_total}} == null"
     },
     {
       "id": "edge_convey_quote_sched_yes",
-      "source": "convey_quote",
+      "source": "convey_quote_and_followup_offer_node",
       "target": "handle_followup_scheduling",
       "label": "{{schedule_follow_up}} == true"
     },
     {
       "id": "edge_convey_quote_sched_no",
-      "source": "convey_quote",
+      "source": "convey_quote_and_followup_offer_node",
       "target": "ask_final_questions",
       "label": "{{schedule_follow_up}} == false"
-    },
-    {
-      "id": "edge_cannot_quote_no_consent_to_ask_final",
-      "source": "cannot_quote_no_consent",
-      "target": "ask_final_questions",
-      "label": "Continue after no consent to quote"
     },
     {
       "id": "edge_api_error_sched_yes",
@@ -955,7 +1158,7 @@
       "id": "edge_handle_followup_to_ask_final",
       "source": "handle_followup_scheduling",
       "target": "ask_final_questions",
-      "label": "Continue after scheduling attempt"
+      "label": "Follow-up scheduling info collected"
     },
     {
       "id": "edge_ask_final_q_yes",
@@ -966,36 +1169,36 @@
     {
       "id": "edge_ask_final_q_no_direct_to_closing_with_followup",
       "source": "ask_final_questions",
-      "target": "closing_with_followup",
+      "target": "closing_with_followup_node",
       "label": "({{has_final_questions}} == false || {{final_questions_text}} == null || {{final_questions_text}} == '') && ({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
     },
     {
       "id": "edge_ask_final_q_no_direct_to_closing_without_followup",
       "source": "ask_final_questions",
-      "target": "closing_without_followup",
+      "target": "closing_without_followup_node",
       "label": "({{has_final_questions}} == false || {{final_questions_text}} == null || {{final_questions_text}} == '') && {{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false"
     },
     {
       "id": "edge_answer_kb_to_closing_with_followup",
       "source": "answer_final_question_kb",
-      "target": "closing_with_followup",
-      "label": "Answered question, follow-up scheduled ({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
+      "target": "closing_with_followup_node",
+      "label": "({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
     },
     {
       "id": "edge_answer_kb_to_closing_without_followup",
       "source": "answer_final_question_kb",
-      "target": "closing_without_followup",
-      "label": "Answered question, no follow-up scheduled ({{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false)"
+      "target": "closing_without_followup_node",
+      "label": "({{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false)"
     },
     {
       "id": "edge_closing_with_followup_to_end",
-      "source": "closing_with_followup",
+      "source": "closing_with_followup_node",
       "target": "end_call_speak_final",
       "label": "End call"
     },
     {
       "id": "edge_closing_without_followup_to_end",
-      "source": "closing_without_followup",
+      "source": "closing_without_followup_node",
       "target": "end_call_speak_final",
       "label": "End call"
     }
