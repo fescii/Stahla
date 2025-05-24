@@ -1,0 +1,41 @@
+# Fly.io configuration for MongoDB service
+app = "stahla-mongodb"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "./Dockerfile"
+
+[env]
+  MONGO_INITDB_DATABASE = "admin"
+
+[http_service]
+  internal_port = 27017
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.ports]]
+    port = 27017
+    handlers = []
+
+[[http_service.tcp_checks]]
+  interval = "15s"
+  timeout = "2s"
+  grace_period = "5s"
+  port = 27017
+
+[mounts]
+  source = "stahla_mongo_data"
+  destination = "/data/db"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 1024
+
+[deploy]
+  strategy = "immediate"
+
+[processes]
+  app = "mongod --auth --bind_ip_all"

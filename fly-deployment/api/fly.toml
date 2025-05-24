@@ -1,0 +1,49 @@
+# Fly.io configuration for the main API service
+app = "stahla"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "../../Dockerfile"
+
+[env]
+  PORT = "8000"
+  # MongoDB settings - using internal Fly.io networking
+  MONGO_HOST = "stahla-mongodb.internal"
+  MONGO_PORT = "27017"
+  REDIS_URL = "redis://stahla-redis.internal:6379/0"
+  
+  # These will be overridden by secrets
+  MONGO_DB_NAME = "stahla_dashboard"
+  MONGO_USER = "stahla_app"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 25
+    soft_limit = 20
+
+[[http_service.checks]]
+  interval = "10s"
+  grace_period = "5s"
+  method = "GET"
+  path = "/health"
+  protocol = "http"
+  timeout = "2s"
+
+[mounts]
+  source = "stahla_app_data"
+  destination = "/data"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[deploy]
+  release_command = "python -m app.utils.db_init"
