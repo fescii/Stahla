@@ -5,7 +5,7 @@ export default class LocationLookup extends HTMLElement {
     this.app = window.app;
     this.api = this.app.api;
     this.url = this.getAttribute("api") || "/webhook/location/lookup/sync";
-    
+
     // Component state
     this.state = {
       isLoading: false,
@@ -13,9 +13,9 @@ export default class LocationLookup extends HTMLElement {
       result: null,
       secondResult: null,
       selectedLocation: "",
-      showComparison: false
+      showComparison: false,
     };
-    
+
     // Sample locations for quick testing
     this.sampleLocations = [
       "123 Peachtree St NE, Atlanta, GA 30303",
@@ -23,9 +23,9 @@ export default class LocationLookup extends HTMLElement {
       "233 S Wacker Dr, Chicago, IL 60606",
       "1 Ferry Building, San Francisco, CA 94111",
       "1600 Amphitheatre Pkwy, Mountain View, CA 94043",
-      "400 Broad St, Seattle, WA 98109"
+      "400 Broad St, Seattle, WA 98109",
     ];
-    
+
     this.render();
   }
 
@@ -37,7 +37,7 @@ export default class LocationLookup extends HTMLElement {
 
   render() {
     this.shadowObj.innerHTML = this.getTemplate();
-    
+
     setTimeout(() => {
       this._setupEventListeners();
     }, 0);
@@ -45,93 +45,97 @@ export default class LocationLookup extends HTMLElement {
 
   _setupEventListeners() {
     // Form submission
-    const form = this.shadowObj.querySelector('.location-form');
+    const form = this.shadowObj.querySelector(".location-form");
     if (form) {
-      form.addEventListener('submit', (e) => {
+      form.addEventListener("submit", (e) => {
         e.preventDefault();
         this._handleSubmit();
       });
     }
-    
+
     // Input field
-    const locationInput = this.shadowObj.querySelector('#location-input');
+    const locationInput = this.shadowObj.querySelector("#location-input");
     if (locationInput) {
-      locationInput.addEventListener('input', (e) => {
+      locationInput.addEventListener("input", (e) => {
         this.state.selectedLocation = e.target.value;
         if (e.target.value) {
-          e.target.classList.add('with-value');
+          e.target.classList.add("with-value");
         } else {
-          e.target.classList.remove('with-value');
+          e.target.classList.remove("with-value");
         }
       });
-      
+
       // Add focus events for animation
-      locationInput.addEventListener('focus', () => {
-        locationInput.parentElement.classList.add('focused');
+      locationInput.addEventListener("focus", () => {
+        locationInput.parentElement.classList.add("focused");
       });
-      
-      locationInput.addEventListener('blur', () => {
-        locationInput.parentElement.classList.remove('focused');
+
+      locationInput.addEventListener("blur", () => {
+        locationInput.parentElement.classList.remove("focused");
         if (locationInput.value) {
-          locationInput.classList.add('with-value');
+          locationInput.classList.add("with-value");
         }
       });
-      
+
       // Set initial state if there's a value
       if (this.state.selectedLocation) {
-        locationInput.classList.add('with-value');
+        locationInput.classList.add("with-value");
       }
     }
-    
+
     // Sample location buttons
-    const sampleButtons = this.shadowObj.querySelectorAll('.sample-location');
+    const sampleButtons = this.shadowObj.querySelectorAll(".sample-location");
     if (sampleButtons) {
-      sampleButtons.forEach(button => {
-        button.addEventListener('click', () => {
-          const locationInput = this.shadowObj.querySelector('#location-input');
+      sampleButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const locationInput = this.shadowObj.querySelector("#location-input");
           if (locationInput) {
             locationInput.value = button.dataset.location;
-            locationInput.classList.add('with-value');
+            locationInput.classList.add("with-value");
             this.state.selectedLocation = button.dataset.location;
           }
         });
       });
     }
-    
+
     // Clear button
-    const clearButton = this.shadowObj.querySelector('.clear-btn');
+    const clearButton = this.shadowObj.querySelector(".clear-btn");
     if (clearButton) {
-      clearButton.addEventListener('click', () => {
+      clearButton.addEventListener("click", () => {
         this._resetForm();
       });
     }
-    
+
     // Copy result button
-    const copyButton = this.shadowObj.querySelector('.copy-result');
+    const copyButton = this.shadowObj.querySelector(".copy-result");
     if (copyButton) {
-      copyButton.addEventListener('click', () => {
+      copyButton.addEventListener("click", () => {
         this._copyResultToClipboard();
       });
     }
-    
+
     // Tab switching
-    const tabs = this.shadowObj.querySelectorAll('.tab:not(.disabled)');
+    const tabs = this.shadowObj.querySelectorAll(".tab:not(.disabled)");
     if (tabs) {
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
           // Skip if tab is disabled
-          if (tab.classList.contains('disabled')) return;
-          
+          if (tab.classList.contains("disabled")) return;
+
           // Deactivate all tabs and tab content
-          this.shadowObj.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-          this.shadowObj.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-          
+          this.shadowObj
+            .querySelectorAll(".tab")
+            .forEach((t) => t.classList.remove("active"));
+          this.shadowObj
+            .querySelectorAll(".tab-content")
+            .forEach((c) => c.classList.remove("active"));
+
           // Activate selected tab and content
-          tab.classList.add('active');
+          tab.classList.add("active");
           const tabName = tab.dataset.tab;
           const content = this.shadowObj.querySelector(`.${tabName}-tab`);
           if (content) {
-            content.classList.add('active');
+            content.classList.add("active");
           }
         });
       });
@@ -144,94 +148,101 @@ export default class LocationLookup extends HTMLElement {
       this.render();
       return;
     }
-    
+
     this.state.isLoading = true;
     this.state.error = null;
     this.state.showComparison = false;
     this.render();
-    
+
     try {
       // First API request
       const firstStartTime = performance.now();
-      
+
       const firstResponse = await this.api.post(this.url, {
         content: "json",
         headers: {
-          "Authorization": "Bearer 7%FRtf@34hi"
+          Authorization: "Bearer 7%FRtf@34hi",
         },
         body: {
-          delivery_location: this.state.selectedLocation
-        }
+          delivery_location: this.state.selectedLocation,
+        },
       });
-      
+
       const firstEndTime = performance.now();
-      const firstClientProcessingTime = Math.round(firstEndTime - firstStartTime);
-      
+      const firstClientProcessingTime = Math.round(
+        firstEndTime - firstStartTime
+      );
+
       if (!firstResponse.success) {
-        this.state.error = firstResponse.error_message || "Failed to lookup location";
+        this.state.error =
+          firstResponse.error_message || "Failed to lookup location";
         this.state.isLoading = false;
         this.render();
         return;
       }
-      
+
       // Add client-side processing time for comparison
       if (firstResponse.data) {
-        firstResponse.data.client_processing_time_ms = firstClientProcessingTime;
+        firstResponse.data.client_processing_time_ms =
+          firstClientProcessingTime;
         firstResponse.data.request_number = 1;
         firstResponse.data.cached = false;
       }
-      
+
       this.state.result = firstResponse;
       this.state.isLoading = false;
       this.render();
-      
+
       // After a short delay, make a second request to demonstrate Redis caching
       setTimeout(async () => {
         this.state.isLoading = true;
         this.render();
-        
+
         try {
           const secondStartTime = performance.now();
-          
+
           const secondResponse = await this.api.post(this.url, {
             content: "json",
             headers: {
-              "Authorization": "Bearer 7%FRtf@34hi"
+              Authorization: "Bearer 7%FRtf@34hi",
             },
             body: {
-              delivery_location: this.state.selectedLocation
-            }
+              delivery_location: this.state.selectedLocation,
+            },
           });
-          
+
           const secondEndTime = performance.now();
-          const secondClientProcessingTime = Math.round(secondEndTime - secondStartTime);
-          
+          const secondClientProcessingTime = Math.round(
+            secondEndTime - secondStartTime
+          );
+
           if (secondResponse.data) {
-            secondResponse.data.client_processing_time_ms = secondClientProcessingTime;
+            secondResponse.data.client_processing_time_ms =
+              secondClientProcessingTime;
             secondResponse.data.request_number = 2;
             secondResponse.data.cached = true;
           }
-          
+
           this.state.secondResult = secondResponse;
           this.state.showComparison = true;
           this.state.isLoading = false;
           this.render();
-          
+
           // Animate the comparison metrics to highlight the difference
           setTimeout(() => {
-            const comparisonElements = this.shadowObj.querySelectorAll('.comparison-highlight');
-            comparisonElements.forEach(el => {
-              el.classList.add('highlight-animation');
+            const comparisonElements = this.shadowObj.querySelectorAll(
+              ".comparison-highlight"
+            );
+            comparisonElements.forEach((el) => {
+              el.classList.add("highlight-animation");
             });
           }, 500);
-          
         } catch (error) {
           console.error("Error on second location lookup:", error);
           this.state.isLoading = false;
           this.render();
         }
       }, 1500); // Wait 1.5 seconds before making second request
-      
     } catch (error) {
       console.error("Error looking up location:", error);
       this.state.isLoading = false;
@@ -239,33 +250,34 @@ export default class LocationLookup extends HTMLElement {
       this.render();
     }
   };
-  
+
   _resetForm() {
-    const locationInput = this.shadowObj.querySelector('#location-input');
+    const locationInput = this.shadowObj.querySelector("#location-input");
     if (locationInput) {
       locationInput.value = "";
-      locationInput.classList.remove('with-value');
+      locationInput.classList.remove("with-value");
     }
-    
+
     this.state = {
       isLoading: false,
       error: null,
       result: null,
       secondResult: null,
       selectedLocation: "",
-      showComparison: false
+      showComparison: false,
     };
-    
+
     this.render();
   }
-  
+
   _copyResultToClipboard() {
     if (!this.state.result) return;
-    
+
     const resultText = JSON.stringify(this.state.result, null, 2);
-    navigator.clipboard.writeText(resultText)
+    navigator.clipboard
+      .writeText(resultText)
       .then(() => {
-        const copyButton = this.shadowObj.querySelector('.copy-result');
+        const copyButton = this.shadowObj.querySelector(".copy-result");
         if (copyButton) {
           const originalText = copyButton.textContent;
           copyButton.textContent = "Copied!";
@@ -274,19 +286,25 @@ export default class LocationLookup extends HTMLElement {
           }, 2000);
         }
       })
-      .catch(err => {
-        console.error('Failed to copy result: ', err);
+      .catch((err) => {
+        console.error("Failed to copy result: ", err);
       });
   }
-  
+
   _calculatePerformanceScore(processingTime) {
     // Calculate score based on relation to 950ms benchmark
     const benchmark = 950;
-    const percentage = Math.min(100, Math.max(0, 100 - (processingTime / benchmark * 100)));
-    
-    if (percentage >= 80) return { score: "Excellent", color: "var(--success-color)" };
-    if (percentage >= 60) return { score: "Good", color: "var(--accent-color)" };
-    if (percentage >= 40) return { score: "Average", color: "var(--alt-color)" };
+    const percentage = Math.min(
+      100,
+      Math.max(0, 100 - (processingTime / benchmark) * 100)
+    );
+
+    if (percentage >= 80)
+      return { score: "Excellent", color: "var(--success-color)" };
+    if (percentage >= 60)
+      return { score: "Good", color: "var(--accent-color)" };
+    if (percentage >= 40)
+      return { score: "Average", color: "var(--alt-color)" };
     return { score: "Slow", color: "var(--error-color)" };
   }
 
@@ -307,7 +325,11 @@ export default class LocationLookup extends HTMLElement {
           </div>
           
           <div class="form-container">
-            ${this.state.error ? `<div class="error-alert">${this.state.error}</div>` : ''}
+            ${
+              this.state.error
+                ? `<div class="error-alert">${this.state.error}</div>`
+                : ""
+            }
             
             <div class="info-alert">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -325,7 +347,9 @@ export default class LocationLookup extends HTMLElement {
                   <input 
                     type="text" 
                     id="location-input" 
-                    class="location-input ${this.state.selectedLocation ? 'with-value' : ''}" 
+                    class="location-input ${
+                      this.state.selectedLocation ? "with-value" : ""
+                    }" 
                     placeholder="Enter a delivery address (e.g. 123 Main St, City, State ZIP)" 
                     value="${this.state.selectedLocation}"
                     required
@@ -340,15 +364,19 @@ export default class LocationLookup extends HTMLElement {
               <div class="quick-options">
                 <h3>Quick Search Options</h3>
                 <div class="sample-locations">
-                  ${this.sampleLocations.map(location => `
+                  ${this.sampleLocations
+                    .map(
+                      (location) => `
                     <button 
                       type="button" 
                       class="sample-location" 
                       data-location="${location}"
                     >
-                      ${location.split(',')[0]}
+                      ${location.split(",")[0]}
                     </button>
-                  `).join('')}
+                  `
+                    )
+                    .join("")}
                 </div>
               </div>
               
@@ -360,44 +388,56 @@ export default class LocationLookup extends HTMLElement {
                   </svg>
                   Clear
                 </button>
-                <button type="submit" class="lookup-btn" ${this.state.isLoading ? 'disabled' : ''}>
-                  ${this.state.isLoading ? this._getLoadingSpinner() + (this.state.result ? 'Processing Second Request...' : 'Looking up...') : 'Lookup Location'}
+                <button type="submit" class="lookup-btn" ${
+                  this.state.isLoading ? "disabled" : ""
+                }>
+                  ${
+                    this.state.isLoading
+                      ? this._getLoadingSpinner() +
+                        (this.state.result
+                          ? "Processing Second Request..."
+                          : "Looking up...")
+                      : "Lookup Location"
+                  }
                 </button>
               </div>
             </form>
           </div>
           
-          ${this.state.result ? this._getResultTemplate() : ''}
+          ${this.state.result ? this._getResultTemplate() : ""}
         </div>
       </div>
     `;
   }
-  
+
   _getResultTemplate() {
     const result = this.state.result;
     if (!result || !result.data || !result.data.distance_result) {
-      return '';
+      return "";
     }
-    
+
     const distanceResult = result.data.distance_result;
     const processingTime = result.data.processing_time_ms;
     const performance = this._calculatePerformanceScore(processingTime);
-    
+
     // Calculate hours and minutes from seconds
     const durationHours = Math.floor(distanceResult.duration_seconds / 3600);
-    const durationMinutes = Math.floor((distanceResult.duration_seconds % 3600) / 60);
-    
+    const durationMinutes = Math.floor(
+      (distanceResult.duration_seconds % 3600) / 60
+    );
+
     const secondResult = this.state.secondResult;
-    const showComparison = this.state.showComparison && secondResult && secondResult.data;
-    
-    let performanceComparisonHtml = '';
-    
+    const showComparison =
+      this.state.showComparison && secondResult && secondResult.data;
+
+    let performanceComparisonHtml = "";
+
     if (showComparison) {
       const firstTime = processingTime;
       const secondTime = secondResult.data.processing_time_ms;
       const timeDifference = firstTime - secondTime;
       const percentImprovement = Math.round((timeDifference / firstTime) * 100);
-      
+
       performanceComparisonHtml = /* html */ `
         <div class="performance-comparison">
           <h3 class="comparison-title">Redis Cache Comparison</h3>
@@ -477,7 +517,10 @@ export default class LocationLookup extends HTMLElement {
                 </div>
                 <div class="comparison-label">Second Request</div>
               </div>
-              <div class="comparison-bar second" style="width: ${Math.max(5, (secondTime / firstTime) * 100)}%;">
+              <div class="comparison-bar second" style="width: ${Math.max(
+                5,
+                (secondTime / firstTime) * 100
+              )}%;">
                 <span class="bar-value">${secondTime}ms</span>
               </div>
             </div>
@@ -499,7 +542,7 @@ export default class LocationLookup extends HTMLElement {
         </div>
       `;
     }
-    
+
     return /* html */ `
       <div class="result-container">
         <div class="result-header">
@@ -515,14 +558,20 @@ export default class LocationLookup extends HTMLElement {
         
         <div class="result-tabs">
           <div class="tab active" data-tab="details">Details</div>
-          <div class="tab ${showComparison ? '' : 'disabled'}" data-tab="comparison">${showComparison ? 'Performance Comparison' : 'Awaiting Second Request...'}</div>
+          <div class="tab ${
+            showComparison ? "" : "disabled"
+          }" data-tab="comparison">${
+      showComparison ? "Performance Comparison" : "Awaiting Second Request..."
+    }</div>
         </div>
         
         <div class="tab-content details-tab active">
           <div class="performance-dashboard">
             <div class="dashboard-header">
               <h3>Processing Performance</h3>
-              <div class="performance-pill" style="background-color: ${performance.color}">
+              <div class="performance-pill" style="background-color: ${
+                performance.color
+              }">
                 <span>${performance.score}</span>
               </div>
             </div>
@@ -551,7 +600,9 @@ export default class LocationLookup extends HTMLElement {
                       </svg>
                     </div>
                     <div class="stat-content">
-                      <div class="stat-value">${result.data.client_processing_time_ms}ms</div>
+                      <div class="stat-value">${
+                        result.data.client_processing_time_ms
+                      }ms</div>
                       <div class="stat-label">Client Processing</div>
                     </div>
                   </div>
@@ -564,7 +615,9 @@ export default class LocationLookup extends HTMLElement {
                       </svg>
                     </div>
                     <div class="stat-content">
-                      <div class="stat-value">#${result.data.request_number || 1}</div>
+                      <div class="stat-value">#${
+                        result.data.request_number || 1
+                      }</div>
                       <div class="stat-label">Request</div>
                     </div>
                   </div>
@@ -596,7 +649,9 @@ export default class LocationLookup extends HTMLElement {
                 <h3>Delivery Location</h3>
               </div>
               <p class="branch-name">Lead Address</p>
-              <p class="delivery-address">${distanceResult.delivery_location}</p>
+              <p class="delivery-address">${
+                distanceResult.delivery_location
+              }</p>
             </div>
             
             <div class="detail-card branch-card">
@@ -611,7 +666,9 @@ export default class LocationLookup extends HTMLElement {
                 <h3>Nearest Branch</h3>
               </div>
               <p class="branch-name">${distanceResult.nearest_branch.name}</p>
-              <p class="branch-address">${distanceResult.nearest_branch.address}</p>
+              <p class="branch-address">${
+                distanceResult.nearest_branch.address
+              }</p>
             </div>
           </div>
           
@@ -626,8 +683,12 @@ export default class LocationLookup extends HTMLElement {
               </div>
               <div class="metric-content">
                 <h4>Distance</h4>
-                <div class="metric-value">${distanceResult.distance_miles.toFixed(2)} miles</div>
-                <div class="metric-secondary">${(distanceResult.distance_meters / 1000).toFixed(2)} kilometers</div>
+                <div class="metric-value">${distanceResult.distance_miles.toFixed(
+                  2
+                )} miles</div>
+                <div class="metric-secondary">${(
+                  distanceResult.distance_meters / 1000
+                ).toFixed(2)} kilometers</div>
               </div>
             </div>
             
@@ -655,7 +716,10 @@ export default class LocationLookup extends HTMLElement {
             <p class="message">${result.data.message}</p>
           </div>
           
-          ${showComparison ? '' : `
+          ${
+            showComparison
+              ? ""
+              : `
             <div class="awaiting-second-request">
               <div class="loading-indicator">
                 <div class="dot"></div>
@@ -664,16 +728,19 @@ export default class LocationLookup extends HTMLElement {
               </div>
               <p>Performing second request to demonstrate Redis caching...</p>
             </div>
-          `}
+          `
+          }
         </div>
         
-        <div class="tab-content comparison-tab ${showComparison ? '' : 'hidden'}">
+        <div class="tab-content comparison-tab ${
+          showComparison ? "" : "hidden"
+        }">
           ${performanceComparisonHtml}
         </div>
       </div>
     `;
   }
-  
+
   _getLoadingSpinner() {
     return /* html */ `
       <svg class="spinner" viewBox="0 0 50 50">
