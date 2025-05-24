@@ -78,7 +78,7 @@ def _is_valid_iso_date(date_input: Any) -> bool:
 
 
 async def _handle_api_error(
-        e: Exception, context: str, object_id: Optional[str] = None
+    e: Exception, context: str, object_id: Optional[str] = None
 ) -> Dict[str, Any]:
   """
   Centralized handler for HubSpot API errors.
@@ -91,37 +91,38 @@ async def _handle_api_error(
   error_details_str = str(e)
   status_code = None
   parsed_error_details = None
-  
+
   # Check for specific property validation errors
   property_validation_errors = []
-  
+
   if isinstance(e, (ObjectApiException, DealApiException)):
     status_code = e.status
     if hasattr(e, "body") and e.body:
       error_details_str = e.body
-      
+
       # Check for property validation error messages in the raw body
       if "Property values were not valid" in error_details_str:
-          logfire.error(f"Property validation error detected in HubSpot API response", 
+        logfire.error(f"Property validation error detected in HubSpot API response",
                       context=context, object_id=object_id, status_code=status_code, error_body=error_details_str)
-      
+
       try:
         # Enhanced error parsing for property-related issues
         if "PROPERTY_DOESNT_EXIST" in error_details_str:
-            # Extract property name from error message
-            import re
-            property_match = re.search(r'Property \\"([^"]+)\\" does not exist', error_details_str)
-            if property_match:
-                invalid_property = property_match.group(1)
-                logfire.error(f"Invalid HubSpot property name detected", 
-                             property_name=invalid_property,
-                             context=context,
-                             object_id=object_id)
-                property_validation_errors.append({
-                    "property_name": invalid_property,
-                    "error": "Property does not exist in HubSpot"
-                })
-        
+          # Extract property name from error message
+          import re
+          property_match = re.search(
+              r'Property \\"([^"]+)\\" does not exist', error_details_str)
+          if property_match:
+            invalid_property = property_match.group(1)
+            logfire.error(f"Invalid HubSpot property name detected",
+                          property_name=invalid_property,
+                          context=context,
+                          object_id=object_id)
+            property_validation_errors.append({
+                "property_name": invalid_property,
+                "error": "Property does not exist in HubSpot"
+            })
+
         # Attempt to parse the HubSpot error body if your HubSpotErrorDetail model is set up
         if HubSpotErrorDetail:  # Check if the model is available
           parsed_error_details = HubSpotErrorDetail.model_validate_json(
@@ -151,8 +152,13 @@ async def _handle_api_error(
       )
   else:
     logger.error(
-        f"Unexpected error in {context}{f' for ID {object_id}' if object_id else ''}: {
-            e}",
+        f"Unexpected error occurred in {context}",
+        extra={
+            "error_message": error_message,
+            "object_id": object_id,
+            "context": context,
+            "exception": str(e),
+        },
         exc_info=True,
     )
 
@@ -248,9 +254,9 @@ class HubSpotManager:
       return None
 
   async def search_objects(
-          self,
-          object_type: str,
-          search_request: HubSpotSearchRequest,
+      self,
+      object_type: str,
+      search_request: HubSpotSearchRequest,
   ) -> HubSpotSearchResponse:
     """
     Generic method to search HubSpot objects (contacts, companies, deals, tickets).
@@ -302,10 +308,10 @@ class HubSpotManager:
     Searches for leads based on provided search criteria using the v3 Objects API Search endpoint.
 
     Args:
-        search_request: A HubSpotSearchRequest object with filterGroups and other search parameters
+                    search_request: A HubSpotSearchRequest object with filterGroups and other search parameters
 
     Returns:
-        HubSpotSearchResponse with search results
+                    HubSpotSearchResponse with search results
     """
     logger.debug(
         f"Searching leads with request: {search_request.model_dump_json(indent=2, exclude_none=True)}"
@@ -343,7 +349,7 @@ class HubSpotManager:
 
   # --- Contact Methods ---
   async def create_contact(
-          self, properties: HubSpotContactProperties
+      self, properties: HubSpotContactProperties
   ) -> Optional[HubSpotObject]:
     logger.debug(
         f"Creating contact with raw properties: {properties.model_dump_json(indent=2, exclude_none=True)}"
@@ -365,10 +371,11 @@ class HubSpotManager:
       simple_public_object_input = ContactSimplePublicObjectInput(
           properties=final_props
       )
-      
+
       # Additional debugging before API call
-      logger.info(f"About to call HubSpot API with contact properties: {json.dumps(final_props)}")
-      
+      logger.info(
+          f"About to call HubSpot API with contact properties: {json.dumps(final_props)}")
+
       api_response = await asyncio.to_thread(
           self.client.crm.contacts.basic_api.create,
           simple_public_object_input_for_create=simple_public_object_input
@@ -379,27 +386,28 @@ class HubSpotManager:
       # Enhanced error logging for HubSpot API errors
       error_details = {}
       if hasattr(e, 'status'):
-          error_details['status_code'] = e.status
+        error_details['status_code'] = e.status
       if hasattr(e, 'body'):
-          error_details['response_body'] = e.body
+        error_details['response_body'] = e.body
       if hasattr(e, 'reason'):
-          error_details['reason'] = e.reason
-      
-      logger.error(f"HubSpot API error during contact creation: {str(e)}", 
-                  extra={'error_details': error_details, 
-                         'contact_properties': properties.model_dump(exclude_none=True)})
-      
+        error_details['reason'] = e.reason
+
+      logger.error(f"HubSpot API error during contact creation: {str(e)}",
+                   extra={'error_details': error_details,
+                          'contact_properties': properties.model_dump(exclude_none=True)})
+
       await _handle_api_error(e, "contact creation")
       return None
     except Exception as e:
       logger.error(f"Unexpected error during contact creation: {str(e)}",
-                  extra={'contact_properties': properties.model_dump(exclude_none=True)}, 
-                  exc_info=True)
+                   extra={'contact_properties': properties.model_dump(
+                       exclude_none=True)},
+                   exc_info=True)
       await _handle_api_error(e, "contact creation")
       return None
 
   async def get_contact(
-          self, contact_id: str, properties_list: Optional[List[str]] = None
+      self, contact_id: str, properties_list: Optional[List[str]] = None
   ) -> Optional[HubSpotObject]:
     logger.debug(
         f"Getting contact ID: {contact_id} with properties: {properties_list}"
@@ -431,7 +439,7 @@ class HubSpotManager:
       return None
 
   async def update_contact(
-          self, contact_id: str, properties: HubSpotContactProperties
+      self, contact_id: str, properties: HubSpotContactProperties
   ) -> Optional[HubSpotObject]:
     logger.debug(
         f"Updating contact ID: {contact_id} with raw properties: {properties.model_dump_json(indent=2, exclude_none=True)}"
@@ -560,7 +568,7 @@ class HubSpotManager:
       return False
 
   async def create_or_update_contact(
-          self, properties: HubSpotContactProperties
+      self, properties: HubSpotContactProperties
   ) -> HubSpotApiResult:
     logger.debug(
         f"Attempting to create or update contact for email: {properties.email}")
@@ -747,7 +755,7 @@ class HubSpotManager:
 
   # --- Company Methods ---
   async def create_company(
-          self, properties: HubSpotCompanyProperties
+      self, properties: HubSpotCompanyProperties
   ) -> Optional[HubSpotObject]:
     logger.debug(
         f"Creating company with properties: {properties.model_dump_json(indent=2, exclude_none=True)}"
@@ -770,7 +778,7 @@ class HubSpotManager:
       return None
 
   async def get_company(
-          self, company_id: str, properties_list: Optional[List[str]] = None
+      self, company_id: str, properties_list: Optional[List[str]] = None
   ) -> Optional[HubSpotObject]:
     logger.debug(
         f"Getting company ID: {company_id} with properties: {properties_list}"
@@ -800,7 +808,7 @@ class HubSpotManager:
       return None
 
   async def update_company(
-          self, company_id: str, properties: HubSpotCompanyProperties
+      self, company_id: str, properties: HubSpotCompanyProperties
   ) -> Optional[HubSpotObject]:
     logger.debug(
         f"Updating company ID: {company_id} with properties: {properties.model_dump_json(indent=2, exclude_none=True)}"
@@ -1110,9 +1118,9 @@ class HubSpotManager:
         all_owners_list.extend(owners_page)
 
         if (
-                api_response.paging
-                and api_response.paging.next
-                and api_response.paging.next.after
+            api_response.paging
+            and api_response.paging.next
+            and api_response.paging.next.after
         ):
           current_after = api_response.paging.next.after
           logger.debug(
@@ -1173,14 +1181,15 @@ class HubSpotManager:
 
   # --- Association Methods (Using API v4) ---
   async def associate_objects(
-          self,
-          # e.g., "deals", "contacts", "leads" (plural input)
-          from_object_type: str,
-          from_object_id: str,
-          to_object_type: str,  # e.g., "contacts", "companies" (plural input)
-          to_object_id: str,
-          association_type_id: int,  # Numeric association type ID
-          association_category: str = "HUBSPOT_DEFINED"  # Used in v4 API
+      self,
+      # e.g., "deals", "contacts", "leads" (plural input)
+      from_object_type: str,
+      from_object_id: str,
+      # e.g., "contacts", "companies" (plural input)
+      to_object_type: str,
+      to_object_id: str,
+      association_type_id: int,  # Numeric association type ID
+      association_category: str = "HUBSPOT_DEFINED"  # Used in v4 API
   ) -> bool:
     """
     Associates two HubSpot objects using the v4 Associations API.
@@ -1189,15 +1198,15 @@ class HubSpotManager:
     and control over the association creation.
 
     Args:
-        from_object_type: The source object type (e.g., "leads", "contacts", "companies")
-        from_object_id: The ID of the source object
-        to_object_type: The target object type (e.g., "contacts", "companies")
-        to_object_id: The ID of the target object
-        association_type_id: The numeric ID of the association type
-        association_category: Either "HUBSPOT_DEFINED" or "USER_DEFINED"
+                    from_object_type: The source object type (e.g., "leads", "contacts", "companies")
+                    from_object_id: The ID of the source object
+                    to_object_type: The target object type (e.g., "contacts", "companies")
+                    to_object_id: The ID of the target object
+                    association_type_id: The numeric ID of the association type
+                    association_category: Either "HUBSPOT_DEFINED" or "USER_DEFINED"
 
     Returns:
-        Boolean indicating success or failure
+                    Boolean indicating success or failure
     """
     context = f"associating {from_object_type} {from_object_id} to {to_object_type} {to_object_id} (type {association_type_id})"
     logger.debug(f"Attempting to {context}")
@@ -1265,13 +1274,13 @@ class HubSpotManager:
       return False
 
   async def batch_associate_objects(
-          self,
-          from_object_type: str,
-          from_object_id: str,
-          to_object_type: str,
-          to_object_ids: list[str],
-          association_type_id: int,
-          association_category: str = "HUBSPOT_DEFINED"
+      self,
+      from_object_type: str,
+      from_object_id: str,
+      to_object_type: str,
+      to_object_ids: list[str],
+      association_type_id: int,
+      association_category: str = "HUBSPOT_DEFINED"
   ) -> bool:
     """
     Associates one object with multiple objects in batch using v4 Associations API.
@@ -1280,15 +1289,15 @@ class HubSpotManager:
     and control over the association creation.
 
     Args:
-        from_object_type: The source object type (e.g., "leads", "contacts", "companies")
-        from_object_id: The ID of the source object
-        to_object_type: The target object type (e.g., "contacts", "companies")
-        to_object_ids: List of IDs of the target objects
-        association_type_id: The numeric ID of the association type
-        association_category: Either "HUBSPOT_DEFINED" or "USER_DEFINED"
+                    from_object_type: The source object type (e.g., "leads", "contacts", "companies")
+                    from_object_id: The ID of the source object
+                    to_object_type: The target object type (e.g., "contacts", "companies")
+                    to_object_ids: List of IDs of the target objects
+                    association_type_id: The numeric ID of the association type
+                    association_category: Either "HUBSPOT_DEFINED" or "USER_DEFINED"
 
     Returns:
-        Boolean indicating success or failure
+                    Boolean indicating success or failure
     """
     context = f"batch associating {from_object_type} {from_object_id} to {len(to_object_ids)} {to_object_type} (type {association_type_id})"
     logger.debug(f"Attempting to {context}")
@@ -1365,7 +1374,7 @@ class HubSpotManager:
 
   # --- Lead Methods (Using v3 Objects API) ---
   async def create_lead(
-          self, lead_data: HubSpotLeadProperties
+      self, lead_data: HubSpotLeadProperties
   ) -> HubSpotApiResult:
     """
     Creates a Lead in HubSpot using the v3 Objects API.
@@ -1373,10 +1382,10 @@ class HubSpotManager:
     the Leads object type as per HubSpot documentation.
 
     Args:
-        lead_data: Properties for the lead
+                    lead_data: Properties for the lead
 
     Returns:
-        HubSpotApiResult with status and details
+                    HubSpotApiResult with status and details
     """
     logger.info(
         f"Attempting to create lead with data: {lead_data.model_dump_json(indent=2, exclude_none=True)}"
@@ -1422,13 +1431,17 @@ class HubSpotManager:
               # Explicitly passing other Optional fields to satisfy Pylance
               # Mapping from lead_data.lead_properties where a reasonable counterpart exists
               # Assuming city might exist on lead_properties
-              city=getattr(lead_data.lead_properties, 'city', None),
+              city=getattr(
+                  lead_data.lead_properties, 'city', None),
               # Assuming zip might exist on lead_properties
-              zip=getattr(lead_data.lead_properties, 'zip', None),
+              zip=getattr(
+                  lead_data.lead_properties, 'zip', None),
               # Assuming address might exist on lead_properties
-              address=getattr(lead_data.lead_properties, 'address', None),
+              address=getattr(
+                  lead_data.lead_properties, 'address', None),
               # Assuming state might exist on lead_properties
-              state=getattr(lead_data.lead_properties, 'state', None),
+              state=getattr(
+                  lead_data.lead_properties, 'state', None),
 
               message=(", ".join(lead_data.lead_properties.additional_services_needed)
                        if lead_data.lead_properties and
@@ -1522,7 +1535,7 @@ class HubSpotManager:
 
       # 3. Create Lead (only if a contact or company was successfully created/found)
       if (
-              contact_id or company_id
+          contact_id or company_id
       ):  # Proceed if we have something to associate the lead with
         lead_name_parts = [
             lead_data.contact_firstname,
@@ -1740,11 +1753,11 @@ class HubSpotManager:
           message=response.get("message"),
           details={
               "contact_id": response.get("contact_id"),
-                      "company_id": response.get("company_id"),
-                      # Changed from deal_id to lead_id
-                      "lead_id": response.get("lead_id"),
-                      "errors": response.get("errors", []),
-                      "association_results": response.get("association_results"),
+              "company_id": response.get("company_id"),
+              # Changed from deal_id to lead_id
+              "lead_id": response.get("lead_id"),
+              "errors": response.get("errors", []),
+              "association_results": response.get("association_results"),
           }
       )
 
@@ -1793,11 +1806,11 @@ class HubSpotManager:
     Retrieves a lead by its HubSpot ID using the v3 Objects API.
 
     Args:
-        lead_id: The ID of the lead to retrieve
-        properties: Optional list of properties to fetch. If None, default properties will be used.
+                    lead_id: The ID of the lead to retrieve
+                    properties: Optional list of properties to fetch. If None, default properties will be used.
 
     Returns:
-        HubSpotApiResult with the lead data or error information
+                    HubSpotApiResult with the lead data or error information
     """
     logfire.info(f"Attempting to get lead by ID: {lead_id}")
 
@@ -1843,17 +1856,17 @@ class HubSpotManager:
       )
 
   async def update_lead_properties(
-          self, lead_id: str, properties: Dict[str, Any]
+      self, lead_id: str, properties: Dict[str, Any]
   ) -> HubSpotApiResult:
     """
     Update specific properties of a HubSpot lead using the v3 Objects API.
 
     Args:
-        lead_id: The HubSpot ID of the lead to update
-        properties: Dictionary of property keys and values to update
+                    lead_id: The HubSpot ID of the lead to update
+                    properties: Dictionary of property keys and values to update
 
     Returns:
-        HubSpotApiResult with status information
+                    HubSpotApiResult with status information
     """
     if not lead_id:
       logger.error("Cannot update lead: Missing lead ID.")
@@ -1910,17 +1923,17 @@ class HubSpotManager:
       return None
 
   async def associate_lead_to_contact(
-          self, lead_id: str, contact_id: str
+      self, lead_id: str, contact_id: str
   ) -> bool:
     """
     Associates a lead with a contact using the v4 Associations API.
 
     Args:
-        lead_id: The ID of the lead
-        contact_id: The ID of the contact
+                    lead_id: The ID of the lead
+                    contact_id: The ID of the contact
 
     Returns:
-        Boolean indicating success or failure
+                    Boolean indicating success or failure
     """
     # Using the standard lead-to-contact association type (numeric ID 280)
     # This is the same as "Lead to Contact" in the HubSpot UI

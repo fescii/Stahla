@@ -26,11 +26,11 @@ class Settings(BaseSettings):
   API_V1_STR: str = "/api/v1"
   # Base URL for constructing webhook URLs, needed for Bland callbacks etc.
   # Example: http://localhost:8000 or https://your-deployed-domain.com
-  APP_BASE_URL: str = "http://localhost:8000"
+  APP_BASE_URL: str = "https://stahla.fly.dev/"
 
   # HubSpot Configuration
   HUBSPOT_ACCESS_TOKEN: Optional[str] = Field(
-      None, description="HubSpot Private App Access Token")  # Added
+      default=None, description="HubSpot Private App Access Token")  # Added
   HUBSPOT_API_KEY: str = "YOUR_HUBSPOT_API_KEY_HERE"  # Default is just a placeholder
   HUBSPOT_CLIENT_SECRET: Optional[str] = None
   HUBSPOT_PORTAL_ID: Optional[str] = None  # Ensure this is defined
@@ -96,10 +96,11 @@ class Settings(BaseSettings):
   BLAND_PHONE_PREFIX: Optional[str] = None
 
   # Logfire Configuration
-  LOGFIRE_TOKEN: Optional[str] = Field(None, validation_alias="LOGFIRE_TOKEN")
+  LOGFIRE_TOKEN: Optional[str] = Field(
+      default=None, validation_alias="LOGFIRE_TOKEN")
   # Change type to bool and default to False
   LOGFIRE_IGNORE_NO_CONFIG: bool = Field(
-      False, validation_alias="LOGFIRE_IGNORE_NO_CONFIG", description="Suppress LogfireNotConfiguredWarning if True"
+      default=False, validation_alias="LOGFIRE_IGNORE_NO_CONFIG", description="Suppress LogfireNotConfiguredWarning if True"
   )
 
   # LLM Configuration
@@ -122,22 +123,23 @@ class Settings(BaseSettings):
 
   # Email Service Settings
   RESEND_API_KEY: Optional[str] = Field(
-      None, validation_alias="RESEND_API_KEY")
+      default=None, validation_alias="RESEND_API_KEY")
 
   # N8N / Orchestration Configuration (Optional)
-  N8N_ENABLED: bool = Field(False, validation_alias="N8N_ENABLED")
+  N8N_ENABLED: bool = Field(default=False, validation_alias="N8N_ENABLED")
   N8N_WEBHOOK_URL_CLASSIFICATION_DONE: Optional[str] = Field(
-      None, validation_alias="N8N_WEBHOOK_URL_CLASSIFICATION_DONE")
+      default=None, validation_alias="N8N_WEBHOOK_URL_CLASSIFICATION_DONE")
 
   # Email Configuration (Optional - if sending auto-replies)
   EMAIL_SENDING_ENABLED: bool = Field(
-      False, validation_alias="EMAIL_SENDING_ENABLED")
-  SMTP_HOST: Optional[str] = Field(None, validation_alias="SMTP_HOST")
-  SMTP_PORT: Optional[int] = Field(587, validation_alias="SMTP_PORT")
-  SMTP_USER: Optional[str] = Field(None, validation_alias="SMTP_USER")
-  SMTP_PASSWORD: Optional[str] = Field(None, validation_alias="SMTP_PASSWORD")
+      default=False, validation_alias="EMAIL_SENDING_ENABLED")
+  SMTP_HOST: Optional[str] = Field(default=None, validation_alias="SMTP_HOST")
+  SMTP_PORT: Optional[int] = Field(default=587, validation_alias="SMTP_PORT")
+  SMTP_USER: Optional[str] = Field(default=None, validation_alias="SMTP_USER")
+  SMTP_PASSWORD: Optional[str] = Field(
+      default=None, validation_alias="SMTP_PASSWORD")
   EMAIL_FROM_ADDRESS: Optional[EmailStr] = Field(
-      None, validation_alias="EMAIL_FROM_ADDRESS")
+      default=None, validation_alias="EMAIL_FROM_ADDRESS")
 
   # Add validator for EMAIL_FROM_ADDRESS
   @validator('EMAIL_FROM_ADDRESS', pre=True)
@@ -150,7 +152,7 @@ class Settings(BaseSettings):
   # Classification Logic Settings
   LOCAL_DISTANCE_THRESHOLD_MILES: int = Field(
       # Default 180 miles (approx 3 hours)
-      180, validation_alias="LOCAL_DISTANCE_THRESHOLD_MILES")
+      default=180, validation_alias="LOCAL_DISTANCE_THRESHOLD_MILES")
 
   # Redis Configuration
   REDIS_URL: str = "redis://localhost:6379/0"
@@ -173,7 +175,7 @@ class Settings(BaseSettings):
   # MongoDB Configuration (Updated Variable Names)
   MONGO_HOST: str = "localhost"
   MONGO_PORT: int = 27017
-  MONGO_DB_NAME: str = "stahla_dashboard"  # Keep config default, .env overrides
+  MONGO_DB_NAME: str = "admin"  # Use admin database for unified auth
   # Renamed from MONGO_INITDB_ROOT_USERNAME
   MONGO_ROOT_USER: Optional[str] = None
   # Renamed from MONGO_INITDB_ROOT_PASSWORD
@@ -225,7 +227,7 @@ def get_settings() -> Settings:
       host = settings_instance.MONGO_HOST
       port = settings_instance.MONGO_PORT
       db_name = settings_instance.MONGO_DB_NAME
-      auth_source = "admin"  # Common default, adjust if needed
+      auth_source = "admin"
 
       if user and password:
         mongo_url = f"mongodb://{user}:{password}@{host}:{port}/{db_name}?authSource={auth_source}"

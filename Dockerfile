@@ -1,28 +1,83 @@
-# Use an official Python runtime as a parent image
-FROM python:3.13-alpine
+# Multi-service Dockerfile for Stahla application
+# Includes MongoDB, Redis, FastAPI, and Nginx in a single container
 
-# Install build dependencies required by psutil
-RUN apk update && apk add --no-cache gcc python3-dev musl-dev linux-headers
+FROM ubuntu:22.04
 
-# Set the working directory in the container
-WORKDIR /code
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Copy the requirements file into the container at /code
-COPY requirements.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+  wget \
+  gnupg \
+  lsb-release \
+  software-properties-common \
+  curl \
+  build-essential \
+  supervisor \
+  nginx \
+  python3 \
+  python3-pip \
+  python3-venv \
+  net-tools \
+  lsof \
+  iproute2 \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Install MongoDB
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - && \
+  echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
+  apt-get update && \
+  apt-get install -y mongodb-org && \
+  rm -rf /var/lib/apt/lists/*
 
-# Copy the application code into the container at /code/app
-COPY ./app /code/app
+# Install Redis
+RUN add-apt-repository ppa:redislabs/redis && \
+  apt-get update && \
+  apt-get install -y redis-server && \
+  rm -rf /var/lib/apt/lists/*
 
-# Make port 8000 available to the world outside this container
-EXPOSE 8000
+# Create application directory
+WORKDIR /app
 
-# Define environment variable (optional, can be set in docker-compose.yml)
-# ENV NAME World
+# Copy application files
+COPY app ./app
+COPY requirements.txt ./requirements.txt
 
-# Command to run the app - for Fly.io deployment
-# In production, we don't use --reload
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Copy configuration files
+COPY fly-deployment/old-individual-services/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY fly-deployment/old-individual-services/nginx/default.conf /etc/nginx/conf.d/default.conf
+
+# Copy MongoDB initialization files
+COPY fly-deployment/old-individual-services/mongodb/init-mongo-fly.js ./init-mongo.js
+COPY fly-deployment/old-individual-services/mongodb/init-mongo-fly.sh ./init-mongo.sh
+
+# Create Python virtual environment and install dependencies
+RUN python3 -m venv /app/venv && \
+  . /app/venv/bin/activate && \
+  pip install --upgrade pip && \
+  pip install -r requirements.txt
+
+# Create necessary directories
+RUN mkdir -p /data/mongodb /data/redis /data/logs /var/log/nginx && \
+  chown -R mongodb:mongodb /data/mongodb && \
+  chown -R redis:redis /data/redis && \
+  chown -R www-data:www-data /var/log/nginx
+
+# Copy service initialization script
+COPY startup.sh ./startup.sh
+COPY fly-deployment/init-all-services.sh ./init-all-services.sh
+RUN chmod +x ./startup.sh ./init-mongo.sh ./init-all-services.sh
+
+# Remove default nginx site
+RUN rm -f /etc/nginx/sites-enabled/default
+
+# Expose ports
+EXPOSE 80 443 8000 27017 6379
+
+# Set environment variables
+ENV PATH="/app/venv/bin:$PATH"
+ENV PYTHONPATH="/app"
+
+# Default command - will be overridden by fly.toml processes
+CMD ["./startup.sh"]
