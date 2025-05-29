@@ -1,0 +1,312 @@
+{
+  "inputs": [
+    {
+      "name": "what_service_do_you_need_",
+      "label": "What services do you need?",
+      "type": "enumeration",
+      "fieldType": "checkbox",
+      "groupName": "contactinformation",
+      "description": "",
+      "options": [
+        {
+          "label": "Restroom Trailer",
+          "value": "Restroom Trailer",
+          "displayOrder": 1
+        },
+        {
+          "label": "Shower Trailer",
+          "value": "Shower Trailer",
+          "displayOrder": 2
+        },
+        {
+          "label": "Laundry Trailer",
+          "value": "Laundry Trailer",
+          "displayOrder": 3
+        },
+        {
+          "label": "Porta Potty",
+          "value": "Porta Potty",
+          "displayOrder": 4
+        },
+        {
+          "label": "Trailer Repair / Pump Out",
+          "value": "Trailer Repair / Pump Out",
+          "displayOrder": 5
+        },
+        {
+          "label": "Other",
+          "value": "Other",
+          "displayOrder": 6
+        }
+      ]
+    },
+    {
+      "name": "how_many_restroom_stalls_",
+      "label": "How Many Restroom Stalls?",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "how_many_shower_stalls_",
+      "label": "How Many Shower Stalls?",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "how_many_laundry_units_",
+      "label": "How many laundry Units?",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "your_message",
+      "label": "Tell us how we can help",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "ada",
+      "label": "Check this box if you need the Americans with Disabilities Act (ADA) standards for accessibility.",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "contactinformation",
+      "description": "",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "do_you_have_water_access_onsite_",
+      "label": "Do you have water access available onsite?",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "do_you_have_power_access_onsite_",
+      "label": "Do you have power access available onsite?",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "how_many_portable_toilet_stalls_",
+      "label": "How Many Portable Toilet Stalls?",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "event_or_job_address",
+      "label": "Event or Job Address",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "zip",
+      "label": "Postal code",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "city",
+      "label": "City",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "address",
+      "label": "Street Address",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "event_start_date",
+      "label": "Event start date",
+      "type": "date",
+      "fieldType": "date",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "event_end_date",
+      "label": "Event end date",
+      "type": "date",
+      "fieldType": "date",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "firstname",
+      "label": "First name",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "lastname",
+      "label": "Last name",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "phone",
+      "label": "Phone number",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "email",
+      "label": "Email",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "message",
+      "label": "Message",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "contactinformation",
+      "description": ""
+    },
+    {
+      "name": "by_submitting_this_form_you_consent_to_receive_texts",
+      "label": "I consent to receive texts on the phone number provided",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "contactinformation",
+      "description": "",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "ai_call_summary",
+      "label": "AI Call Summary",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "contactinformation",
+      "description": "Summary of the AI-qualified call details."
+    },
+    {
+      "name": "ai_call_sentiment",
+      "label": "AI Call Sentiment",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "contactinformation",
+      "description": "Assessment of prospect sentiment/tone.",
+      "options": [
+        {
+          "label": "positive",
+          "value": "positive",
+          "displayOrder": 1
+        },
+        {
+          "label": "neutral",
+          "value": "neutral",
+          "displayOrder": 2
+        },
+        {
+          "label": "negative",
+          "value": "negative",
+          "displayOrder": 3
+        }
+      ]
+    },
+    {
+      "name": "call_recording_url",
+      "label": "Call Recording URL",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "contactinformation",
+      "description": "URL link to the recorded call"
+    },
+    {
+      "name": "call_summary",
+      "label": "Call Summary",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "contactinformation",
+      "description": "AI\u2011generated summary of what was discussed on the call"
+    },
+    {
+      "name": "company_size",
+      "label": "Company Size",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "contactinformation",
+      "description": "Size of the company or organization",
+      "options": [
+        {
+          "label": "1-10 employees",
+          "value": "1-10 employees",
+          "displayOrder": 1
+        },
+        {
+          "label": "11-50 employees",
+          "value": "11-50 employees",
+          "displayOrder": 2
+        },
+        {
+          "label": "51-200 employees",
+          "value": "51-200 employees",
+          "displayOrder": 3
+        },
+        {
+          "label": "201-1000 employees",
+          "value": "201-1000 employees",
+          "displayOrder": 4
+        },
+        {
+          "label": "1000+ employees",
+          "value": "1000+ employees",
+          "displayOrder": 5
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,470 @@
+{
+  "inputs": [
+    {
+      "name": "project_category",
+      "label": "Project Category",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "leadinformation",
+      "description": "Type of inquiry or project (e.g. Event, Construction, Facility, Disaster Relief, Other) for this lead; used to tailor qualification flow and routing.",
+      "options": [
+        {
+          "label": "Event / Porta Potty",
+          "value": "Event / Porta Potty",
+          "displayOrder": 1
+        },
+        {
+          "label": "Construction / Porta Potty",
+          "value": "Construction / Porta Potty",
+          "displayOrder": 2
+        },
+        {
+          "label": "Small Event / Trailer / Local",
+          "value": "Small Event / Trailer / Local",
+          "displayOrder": 3
+        },
+        {
+          "label": "Small Event / Trailer / Not Local",
+          "value": "Small Event / Trailer / Not Local",
+          "displayOrder": 4
+        },
+        {
+          "label": "Large Event / Trailer / Local",
+          "value": "Large Event / Trailer / Local",
+          "displayOrder": 5
+        },
+        {
+          "label": "Large Event / Trailer / Not Local",
+          "value": "Large Event / Trailer / Not Local",
+          "displayOrder": 6
+        },
+        {
+          "label": "Disaster Relief / Trailer / Local",
+          "value": "Disaster Relief / Trailer / Local",
+          "displayOrder": 7
+        },
+        {
+          "label": "Disaster Relief / Trailer / Not Local",
+          "value": "Disaster Relief / Trailer / Not Local",
+          "displayOrder": 8
+        },
+        {
+          "label": "Construction / Company Trailer / Local",
+          "value": "Construction / Company Trailer / Local",
+          "displayOrder": 9
+        },
+        {
+          "label": "Construction / Company Trailer / Not Local",
+          "value": "Construction / Company Trailer / Not Local",
+          "displayOrder": 10
+        },
+        {
+          "label": "Facility / Trailer / Local",
+          "value": "Facility / Trailer / Local",
+          "displayOrder": 11
+        },
+        {
+          "label": "Facility / Trailer / Not Local",
+          "value": "Facility / Trailer / Not Local",
+          "displayOrder": 12
+        }
+      ]
+    },
+    {
+      "name": "ai_intended_use",
+      "label": "AI Intended Use",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "leadinformation",
+      "description": "AI‑identified intended purpose for this inquiry"
+    },
+    {
+      "name": "units_needed",
+      "label": "Units Needed (Description)",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "leadinformation",
+      "description": "Summary of quantity and type of units required (e.g.: \u201c2-stall restroom trailer and 10 portable toilets\u201d)."
+    },
+    {
+      "name": "expected_attendance",
+      "label": "Expected Attendance/Users",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "Number of people the facilities need to support (for events or project capacity)."
+    },
+    {
+      "name": "ada_required",
+      "label": "ADA Accessible Required",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Indicates if ADA-compliant (handicap accessible) facilities are needed.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "additional_services_needed",
+      "label": "Additional Services Needed",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "leadinformation",
+      "description": "Other services or equipment needed beyond core rentals (e.g. tent, fencing, generator, water supply, dumpster)."
+    },
+    {
+      "name": "onsite_facilities",
+      "label": "Other Facilities On-site",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Whether there are existing facilities at the site.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "rental_start_date",
+      "label": "Rental Start Date",
+      "type": "date",
+      "fieldType": "date",
+      "groupName": "leadinformation",
+      "description": "When the unit(s) will be needed on site."
+    },
+    {
+      "name": "rental_end_date",
+      "label": "Rental End Date",
+      "type": "date",
+      "fieldType": "date",
+      "groupName": "leadinformation",
+      "description": "Expected end date or pickup date for the rental."
+    },
+    {
+      "name": "site_working_hours",
+      "label": "Site Working Hours",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "leadinformation",
+      "description": "Working hours or access times at the site."
+    },
+    {
+      "name": "weekend_service_needed",
+      "label": "Weekend Service Needed",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Indicates if service is required over the weekend.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "cleaning_service_needed",
+      "label": "Cleaning/Restocking Needed",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Indicates prospect needs cleaning or restocking service.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "onsite_contact_name",
+      "label": "On-site Contact Name",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "leadinformation",
+      "description": "Alternate on-site contact name for coordination."
+    },
+    {
+      "name": "onsite_contact_phone",
+      "label": "On-site Contact Phone",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "leadinformation",
+      "description": "Phone number for the on-site contact."
+    },
+    {
+      "name": "site_ground_type",
+      "label": "Site Ground Surface Type",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "leadinformation",
+      "description": "Ground/terrain at the drop-off location (e.g. Concrete, Gravel, Grass).",
+      "options": [
+        {
+          "label": "Cement",
+          "value": "Cement",
+          "displayOrder": 1
+        },
+        {
+          "label": "Gravel",
+          "value": "Gravel",
+          "displayOrder": 2
+        },
+        {
+          "label": "Dirt",
+          "value": "Dirt",
+          "displayOrder": 3
+        },
+        {
+          "label": "Grass",
+          "value": "Grass",
+          "displayOrder": 4
+        }
+      ]
+    },
+    {
+      "name": "site_obstacles",
+      "label": "Site Obstacles/Access Notes",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "leadinformation",
+      "description": "Notes on access limitations or obstacles at the site."
+    },
+    {
+      "name": "water_source_distance",
+      "label": "Distance to Water Source (ft)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "Approximate distance from unit location to nearest water source."
+    },
+    {
+      "name": "power_source_distance",
+      "label": "Distance to Power Source (ft)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "Approximate distance from unit location to nearest power source."
+    },
+    {
+      "name": "within_local_service_area",
+      "label": "Within Local Service Area",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Checked if location is within ~3 hours of a service hub.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "partner_referral_consent",
+      "label": "Consent to Partner Referral",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Indicates if prospect agreed to share info with partner companies.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "needs_human_follow_up",
+      "label": "Needs Human Follow-Up",
+      "type": "enumeration",
+      "fieldType": "booleancheckbox",
+      "groupName": "leadinformation",
+      "description": "Flag for AI to escalate leads needing human clarification.",
+      "options": [
+        {
+          "label": "Yes",
+          "value": "true",
+          "displayOrder": 1
+        },
+        {
+          "label": "No",
+          "value": "false",
+          "displayOrder": 2
+        }
+      ]
+    },
+    {
+      "name": "quote_urgency",
+      "label": "Quote Urgency",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "leadinformation",
+      "description": "How quickly the prospect wants a quote or follow-up.",
+      "options": [
+        {
+          "label": "Short-Term",
+          "value": "Short-Term",
+          "displayOrder": 1
+        },
+        {
+          "label": "Long-Term/Planning",
+          "value": "Long-Term/Planning",
+          "displayOrder": 2
+        },
+        {
+          "label": "Medium-Term",
+          "value": "Medium-Term",
+          "displayOrder": 3
+        },
+        {
+          "label": "Immediate/Urgent",
+          "value": "Immediate/Urgent",
+          "displayOrder": 4
+        },
+        {
+          "label": "Other",
+          "value": "Other",
+          "displayOrder": 5
+        }
+      ]
+    },
+    {
+      "name": "ai_lead_type",
+      "label": "AI Lead Type",
+      "type": "enumeration",
+      "fieldType": "select",
+      "groupName": "leadinformation",
+      "description": "AI\u2011determined category of the lead (e.g. Event, Construction, etc.)",
+      "options": [
+        {
+          "label": "Services",
+          "value": "Services",
+          "displayOrder": 1
+        },
+        {
+          "label": "Logistics",
+          "value": "Logistics",
+          "displayOrder": 2
+        },
+        {
+          "label": "Leads",
+          "value": "Leads",
+          "displayOrder": 3
+        },
+        {
+          "label": "Disqualify",
+          "value": "Disqualify",
+          "displayOrder": 4
+        }
+      ]
+    },
+    {
+      "name": "ai_classification_reasoning",
+      "label": "AI Classification Reasoning",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "leadinformation",
+      "description": "Explanation of the AI\u2019s logic in classifying this lead"
+    },
+    {
+      "name": "ai_classification_confidence",
+      "label": "AI Classification Confidence",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "Confidence score (0\u20131) for the AI\u2019s classification"
+    },
+    {
+      "name": "ai_routing_suggestion",
+      "label": "AI Routing Suggestion",
+      "type": "string",
+      "fieldType": "text",
+      "groupName": "leadinformation",
+      "description": "Pipeline or stage the AI recommends routing this lead into"
+    },
+    {
+      "name": "ai_qualification_notes",
+      "label": "AI Qualification Notes",
+      "type": "string",
+      "fieldType": "textarea",
+      "groupName": "leadinformation",
+      "description": "Key notes from the AI\u2019s qualification assessment"
+    },
+    {
+      "name": "number_of_stalls",
+      "label": "Number of Stalls (from Call/Form)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "How many stalls were requested (from call or form)"
+    },
+    {
+      "name": "event_duration_days",
+      "label": "Event Duration Days (from Call/Form)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "Number of days the prospect needs the units"
+    },
+    {
+      "name": "guest_count_estimate",
+      "label": "Guest Count Estimate (from Call/Form)",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "Estimated attendee count (optional)"
+    },
+    {
+      "name": "ai_estimated_value",
+      "label": "AI Estimated Value",
+      "type": "number",
+      "fieldType": "number",
+      "groupName": "leadinformation",
+      "description": "AI\u2011calculated estimate of deal value",
+      "numberDisplayHint": "CURRENCY"
+    }
+  ]
+}

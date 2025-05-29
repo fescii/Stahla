@@ -1,3 +1,4 @@
+import difflib
 import logging
 import math
 import json
@@ -866,32 +867,56 @@ class QuoteService:
 
       # --- Service Pricing (Pump out, Water Fill, Cleaning, Restocking) ---
       # Use costs associated with the *trailer* being rented
-      elif extra_id in product_extras:
-        service_cost = product_extras.get(extra_id)
-        if service_cost is not None:
-          item_cost = service_cost * qty  # Cost is per service instance
-          unit_price = service_cost
-          # Make description friendlier
-          service_name = extra_id.replace("_", " ").title()
-          description = f"{qty}x {service_name} Service"
-          # Safe formatting for log
-          cost_str = f"${item_cost:.2f}" if isinstance(
-              item_cost, (int, float)) else str(item_cost)
-          logger.info(
-              f"Calculated service cost for \'{extra_id}\' (Qty: {qty}): {cost_str}"
-          )
+      elif product_extras:  # Only try services if we have product extras
+        # Try to normalize the extra_id to match available services
+        normalized_extra_id = self._normalize_extra_id(
+            extra_id, product_extras)
+
+        if normalized_extra_id and normalized_extra_id in product_extras:
+          service_cost = product_extras.get(normalized_extra_id)
+          if service_cost is not None:
+            item_cost = service_cost * qty  # Cost is per service instance
+            unit_price = service_cost
+            # Make description friendlier using the original input for display
+            service_name = extra_id.replace("_", " ").title()
+            description = f"{qty}x {service_name} Service"
+            # Safe formatting for log
+            cost_str = f"${item_cost:.2f}" if isinstance(
+                item_cost, (int, float)) else str(item_cost)
+            logger.info(
+                f"Calculated service cost for \'{extra_id}\' (normalized to '{normalized_extra_id}') (Qty: {qty}): {cost_str}"
+            )
+          else:
+            logger.warning(
+                f"Service '{normalized_extra_id}' found but has no price in catalog for trailer {trailer_id}."
+            )
+            await self.mongo_service.log_error_to_db(
+                service_name="QuoteService._calculate_extras_cost",
+                error_type="PricingUnavailable",
+                message=f"Service '{normalized_extra_id}' has no price in catalog for trailer {trailer_id}.",
+                details={"extra_id": extra_id,
+                         "normalized_extra_id": normalized_extra_id, "trailer_id": trailer_id},
+            )
+            item_cost = 0.00
+            description = f"{qty}x {extra_id.replace('_', ' ').title()} (Pricing Unavailable)"
         else:
+          # Service not found even after normalization
           logger.warning(
-              f"Service '{extra_id}' found but has no price in catalog for trailer {trailer_id}."
+              f"Service '{extra_id}' not found in product extras even after normalization. Available services: {list(product_extras.keys()) if product_extras else 'None'}"
           )
           await self.mongo_service.log_error_to_db(
               service_name="QuoteService._calculate_extras_cost",
-              error_type="PricingUnavailable",
-              message=f"Service '{extra_id}' has no price in catalog for trailer {trailer_id}.",
-              details={"extra_id": extra_id, "trailer_id": trailer_id},
+              error_type="ServiceNotFound",
+              message=f"Service '{extra_id}' not found in product extras.",
+              details={
+                  "extra_id": extra_id,
+                  "trailer_id": trailer_id,
+                  "available_product_extras": list(product_extras.keys()) if product_extras else [],
+                  "normalization_attempted": True
+              },
           )
           item_cost = 0.00
-          description = f"{qty}x {extra_id.replace('_', ' ').title()} (Pricing Unavailable)"
+          description = f"{qty}x {extra_id} (Unknown Service)"
 
       # --- Add logic for other non-catalog extras if needed ---
       # elif extra_id == 'attendant_service':
@@ -899,15 +924,21 @@ class QuoteService:
       #    unit_price = 500.00
       #    description = f"{qty}x On-site Attendant Service"
 
+      # --- Fallback for completely unknown items ---
       else:
         logger.warning(
-            f"Extra item '{extra_id}' not found in pricing catalog or product extras."
+            f"Extra item '{extra_id}' not found in pricing catalog or product extras. Available product extras: {list(product_extras.keys()) if product_extras else 'None'}"
         )
         await self.mongo_service.log_error_to_db(
             service_name="QuoteService._calculate_extras_cost",
             error_type="ItemNotFound",
             message=f"Extra item '{extra_id}' not found in pricing catalog or product extras.",
-            details={"extra_id": extra_id, "trailer_id": trailer_id},
+            details={
+                "extra_id": extra_id,
+                "trailer_id": trailer_id,
+                "available_product_extras": list(product_extras.keys()) if product_extras else [],
+                "available_generators": list(generators_catalog.keys()) if generators_catalog else []
+            },
         )
         item_cost = 0.00
         description = f"{qty}x {extra_id} (Unknown Item)"
@@ -1342,10 +1373,10 @@ class QuoteService:
       else:
         cost_breakdown[category] = item.total
 
-    # Check if delivery is included (free)
-    is_delivery_included = False
+    # Check if delivery is free (no charge)
+    is_delivery_free = False
     if delivery_details_for_response and delivery_details_for_response.total_delivery_cost == 0:
-      is_delivery_included = True
+      is_delivery_free = True
 
     budget_details = {
         "subtotal": round(subtotal, 2),
@@ -1354,7 +1385,7 @@ class QuoteService:
         "weekly_rate_equivalent": weekly_rate,
         "monthly_rate_equivalent": monthly_rate,
         "cost_breakdown": cost_breakdown,
-        "is_delivery_included": is_delivery_included,
+        "is_delivery_free": is_delivery_free,
         "discounts_applied": None  # Would come from applied discounts
     }
 
@@ -1699,6 +1730,82 @@ class QuoteService:
         distance_meters=distance_meters,
         duration_seconds=duration_seconds,
     )
+
+  def _normalize_extra_id(self, extra_id: str, available_extras: Dict[str, Any]) -> Optional[str]:
+    """
+    Normalizes extra_id to match available extras using case-insensitive matching
+    and fuzzy matching for common variations.
+
+    Returns the normalized key if found, None otherwise.
+    """
+    if not extra_id or not available_extras:
+      return None
+
+    # First try exact match (case-sensitive)
+    if extra_id in available_extras:
+      return extra_id
+
+    # Convert to lowercase for case-insensitive matching
+    extra_id_lower = extra_id.lower().strip()
+
+    # Try direct lowercase match
+    for key in available_extras.keys():
+      if key.lower() == extra_id_lower:
+        return key
+
+    # Define common aliases and variations
+    service_aliases = {
+        # Restocking variations
+        "restocking": ["restock", "restocking service", "re-stocking", "restocking supplies"],
+
+        # Fresh water variations (stored as fresh_water_tank_fill)
+        "fresh_water_tank_fill": [
+            "fresh water", "water fill", "fresh water fill", "water tank fill",
+            "fresh water service", "water service", "freshwater", "fresh water tank",
+            "water tank", "fresh water supply", "water supply", "fresh_water", "fresh_water_tank_fill"
+        ],
+
+        # Pump out variations (stored as pump_out_waste_tank)
+        "pump_out_waste_tank": [
+            "pump out", "pump_out", "waste pump", "waste tank pump", "pump waste", "septic pump",
+            "waste removal", "pump out service", "waste tank service", "pump-out",
+            "waste tank", "septic service", "pumpout", "pump_out_waste_tank"
+        ],
+
+        # Cleaning variations
+        "cleaning": [
+            "clean", "cleaning service", "sanitizing", "sanitization", "disinfecting",
+            "deep clean", "maintenance cleaning"
+        ]
+    }
+
+    # Check if input matches any alias
+    for standard_name, aliases in service_aliases.items():
+      # Check if the standard name is in available extras
+      for available_key in available_extras.keys():
+        if available_key.lower() == standard_name:
+          # Check if input matches any alias for this service
+          if extra_id_lower in [alias.lower() for alias in aliases]:
+            return available_key
+
+    # Fuzzy matching as last resort using difflib
+    available_keys_lower = {
+        key.lower(): key for key in available_extras.keys()}
+
+    # Use difflib to find close matches (threshold of 0.6 for reasonable accuracy)
+    close_matches = difflib.get_close_matches(
+        extra_id_lower,
+        available_keys_lower.keys(),
+        n=1,
+        cutoff=0.6
+    )
+
+    if close_matches:
+      return available_keys_lower[close_matches[0]]
+
+    return None
+
+  # ...existing methods...
 
 
 # Dependency injection function

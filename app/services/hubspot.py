@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import json
 
+import httpx
 from cachetools import TTLCache
 from hubspot import HubSpot
 from hubspot.crm.associations.v4.models import (
@@ -187,6 +188,16 @@ class HubSpotManager:
     except Exception as e:
       logger.error(f"Failed to initialize HubSpot client: {e}", exc_info=True)
       raise ValueError(f"Failed to initialize HubSpot client: {e}")
+
+    # Initialize httpx client for direct API calls
+    self._http_client = httpx.AsyncClient(
+        base_url="https://api.hubapi.com",
+        headers={
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        },
+        timeout=30.0
+    )
 
     self.pipelines_cache = TTLCache(
         maxsize=100, ttl=settings.CACHE_TTL_HUBSPOT_PIPELINES
@@ -1879,7 +1890,8 @@ class HubSpotManager:
 
     if not properties:
       logger.warning(
-          f"Update lead called for ID {lead_id} with no properties to update. Skipping API call.")
+          f"Update lead called for ID {lead_id} with no properties to update. Skipping API call."
+      )
       return HubSpotApiResult(
           status="success",
           message="No properties to update, operation skipped.",
@@ -1975,29 +1987,316 @@ class HubSpotManager:
       return f"error: Unexpected error: {str(e)}"
 
   async def close(self):
-    """Placeholder close method for HubSpotManager if needed by a shutdown sequence."""
-    # The HubSpot client typically doesn't require explicit closing for stateless API calls.
-    # If there were specific resources to release (e.g., a persistent connection pool
-    # not managed by the underlying HTTP library), they would be handled here.
-    logger.info(
-        "HubSpotManager close called. No specific resources to release for the default client."
-    )
+    """Close HubSpotManager resources including httpx client."""
+    try:
+      await self._http_client.aclose()
+      logger.info("HubSpotManager resources closed successfully.")
+    except Exception as e:
+      logger.error(f"Error closing HubSpotManager resources: {e}")
     pass
 
+  # --- Property Management Methods ---
+  async def create_property(
+      self, object_type: str, property_data: Dict[str, Any]
+  ) -> Optional[Dict[str, Any]]:
+    """
+    Create a custom property for the specified object type.
 
-# Instantiate the manager for global use, ensuring settings are loaded
-# This allows other modules to import hubspot_manager directly.
-# Ensure app.core.config.settings are available when this module is imported.
-try:
-  hubspot_manager = HubSpotManager()
-except ValueError as e:
-  logger.critical(
-      f"Failed to initialize HubSpotManager at module level: {e}", exc_info=True
-  )
-  # Depending on the application's desired behavior for a critical setup failure,
-  # you might raise the error further or exit, or allow a None object
-  # For now, we'll let it be None and dependent services should handle this.
-  hubspot_manager = None
-  # We're setting hubspot_manager to None, so we don't need to raise an error here.
-  # Dependent services should check if hubspot_manager is None before using it.
-  # raise RuntimeError(f"HubSpotManager initialization failed: {e}")
+    Args:
+        object_type: The object type (e.g., 'contacts', 'leads')
+        property_data: Property definition including name, label, type, fieldType, etc.
+    """
+    try:
+      # Map group names for different object types
+      group_name = property_data["groupName"]
+      if object_type == "contacts" and group_name == "leadinformation":
+        group_name = "contactinformation"  # Map lead group to contact group
+
+      # Handle field type mappings for HubSpot compatibility
+      field_type = property_data["fieldType"]
+      property_type = property_data["type"]
+
+      # Skip properties with empty options for enumeration types
+      if property_type == "enumeration":
+        options = property_data.get("options", [])
+        if not options or len(options) == 0:
+          logfire.warning(
+              f"Skipping property '{property_data['name']}' - enumeration type requires at least one option"
+          )
+          return None
+
+      # For multi-select checkboxes in HubSpot, use "checkbox" fieldType with "enumeration" type
+      if field_type == "checkbox" and property_type == "enumeration":
+        # This is correct for multi-select
+        pass
+      elif property_type == "bool":
+        # Ensure boolean properties use the correct fieldType
+        if field_type not in ["booleancheckbox", "checkbox"]:
+          field_type = "booleancheckbox"
+
+      # Additional field type validations
+      if property_type == "string":
+        # Ensure string types have valid fieldTypes
+        if field_type not in ["text", "textarea", "email", "phonenumber"]:
+          field_type = "text"  # Default to text for strings
+
+      # Map our property data to HubSpot's expected format
+      hubspot_property = {
+          "name": property_data["name"],
+          "label": property_data["label"],
+          "type": property_type,
+          "fieldType": field_type,
+          "groupName": group_name,
+          "description": property_data.get("description", ""),
+      }
+
+      # Add options for enumeration properties
+      if property_type == "enumeration" and "options" in property_data:
+        hubspot_property["options"] = property_data["options"]
+
+      # Use the httpx client to make the API request
+      response = await self._http_client.post(
+          f"/crm/v3/properties/{object_type}",
+          json=hubspot_property
+      )
+      response.raise_for_status()
+
+      logfire.info(
+          f"Successfully created property '{property_data['name']}' for {object_type}"
+      )
+      return response.json()
+
+    except httpx.HTTPStatusError as e:
+      # Handle specific "property already exists" error
+      if e.response.status_code == 409:  # Conflict - property already exists
+        logfire.info(
+            f"Property '{property_data['name']}' already exists for {object_type}"
+        )
+        return await self.get_property(object_type, property_data["name"])
+
+      # Log detailed error information for debugging
+      try:
+        error_response = e.response.json()
+        error_message = error_response.get("message", e.response.text)
+      except:
+        error_message = e.response.text
+
+      logfire.error(
+          "Failed to create property with detailed error",
+          object_type=object_type,
+          property_name=property_data["name"],
+          property_label=property_data["label"],
+          property_type=property_type,
+          field_type=field_type,
+          group_name=group_name,
+          status_code=e.response.status_code,
+          error_message=error_message,
+          request_payload=hubspot_property
+      )
+      # Also log to regular logger for visibility
+      logger.error(
+          f"Failed to create property '{property_data['name']}' for {object_type}: "
+          f"Status {e.response.status_code} - {error_message}"
+      )
+      return None
+    except Exception as e:
+      logfire.error(
+          "Failed to create property",
+          object_type=object_type,
+          property_name=property_data["name"],
+          error=str(e)
+      )
+      return None
+
+  async def get_property(
+      self, object_type: str, property_name: str
+  ) -> Optional[Dict[str, Any]]:
+    """Get a specific property definition by name."""
+    try:
+      response = await self._http_client.get(
+          f"/crm/v3/properties/{object_type}/{property_name}"
+      )
+      response.raise_for_status()
+      return response.json()
+    except httpx.HTTPStatusError as e:
+      if e.response.status_code == 404:  # Property doesn't exist
+        return None
+
+      logfire.error(
+          "Failed to get property",
+          object_type=object_type,
+          property_name=property_name,
+          status_code=e.response.status_code,
+          error=e.response.text
+      )
+      return None
+    except Exception as e:
+      logfire.error(
+          "Failed to get property",
+          object_type=object_type,
+          property_name=property_name,
+          error=str(e)
+      )
+      return None
+
+  async def get_all_properties(
+      self, object_type: str
+  ) -> List[Dict[str, Any]]:
+    """Get all properties for the specified object type."""
+    try:
+      response = await self._http_client.get(
+          f"/crm/v3/properties/{object_type}"
+      )
+      response.raise_for_status()
+      result = response.json()
+      return result.get("results", [])
+    except httpx.HTTPStatusError as e:
+      logfire.error(
+          "Failed to get all properties",
+          object_type=object_type,
+          status_code=e.response.status_code,
+          error=e.response.text
+      )
+      return []
+    except Exception as e:
+      logfire.error(
+          "Failed to get all properties",
+          object_type=object_type,
+          error=str(e)
+      )
+      return []
+
+  async def batch_create_properties(
+      self, object_type: str, properties_data: List[Dict[str, Any]]
+  ) -> Dict[str, Any]:
+    """
+    Batch create multiple properties for the specified object type.
+
+    Returns:
+        Dict with 'created', 'existing', and 'failed' lists
+    """
+    results = {
+        "created": [],
+        "existing": [],
+        "failed": []
+    }
+
+    try:
+      # Prepare batch payload
+      batch_inputs = []
+      for prop_data in properties_data:
+        hubspot_property = {
+            "name": prop_data["name"],
+            "label": prop_data["label"],
+            "type": prop_data["type"],
+            "fieldType": prop_data["fieldType"],
+            "groupName": prop_data["groupName"],
+            "description": prop_data.get("description", ""),
+        }
+
+        # Add options for enumeration properties
+        if prop_data["type"] == "enumeration" and "options" in prop_data:
+          hubspot_property["options"] = prop_data["options"]
+
+        batch_inputs.append(hubspot_property)
+
+      # Make batch create request
+      response = await self._http_client.post(
+          f"/crm/v3/properties/{object_type}/batch/create",
+          json={"inputs": batch_inputs}
+      )
+      response.raise_for_status()
+
+      response_data = response.json()
+
+      # Process successful results
+      if "results" in response_data:
+        for result in response_data["results"]:
+          results["created"].append({
+              "name": result["name"],
+              "label": result["label"],
+              "type": result["type"]
+          })
+
+      logfire.info(
+          f"Batch created {len(results['created'])} properties for {object_type}"
+      )
+
+    except Exception as e:
+      # For batch operations, we need to handle partial failures
+      # Fall back to individual creation for better error handling
+      logfire.warning(
+          f"Batch create failed, falling back to individual creation: {str(e)}"
+      )
+
+      for prop_data in properties_data:
+        result = await self.create_property(object_type, prop_data)
+        if result:
+          if result.get("name") == prop_data["name"]:
+            results["existing"].append({
+                "name": prop_data["name"],
+                "label": prop_data["label"],
+                "reason": "Already exists"
+            })
+          else:
+            results["created"].append({
+                "name": prop_data["name"],
+                "label": prop_data["label"],
+                "type": prop_data["type"]
+            })
+        else:
+          results["failed"].append({
+              "name": prop_data["name"],
+              "label": prop_data["label"],
+              "error": "Creation failed"
+          })
+
+    return results
+
+  async def sync_properties_from_json(
+      self, object_type: str, json_file_path: str
+  ) -> Dict[str, Any]:
+    """
+    Load properties from JSON file and sync them to HubSpot.
+
+    Args:
+        object_type: 'contacts', 'leads', 'companies', 'deals', etc.
+                    Note: 'leads' will be mapped to 'contacts' since HubSpot treats leads as contacts
+        json_file_path: Path to the JSON file containing property definitions
+    """
+    try:
+      # Read and parse JSON file
+      import json
+      with open(json_file_path, 'r') as f:
+        data = json.load(f)
+
+      if "inputs" not in data:
+        raise ValueError("JSON file must contain 'inputs' array")
+
+      properties_data = data["inputs"]
+
+      # Map leads to contacts since HubSpot doesn't have a separate leads object
+      actual_object_type = "contacts" if object_type == "leads" else object_type
+
+      logfire.info(
+          f"Loaded {len(properties_data)} properties from {json_file_path} for {object_type} (mapped to {actual_object_type})"
+      )
+
+      # Use batch create for efficiency
+      return await self.batch_create_properties(actual_object_type, properties_data)
+
+    except Exception as e:
+      logfire.error(
+          f"Failed to sync properties from JSON file: {str(e)}",
+          object_type=object_type,
+          json_file_path=json_file_path
+      )
+      return {
+          "created": [],
+          "existing": [],
+          "failed": [{"error": f"Failed to load JSON file: {str(e)}"}]
+      }
+
+
+# Global singleton instance
+hubspot_manager = HubSpotManager()

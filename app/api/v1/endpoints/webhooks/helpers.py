@@ -342,7 +342,7 @@ async def _handle_hubspot_update(
     )
 
     # Call create_lead service function
-    lead_result = await hubspot_manager.create_lead(lead_input)
+    lead_result = await hubspot_manager.create_lead(lead_input.properties)
 
     if lead_result.status != "success" or not lead_result.hubspot_id:
       logfire.error(
@@ -566,6 +566,8 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, contact_properties: d
       metadata=call_metadata
   )
   try:
+      # print request data for debugging
+    logfire.debug("Bland callback request data", request_data=callback_request)
     call_result = await bland_manager.initiate_callback(
         request_data=callback_request,
         contact_id=contact_id,
@@ -675,7 +677,7 @@ async def _update_hubspot_lead_after_classification(
     )
 
     # Call create_lead with the proper input object
-    lead_result = await hubspot_manager.create_lead(lead_input)
+    lead_result = await hubspot_manager.create_lead(lead_input.properties)
 
     if lead_result.status != "success" or not lead_result.hubspot_id:
       logfire.error(

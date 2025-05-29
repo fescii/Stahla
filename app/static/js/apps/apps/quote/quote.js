@@ -608,14 +608,6 @@ export default class Quote extends HTMLElement {
                   <input type="checkbox" id="restocking" name="extras" value="Restocking">
                   <label for="restocking">Restocking</label>
                 </div>
-                <div class="extra-item">
-                  <input type="checkbox" id="handWash" name="extras" value="Hand Wash Station">
-                  <label for="handWash">Hand Wash</label>
-                </div>
-                <div class="extra-item">
-                  <input type="checkbox" id="sanitizer" name="extras" value="Hand Sanitizer Dispenser">
-                  <label for="sanitizer">Sanitizer</label>
-                </div>
               </div>
               <small style="color: var(--gray-color); font-size: 0.8rem;">Select multiple services as needed</small>
             </div>
@@ -896,8 +888,8 @@ export default class Quote extends HTMLElement {
           <h4>Quote Overview</h4>
           <div class="detail-grid">
             <div class="detail-card">
-              <div class="detail-card-label">Quote ID</div>
-              <div class="detail-card-value">${
+              <div class="detail-card-label quote-id">Quote ID</div>
+              <div class="detail-card-value quote-id">${
                 responseData.quote_id || "N/A"
               }</div>
             </div>
@@ -1134,9 +1126,9 @@ export default class Quote extends HTMLElement {
               )}</div>
             </div>
             <div class="detail-card">
-              <div class="detail-card-label">Delivery Included</div>
+              <div class="detail-card-label">Free Delivery</div>
               <div class="detail-card-value">${
-                quote.budget_details.is_delivery_included ? "Yes" : "No"
+                quote.budget_details.is_delivery_free ? "Yes" : "No"
               }</div>
             </div>
           </div>
@@ -2064,6 +2056,13 @@ export default class Quote extends HTMLElement {
           font-family: var(--font-read);
           color: var(--title-color);
           word-break: break-word;
+        }
+
+        .detail-card-value.quote-id {
+          font-family: var(--font-mono, 'SF Mono', Consolas, monospace);
+          font-size: 0.85rem;
+          letter-spacing: 0.025em;
+          text-transform: uppercase;
         }
         
         /* Enhanced section headers */

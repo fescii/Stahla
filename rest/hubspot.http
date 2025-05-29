@@ -1,0 +1,202 @@
+### HubSpot API Endpoints Testing
+
+### Variables
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### 1. Test HubSpot Contact Creation/Update
+POST {{baseUrl}}/hubspot/test/contact
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "firstname": "John",
+  "lastname": "Doe",
+  "phone": "+1234567890",
+  "company": "Test Company",
+  "jobtitle": "Software Developer",
+  "website": "https://example.com",
+  "city": "New York",
+  "state": "NY",
+  "country": "United States",
+  "lifecyclestage": "lead",
+  "lead_status": "new",
+  "hs_analytics_source": "API Test",
+  "hs_analytics_source_data_1": "Direct Input"
+}
+
+### 2. Test HubSpot Lead Creation
+POST {{baseUrl}}/hubspot/test/lead
+Content-Type: {{contentType}}
+
+{
+  "lead_name": "API Test Lead",
+  "lead_type": "Restroom Trailer",
+  "lead_status": "new",
+  "lead_source": "API",
+  "lead_priority": "medium",
+  "estimated_value": 5000.00,
+  "event_date": "2025-06-15",
+  "event_location": "New York, NY",
+  "number_of_guests": 100,
+  "service_duration": "1 week",
+  "special_requirements": "ADA compliant units required",
+  "budget_range": "$3,000 - $7,000",
+  "decision_timeline": "Within 2 weeks",
+  "contact_method_preference": "email",
+  "follow_up_date": "2025-06-01"
+}
+
+### 3. Test Get HubSpot Owners
+GET {{baseUrl}}/hubspot/test/owners
+Content-Type: {{contentType}}
+
+### 4. Test Get HubSpot Owners by Email
+GET {{baseUrl}}/hubspot/test/owners?email=john@example.com
+Content-Type: {{contentType}}
+
+### 5. Create HubSpot Contact from Form Data
+POST {{baseUrl}}/hubspot/test/contact
+Content-Type: {{contentType}}
+
+{
+  "What service do you need?": "Restroom Trailer",
+  "How Many Portable Toilet Stalls?": 5,
+  "email": "form-test@example.com",
+  "firstname": "Jane",
+  "lastname": "Smith",
+  "phone": "+1987654321",
+  "company": "Event Planning Co",
+  "event_date": "2025-07-01",
+  "event_location": "Los Angeles, CA",
+  "number_of_guests": 200,
+  "special_requirements": "Luxury units preferred"
+}
+
+### 6. Sync HubSpot Properties from JSON Files
+POST {{baseUrl}}/hubspot/sync
+Content-Type: {{contentType}}
+
+{
+  "sync_contacts": true,
+  "sync_leads": true,
+  "force_update": true
+}
+
+### 7. Sync Only Contact Properties
+POST {{baseUrl}}/hubspot/sync
+Content-Type: {{contentType}}
+
+{
+  "sync_contacts": true,
+  "sync_leads": false,
+  "force_update": true
+}
+
+### 8. Sync Only Lead Properties
+POST {{baseUrl}}/hubspot/sync
+Content-Type: {{contentType}}
+
+{
+  "sync_contacts": false,
+  "sync_leads": true,
+  "force_update": false
+}
+
+### 9. Force Update All Properties
+POST {{baseUrl}}/hubspot/sync
+Content-Type: {{contentType}}
+
+{
+  "sync_contacts": true,
+  "sync_leads": true,
+  "force_update": true
+}
+
+### 10. Get All Contact Properties
+GET {{baseUrl}}/hubspot/properties/contacts
+Content-Type: {{contentType}}
+
+### 11. Get All Lead Properties  
+GET {{baseUrl}}/hubspot/properties/leads
+Content-Type: {{contentType}}
+
+### 12. Get All Company Properties
+GET {{baseUrl}}/hubspot/properties/companies
+Content-Type: {{contentType}}
+
+### 13. Get All Deal Properties
+GET {{baseUrl}}/hubspot/properties/deals
+Content-Type: {{contentType}}
+
+### 14. Get Specific Contact Property
+GET {{baseUrl}}/hubspot/properties/contacts/email
+Content-Type: {{contentType}}
+
+### 15. Get Specific Lead Property
+GET {{baseUrl}}/hubspot/properties/leads/lead_name
+Content-Type: {{contentType}}
+
+### 16. Get Custom Contact Property
+GET {{baseUrl}}/hubspot/properties/contacts/event_date
+Content-Type: {{contentType}}
+
+### 17. Get Custom Lead Property
+GET {{baseUrl}}/hubspot/properties/leads/estimated_value
+Content-Type: {{contentType}}
+
+### 18. Get Non-existent Property (should return 404)
+GET {{baseUrl}}/hubspot/properties/contacts/non_existent_property
+Content-Type: {{contentType}}
+
+### Example with full contact data including custom fields
+POST {{baseUrl}}/hubspot/test/contact
+Content-Type: {{contentType}}
+
+{
+  "email": "full-test@example.com",
+  "firstname": "Michael",
+  "lastname": "Johnson",
+  "phone": "+1555123456",
+  "company": "Johnson Events LLC",
+  "jobtitle": "Event Coordinator", 
+  "website": "https://johnsoneventst.com",
+  "city": "Chicago",
+  "state": "IL",
+  "country": "United States",
+  "lifecyclestage": "marketingqualifiedlead",
+  "lead_status": "new",
+  "hs_analytics_source": "Website Form",
+  "hs_analytics_source_data_1": "Contact Page",
+  "event_date": "2025-08-15",
+  "event_location": "Grant Park, Chicago",
+  "number_of_guests": 500,
+  "service_duration": "3 days",
+  "special_requirements": "Multiple restroom trailers with hand washing stations",
+  "budget_range": "$8,000 - $12,000",
+  "decision_timeline": "Within 1 month",
+  "contact_method_preference": "phone"
+}
+
+### Example with full lead data
+POST {{baseUrl}}/hubspot/test/lead
+Content-Type: {{contentType}}
+
+{
+  "lead_name": "Chicago Music Festival Restrooms",
+  "lead_type": "Restroom Trailer",
+  "lead_status": "new",
+  "lead_source": "Website",
+  "lead_priority": "high",
+  "estimated_value": 10000.00,
+  "event_date": "2025-08-15",
+  "event_location": "Grant Park, Chicago, IL",
+  "number_of_guests": 500,
+  "service_duration": "3 days",
+  "special_requirements": "VIP trailers for artists, standard units for general public",
+  "budget_range": "$8,000 - $12,000",
+  "decision_timeline": "Within 1 month",
+  "contact_method_preference": "phone",
+  "follow_up_date": "2025-06-15",
+  "additional_notes": "Large music festival, potential for recurring annual business"
+}

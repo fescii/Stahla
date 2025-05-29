@@ -201,8 +201,8 @@ class BudgetDetails(BaseModel):
       None, description="Monthly rate equivalent for the rental.")
   cost_breakdown: Dict[str, float] = Field(
       default_factory=dict, description="Breakdown of costs by category.")
-  is_delivery_included: bool = Field(
-      ..., description="Whether delivery is included in the price.")
+  is_delivery_free: bool = Field(
+      ..., description="Whether delivery is free (no charge).")
   discounts_applied: Optional[List[Dict[str, Any]]] = Field(
       None, description="List of any discounts applied.")
 
@@ -348,7 +348,7 @@ class QuoteResponse(BaseModel):
                         "generator": 300.00,
                         "services": 500.00
                     },
-                    "is_delivery_included": False,
+                    "is_delivery_free": False,
                     "discounts_applied": [
                         {
                             "name": "First-time customer",

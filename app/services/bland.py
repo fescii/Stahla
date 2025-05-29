@@ -145,22 +145,22 @@ class BlandAIManager:
       )
       return {}
 
-  async def _sync_pathway(self) -> None:
+  async def _sync_pathway_nodes(self) -> None:
     """
     Attempts to update the configured pathway using the definition from call.json.
     Logs errors to MongoDB if self.mongo_service is available.
     """
-    logfire.info("Starting pathway synchronization check...")
+    logfire.info("Pathway: Starting pathway Nodes synchronization check...")
 
     if not self.pathway_id:
       logfire.error(
-          "Pathway sync skipped: BLAND_PATHWAY_ID is not configured in settings."
+          "Pathway: sync skipped: BLAND_PATHWAY_ID is not configured in settings."
       )
       if self.mongo_service:  # mongo_service is from self
         error_details_config = {
             "service_name": "BlandAIManager._sync_pathway",
             "error_type": "ConfigurationError",
-            "message": "Pathway sync skipped: BLAND_PATHWAY_ID is not configured.",
+            "message": "Pathway: sync skipped: BLAND_PATHWAY_ID is not configured.",
             "details": {"pathway_id_configured": self.pathway_id},
         }
         # BackgroundTasks not used here for logging config errors, direct await
@@ -169,13 +169,13 @@ class BlandAIManager:
 
     if not self.pathway_definition:
       logfire.error(
-          f"Pathway sync failed for {self.pathway_id}: Definition not loaded from call.json."
+          f"Pathway: sync failed for {self.pathway_id}: Definition not loaded from call.json."
       )
       if self.mongo_service:  # mongo_service is from self
         error_details_def = {
             "service_name": "BlandAIManager._sync_pathway",
             "error_type": "PathwayDefinitionError",
-            "message": f"Pathway sync failed for {self.pathway_id}: Definition not loaded from call.json.",
+            "message": f"Pathway: sync failed for {self.pathway_id}: Definition not loaded from call.json.",
             "details": {
                 "pathway_id": self.pathway_id,
                 "pathway_json_path": PATHWAY_JSON_PATH,
@@ -187,13 +187,13 @@ class BlandAIManager:
     pathway_name = self.pathway_definition.get("name")
     if not pathway_name:
       logfire.error(
-          f"Pathway sync failed for {self.pathway_id}: 'name' field missing in call.json."
+          f"Pathway: sync failed for {self.pathway_id}: 'name' field missing in call.json."
       )
       if self.mongo_service:  # mongo_service is from self
         error_details_name = {
             "service_name": "BlandAIManager._sync_pathway",
             "error_type": "PathwayDefinitionError",
-            "message": f"Pathway sync failed for {self.pathway_id}: 'name' field missing in call.json.",
+            "message": f"Pathway: sync failed for {self.pathway_id}: 'name' field missing in call.json.",
             "details": {
                 "pathway_id": self.pathway_id,
                 "pathway_definition_keys": list(self.pathway_definition.keys()),
@@ -203,7 +203,7 @@ class BlandAIManager:
       return
 
     logfire.info(
-        f"Attempting to update pathway {self.pathway_id} using POST /v1/pathway/{{pathway_id}}"
+        f"Pathway: Attempting to update pathway nodes {self.pathway_id} using POST /v1/pathway/{{pathway_id}}"
     )
     endpoint = f"/v1/pathway/{self.pathway_id}"
 
@@ -211,11 +211,10 @@ class BlandAIManager:
         "name": pathway_name,
         "description": self.pathway_definition.get("description"),
         "nodes": self.pathway_definition.get("nodes", []),
-        "edges": self.pathway_definition.get("edges", []),
     }
 
     logfire.info(
-        f"Sending update payload for {self.pathway_id}", payload=update_payload
+        f"Pathway: Sending update payload for {self.pathway_id}", payload=update_payload
     )
 
     # _make_request needs background_tasks if it's to be used for logging errors from this call
@@ -231,11 +230,104 @@ class BlandAIManager:
 
     if update_result.status == "success":
       logfire.info(
-          f"Pathway sync successful: Updated existing pathway {self.pathway_id}."
+          f"Pathway: sync successful: Updated existing pathway nodes {self.pathway_id}: Nodes"
       )
     else:
       logfire.error(
-          f"Pathway sync failed: Could not update pathway {self.pathway_id}. Bland API Message: {update_result.message}",
+          f"Pathway: sync failed: Could not update pathway nodes {self.pathway_id}. Bland API Message: {update_result.message}",
+          details=update_result,
+      )
+
+  async def _sync_pathway_edges(self) -> None:
+    """
+    Attempts to update the configured pathway using the definition from call.json.
+    Logs errors to MongoDB if self.mongo_service is available.
+    """
+    logfire.info("Pathway: Starting pathway edges synchronization check...")
+
+    if not self.pathway_id:
+      logfire.error(
+          "Pathway: sync skipped: BLAND_PATHWAY_ID is not configured in settings."
+      )
+      if self.mongo_service:  # mongo_service is from self
+        error_details_config = {
+            "service_name": "BlandAIManager._sync_pathway",
+            "error_type": "ConfigurationError",
+            "message": "Pathway: sync skipped: BLAND_PATHWAY_ID is not configured.",
+            "details": {"pathway_id_configured": self.pathway_id},
+        }
+        # BackgroundTasks not used here for logging config errors, direct await
+        await self.mongo_service.log_error_to_db(**error_details_config)
+      return
+
+    if not self.pathway_definition:
+      logfire.error(
+          f"Pathway: sync failed for {self.pathway_id}: Definition not loaded from call.json."
+      )
+      if self.mongo_service:  # mongo_service is from self
+        error_details_def = {
+            "service_name": "BlandAIManager._sync_pathway",
+            "error_type": "PathwayDefinitionError",
+            "message": f"Pathway: sync failed for {self.pathway_id}: Definition not loaded from call.json.",
+            "details": {
+                "pathway_id": self.pathway_id,
+                "pathway_json_path": PATHWAY_JSON_PATH,
+            },
+        }
+        await self.mongo_service.log_error_to_db(**error_details_def)
+      return
+
+    pathway_name = self.pathway_definition.get("name")
+    if not pathway_name:
+      logfire.error(
+          f"Pathway: sync failed for {self.pathway_id}: 'name' field missing in call.json."
+      )
+      if self.mongo_service:  # mongo_service is from self
+        error_details_name = {
+            "service_name": "BlandAIManager._sync_pathway",
+            "error_type": "PathwayDefinitionError",
+            "message": f"Pathway: sync failed for {self.pathway_id}: 'name' field missing in call.json.",
+            "details": {
+                "pathway_id": self.pathway_id,
+                "pathway_definition_keys": list(self.pathway_definition.keys()),
+            },
+        }
+        await self.mongo_service.log_error_to_db(**error_details_name)
+      return
+
+    logfire.info(
+        f"Pathway: Attempting to update pathway {self.pathway_id} using POST /v1/pathway/{{pathway_id}}"
+    )
+    endpoint = f"/v1/pathway/{self.pathway_id}"
+
+    update_payload = {
+        "name": pathway_name,
+        "description": self.pathway_definition.get("description"),
+        "edges": self.pathway_definition.get("edges", []),
+    }
+
+    logfire.info(
+        f"Pathway: Sending update payload for {self.pathway_id}", payload=update_payload
+    )
+
+    # _make_request needs background_tasks if it's to be used for logging errors from this call
+    # For sync operations, direct logging might be acceptable, or pass None
+    update_result = await self._make_request(
+        "POST",
+        endpoint,
+        json_data=update_payload,
+        mongo_service=self.mongo_service,  # Pass self.mongo_service
+        # Or a BackgroundTasks instance if available and desired for this context
+        background_tasks=self.background_tasks
+    )
+
+    if update_result.status == "success":
+      logfire.info(
+          f"Pathway: sync successful: Updated existing pathway {self.pathway_id}: Edges"
+      )
+    else:
+      logfire.error(
+          f"Pathway: sync failed: Could not update pathway edges {self.pathway_id}. Bland API Message: {update_result.message}",
           details=update_result,
       )
 
@@ -244,11 +336,11 @@ class BlandAIManager:
     Attempts to update the location tool using the definition from location.json.
     Logs errors to MongoDB if self.mongo_service is available.
     """
-    logfire.info("Starting location tool synchronization check...")
+    logfire.info("Pathway: Starting location tool synchronization check...")
 
     if not self.location_tool_definition:
       logfire.error(
-          "Location tool sync failed: Definition not loaded from location.json.")
+          "Pathway: Location tool sync failed: Definition not loaded from location.json.")
       if self.mongo_service:
         error_details = {
             "service_name": "BlandAIManager._sync_location_tool",
@@ -275,21 +367,21 @@ class BlandAIManager:
     }
     update_result = await self._make_request("POST", endpoint, json_data=json_data, mongo_service=self.mongo_service, background_tasks=self.background_tasks)
     if update_result.status == "success":
-      logfire.info("Location tool sync successful.")
+      logfire.info("Pathway: Location tool sync successful.")
     else:
       logfire.error(
-          f"Location tool sync failed: {update_result.message}", details=update_result.details)
+          f"Pathway: Location tool sync failed: {update_result.message}", details=update_result.details)
 
   async def _sync_quote_tool(self) -> None:
     """
     Attempts to update the quote tool using the definition from quote.json.
     Logs errors to MongoDB if self.mongo_service is available.
     """
-    logfire.info("Starting quote tool synchronization check...")
+    logfire.info("Pathway: Starting quote tool synchronization check...")
 
     if not self.quote_tool_definition:
       logfire.error(
-          "Quote tool sync failed: Definition not loaded from quote.json.")
+          "Pathway: Quote tool sync failed: Definition not loaded from quote.json.")
       if self.mongo_service:
         error_details = {
             "service_name": "BlandAIManager._sync_quote_tool",
@@ -316,27 +408,30 @@ class BlandAIManager:
     }
     update_result = await self._make_request("POST", endpoint, json_data=json_data, mongo_service=self.mongo_service, background_tasks=self.background_tasks)
     if update_result.status == "success":
-      logfire.info("Quote tool sync successful.")
+      logfire.info("Pathway: Quote tool sync successful.")
     else:
       logfire.error(
-          f"Quote tool sync failed: {update_result.message}", details=update_result.details)
+          f"Pathway: Quote tool sync failed: {update_result.message}", details=update_result.details)
 
   async def _sync_bland(self) -> None:
     """Synchronizes all Bland.ai definitions: pathway, location tool, and quote tool."""
-    logfire.info("Starting synchronization of all Bland.ai definitions...")
+    logfire.info(
+        "Pathway: Starting synchronization of all Bland.ai definitions...")
     # SET mongo service and background_tasks to None if not provided
     if not self.mongo_service:
       logfire.error(
-          "MongoService not available for logging errors during sync; Setting it up.")
+          "Pathway: MongoService not available for logging errors during sync; Setting it up.")
       self.mongo_service = Depends(get_mongo_service)
     if not self.background_tasks:
       logfire.error(
-          "BackgroundTasks not available for logging errors during sync; Setting it up.")
+          "Pathway: BackgroundTasks not available for logging errors during sync; Setting it up.")
       self.background_tasks = BackgroundTasks()
-    await self._sync_pathway()
+    await self._sync_pathway_nodes()
+    await self._sync_pathway_edges()
     await self._sync_location_tool()
     await self._sync_quote_tool()
-    logfire.info("Completed synchronization of all Bland.ai definitions.")
+    logfire.info(
+        "Pathway: Completed synchronization of all Bland.ai definitions.")
 
   async def close(self):
     """Gracefully closes the HTTP client."""

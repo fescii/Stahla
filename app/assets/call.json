@@ -51,12 +51,13 @@
       "type": "Knowledge Base",
       "data": {
         "name": "Global: Answer User Question from KB",
-        "isGlobal": true,
+        "isGlobal": false,
         "globalLabel": "User has a general question or needs help or asks something off-script",
-        "kb": "KB-2e537845-67d3-4e3b-8fa6-5df82d6692de",
-        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, state that you'll need to gather more details or that it will be covered in the quote.",
+        "knowledgeBase": "Stahla Services (Stahla Rentals) - Knowledge Base\nSummary\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\nCompany Overview\nLegal Name: Stahla Services, LLC\nFounded: 2014\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\nServices Offered\nRestroom Trailer Rentals: Options range from 2-stall to 10-stall configurations. Examples: '2 Stall Restroom Trailer (Luxury)', '4 Stall Restroom Trailer (Standard)', '8 Stall Restroom Trailer (ADA Combo)'.\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors.\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Examples: '3 Stall Shower Trailer', '8 Stall Shower/Restroom Combo Trailer'.\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers.\nPorta Potty Rentals: Standard, budget-friendly option. Available in basic, deluxe, or handwashing-equipped models. Includes ADA Porta Potty options.\nGenerator Rentals: Various sizes available, e.g., '3kW Generator', '7kW Generator'.\nOther Services: Holding tanks, fresh water delivery, regular servicing/pump-outs, cleaning.\nService Area\nServes 17 U.S. states: Arkansas (AR), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), Wyoming (WY)\nHeadquarters and Locations\nPrimary HQ: Omaha, Nebraska\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\nOther Office Locations:\nLincoln, NE – 420 W A St, Suite 200\nGretna, NE – 21824 Williams Circle\nSmithville, MO – 17609 HH Lake Road\nDenver, CO – 1340 Umatilla St\nContact Information\nPhone: (844) 900-3190\nEmail: [email protected]\nBusiness Hours:\nMon–Fri: 8 AM–5 PM\nSat: 8 AM–5 PM\nSun: Closed\nWebsite: https://stahla.com/\nProduct List (Examples - refer to full product sheet for all models):\n2 Stall Restroom Trailer (Luxury), 2 Stall Restroom Trailer (Standard), 3 Stall Restroom Trailer (Luxury), 4 Stall Restroom Trailer (Standard), 4 Stall Restroom Trailer (ADA Compliant), 5 Stall Restroom Trailer, 6 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, ADA Porta Potty, Standard Porta Potty, Deluxe Porta Potty, Handwash Station (Porta Potty Addon), 3 Stall Shower Trailer, 8 Stall Shower Trailer, Laundry Trailer (8 Washer/Dryer), 3kW Generator, 7kW Generator.\nUsage Types for Quotes: event, commercial, construction, disaster_relief, other.",
+        "prompt": "The user asked: {{lastUserMessage}} Only if the {{lastUserMessage}} was a question otherwise resume node pathway. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, state that you'll need to gather more details or that it will be covered in the quote.",
         "modelOptions": {
-          "temperature": 0.6
+          "temperature": 0.6,
+          "interruptionThreshold": 0.8
         }
       }
     },
@@ -137,12 +138,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Address",
-        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? Our records might show it as {{request_data.address | default: 'the address we have on file, or please provide the full address'}}. If that's not correct, or if no address is on file, please provide the full address, including street, city, state, and zip code.",
+        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? Our records might show it as {{request_data.event_address | default: 'the address we have on file, or please provide the full address'}}. If that's not correct, or if no address is on file, please provide the full address, including street, city, state, and zip code.",
         "extractVars": [
           [
             "delivery_location",
             "string",
-            "The confirmed or provided full address (street, city, state, zip). If they confirm {{request_data.address}}, use that. Otherwise, capture the new address. Format the address as follows: '123 Main St, Springfield, IL 62704'. Accept general location names like 'downtown' or 'near the park' initially if user is vague, but aim to get a full address."
+            "The confirmed or provided full address (street, city, state, zip). If they confirm {{request_data.event_address}}, use that. Otherwise, capture the new address. Format the address as follows: '123 Main St, Springfield, IL 62704'. Accept general location names like 'downtown' or 'near the park' initially if user is vague, but aim to get a full address."
           ]
         ],
         "modelOptions": {
@@ -173,9 +174,40 @@
       "type": "Webhook",
       "data": {
         "name": "Trigger Background Location Lookup",
-        "tool_id": "TL-29358830-2f06-4342-83b0-453265aedb56",
+        "prompt": "Thanks for confirming the address. Allow me a moment to process the location for service area verification and other details.",
+        "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/location/lookup/sync",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer 7%FRtf@34hi"
+        },
+        "body": {
+          "delivery_location": "{{delivery_location | default: delivery_location}}"
+        },
+        "response_data": [
+          {
+            "name": "location_api_success",
+            "data": "$.success"
+          },
+          {
+            "name": "lookup_success",
+            "data": "$.success"
+          },
+          {
+            "name": "lookup_message",
+            "data": "$.data.message"
+          },
+          {
+            "name": "api_delivery_location",
+            "data": "$.data.delivery_location"
+          },
+          {
+            "name": "api_error_message",
+            "data": "$.error_message"
+          }
+        ],
         "modelOptions": {
-          "interruptionThreshold": 50
+          "interruptionThreshold": 0.8
         }
       }
     },
@@ -184,12 +216,12 @@
       "type": "Default",
       "data": {
         "name": "Check Service Area Logic",
-        "prompt": "Thanks, I've processed the location: {{delivery_location}}. (Location lookup status: {{lookup_message | default: 'Processed.'}}). Now, let me check if this is in our service area. Our service states are Arizona(AZ), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), and Wyoming (WY). Based on the state in the address, is it in our service area?",
+        "prompt": "Thanks, I've processed the location: {{api_delivery_location}}. (Location lookup status: {{lookup_message | default: 'Processed.'}}). Now, let me check if this is in our service area. Our service states are Arizona(AZ), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), and Wyoming (WY). Based on the state in the address, is it in our service area?",
         "extractVars": [
           [
             "state",
             "string",
-            "Extract the 2-letter state abbreviation from the {{delivery_location}} string. For example, from '123 Main St, Anytown, CA 90210', extract 'CA'."
+            "Extract the 2-letter state abbreviation from the {{api_delivery_location}} string. For example, from '123 Main St, Anytown, CA 90210', extract 'CA'."
           ],
           [
             "is_in_service_area",
@@ -207,15 +239,7 @@
       "type": "Default",
       "data": {
         "name": "Handle Out of Service Area",
-        "prompt": "Okay, it looks like the address provided, {{delivery_location}}, is outside our standard service area based on the state {{state}}. Unfortunately, we wouldn't be able to deliver our units there directly."
-      }
-    },
-    {
-      "id": "offer_referral",
-      "type": "Default",
-      "data": {
-        "name": "Offer Referral",
-        "prompt": "However, we do sometimes partner with other providers. Would you like me to see if we can refer you to someone who might be able to help in your area?",
+        "prompt": "Okay, it looks like the address provided, {{delivery_location}}, is outside our standard service area based on the state {{state}}. Unfortunately, we wouldn't be able to deliver our units there directly. However, we do sometimes partner with other providers. Would you like me to see if we can refer you to someone who might be able to help in your area?",
         "extractVars": [
           [
             "offer_referral_consent",
@@ -246,7 +270,7 @@
       "type": "Default",
       "data": {
         "name": "Determine Order Category (Path A Start)",
-        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your specific needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
+        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your {{request_data.service_needed | default: 'Product'}} specific needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
         "extractVars": [
           [
             "project_category",
@@ -263,13 +287,13 @@
       "id": "determine_product_type",
       "type": "Default",
       "data": {
-        "name": "Determine Product Type",
-        "prompt": "And what type of product are you primarily interested in? For example, a Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or another Specialty Trailer? Our trailer options include: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, and 8 Stall Shower Trailer.",
+        "name": "Confirm Product Type",
+        "prompt": "Great! Just to confirm, you requested {{request_data.service_needed | default: 'Product'}}. Is that correct? If not, please let me know what type of product you are primarily interested in, we have a variety of options available, including; a Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or another Specialty Trailer?",
         "extractVars": [
           [
             "product_type",
             "string",
-            "The user's confirmed primary product type focus (e.g., 'Porta Potty', 'Restroom Trailer', '2 Stall Restroom Trailer'). Try to match to one of: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer, Standard Porta Potty, ADA Porta Potty, Other Specialty Trailer."
+            "The user's confirmed primary product type focus (e.g., 'Porta Potty', 'Restroom Trailer', 'Shower Trailer', 'Combo Trailer', 'Specialty Trailer'). If they say 'other', capture that as well."
           ]
         ],
         "modelOptions": {
@@ -390,7 +414,7 @@
       "type": "Default",
       "data": {
         "name": "Ask Number of Stalls/Units",
-        "prompt": "How many {{product_type | default: 'units'}} or stalls will be needed for the event? For trailers, you can specify stall count like '2 stalls' for a 2 Stall Restroom Trailer.",
+        "prompt": "How many {{product_type | default: 'units'}} or stalls will be needed for the event? For trailers, you can specify stall count like '2 stalls' for a 2 Stall Restroom Trailer, or 'one 8 stall trailer' for an 8 Stall Restroom Trailer. If you need a specific type of trailer, please specify that as well.",
         "extractVars": [
           [
             "number_of_stalls_or_units_requested",
@@ -401,6 +425,11 @@
             "trailer_type",
             "string",
             "Refine or confirm the specific product based on stall request. If user says '2 stalls' and product_type was 'Restroom Trailer', confirm as '2 Stall Restroom Trailer'. If they ask for a stall count not available (e.g. '5 stalls'), this variable might remain the general type, and the next node will handle alternatives. Available products: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer, Standard Porta Potty, ADA Porta Potty."
+          ],
+          [
+            "stalls_exists",
+            "boolean",
+            "Check if stall with {{number_of_stalls_or_units_requested}} is available, Available products: 1 Stall ADA Combo Trailer, 2 Stall Restroom Trailer, 3 Stall ADA Restroom Trailer, 4 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, 3 Stall Combo Trailer, 8 Stall Shower Trailer, Standard Porta Potty, ADA Porta Potty."
           ]
         ],
         "modelOptions": {
@@ -675,8 +704,57 @@
       "type": "Webhook",
       "data": {
         "name": "Get Quote (StahlaQuoteTool_v2)",
-        "tool_id": "TL-9cf9e441-f903-4073-9176-a422736444d3",
-        "prompt": "Okay, Hang tight while I try to retrieve a quote for you based on the information you provided. This may take a few seconds."
+        "prompt": "Okay, hang tight while I retrieve a quote for you based on the information you provided. This may take a few seconds.",
+        "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/quote",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer 7%FRtf@34hi"
+        },
+        "body": {
+          "delivery_location": "{{delivery_location}}",
+          "trailer_type": "{{trailer_type}}",
+          "rental_start_date": "{{rental_start_date}}",
+          "rental_days": "{{rental_days}}",
+          "usage_type": "{{usage_type}}",
+          "extras": "{{extras_list}}",
+          "customer_details": {
+            "name": "{{contact_name}}",
+            "email": "{{contact_email}}",
+            "phone": "{{phone_number}}",
+            "company": "{{company_name}}"
+          }
+        },
+        "response_data": [
+          {
+            "name": "quote_api_success",
+            "data": "$.success"
+          },
+          {
+            "name": "quote_id",
+            "data": "$.data.quote_id"
+          },
+          {
+            "name": "estimated_total",
+            "data": "$.data.quote.budget_details.estimated_total"
+          },
+          {
+            "name": "line_items_summary",
+            "data": "$.data.quote.line_items"
+          },
+          {
+            "name": "quote_notes",
+            "data": "$.data.quote.notes"
+          },
+          {
+            "name": "delivery_cost",
+            "data": "$.data.quote.delivery_details.total_delivery_cost"
+          },
+          {
+            "name": "api_error_message",
+            "data": "$.error_message"
+          }
+        ]
       }
     },
     {
@@ -708,6 +786,24 @@
             "schedule_follow_up_after_error",
             "boolean",
             "Whether to schedule a follow-up after a quote error."
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "api_error_location_tool",
+      "type": "Default",
+      "data": {
+        "name": "API Error Location Tool",
+        "prompt": "I'm having a bit of trouble processing that address right now ({{api_error_message | default: 'technical issue'}}). Could you please confirm the full address again, including the city and state? We'll try once more.",
+        "extractVars": [
+          [
+            "delivery_location",
+            "string",
+            "The corrected full delivery address including street, city, state, and zip code"
           ]
         ],
         "modelOptions": {
@@ -761,7 +857,7 @@
       "type": "Knowledge Base",
       "data": {
         "name": "Answer Final Question from KB",
-        "kb": "KB-2e537845-67d3-4e3b-8fa6-5df82d6692de",
+        "knowledgeBase": "Stahla Services (Stahla Rentals) - Knowledge Base\nSummary\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\nCompany Overview\nLegal Name: Stahla Services, LLC\nFounded: 2014\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\nServices Offered\nRestroom Trailer Rentals: Options range from 2-stall to 10-stall configurations. Examples: '2 Stall Restroom Trailer (Luxury)', '4 Stall Restroom Trailer (Standard)', '8 Stall Restroom Trailer (ADA Combo)'.\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors.\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Examples: '3 Stall Shower Trailer', '8 Stall Shower/Restroom Combo Trailer'.\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers.\nPorta Potty Rentals: Standard, budget-friendly option. Available in basic, deluxe, or handwashing-equipped models. Includes ADA Porta Potty options.\nGenerator Rentals: Various sizes available, e.g., '3kW Generator', '7kW Generator'.\nOther Services: Holding tanks, fresh water delivery, regular servicing/pump-outs, cleaning.\nService Area\nServes 17 U.S. states: Arkansas (AR), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), Wyoming (WY)\nHeadquarters and Locations\nPrimary HQ: Omaha, Nebraska\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\nOther Office Locations:\nLincoln, NE – 420 W A St, Suite 200\nGretna, NE – 21824 Williams Circle\nSmithville, MO – 17609 HH Lake Road\nDenver, CO – 1340 Umatilla St\nContact Information\nPhone: (844) 900-3190\nEmail: [email protected]\nBusiness Hours:\nMon–Fri: 8 AM–5 PM\nSat: 8 AM–5 PM\nSun: Closed\nWebsite: https://stahla.com/\nProduct List (Examples - refer to full product sheet for all models):\n2 Stall Restroom Trailer (Luxury), 2 Stall Restroom Trailer (Standard), 3 Stall Restroom Trailer (Luxury), 4 Stall Restroom Trailer (Standard), 4 Stall Restroom Trailer (ADA Compliant), 5 Stall Restroom Trailer, 6 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, ADA Porta Potty, Standard Porta Potty, Deluxe Porta Potty, Handwash Station (Porta Potty Addon), 3 Stall Shower Trailer, 8 Stall Shower Trailer, Laundry Trailer (8 Washer/Dryer), 3kW Generator, 7kW Generator.\nUsage Types for Quotes: event, commercial, construction, disaster_relief, other.",
         "prompt": "The user's question is: {{final_questions_text}}. Please answer based on the knowledge base.",
         "modelOptions": {
           "temperature": 0.5
@@ -852,7 +948,25 @@
       "id": "edge_trigger_location_tool_to_check_service_area",
       "source": "trigger_background_location_processing_node",
       "target": "check_service_area_logic_node",
-      "label": "Location lookup triggered"
+      "label": "{{location_api_success}} == true && {{api_delivery_location}} != null"
+    },
+    {
+      "id": "edge_trigger_location_tool_to_error",
+      "source": "trigger_background_location_processing_node",
+      "target": "api_error_location_tool",
+      "label": "{{location_api_success}} == false || {{api_delivery_location}} == null"
+    },
+    {
+      "id": "edge_location_error_to_retry",
+      "source": "api_error_location_tool",
+      "target": "trigger_background_location_processing_node",
+      "label": "{{delivery_location}} != null"
+    },
+    {
+      "id": "edge_location_error_to_manual_processing",
+      "source": "api_error_location_tool",
+      "target": "check_service_area_logic_node",
+      "label": "Manual address processing needed"
     },
     {
       "id": "edge_check_service_area_to_oos",
@@ -867,20 +981,14 @@
       "label": "{{is_in_service_area}} == true"
     },
     {
-      "id": "edge_handle_oos_to_offer_referral",
+      "id": "edge_handle_oos_to_wants_referral",
       "source": "handle_out_of_service_area",
-      "target": "offer_referral",
-      "label": "Out of service area"
-    },
-    {
-      "id": "edge_offer_referral_to_wants_referral",
-      "source": "offer_referral",
       "target": "wants_referral_node",
       "label": "{{offer_referral_consent}} == true"
     },
     {
-      "id": "edge_offer_referral_to_no_referral",
-      "source": "offer_referral",
+      "id": "edge_handle_oos_to_no_referral",
+      "source": "handle_out_of_service_area",
       "target": "no_referral_node",
       "label": "{{offer_referral_consent}} == false"
     },
