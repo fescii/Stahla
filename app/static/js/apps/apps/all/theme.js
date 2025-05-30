@@ -451,13 +451,13 @@ export default class SheetThemes extends HTMLElement {
             }
 
             .themes-header {
-                margin: 10px 0 20px;
+                margin: 0 0 20px;
             }
 
             .themes-header h1 {
                 color: var(--title-color);
                 margin: 0;
-                font-size: 2rem;
+                font-size: 10px 0 2rem;
                 font-weight: 700;
                 line-height: 1.2;
             }
