@@ -717,9 +717,18 @@ class DashboardService:
         # Check if 'success' field exists and is explicitly False
         if "success" in report and report["success"] is False:
           try:
-            # Add _id conversion if not already done in mongo service
-            report["_id"] = str(report.get("_id"))
-            error_logs.append(ErrorLogEntry(**report))
+            # Transform MongoDB report to ErrorLogEntry format
+            error_entry_data = {
+                "timestamp": report.get("timestamp"),
+                "error_type": report.get("report_type", "Unknown"),
+                "message": report.get("error_message", "No message provided"),
+                "details": {
+                    "_id": str(report.get("_id")),
+                    "data": report.get("data", {}),
+                    "success": report.get("success")
+                }
+            }
+            error_logs.append(ErrorLogEntry(**error_entry_data))
           except Exception as parse_error:
             logger.warning(
                 f"Failed to parse MongoDB report into ErrorLogEntry: {report}. Error: {parse_error}"
