@@ -19,8 +19,9 @@ from app.services.redis.redis import (
 from app.services.mongo.mongo import (
     MongoService,
     get_mongo_service,
-)  # Added MongoService and get_mongo_service
-from app.services.quote.sync import BRANCH_LIST_CACHE_KEY
+    SHEET_STATES_COLLECTION,
+)  # Added MongoService, get_mongo_service, and SHEET_STATES_COLLECTION
+from app.services.quote.sync import BRANCH_LIST_CACHE_KEY, STATES_LIST_CACHE_KEY
 from app.services.dash.background import (
     increment_request_counter_bg,
     log_error_bg,
@@ -121,6 +122,42 @@ class LocationService:
     norm_branch = "".join(filter(str.isalnum, branch_address)).lower()
     norm_delivery = "".join(filter(str.isalnum, delivery_location)).lower()
     return f"maps:distance:{norm_branch}:{norm_delivery}"
+
+  async def _get_states_from_cache_or_mongo(self) -> List[Dict[str, Any]]:
+    """Gets states data from Redis cache, falls back to MongoDB if cache miss."""
+    try:
+      # Try Redis cache first
+      states_data = await self.redis_service.get_json(STATES_LIST_CACHE_KEY)
+      if states_data is not None:
+        logfire.debug(
+            f"States data loaded from Redis cache ({len(states_data)} states)")
+        return states_data if isinstance(states_data, list) else []
+
+      # Cache miss - get from MongoDB
+      logfire.info("States cache miss - fetching from MongoDB")
+      db = await self.mongo_service.get_db()
+      collection = db[SHEET_STATES_COLLECTION]
+
+      cursor = collection.find({})
+      states_data = await cursor.to_list(length=None)
+
+      # Cache the data in Redis for next time (72h TTL)
+      if states_data:
+        await self.redis_service.set_json(STATES_LIST_CACHE_KEY, states_data, ttl=259200)
+        logfire.info(f"Cached {len(states_data)} states in Redis with 72h TTL")
+
+      return states_data
+
+    except Exception as e:
+      logfire.error(
+          f"Failed to get states data from cache or MongoDB: {e}", exc_info=True)
+      await self.mongo_service.log_error_to_db(
+          service_name="LocationService._get_states_from_cache_or_mongo",
+          error_type="StateDataFetchError",
+          message=f"Failed to fetch states data: {str(e)}",
+          details={"exception_type": type(e).__name__},
+      )
+      return []
 
   async def _get_distance_from_google(
       self, origin: str, destination: str
@@ -326,6 +363,9 @@ class LocationService:
     """
     success = False  # Initialize success flag for stat tracking
     try:
+      # Check service area first
+      within_service_area = await self._check_service_area(delivery_location)
+
       branches = await self._get_branches_from_cache()
       if not branches:
         # Error already logged in _get_branches_from_cache.
@@ -358,6 +398,10 @@ class LocationService:
               f"Cache hit for distance: '{branch.address}' -> '{delivery_location}'"
           )
           try:
+            # Handle legacy cached data that might not have within_service_area field
+            if 'within_service_area' not in cached_data:
+              cached_data['within_service_area'] = within_service_area
+
             distance_result = DistanceResult(**cached_data)
             if (
                 distance_result.nearest_branch
@@ -410,6 +454,7 @@ class LocationService:
                 distance_miles=distance_miles,
                 distance_meters=distance_meters,
                 duration_seconds=duration_seconds,
+                within_service_area=within_service_area,
             )
             potential_results.append(result)
             await self.redis_service.set_json(
@@ -482,6 +527,73 @@ class LocationService:
       # If this prefetch_distance itself is considered a "request" that can fail independently
       # of the underlying get_distance_to_nearest_branch, then a separate stat might be warranted.
       # However, the current setup implies prefetch_distance is just a trigger.
+
+  async def _check_service_area(self, delivery_location: str) -> bool:
+    """
+    Checks if the delivery location is within the service area by extracting the state
+    from the address and comparing it against the cached states data.
+    """
+    try:
+      # Get states data from cache or MongoDB
+      states_data = await self._get_states_from_cache_or_mongo()
+      if not states_data:
+        logfire.warning("No states data available for service area check")
+        return False
+
+      # Create sets of valid states and state codes for fast lookup
+      valid_states = set()
+      valid_codes = set()
+
+      for state_entry in states_data:
+        if isinstance(state_entry, dict):
+          state_name = state_entry.get("state", "").strip().lower()
+          state_code = state_entry.get("code", "").strip().upper()
+
+          if state_name:
+            valid_states.add(state_name)
+          if state_code:
+            valid_codes.add(state_code)
+
+      # Extract state information from delivery location
+      # Look for state patterns in the address
+      location_upper = delivery_location.upper()
+      location_lower = delivery_location.lower()
+
+      # Check for state codes (e.g., "CA", "TX", "NY")
+      import re
+      state_code_pattern = r'\b([A-Z]{2})\b'
+      code_matches = re.findall(state_code_pattern, location_upper)
+
+      for code in code_matches:
+        if code in valid_codes:
+          logfire.info(
+              f"Location '{delivery_location}' is in service area (state code: {code})")
+          return True
+
+      # Check for full state names
+      for state in valid_states:
+        if state in location_lower:
+          logfire.info(
+              f"Location '{delivery_location}' is in service area (state name: {state})")
+          return True
+
+      logfire.info(f"Location '{delivery_location}' is NOT in service area")
+      return False
+
+    except Exception as e:
+      logfire.error(
+          f"Error checking service area for '{delivery_location}': {e}", exc_info=True)
+      await self.mongo_service.log_error_to_db(
+          service_name="LocationService._check_service_area",
+          error_type="ServiceAreaCheckError",
+          message=f"Failed to check service area: {str(e)}",
+          details={
+              "delivery_location": delivery_location,
+              "exception_type": type(e).__name__,
+          },
+      )
+      # Return False on error for safety
+      return False
 
 
 # Dependency for FastAPI

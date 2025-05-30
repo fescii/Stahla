@@ -325,11 +325,10 @@ export default class LocationLookup extends HTMLElement {
           </div>
           
           <div class="form-container">
-            ${
-              this.state.error
-                ? `<div class="error-alert">${this.state.error}</div>`
-                : ""
-            }
+            ${this.state.error
+        ? `<div class="error-alert">${this.state.error}</div>`
+        : ""
+      }
             
             <div class="info-alert">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -347,9 +346,8 @@ export default class LocationLookup extends HTMLElement {
                   <input 
                     type="text" 
                     id="location-input" 
-                    class="location-input ${
-                      this.state.selectedLocation ? "with-value" : ""
-                    }" 
+                    class="location-input ${this.state.selectedLocation ? "with-value" : ""
+      }" 
                     placeholder="Enter a delivery address (e.g. 123 Main St, City, State ZIP)" 
                     value="${this.state.selectedLocation}"
                     required
@@ -365,8 +363,8 @@ export default class LocationLookup extends HTMLElement {
                 <h3>Quick Search Options</h3>
                 <div class="sample-locations">
                   ${this.sampleLocations
-                    .map(
-                      (location) => `
+        .map(
+          (location) => `
                     <button 
                       type="button" 
                       class="sample-location" 
@@ -375,8 +373,8 @@ export default class LocationLookup extends HTMLElement {
                       ${location.split(",")[0]}
                     </button>
                   `
-                    )
-                    .join("")}
+        )
+        .join("")}
                 </div>
               </div>
               
@@ -388,17 +386,15 @@ export default class LocationLookup extends HTMLElement {
                   </svg>
                   Clear
                 </button>
-                <button type="submit" class="lookup-btn" ${
-                  this.state.isLoading ? "disabled" : ""
-                }>
-                  ${
-                    this.state.isLoading
-                      ? this._getLoadingSpinner() +
-                        (this.state.result
-                          ? "Processing Second Request..."
-                          : "Looking up...")
-                      : "Lookup Location"
-                  }
+                <button type="submit" class="lookup-btn" ${this.state.isLoading ? "disabled" : ""
+      }>
+                  ${this.state.isLoading
+        ? this._getLoadingSpinner() +
+        (this.state.result
+          ? "Processing Second Request..."
+          : "Looking up...")
+        : "Lookup Location"
+      }
                 </button>
               </div>
             </form>
@@ -518,9 +514,9 @@ export default class LocationLookup extends HTMLElement {
                 <div class="comparison-label">Second Request</div>
               </div>
               <div class="comparison-bar second" style="width: ${Math.max(
-                5,
-                (secondTime / firstTime) * 100
-              )}%;">
+        5,
+        (secondTime / firstTime) * 100
+      )}%;">
                 <span class="bar-value">${secondTime}ms</span>
               </div>
             </div>
@@ -558,20 +554,17 @@ export default class LocationLookup extends HTMLElement {
         
         <div class="result-tabs">
           <div class="tab active" data-tab="details">Details</div>
-          <div class="tab ${
-            showComparison ? "" : "disabled"
-          }" data-tab="comparison">${
-      showComparison ? "Performance Comparison" : "Awaiting Second Request..."
-    }</div>
+          <div class="tab ${showComparison ? "" : "disabled"
+      }" data-tab="comparison">${showComparison ? "Performance Comparison" : "Awaiting Second Request..."
+      }</div>
         </div>
         
         <div class="tab-content details-tab active">
           <div class="performance-dashboard">
             <div class="dashboard-header">
               <h3>Processing Performance</h3>
-              <div class="performance-pill" style="background-color: ${
-                performance.color
-              }">
+              <div class="performance-pill" style="background-color: ${performance.color
+      }">
                 <span>${performance.score}</span>
               </div>
             </div>
@@ -600,9 +593,8 @@ export default class LocationLookup extends HTMLElement {
                       </svg>
                     </div>
                     <div class="stat-content">
-                      <div class="stat-value">${
-                        result.data.client_processing_time_ms
-                      }ms</div>
+                      <div class="stat-value">${result.data.client_processing_time_ms
+      }ms</div>
                       <div class="stat-label">Client Processing</div>
                     </div>
                   </div>
@@ -615,9 +607,8 @@ export default class LocationLookup extends HTMLElement {
                       </svg>
                     </div>
                     <div class="stat-content">
-                      <div class="stat-value">#${
-                        result.data.request_number || 1
-                      }</div>
+                      <div class="stat-value">#${result.data.request_number || 1
+      }</div>
                       <div class="stat-label">Request</div>
                     </div>
                   </div>
@@ -649,9 +640,8 @@ export default class LocationLookup extends HTMLElement {
                 <h3>Delivery Location</h3>
               </div>
               <p class="branch-name">Lead Address</p>
-              <p class="delivery-address">${
-                distanceResult.delivery_location
-              }</p>
+              <p class="delivery-address">${distanceResult.delivery_location
+      }</p>
             </div>
             
             <div class="detail-card branch-card">
@@ -666,9 +656,8 @@ export default class LocationLookup extends HTMLElement {
                 <h3>Nearest Branch</h3>
               </div>
               <p class="branch-name">${distanceResult.nearest_branch.name}</p>
-              <p class="branch-address">${
-                distanceResult.nearest_branch.address
-              }</p>
+              <p class="branch-address">${distanceResult.nearest_branch.address
+      }</p>
             </div>
           </div>
           
@@ -684,11 +673,11 @@ export default class LocationLookup extends HTMLElement {
               <div class="metric-content">
                 <h4>Distance</h4>
                 <div class="metric-value">${distanceResult.distance_miles.toFixed(
-                  2
-                )} miles</div>
+        2
+      )} miles</div>
                 <div class="metric-secondary">${(
-                  distanceResult.distance_meters / 1000
-                ).toFixed(2)} kilometers</div>
+        distanceResult.distance_meters / 1000
+      ).toFixed(2)} kilometers</div>
               </div>
             </div>
             
@@ -705,6 +694,26 @@ export default class LocationLookup extends HTMLElement {
                 <div class="metric-secondary">${distanceResult.duration_seconds.toLocaleString()} seconds total</div>
               </div>
             </div>
+            
+            <div class="metric-card service-area-card">
+              <div class="metric-icon ${(distanceResult.within_service_area === true) ? 'service-area-yes' : 'service-area-no'}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  ${(distanceResult.within_service_area === true)
+        ? '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>'
+        : '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>'
+      }
+                </svg>
+              </div>
+              <div class="metric-content">
+                <h4>Service Area</h4>
+                <div class="metric-value ${(distanceResult.within_service_area === true) ? 'within-service' : (distanceResult.within_service_area === false) ? 'outside-service' : 'unknown-service'}">
+                  ${(distanceResult.within_service_area === true) ? 'Within Area' : (distanceResult.within_service_area === false) ? 'Outside Area' : 'Unknown'}
+                </div>
+                <div class="metric-secondary">
+                  ${(distanceResult.within_service_area === true) ? 'Service available' : (distanceResult.within_service_area === false) ? 'Outside coverage zone' : 'Coverage status unavailable'}
+                </div>
+              </div>
+            </div>
           </div>
           
           <div class="message-container">
@@ -716,10 +725,9 @@ export default class LocationLookup extends HTMLElement {
             <p class="message">${result.data.message}</p>
           </div>
           
-          ${
-            showComparison
-              ? ""
-              : `
+          ${showComparison
+        ? ""
+        : `
             <div class="awaiting-second-request">
               <div class="loading-indicator">
                 <div class="dot"></div>
@@ -729,12 +737,11 @@ export default class LocationLookup extends HTMLElement {
               <p>Performing second request to demonstrate Redis caching...</p>
             </div>
           `
-          }
+      }
         </div>
         
-        <div class="tab-content comparison-tab ${
-          showComparison ? "" : "hidden"
-        }">
+        <div class="tab-content comparison-tab ${showComparison ? "" : "hidden"
+      }">
           ${performanceComparisonHtml}
         </div>
       </div>
@@ -1382,7 +1389,7 @@ export default class LocationLookup extends HTMLElement {
         /* Metrics Grid */
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 1rem;
           margin-bottom: 1.5rem;
         }
@@ -1447,6 +1454,37 @@ export default class LocationLookup extends HTMLElement {
         .metric-secondary {
           font-size: 0.75rem;
           color: var(--gray-color);
+        }
+        
+        /* Service Area specific styles */
+        .service-area-card .metric-icon.service-area-yes {
+          background: linear-gradient(145deg, #10b981 0%, #047857 100%);
+          color: white;
+        }
+        
+        .service-area-card .metric-icon.service-area-no {
+          background: linear-gradient(145deg, #ef4444 0%, #dc2626 100%);
+          color: white;
+        }
+        
+        .metric-value.within-service {
+          color: #10b981;
+          font-weight: 700;
+        }
+        
+        .metric-value.outside-service {
+          color: #ef4444;
+          font-weight: 700;
+        }
+        
+        .metric-value.unknown-service {
+          color: #f59e0b;
+          font-weight: 700;
+        }
+        
+        .service-area-card .metric-secondary {
+          color: var(--gray-color);
+          font-style: italic;
         }
         
         .message-container {

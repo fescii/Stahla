@@ -18,6 +18,7 @@ from app.models.dash.dashboard import (
     SheetProductsResponse,
     SheetGeneratorsResponse,
     SheetBranchesResponse,
+    SheetStatesResponse,
     SheetConfigResponse,  # Added Sheet data models
 )
 from app.models.dash.service_status import ServicesStatusResponse, ServiceStatus
@@ -61,9 +62,11 @@ async def get_dashboard_overview_endpoint(
   logger.info("Received request for dashboard overview.")
   try:
     stats: Dict[str, Dict[str, int]] = await mongo_service.get_dashboard_stats()
-    base_overview = await dashboard_service.get_dashboard_overview() # This should populate redis_counters among other things
+    # This should populate redis_counters among other things
+    base_overview = await dashboard_service.get_dashboard_overview()
 
-    updated_data = base_overview.model_dump()  # Get existing data as dict, includes base_overview.redis_counters
+    # Get existing data as dict, includes base_overview.redis_counters
+    updated_data = base_overview.model_dump()
 
     # Initialize aggregated report counters
     agg_total_reports = 0
@@ -85,8 +88,9 @@ async def get_dashboard_overview_endpoint(
       updated_data["quote_requests_total"] = 0
       updated_data["quote_requests_successful"] = 0
       updated_data["quote_requests_failed"] = 0
-      logger.warning("Quote request stats not found in mongo_service.get_dashboard_stats(). Defaulting to zeros for these.")
-    
+      logger.warning(
+          "Quote request stats not found in mongo_service.get_dashboard_stats(). Defaulting to zeros for these.")
+
     agg_total_reports += quote_requests_total
     agg_successful_reports += quote_requests_successful
     agg_failed_reports += quote_requests_failed
@@ -98,8 +102,10 @@ async def get_dashboard_overview_endpoint(
     mongo_location_lookups_failed = 0
     if "location_lookups" in stats:
       mongo_location_lookups_total = stats["location_lookups"].get("total", 0)
-      mongo_location_lookups_successful = stats["location_lookups"].get("successful", 0)
-      mongo_location_lookups_failed = stats["location_lookups"].get("failed", 0)
+      mongo_location_lookups_successful = stats["location_lookups"].get(
+          "successful", 0)
+      mongo_location_lookups_failed = stats["location_lookups"].get(
+          "failed", 0)
       updated_data["location_lookups_total"] = mongo_location_lookups_total
       updated_data["location_lookups_successful"] = mongo_location_lookups_successful
       updated_data["location_lookups_failed"] = mongo_location_lookups_failed
@@ -107,47 +113,54 @@ async def get_dashboard_overview_endpoint(
       updated_data["location_lookups_total"] = 0
       updated_data["location_lookups_successful"] = 0
       updated_data["location_lookups_failed"] = 0
-      logger.warning("Location lookup stats (MongoDB) not found in mongo_service.get_dashboard_stats(). Defaulting to zeros for these.")
+      logger.warning(
+          "Location lookup stats (MongoDB) not found in mongo_service.get_dashboard_stats(). Defaulting to zeros for these.")
 
     # For the aggregated report_summary, prioritize Redis total for location lookups if available
     redis_location_lookups_total = 0
     if base_overview.redis_counters and "location_lookups" in base_overview.redis_counters:
-        redis_location_stats = base_overview.redis_counters.get("location_lookups", {})
-        redis_location_lookups_total = int(redis_location_stats.get("total", 0))
-        logger.info(f"Using Redis total for location lookups in report_summary: {redis_location_lookups_total}")
+      redis_location_stats = base_overview.redis_counters.get(
+          "location_lookups", {})
+      redis_location_lookups_total = int(redis_location_stats.get("total", 0))
+      logger.info(
+          f"Using Redis total for location lookups in report_summary: {redis_location_lookups_total}")
     else:
-        logger.warning("Location lookup stats not found in base_overview.redis_counters for report_summary. Using MongoDB total for aggregation.")
-        redis_location_lookups_total = mongo_location_lookups_total # Fallback to Mongo total if not in Redis counters
+      logger.warning(
+          "Location lookup stats not found in base_overview.redis_counters for report_summary. Using MongoDB total for aggregation.")
+      # Fallback to Mongo total if not in Redis counters
+      redis_location_lookups_total = mongo_location_lookups_total
 
     agg_total_reports += redis_location_lookups_total
     # For successful/failed in aggregate, we use the breakdown from MongoDB stats as Redis only provides total for locations
-    agg_successful_reports += mongo_location_lookups_successful 
+    agg_successful_reports += mongo_location_lookups_successful
     agg_failed_reports += mongo_location_lookups_failed
 
     # 3. GMaps API Calls Stats (from Redis, via base_overview.redis_counters)
     gmaps_api_calls = 0
     gmaps_api_errors = 0
     if base_overview.redis_counters and "gmaps_api" in base_overview.redis_counters:
-        gmaps_stats = base_overview.redis_counters.get("gmaps_api", {})
-        gmaps_api_calls = int(gmaps_stats.get("calls", 0))
-        gmaps_api_errors = int(gmaps_stats.get("errors", 0))
+      gmaps_stats = base_overview.redis_counters.get("gmaps_api", {})
+      gmaps_api_calls = int(gmaps_stats.get("calls", 0))
+      gmaps_api_errors = int(gmaps_stats.get("errors", 0))
     else:
-        logger.warning("GMaps API stats not found in base_overview.redis_counters. Defaulting to zeros for these.")
-    
+      logger.warning(
+          "GMaps API stats not found in base_overview.redis_counters. Defaulting to zeros for these.")
+
     gmaps_api_successful = max(0, gmaps_api_calls - gmaps_api_errors)
 
     agg_total_reports += gmaps_api_calls
     agg_successful_reports += gmaps_api_successful
     agg_failed_reports += gmaps_api_errors
-    
+
     # Update the report_summary field with these aggregated counts
     # This was the field previously populated by dashboard_service.get_report_summary()
     updated_data["report_summary"] = {
-        "total_reports": agg_total_reports, # Corrected key to match original model if it was 'total_reports'
-        "success_count": agg_successful_reports, # Corrected key
-        "failure_count": agg_failed_reports # Corrected key
+        # Corrected key to match original model if it was 'total_reports'
+        "total_reports": agg_total_reports,
+        "success_count": agg_successful_reports,  # Corrected key
+        "failure_count": agg_failed_reports  # Corrected key
     }
-    
+
     # Ensure other fields from base_overview (like recent_errors, cache_stats etc.) are preserved
     # The updated_data started with base_overview.model_dump(), so they are already there.
 
@@ -563,6 +576,27 @@ async def get_sheet_branches(
     logger.error(f"Error fetching sheet branches data: {e}", exc_info=True)
     raise HTTPException(
         status_code=500, detail="Failed to retrieve synced branches data."
+    )
+
+
+@router.get(
+    "/sheet/states",
+    response_model=GenericResponse[SheetStatesResponse],
+    summary="Get Synced States from Sheet",
+    description="Retrieves all states data synced from Google Sheets and stored in MongoDB.",
+    dependencies=[Depends(get_current_user)],
+)
+async def get_sheet_states(
+    dashboard_service: DashboardService = Depends(get_dashboard_service_dep),
+):
+  logger.info("Request to fetch synced states from MongoDB.")
+  try:
+    states_data = await dashboard_service.get_sheet_states_data()
+    return GenericResponse[SheetStatesResponse](data=states_data)
+  except Exception as e:
+    logger.error(f"Error fetching sheet states data: {e}", exc_info=True)
+    raise HTTPException(
+        status_code=500, detail="Failed to retrieve synced states data."
     )
 
 

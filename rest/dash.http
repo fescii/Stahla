@@ -210,6 +210,11 @@ x-access-token: {{jwt_token}}
 
 ###
 
+# Get Synced States
+GET {{host}}{{api_v1}}/dashboard/sheet/states
+x-access-token: {{jwt_token}}
+###
+
 # Get External Services Status
 GET {{host}}{{api_v1}}/dashboard/services/status
 x-access-token: {{jwt_token}}

@@ -1,10 +1,13 @@
 import APIManager from "./api.js";
 import uis from "./apps/apps.js"
+import ThemeManager from "./themes.js";
+
 export default class AppMain extends HTMLElement {
   constructor() {
     super();
     this.content = this.getContent();
     this.shadowObj = this.attachShadow({ mode: "open" });
+    this.initThemeSystem();
     this.registerComponents();
     this.preferences();
     this.api = new APIManager('/api/v1', 9500, 'v1');
@@ -37,10 +40,10 @@ export default class AppMain extends HTMLElement {
   _loadInitialContent() {
     // Get the current path from the browser
     const currentPath = window.location.pathname;
-    
+
     // Update active navigation item based on the current URL
     this._updateActiveNavItem(currentPath);
-    
+
     // Load the content for this URL
     if (this.getNavContents[currentPath]) {
       const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
@@ -65,16 +68,16 @@ export default class AppMain extends HTMLElement {
 
     // Get all navigation links
     const navLinks = this.shadowRoot.querySelectorAll('section.nav a[href]');
-    
+
     navLinks.forEach(link => {
       link.addEventListener('click', (event) => {
         event.preventDefault();
-        
+
         const url = link.getAttribute('href');
-        
+
         // Update active class for main nav items
         this._updateActiveNavItem(url);
-        
+
         // Get content for the URL
         const content = this.getNavContents[url] || this.getNavContents.default;
 
@@ -87,16 +90,16 @@ export default class AppMain extends HTMLElement {
   _updateActiveNavItem(url) {
     // Find all expanded dropdowns first to maintain their visibility state
     const expandedDropdowns = Array.from(this.shadowRoot.querySelectorAll('section.nav > ul.nav.special > li:not(.collapsed)'));
-    
+
     // Remove active class from all items
     const allNavItems = this.shadowRoot.querySelectorAll('section.nav li');
     allNavItems.forEach(item => item.classList.remove('active'));
-    
+
     // Re-add active class to expanded dropdowns to maintain vertical line
     expandedDropdowns.forEach(dropdown => {
       dropdown.classList.add('active');
     });
-    
+
     // Add active class to the current nav item
     if (url === '/' || url === '/overview') {
       const overviewItem = this.shadowRoot.querySelector('li.overview');
@@ -104,25 +107,25 @@ export default class AppMain extends HTMLElement {
     } else {
       // Extract the path segments
       const urlSegments = url.split('/').filter(segment => segment);
-      
+
       if (urlSegments.length > 0) {
         // Try to find the nav item with the class matching the last segment
         const segment = urlSegments[urlSegments.length - 1];
         let navItem = this.shadowRoot.querySelector(`li.${segment}`);
-        
+
         // If not found, try the first segment
         if (!navItem && urlSegments.length > 0) {
           navItem = this.shadowRoot.querySelector(`li.${urlSegments[0]}`);
         }
-        
+
         if (navItem) {
           navItem.classList.add('active');
-          
+
           // If it's in a dropdown, also mark the parent as active and expand the dropdown
           const parentLi = navItem.closest('ul.dropdown')?.closest('li');
           if (parentLi) {
             parentLi.classList.add('active');
-            
+
             // Expand the dropdown if it's collapsed
             if (parentLi.classList.contains('collapsed')) {
               this._expandDropdown(parentLi);
@@ -142,12 +145,12 @@ export default class AppMain extends HTMLElement {
     this.style.setProperty('display', 'flex')
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
     const currentPath = window.location.pathname;
-    
+
     // Only initialize default content if we're at the root or there's no specific content for this path
     if (container && (currentPath === '/' || !this.getNavContents[currentPath])) {
       this.initContent();
     }
-    
+
     // request user to enable notifications
     this.checkNotificationPermission();
   }
@@ -155,19 +158,19 @@ export default class AppMain extends HTMLElement {
   hideNav = () => {
     const nav = this.shadowObj.querySelector('section.nav.mobile');
 
-    if(nav) nav.style.setProperty('display', 'none'); 
+    if (nav) nav.style.setProperty('display', 'none');
   }
 
   showNav = () => {
     const nav = this.shadowObj.querySelector('section.nav.mobile');
 
-    if(nav) nav.style.setProperty('display', 'flex'); 
+    if (nav) nav.style.setProperty('display', 'flex');
   }
 
   initContent = () => {
     // check if cookie named: x-access-token exists then show dashboard otherwise show access
     const token = document.cookie.split('; ').find(row => row.startsWith('x-access-token='));
-    if(token) {
+    if (token) {
       this.showDashboard();
     } else {
       this.showAccess();
@@ -176,16 +179,16 @@ export default class AppMain extends HTMLElement {
 
   showDashboard = () => {
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-    if(container) container.innerHTML = this.getDashboard();
+    if (container) container.innerHTML = this.getDashboard();
   }
 
   showAccess = () => {
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-    if(container) container.innerHTML = this.getAccess();
+    if (container) container.innerHTML = this.getAccess();
   }
 
   checkNotificationPermission = async () => {
-    if(window.notify && !window.notify.permission) {
+    if (window.notify && !window.notify.permission) {
       await window.notify.requestPermission();
     }
   }
@@ -228,7 +231,7 @@ export default class AppMain extends HTMLElement {
     // set the loader
     container.innerHTML = this.getLoader();
     window.scrollTo(0, 0);
-    
+
     // Update current URL reference
     this.currentUrl = url;
 
@@ -275,10 +278,10 @@ export default class AppMain extends HTMLElement {
   handlePopState = event => {
     const state = event.state;
     const url = window.location.pathname;
-    
+
     // First update active navigation with proper expansion of dropdowns
     this._updateActiveNavItem(url);
-    
+
     if (state && state.kind === 'app') {
       // Update content
       this.updateHistory(state.html);
@@ -287,7 +290,7 @@ export default class AppMain extends HTMLElement {
       const content = this.getNavContents[url] || this.getNavContents.default;
       this.updateHistory(content);
     }
-    
+
     // Update current URL reference
     this.currentUrl = url;
   }
@@ -298,7 +301,7 @@ export default class AppMain extends HTMLElement {
     this.content = content;
     const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
     container.innerHTML = this.getLoader();
-    
+
     setTimeout(() => {
       // set the content
       container.innerHTML = this.content;
@@ -310,70 +313,125 @@ export default class AppMain extends HTMLElement {
     uis('Apps registered');
   }
 
+  initThemeSystem = () => {
+    // Initialize theme manager if not already available
+    if (!window.themeManager) {
+      window.themeManager = new ThemeManager();
+      // Make ThemeManager class available globally for other components
+      window.ThemeManager = ThemeManager;
+    }
+    this.setupThemeIntegration();
+  }
+
+  setupThemeIntegration = () => {
+    // Listen for theme changes and update meta theme color
+    window.addEventListener('themeChanged', (e) => {
+      const metaThemeColor = document.querySelector("meta[name=theme-color]");
+      if (metaThemeColor) {
+        // Determine if we should use dark or light meta theme color based on system preference
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        metaThemeColor.setAttribute("content", isDark ? '#000000' : '#ffffff');
+      }
+    });
+
+    // Update legacy localStorage key to work with new theme system
+    const oldTheme = localStorage.getItem('theme');
+    const newTheme = localStorage.getItem('stahla_theme');
+
+    if (oldTheme && !newTheme && ['light', 'dark', 'system'].includes(oldTheme)) {
+      // Migrate old theme setting to new default theme
+      localStorage.setItem('stahla_theme', 'default');
+      localStorage.removeItem('theme');
+    }
+  }
+
   // set hash if user is logged
-	setHash = name => {
-		const value = `; ${document.cookie}`;
-		const parts = value.split(`; ${name}=`);
+  setHash = name => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
 
-		const cookie = parts.length === 2 ? parts.pop().split(';').shift() : null;
+    const cookie = parts.length === 2 ? parts.pop().split(';').shift() : null;
 
-		// add cookie to the window
-		window.hash = cookie;
-	}
+    // add cookie to the window
+    window.hash = cookie;
+  }
 
-	setTheme = currentTheme =>{
-		// Check the current theme
-		const htmlElement = document.documentElement;
-		const metaThemeColor = document.querySelector("meta[name=theme-color]");
+  setTheme = currentTheme => {
+    // If new theme manager is available, use it
+    if (window.themeManager) {
+      // Map legacy theme names to new system
+      if (currentTheme === 'light' || currentTheme === 'dark' || currentTheme === 'system') {
+        window.themeManager.applyTheme('default');
+      } else if (window.themeManager.getAllThemes()[currentTheme]) {
+        window.themeManager.applyTheme(currentTheme);
+      } else {
+        window.themeManager.applyTheme('default');
+      }
+      return;
+    }
 
-		// Check if the current theme is: system
-		if (currentTheme === 'system') {
-			// Update the data-theme attribute
-			htmlElement.setAttribute('data-theme', currentTheme);
+    // Fallback to legacy theme system
+    const htmlElement = document.documentElement;
+    const metaThemeColor = document.querySelector("meta[name=theme-color]");
 
-			// Store the preference in local storage
-			localStorage.setItem('theme', 'system');
+    // Check if the current theme is: system
+    if (currentTheme === 'system') {
+      // Update the data-theme attribute
+      htmlElement.setAttribute('data-theme', currentTheme);
 
-			// Update the theme-color meta tag
-			metaThemeColor.setAttribute("content", currentTheme === 'dark' ? '#000000' : '#ffffff');
-			return;
-		}
-		
-		// Update the data-theme attribute
-		htmlElement.setAttribute('data-theme', currentTheme);
-		
-		// Store the preference in local storage
-		localStorage.setItem('theme', currentTheme);
+      // Store the preference in local storage
+      localStorage.setItem('theme', 'system');
 
-		// Update the theme-color meta tag
-		metaThemeColor.setAttribute("content", currentTheme === 'dark' ? '#000000' : '#ffffff');
-	}
-	
-	preferences() {
-		const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+      // Update the theme-color meta tag
+      metaThemeColor.setAttribute("content", currentTheme === 'dark' ? '#000000' : '#ffffff');
+      return;
+    }
 
-		// listen for theme change
-		prefersDarkScheme.addEventListener('change', (event) => {
-			// get local storage theme
-			const currentTheme = localStorage.getItem('theme') || 'light';
+    // Update the data-theme attribute
+    htmlElement.setAttribute('data-theme', currentTheme);
 
-			// if the theme is system
-			if (currentTheme === 'system') {
-				// set the theme
-				this.setTheme('system');
-				return;
-			}
-		})
+    // Store the preference in local storage
+    localStorage.setItem('theme', currentTheme);
 
-		// get theme from local storage
-		const currentTheme = localStorage.getItem('theme') || 'light';
+    // Update the theme-color meta tag
+    metaThemeColor.setAttribute("content", currentTheme === 'dark' ? '#000000' : '#ffffff');
+  }
 
-		// set the theme
-		this.setTheme(currentTheme);
+  preferences() {
+    const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
-		// set hash
-		this.setHash('hash');
-	}
+    // listen for theme change
+    prefersDarkScheme.addEventListener('change', (event) => {
+      // If new theme manager is available, let it handle system theme changes
+      if (window.themeManager) {
+        window.themeManager.watchSystemTheme();
+        return;
+      }
+
+      // Fallback to legacy system
+      const currentTheme = localStorage.getItem('theme') || 'light';
+
+      // if the theme is system
+      if (currentTheme === 'system') {
+        // set the theme
+        this.setTheme('system');
+        return;
+      }
+    })
+
+    // Initialize theme system
+    if (window.themeManager) {
+      // Theme manager will handle theme loading
+      window.themeManager.watchSystemTheme();
+    } else {
+      // Fallback to legacy theme system
+      const currentTheme = localStorage.getItem('theme') || 'light';
+      this.setTheme(currentTheme);
+    }
+
+    // set hash
+    this.setHash('hash');
+  }
 
   _setupSpecialNavs() {
     if (!this.shadowRoot) {
@@ -423,7 +481,7 @@ export default class AppMain extends HTMLElement {
           if (isCurrentlyCollapsed) { // If it was collapsed, open it
             item.classList.remove('collapsed');
             item.classList.add('active'); // Add active class for the vertical line regardless of child selection
-            dropdown.style.maxHeight = ( dropdown.scrollHeight + 7) + 'px'; // Add some padding
+            dropdown.style.maxHeight = (dropdown.scrollHeight + 7) + 'px'; // Add some padding
           } else { // If it was open, close it
             item.classList.add('collapsed');
             item.classList.remove('active'); // Remove active class for the vertical line
@@ -461,8 +519,9 @@ export default class AppMain extends HTMLElement {
     "/sheet/generators": /* HTML */`<sheet-generators api="/dashboard/sheet/generators"></sheet-generators>`,
     "/sheet/products": /* HTML */`<sheet-products api="/dashboard/sheet/products"></sheet-products>`,
     "/sheet/branches": /* HTML */`<sheet-branches api="/dashboard/sheet/branches"></sheet-branches>`,
+    "/sheet/states": /* HTML */`<sheet-states api="/dashboard/sheet/states"></sheet-states>`,
     "/updates": /* HTML */`<soon-page url="/soon"></soon-page>`,
-    "/themes": /* HTML */`<soon-page url="/soon"></soon-page>`,
+    "/themes": /* HTML */`<sheet-themes api="/themes"></sheet-themes>`,
     default: /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
   }
 
@@ -702,6 +761,9 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
+            <li class="states">
+              <a href="/sheet/states"><span class="text">States</span></a>
+            </li>
             <li class="config">
               <a href="/sheet/config"><span class="text">Config</span></a>
             </li>
@@ -1390,18 +1452,18 @@ export default class AppMain extends HTMLElement {
 
   _expandDropdown(parentLi) {
     if (!parentLi) return;
-    
+
     // Remove collapsed class and add active class to show vertical line
     parentLi.classList.remove('collapsed');
     parentLi.classList.add('active');
-    
+
     // Get the dropdown and expand it
     const dropdown = parentLi.querySelector('ul.dropdown');
     if (dropdown) {
       // Set max height to scrollHeight to show the dropdown
       dropdown.style.maxHeight = (dropdown.scrollHeight + 7) + 'px';
     }
-    
+
     // Close other dropdowns
     const specialNavUls = this.shadowRoot.querySelectorAll('section.nav > ul.nav.special');
     specialNavUls.forEach(ul => {

@@ -20,7 +20,7 @@ export default class SheetBranches extends HTMLElement {
     // Fetch branches data first
     this.fetchBranchesData();
     window.addEventListener("scroll", this.handleScroll);
-    
+
     // Set up event listeners after initial render
     setTimeout(() => {
       this._setupEventListeners();
@@ -64,12 +64,12 @@ export default class SheetBranches extends HTMLElement {
       this._loading = false;
       this._block = false;
       this._empty = false;
-      
+
       // Log data structure to help debug inconsistencies
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('dev')) {
         console.log('Branches data structure:', response.data);
       }
-      
+
       this.branchesData = response;
       this.render();
 
@@ -135,7 +135,7 @@ export default class SheetBranches extends HTMLElement {
       const branches = this.branchesData.data.data;
       // Create CSV content
       let csvContent = 'Branch Name,Address\n';
-      
+
       // Add each branch data row
       branches.forEach(branch => {
         const row = [
@@ -178,18 +178,18 @@ export default class SheetBranches extends HTMLElement {
       return /* html */ `<div class="container">${this.getWrongMessage()}</div>`;
     }
 
-    // Show branches table with actual data
+    // Show branches layout with actual data
     return /* html */ `
       <div class="container">
         ${this._getHeaderHTML()}
-        ${this._getBranchesTableHTML()}
+        ${this._getBranchesLayoutHTML()}
       </div>
     `;
   };
 
   _getHeaderHTML = () => {
     const count = this.branchesData.data.count || 0;
-    
+
     return /* html */ `
     <div class="branches-header">
       <div class="branches-title">
@@ -212,9 +212,9 @@ export default class SheetBranches extends HTMLElement {
     `;
   };
 
-  _getBranchesTableHTML = () => {
+  _getBranchesLayoutHTML = () => {
     const branches = this.branchesData.data.data || [];
-    
+
     if (!branches.length) {
       return /* html */ `
       <div class="empty-state">
@@ -227,37 +227,24 @@ export default class SheetBranches extends HTMLElement {
       </div>
       `;
     }
-    
+
     return /* html */ `
-    <div class="branches-table-container">
-      <div class="table-scroll-container">
-        <table class="branches-table">
-          <thead>
-            <tr>
-              <th class="sticky-column branch-name">Branch Name</th>
-              <th>Address</th>
-              <th>Map</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${branches.map(branch => this._getBranchRowHTML(branch)).join('')}
-          </tbody>
-        </table>
-      </div>
+    <div class="branches-grid">
+      ${branches.map(branch => this._getBranchCardHTML(branch)).join('')}
     </div>
     `;
   };
 
-  _getBranchRowHTML = (branch) => {
+  _getBranchCardHTML = (branch) => {
     // Encode the address for use in Google Maps URL
     const encodedAddress = encodeURIComponent(branch.address);
     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-    
+
     return /* html */ `
-    <tr>
-      <td class="sticky-column branch-name">${branch.name}</td>
-      <td class="address-cell">${branch.address}</td>
-      <td class="map-cell">
+    <div class="branch-card">
+      <div class="branch-name">${branch.name}</div>
+      <div class="branch-address">${branch.address}</div>
+      <div class="branch-actions">
         <a href="${mapUrl}" target="_blank" class="map-link">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
@@ -266,8 +253,8 @@ export default class SheetBranches extends HTMLElement {
           </svg>
           View on Map
         </a>
-      </td>
-    </tr>
+      </div>
+    </div>
     `;
   };
 
@@ -420,96 +407,76 @@ export default class SheetBranches extends HTMLElement {
           stroke-width: 2px;
         }
 
-        /* Branches Table Styles */
-        .branches-table-container {
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          overflow: hidden;
+        /* Branches Grid Layout */
+        .branches-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 1rem;
           margin-bottom: 2rem;
         }
 
-        .table-scroll-container {
-          overflow-x: auto;
-          max-width: 100%;
-        }
-
-        .branches-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-          font-size: 0.875rem;
-        }
-
-        .branches-table th {
-          background-color: var(--stat-background);
-          padding: 0.75rem 1rem;
-          font-weight: 600;
-          color: var(--title-color);
-          border-bottom: var(--border);
-          white-space: nowrap;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-          text-align: center;
-        }
-
-        .branches-table td {
-          padding: 0.75rem 1rem;
-          border-bottom: var(--border);
-          color: var(--text-color);
-          text-align: center;
-        }
-
-        .sticky-column {
-          position: sticky;
-          left: 0;
+        .branch-card {
           background-color: var(--background);
-          z-index: 5;
-          box-shadow: var(--image-shadow);
-          text-align: left;
+          border-radius: 0.75rem;
+          box-shadow: var(--box-shadow);
+          padding: 15px 15px;
+          transition: all 0.2s ease;
+          border: 1px solid var(--border-color, rgba(0, 0, 0, 0.05));
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
         }
 
-        th.sticky-column {
-          background-color: var(--stat-background);
-          z-index: 15;
-          text-align: left;
+        .branch-card:hover {
+          box-shadow: var(--card-box-shadow-alt);
+          transform: translateY(-2px);
         }
 
         .branch-name {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: var(--title-color);
+          line-height: 1.3;
+          margin: 0;
+        }
+
+        .branch-address {
+          color: var(--text-color);
+          font-family: var(--font-mono);
+          font-size: 0.875rem;
+          line-height: 1.4;
           font-weight: 500;
-          min-width: 180px;
-          text-align: left;
+          flex-grow: 1;
         }
 
-        .address-cell {
-          min-width: 300px;
-        }
-
-        .map-cell {
-          text-align: center;
-          white-space: nowrap;
+        .branch-actions {
+          margin-top: auto;
+          display: flex;
+          justify-content: flex-end;
         }
 
         .map-link {
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          background-color: transparent;
-          color: var(--accent-color);
-          border: var(--border-button);
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
+          gap: 0.5rem;
+          background: var(--action-linear);
+          color: var(--white-color);
+          border: none;
+          margin: 6px 0 0;
+          padding: 0.5rem 0.875rem;
+          border-radius: 0.375rem;
           font-size: 0.75rem;
+          font-weight: 500;
           text-decoration: none;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .map-link:hover {
-          background-color: var(--hover-background);
-          border-color: var(--accent-color);
-          color: var(--action-color);
+          background: var(--accent-linear);
+          transform: translateY(-1px);
         }
 
         /* Empty state styles */
@@ -543,15 +510,6 @@ export default class SheetBranches extends HTMLElement {
           max-width: 300px;
         }
 
-        /* Make the table rows alternating colors for better readability */
-        .branches-table tbody tr:nth-child(odd) {
-          background-color: var(--stat-background);
-        }
-
-        .branches-table tbody tr:hover {
-          background-color: var(--hover-background);
-        }
-
         /* Responsive adjustments */
         @media (max-width: 768px) {
           .branches-header {
@@ -565,6 +523,38 @@ export default class SheetBranches extends HTMLElement {
           
           .export-btn {
             flex: 1;
+            justify-content: center;
+          }
+
+          .branches-grid {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+          }
+
+          .branch-card {
+            padding: 1.25rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .container {
+            padding: 1rem;
+          }
+
+          .branches-grid {
+            gap: 0.5rem;
+          }
+
+          .branch-card {
+            padding: 1rem;
+          }
+
+          .branch-name {
+            font-size: 1rem;
+          }
+
+          .map-link {
+            width: 100%;
             justify-content: center;
           }
         }

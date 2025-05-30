@@ -20,7 +20,7 @@ export default class SheetConfig extends HTMLElement {
     // Fetch config data first
     this.fetchConfigData();
     window.addEventListener("scroll", this.handleScroll);
-    
+
     // Set up event listeners after initial render
     setTimeout(() => {
       this._setupEventListeners();
@@ -64,12 +64,12 @@ export default class SheetConfig extends HTMLElement {
       this._loading = false;
       this._block = false;
       this._empty = false;
-      
+
       // Log data structure to help debug inconsistencies
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('dev')) {
         console.log('Config data structure:', response.data);
       }
-      
+
       this.configData = response;
       this.render();
 
@@ -135,16 +135,16 @@ export default class SheetConfig extends HTMLElement {
       const config = this.configData.data.data;
       // Create CSV content for seasonal multipliers
       let csvContent = 'Config Type: ' + config.config_type + '\n\n';
-      
+
       // Add delivery config
       csvContent += 'Delivery Configuration\n';
       csvContent += 'Base Fee,Free Miles Threshold\n';
       csvContent += `${config.delivery_config.base_fee},${config.delivery_config.free_miles_threshold}\n\n`;
-      
+
       // Add seasonal multipliers
       csvContent += 'Seasonal Multipliers\n';
       csvContent += 'Name,Start Date,End Date,Rate\n';
-      
+
       config.seasonal_multipliers_config.tiers.forEach(tier => {
         const row = [
           `"${tier.name}"`,
@@ -154,7 +154,7 @@ export default class SheetConfig extends HTMLElement {
         ];
         csvContent += row.join(',') + '\n';
       });
-      
+
       csvContent += '\nLast Updated: ' + config.last_updated_mongo;
 
       // Create a blob and download link
@@ -195,7 +195,7 @@ export default class SheetConfig extends HTMLElement {
       <div class="container">
         ${this._getHeaderHTML()}
         ${this._getDeliveryConfigHTML()}
-        ${this._getMultipliersTableHTML()}
+        ${this._getMultipliersLayoutHTML()}
       </div>
     `;
   };
@@ -203,7 +203,7 @@ export default class SheetConfig extends HTMLElement {
   _getHeaderHTML = () => {
     const config = this.configData.data.data;
     const lastUpdated = new Date(config.last_updated_mongo).toLocaleString();
-    
+
     return /* html */ `
     <div class="config-header">
       <div class="config-title">
@@ -229,7 +229,7 @@ export default class SheetConfig extends HTMLElement {
   _getDeliveryConfigHTML = () => {
     const config = this.configData.data.data;
     const deliveryConfig = config.delivery_config;
-    
+
     return /* html */ `
     <div class="config-section">
       <h2 class="section-title">Delivery Configuration</h2>
@@ -251,10 +251,10 @@ export default class SheetConfig extends HTMLElement {
     `;
   };
 
-  _getMultipliersTableHTML = () => {
+  _getMultipliersLayoutHTML = () => {
     const config = this.configData.data.data;
     const tiers = config.seasonal_multipliers_config.tiers || [];
-    
+
     if (!tiers.length) {
       return /* html */ `
       <div class="config-section">
@@ -272,33 +272,18 @@ export default class SheetConfig extends HTMLElement {
       </div>
       `;
     }
-    
+
     return /* html */ `
     <div class="config-section">
       <h2 class="section-title">Seasonal Rate Multipliers</h2>
-      <div class="multipliers-table-container">
-        <div class="table-scroll-container">
-          <table class="multipliers-table">
-            <thead>
-              <tr>
-                <th class="sticky-column">Tier Name</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Rate Multiplier</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tiers.map(tier => this._getMultiplierRowHTML(tier)).join('')}
-            </tbody>
-          </table>
-        </div>
+      <div class="multipliers-grid">
+        ${tiers.map(tier => this._getMultiplierCardHTML(tier)).join('')}
       </div>
     </div>
     `;
   };
 
-  _getMultiplierRowHTML = (tier) => {
+  _getMultiplierCardHTML = (tier) => {
     // Format dates and check if the tier is currently active
     const startDate = new Date(tier.start_date);
     const endDate = new Date(tier.end_date);
@@ -306,21 +291,34 @@ export default class SheetConfig extends HTMLElement {
     const isActive = now >= startDate && now <= endDate;
     const status = isActive ? 'Active' : (now < startDate ? 'Upcoming' : 'Expired');
     const statusClass = isActive ? 'status-active' : (now < startDate ? 'status-upcoming' : 'status-expired');
-    
+
     // Format display dates
     const startDateFormatted = startDate.toLocaleDateString();
     const endDateFormatted = endDate.toLocaleDateString();
-    
+
     return /* html */ `
-    <tr>
-      <td class="sticky-column tier-name">${tier.name}</td>
-      <td class="date-cell">${startDateFormatted}</td>
-      <td class="date-cell">${endDateFormatted}</td>
-      <td class="rate-cell">${tier.rate.toFixed(2)}x</td>
-      <td class="status-cell">
+    <div class="multiplier-card">
+      <div class="card-header">
+        <h3 class="tier-name">${tier.name}</h3>
         <span class="status-badge ${statusClass}">${status}</span>
-      </td>
-    </tr>
+      </div>
+      <div class="card-content">
+        <div class="date-range">
+          <div class="date-item">
+            <span class="date-label">Start Date</span>
+            <span class="date-value">${startDateFormatted}</span>
+          </div>
+          <div class="date-item">
+            <span class="date-label">End Date</span>
+            <span class="date-value">${endDateFormatted}</span>
+          </div>
+        </div>
+        <div class="rate-display">
+          <span class="rate-label">Rate Multiplier</span>
+          <span class="rate-value">${tier.rate.toFixed(2)}x</span>
+        </div>
+      </div>
+    </div>
     `;
   };
 
@@ -515,88 +513,109 @@ export default class SheetConfig extends HTMLElement {
           color: var(--title-color);
         }
 
-        /* Multipliers Table Styles */
-        .multipliers-table-container {
+        /* Multipliers Grid Styles */
+        .multipliers-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .multiplier-card {
           background-color: var(--background);
           border-radius: 0.5rem;
           box-shadow: var(--box-shadow);
-          overflow: hidden;
+          padding: 1.5rem;
+          transition: all 0.2s ease;
+          border: 1px solid var(--border);
         }
 
-        .table-scroll-container {
-          overflow-x: auto;
-          max-width: 100%;
-        }
-
-        .multipliers-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-          font-size: 0.875rem;
-        }
-
-        .multipliers-table th {
-          background-color: var(--stat-background);
-          padding: 0.75rem 1rem;
-          font-weight: 600;
-          color: var(--title-color);
-          border-bottom: var(--border);
-          white-space: nowrap;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-          text-align: center;
-        }
-
-        .multipliers-table td {
-          padding: 0.75rem 1rem;
-          border-bottom: var(--border);
-          color: var(--text-color);
-          text-align: center;
-        }
-
-        .sticky-column {
-          position: sticky;
-          left: 0;
-          background-color: var(--background);
-          z-index: 5;
+        .multiplier-card:hover {
           box-shadow: var(--image-shadow);
-          text-align: left;
+          transform: translateY(-2px);
         }
 
-        th.sticky-column {
-          background-color: var(--stat-background);
-          z-index: 15;
-          text-align: left;
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 1rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--border);
         }
 
         .tier-name {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: var(--title-color);
+          margin: 0;
+          line-height: 1.4;
+        }
+
+        .card-content {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .date-range {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+
+        .date-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .date-label {
+          font-size: 0.75rem;
           font-weight: 500;
-          min-width: 180px;
-          text-align: left;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
-        .date-cell {
-          white-space: nowrap;
+        .date-value {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--text-color);
         }
 
-        .rate-cell {
+        .rate-display {
+          text-align: center;
+          padding: 1rem;
+          background-color: var(--stat-background);
+          border-radius: 0.375rem;
+          border: 1px solid var(--border);
+        }
+
+        .rate-label {
+          display: block;
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.5rem;
+        }
+
+        .rate-value {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--accent-color);
           font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum";
-          white-space: nowrap;
-          font-weight: 500;
-        }
-
-        .status-cell {
-          text-align: center;
         }
 
         .status-badge {
           display: inline-block;
-          padding: 0.25rem 0.5rem;
+          padding: 0.25rem 0.75rem;
           border-radius: 9999px;
           font-size: 0.75rem;
           font-weight: 500;
+          white-space: nowrap;
         }
 
         .status-active {
@@ -645,15 +664,6 @@ export default class SheetConfig extends HTMLElement {
           max-width: 300px;
         }
 
-        /* Make the table rows alternating colors for better readability */
-        .multipliers-table tbody tr:nth-child(odd) {
-          background-color: var(--stat-background);
-        }
-
-        .multipliers-table tbody tr:hover {
-          background-color: var(--hover-background);
-        }
-
         /* Responsive adjustments */
         @media (max-width: 768px) {
           .config-header {
@@ -668,6 +678,40 @@ export default class SheetConfig extends HTMLElement {
           .export-btn {
             flex: 1;
             justify-content: center;
+          }
+
+          .multipliers-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+          }
+
+          .date-range {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+          }
+
+          .rate-value {
+            font-size: 1.25rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .container {
+            padding: 1rem;
+          }
+
+          .multiplier-card {
+            padding: 1rem;
+          }
+
+          .tier-name {
+            font-size: 1rem;
+          }
+
+          .card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
           }
         }
       </style>

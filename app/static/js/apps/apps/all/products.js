@@ -20,10 +20,10 @@ export default class SheetProducts extends HTMLElement {
     // Fetch products data first
     this.fetchProductsData();
     window.addEventListener("scroll", this.handleScroll);
-    
+
     // Add click event listener for document to handle toggle extras
     this.shadowObj.addEventListener("click", this._handleExtrasToggle);
-    
+
     // Set up other event listeners after initial render
     setTimeout(() => {
       this._setupEventListeners();
@@ -68,12 +68,12 @@ export default class SheetProducts extends HTMLElement {
       this._loading = false;
       this._block = false;
       this._empty = false;
-      
+
       // Log data structure to help debug inconsistencies
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('dev')) {
         console.log('Products data structure:', response.data);
       }
-      
+
       this.productsData = response;
       this.render();
 
@@ -122,29 +122,25 @@ export default class SheetProducts extends HTMLElement {
   _handleExtrasToggle = (event) => {
     const extrasBtn = event.target.closest('.extras-btn');
     if (!extrasBtn) return;
-    
+
     const productId = extrasBtn.dataset.productId;
-    const extrasRow = this.shadowObj.querySelector(`.extras-row[data-product-id="${productId}"]`);
-    
-    if (extrasRow) {
+    const extrasContainer = this.shadowObj.querySelector(`.extras-container[data-product-id="${productId}"]`);
+
+    if (extrasContainer) {
       // Toggle the active class to show/hide the extras
-      extrasRow.classList.toggle('active');
-      
-      // Update button text
-      if (extrasRow.classList.contains('active')) {
-        extrasBtn.innerHTML = `
-          Hide Extras
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="18 15 12 9 6 15"></polyline>
-          </svg>
-        `;
+      extrasContainer.classList.toggle('active');
+      extrasBtn.classList.toggle('active');
+
+      // Update button text and icon
+      const span = extrasBtn.querySelector('span');
+      const svg = extrasBtn.querySelector('svg polyline');
+
+      if (extrasContainer.classList.contains('active')) {
+        span.textContent = 'Hide Extras';
+        svg.setAttribute('points', '18 15 12 9 6 15'); // Up arrow
       } else {
-        extrasBtn.innerHTML = `
-          View Extras
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        `;
+        span.textContent = 'View Extras';
+        svg.setAttribute('points', '9 18 15 12 9 6'); // Right arrow
       }
     }
   };
@@ -170,7 +166,7 @@ export default class SheetProducts extends HTMLElement {
       const products = this.productsData.data.data;
       // Create CSV content
       let csvContent = 'Product,Weekly (7 Day),28 Day Rate,2-5 Month Rate,6+ Month Rate,18+ Month Rate,Standard Event,Premium Event,Premium+ Event,Platinum Event\n';
-      
+
       // Add each product data row
       products.forEach(product => {
         const row = [
@@ -221,18 +217,18 @@ export default class SheetProducts extends HTMLElement {
       return /* html */ `<div class="container">${this.getWrongMessage()}</div>`;
     }
 
-    // Show products table with actual data
+    // Show products list with actual data
     return /* html */ `
       <div class="container">
         ${this._getHeaderHTML()}
-        ${this._getProductsTableHTML()}
+        ${this._getProductsListHTML()}
       </div>
     `;
   };
 
   _getHeaderHTML = () => {
     const count = this.productsData.data.count || 0;
-    
+
     return /* html */ `
     <div class="products-header">
       <div class="products-title">
@@ -255,9 +251,9 @@ export default class SheetProducts extends HTMLElement {
     `;
   };
 
-  _getProductsTableHTML = () => {
+  _getProductsListHTML = () => {
     const products = this.productsData.data.data || [];
-    
+
     if (!products.length) {
       return /* html */ `
       <div class="empty-state">
@@ -271,80 +267,102 @@ export default class SheetProducts extends HTMLElement {
       </div>
       `;
     }
-    
+
     return /* html */ `
-    <div class="products-table-container">
-      <div class="table-scroll-container">
-        <table class="products-table">
-          <thead>
-            <tr>
-              <th class="sticky-column product-name">Product</th>
-              <th>Weekly<br><span class="rate-subtext">(7 Day)</span></th>
-              <th>28 Day<br><span class="rate-subtext">Rate</span></th>
-              <th>2-5 Month<br><span class="rate-subtext">Rate</span></th>
-              <th>6+ Month<br><span class="rate-subtext">Rate</span></th>
-              <th>18+ Month<br><span class="rate-subtext">Rate</span></th>
-              <th>Standard<br><span class="rate-subtext">Event</span></th>
-              <th>Premium<br><span class="rate-subtext">Event</span></th>
-              <th>Premium+<br><span class="rate-subtext">Event</span></th>
-              <th>Platinum<br><span class="rate-subtext">Event</span></th>
-              <th>Extras</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${products.map(product => this._getProductRowHTML(product)).join('')}
-          </tbody>
-        </table>
-      </div>
+    <div class="products-list">
+      ${products.map(product => this._getProductItemHTML(product)).join('')}
     </div>
     `;
   };
 
-  _getProductRowHTML = (product) => {
+  _getProductItemHTML = (product) => {
     return /* html */ `
-    <tr>
-      <td class="sticky-column product-name">${product.name}</td>
-      <td class="price-cell">$${product.weekly_7_day.toLocaleString()}</td>
-      <td class="price-cell">$${product.rate_28_day.toLocaleString()}</td>
-      <td class="price-cell">$${product.rate_2_5_month.toLocaleString()}</td>
-      <td class="price-cell">$${product.rate_6_plus_month.toLocaleString()}</td>
-      <td class="price-cell">$${product.rate_18_plus_month.toLocaleString()}</td>
-      <td class="price-cell">$${product.event_standard.toLocaleString()}</td>
-      <td class="price-cell">$${product.event_premium.toLocaleString()}</td>
-      <td class="price-cell">$${product.event_premium_plus.toLocaleString()}</td>
-      <td class="price-cell">$${product.event_premium_platinum.toLocaleString()}</td>
-      <td class="extras-cell">
-        <button class="extras-btn" data-product-id="${product.id}">
-          View Extras
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-      </td>
-    </tr>
-    ${this._getExtrasRowHTML(product)}
+    <div class="product-item">
+      <div class="product-header">
+        <h3 class="product-name">${product.name}</h3>
+      </div>
+      
+      <div class="pricing-sections">
+        <div class="pricing-section">
+          <h4 class="section-title">Rental Rates</h4>
+          <div class="pricing-grid">
+            <div class="price-item">
+              <span class="price-label">Weekly (7 Day)</span>
+              <span class="price-value">$${product.weekly_7_day.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">28 Day Rate</span>
+              <span class="price-value">$${product.rate_28_day.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">2-5 Month Rate</span>
+              <span class="price-value">$${product.rate_2_5_month.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">6+ Month Rate</span>
+              <span class="price-value">$${product.rate_6_plus_month.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">18+ Month Rate</span>
+              <span class="price-value">$${product.rate_18_plus_month.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pricing-section">
+          <h4 class="section-title">Event Pricing</h4>
+          <div class="pricing-grid">
+            <div class="price-item">
+              <span class="price-label">Standard Event</span>
+              <span class="price-value">$${product.event_standard.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">Premium Event</span>
+              <span class="price-value">$${product.event_premium.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">Premium+ Event</span>
+              <span class="price-value">$${product.event_premium_plus.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">Platinum Event</span>
+              <span class="price-value">$${product.event_premium_platinum.toLocaleString()}</span>
+            </div>
+            <div class="price-item">
+              <span class="price-label">Other Event</span>
+              <span class="price-value">${product.event_18_plus ? '$' + product.event_18_plus.toLocaleString() : 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${this._getExtrasHTML(product)}
+    </div>
     `;
   };
 
-  _getExtrasRowHTML = (product) => {
+  _getExtrasHTML = (product) => {
     const extras = product.extras || {};
     const extrasList = Object.entries(extras).map(([key, value]) => {
       // Format the key for display by replacing underscores with spaces and capitalizing
       const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      return `<li><span>${formattedKey}:</span> <strong>$${value.toLocaleString()}</strong></li>`;
-    }).join('');
-    
-    return /* html */ `
-    <tr class="extras-row" data-product-id="${product.id}">
-      <td colspan="11">
-        <div class="extras-container">
-          <h4>Additional Services for ${product.name}</h4>
-          <ul class="extras-list">
-            ${extrasList}
-          </ul>
+      return `
+        <div class="extra-item">
+          <div class="extra-label">${formattedKey}</div>
+          <div class="extra-value">$${value.toLocaleString()}</div>
         </div>
-      </td>
-    </tr>
+      `;
+    }).join('');
+
+    return /* html */ `
+    <div class="extras-container active" data-product-id="${product.id}">
+      <div class="extras-content">
+        <h4 class="extras-title">Additional Services</h4>
+        <div class="extras-grid">
+          ${extrasList}
+        </div>
+      </div>
+    </div>
     `;
   };
 
@@ -497,147 +515,181 @@ export default class SheetProducts extends HTMLElement {
           stroke-width: 2px;
         }
 
-        /* Products Table Styles */
-        .products-table-container {
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          overflow: hidden;
+        /* Products List Styles */
+        .products-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
           margin-bottom: 2rem;
         }
 
-        .table-scroll-container {
-          overflow-x: auto;
-          max-width: 100%;
-        }
-
-        .products-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-          font-size: 0.875rem;
-        }
-
-        .products-table th {
-          background-color: var(--stat-background);
-          padding: 0.75rem 1rem;
-          font-weight: 600;
-          color: var(--title-color);
+        .product-item {
+          padding: 10px 0 30px;
+          transition: all 0.2s ease;
           border-bottom: var(--border);
-          white-space: nowrap;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-          text-align: center;
+          position: relative;
+          overflow: hidden;
         }
 
-        .products-table td {
-          padding: 0.75rem 1rem;
-          border-bottom: var(--border);
-          color: var(--text-color);
-          text-align: center;
-        }
-
-        .sticky-column {
-          position: sticky;
-          left: 0;
-          background-color: var(--background);
-          z-index: 5;
-          box-shadow: var(--image-shadow);
-          text-align: left;
-        }
-
-        th.sticky-column {
-          background-color: var(--stat-background);
-          z-index: 15;
-          text-align: left;
+        .product-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+          flex-wrap: wrap;
+          gap: 1rem;
         }
 
         .product-name {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--title-color);
+          margin: 0;
+          line-height: 1.3;
+        }
+
+        .pricing-sections {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 2rem;
+          margin-bottom: 1rem;
+        }
+
+        .pricing-section {
+          border-radius: 0.5rem;
+          padding: 1rem 0;
+        }
+
+        .section-title {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--title-color);
+          margin: 0;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: var(--border);
+          padding-bottom: 0.5rem;
+        }
+
+        .pricing-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .price-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.5rem 0;
+          border-bottom: var(--border);
+        }
+
+        .price-label {
+          font-size: 1rem;
+          color: var(--text-color);
           font-weight: 500;
-          min-width: 200px;
-          max-width: 300px;
-          text-align: left;
         }
 
-        .rate-subtext {
-          font-size: 0.75rem;
-          font-weight: normal;
-          color: var(--gray-color);
-        }
-
-        .price-cell {
-          text-align: center;
+        .price-value {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--accent-color);
           font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum";
-          white-space: nowrap;
-        }
-
-        .extras-cell {
-          text-align: center;
         }
 
         .extras-btn {
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          background-color: transparent;
-          color: var(--accent-color);
-          border: var(--border-button);
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
-          font-size: 0.75rem;
+          gap: 0.5rem;
+          background: var(--action-linear);
+          color: var(--white-color);
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 0.375rem;
+          font-size: 0.875rem;
+          font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .extras-btn:hover {
-          background-color: var(--hover-background);
-          border-color: var(--accent-color);
-          color: var(--action-color);
+          background: var(--accent-linear);
+          transform: translateY(-1px);
         }
 
-        .extras-row {
-          display: none;
-          background-color: var(--stat-background);
-        }
-
-        .extras-row.active {
-          display: table-row;
+        .extras-btn.active {
+          background: var(--accent-color);
         }
 
         .extras-container {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease-out;
+        }
+
+        .extras-container.active {
+          max-height: 500px;
+          transition: max-height 0.3s ease-in;
+        }
+
+        .extras-content {
+          background-color: var(--stat-background);
+          border-radius: 0.5rem;
           padding: 1rem;
+          margin-top: 1rem;
+          border: 1px solid var(--border);
         }
 
-        .extras-container h4 {
-          margin: 0 0 0.75rem 0;
+        .extras-title {
           font-size: 0.875rem;
+          font-weight: 600;
           color: var(--title-color);
+          margin: 0 0 1rem 0;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 0.5rem;
         }
 
-        .extras-list {
+        .extras-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 0.75rem 2rem;
-          list-style: none;
-          padding: 0;
-          margin: 0;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 1rem;
         }
 
-        .extras-list li {
+        .extra-item {
           display: flex;
-          justify-content: space-between;
-          font-size: 0.8125rem;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 1rem;
+          background-color: var(--background);
+          border-radius: 0.5rem;
+          border: 1px solid var(--border);
+          transition: all 0.2s ease;
         }
 
-        .extras-list li span {
-          color: var(--gray-color);
+        .extra-item:hover {
+          box-shadow: var(--box-shadow);
+          transform: translateY(-2px);
         }
 
-        .extras-list li strong {
-          font-weight: 500;
+        .extra-label {
+          font-size: 0.875rem;
           color: var(--text-color);
+          font-weight: 500;
+          margin-bottom: 0.5rem;
+          line-height: 1.4;
+        }
+
+        .extra-value {
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: var(--accent-color);
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: "tnum";
         }
 
         /* Empty state styles */
@@ -681,6 +733,7 @@ export default class SheetProducts extends HTMLElement {
         }
 
         /* Responsive adjustments */
+        /* Responsive adjustments */
         @media (max-width: 768px) {
           .products-header {
             flex-direction: column;
@@ -694,6 +747,60 @@ export default class SheetProducts extends HTMLElement {
           .export-btn {
             flex: 1;
             justify-content: center;
+          }
+
+          .pricing-sections {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+          }
+
+          .product-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .extras-btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .extras-grid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+          }
+
+          .extra-item {
+            padding: 0.75rem;
+          }
+
+          .extra-value {
+            font-size: 1rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .container {
+            padding: 1rem;
+          }
+
+          .products-list {
+            gap: 1rem;
+          }
+
+          .product-item {
+            padding: 1rem;
+          }
+
+          .product-name {
+            font-size: 1.125rem;
+          }
+
+          .pricing-section {
+            padding: 0.75rem;
+          }
+
+          .section-title {
+            font-size: 0.8125rem;
           }
         }
       </style>

@@ -157,8 +157,16 @@ class SheetGeneratorEntry(BaseModel):
       return None
     return v
 
-# Reusing BranchLocation from app.models.location for individual branch entries
-# from app.models.location import BranchLocation # Already imported if needed elsewhere, ensure accessible
+
+class SheetStateEntry(BaseModel):
+  state: str = Field(..., description="State name from the sheet.")
+  code: str = Field(..., description="State code from the sheet.")
+
+  @validator("state", "code", pre=True, always=True)
+  def strip_whitespace(cls, v):
+    if isinstance(v, str):
+      return v.strip()
+    return v
 
 
 class SheetDeliveryConfig(BaseModel):
@@ -212,6 +220,11 @@ class SheetBranchesResponse(BaseModel):
   data: List[Any]  # Using Any for now, ideally List[BranchLocation]
   # from app.models.location import BranchLocation
   # data: List[BranchLocation] # If BranchLocation is confirmed to be used directly
+
+
+class SheetStatesResponse(BaseModel):
+  count: int
+  data: List[SheetStateEntry]
 
 
 class SheetConfigResponse(BaseModel):

@@ -14,12 +14,13 @@ from app.services.mongo.mongo import (
     SHEET_GENERATORS_COLLECTION,
     SHEET_BRANCHES_COLLECTION,
     SHEET_CONFIG_COLLECTION,
+    SHEET_STATES_COLLECTION,
 )  # Import Mongo and collection names
 from app.services.quote.sync import (
     SheetSyncService,
     PRICING_CATALOG_CACHE_KEY,
     BRANCH_LIST_CACHE_KEY,
-    _sheet_sync_service_instance,
+    STATES_LIST_CACHE_KEY,
 )
 
 # Access the running SheetSyncService instance (use with caution)
@@ -38,9 +39,11 @@ from app.models.dash.dashboard import (
     SheetProductsResponse,
     SheetGeneratorsResponse,
     SheetBranchesResponse,
+    SheetStatesResponse,
     SheetConfigResponse,  # Added sheet response models
     SheetProductEntry,
     SheetGeneratorEntry,
+    SheetStateEntry,
     SheetConfigEntry,  # Added sheet entry models
 )
 
@@ -82,11 +85,15 @@ class DashboardService:
   @property
   def sync_service(self) -> Optional[SheetSyncService]:
     """Dynamically retrieves the global SheetSyncService instance."""
-    from app.services.quote.sync import (
-        _sheet_sync_service_instance as global_sync_service,
-    )
+    from app.services.quote.sync import get_sheet_sync_service
 
-    return global_sync_service
+    # This will need to be called with await in async contexts
+    return None  # For now, return None since we can't await in a property
+
+  async def get_sync_service(self) -> SheetSyncService:
+    """Async method to get the sheet sync service."""
+    from app.services.quote.sync import get_sheet_sync_service
+    return await get_sheet_sync_service()
 
   # --- Monitoring Features ---
 
@@ -214,7 +221,13 @@ class DashboardService:
             status=f"{pricing_percentage:.2%} ({pricing_hits} hits / {pricing_misses} misses)",
         )
       else:
-        pricing_ratio_obj = CacheHitMissRatio(status="N/A (No data)")
+        pricing_ratio_obj = CacheHitMissRatio(
+            percentage=0.0,
+            hits=0,
+            misses=0,
+            total=0,
+            status="N/A (No data)"
+        )
 
       # Calculate Maps Cache Hit/Miss Ratio
       maps_hits_raw = await self.redis.get(MAPS_CACHE_HITS_KEY)
@@ -234,16 +247,34 @@ class DashboardService:
             status=f"{maps_percentage:.2%} ({maps_hits} hits / {maps_misses} misses)",
         )
       else:
-        maps_ratio_obj = CacheHitMissRatio(status="N/A (No data)")
+        maps_ratio_obj = CacheHitMissRatio(
+            percentage=0.0,
+            hits=0,
+            misses=0,
+            total=0,
+            status="N/A (No data)"
+        )
 
     except Exception as e:
       logger.error(
           f"Failed to fetch some cache statistics: {e}", exc_info=True)
       # Ensure defaults if error occurs mid-process
       if pricing_ratio_obj is None:
-        pricing_ratio_obj = CacheHitMissRatio(status="Error fetching data")
+        pricing_ratio_obj = CacheHitMissRatio(
+            percentage=0.0,
+            hits=0,
+            misses=0,
+            total=0,
+            status="Error fetching data"
+        )
       if maps_ratio_obj is None:
-        maps_ratio_obj = CacheHitMissRatio(status="Error fetching data")
+        maps_ratio_obj = CacheHitMissRatio(
+            percentage=0.0,
+            hits=0,
+            misses=0,
+            total=0,
+            status="Error fetching data"
+        )
 
     overview_data["cache_stats"] = CacheStats(
         total_redis_keys=total_redis_keys,
@@ -464,6 +495,12 @@ class DashboardService:
           cache_stats=CacheStats(),  # Use default CacheStats
           external_services=[],
           sync_status=SyncStatus(),  # Use default SyncStatus
+          quote_requests_total=0,
+          quote_requests_successful=0,
+          quote_requests_failed=0,
+          location_lookups_total=0,
+          location_lookups_successful=0,
+          location_lookups_failed=0,
       )
 
   # --- Management Features ---
@@ -785,6 +822,22 @@ class DashboardService:
       return SheetConfigResponse(
           data=None, message=f"Error fetching configuration: {str(e)}"
       )
+
+  async def get_sheet_states_data(self) -> SheetStatesResponse:
+    """Retrieves all states data from the MongoDB sheet_states collection."""
+    logger.info(
+        "Fetching all states data from MongoDB sheet_states collection."
+    )
+    db = await self.mongo.get_db()
+    collection = db[SHEET_STATES_COLLECTION]
+    try:
+      cursor = collection.find({})
+      raw_states = await cursor.to_list(length=None)  # Fetch all
+      logger.info(f"Retrieved {len(raw_states)} states from MongoDB.")
+      return SheetStatesResponse(count=len(raw_states), data=raw_states)
+    except Exception as e:
+      logger.error(f"Error fetching states from MongoDB: {e}", exc_info=True)
+      return SheetStatesResponse(count=0, data=[])
 
   # Commenting out Redis-specific method - replace with MongoDB query if needed
   # async def get_recent_requests(self, limit: int = MAX_LOG_ENTRIES) -> List[RequestLogEntry]:

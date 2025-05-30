@@ -159,6 +159,12 @@ async def read_sheet_generators(request: Request):
 async def read_sheet_products(request: Request):
   return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Sheet Products"})
 
+
+# /sheet/states
+@router.get("/sheet/states", response_class=HTMLResponse)
+async def read_sheet_states(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Sheet States"})
+
 # /themes
 
 

@@ -166,9 +166,11 @@ class Settings(BaseSettings):
   GOOGLE_SHEET_PRODUCTS_TAB_NAME: str = "products"
   GOOGLE_SHEET_GENERATORS_TAB_NAME: str = "generators"
   # Add setting for branches range, default assumes 'Locations' tab
-  GOOGLE_SHEET_BRANCHES_RANGE: str = "Locations!A2:B"
+  GOOGLE_SHEET_BRANCHES_RANGE: str = "locations"
   # Add setting for config range
-  GOOGLE_SHEET_CONFIG_RANGE: str = "Config!A1:B10"
+  GOOGLE_SHEET_CONFIG_RANGE: str = "config"
+  # Add setting for states range
+  GOOGLE_SHEET_STATES_RANGE: str = "states"
   # Optional: Path to Google Service Account credentials
   GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 

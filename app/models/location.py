@@ -6,9 +6,8 @@ from typing import Optional
 # Define the missing request model
 class LocationLookupRequest(BaseModel):
   delivery_location: str = Field(
-      ...,
       description="Full delivery address for distance lookup.",
-      example="1600 Amphitheatre Parkway, Mountain View, CA 94043",
+      examples=["1600 Amphitheatre Parkway, Mountain View, CA 94043"],
   )
 
 
@@ -27,6 +26,8 @@ class DistanceResult(BaseModel):
   distance_miles: float = Field(..., description="Driving distance in miles")
   distance_meters: int = Field(..., description="Driving distance in meters")
   duration_seconds: int = Field(..., description="Driving duration in seconds")
+  within_service_area: bool = Field(
+      ..., description="Whether the location is within the service area")
 
 
 class LocationLookupResponse(BaseModel):

@@ -23,6 +23,7 @@ SHEET_PRODUCTS_COLLECTION = "sheet_products"
 SHEET_GENERATORS_COLLECTION = "sheet_generators"
 SHEET_BRANCHES_COLLECTION = "sheet_branches"
 SHEET_CONFIG_COLLECTION = "sheet_config"
+SHEET_STATES_COLLECTION = "sheet_states"
 BLAND_CALL_LOGS_COLLECTION = "bland_call_logs"
 ERROR_LOGS_COLLECTION = "error_logs"  # New collection for general errors
 STATS_COLLECTION = "dashboard_stats"  # Collection for dashboard counters
@@ -216,6 +217,14 @@ class MongoService:
       )
       logfire.info(
           f"Index 'sheet_config_type_unique_idx' (sparse) ensured for collection '{SHEET_CONFIG_COLLECTION}'."
+      )
+
+      sheet_states_coll = self.db[SHEET_STATES_COLLECTION]
+      await sheet_states_coll.create_index(
+          [("code", ASCENDING)], unique=True, name="sheet_state_code_unique_idx"
+      )
+      logfire.info(
+          f"Index 'sheet_state_code_unique_idx' ensured for collection '{SHEET_STATES_COLLECTION}'."
       )
 
       # Indexes for Bland Call Logs
