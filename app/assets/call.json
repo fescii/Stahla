@@ -66,7 +66,7 @@
       "type": "Default",
       "data": {
         "name": "Confirm Contact Name",
-        "prompt": "Great! Just to confirm, is your name {{request_data.firstname | default: ''}} {{request_data.lastname | default: ''}}? If not, please tell me your full name.",
+        "prompt": "Great! Just to confirm, I have {{request_data.firstname}} {{request_data.lastname}} as your first and last name? If not, please tell me your full name.",
         "extractVars": [
           [
             "contact_name",
@@ -84,12 +84,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Email",
-        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? We might have {{request_data.email | default: 'an email on file'}}. If that's not correct or you'd like to use a different one, please tell me your email address.",
+        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? We might have {{request_data.email}}. If that's not correct or you'd like to use a different one, please tell me your email address.",
         "extractVars": [
           [
-            "email",
+            "contact_email",
             "string",
-            "The confirmed or provided email address. If they confirm {{request_data.email}}, use that. Otherwise, capture the new email."
+            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', or similar, extract from {{request_data.email}}. If they provide a new email, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -107,7 +107,7 @@
           [
             "phone_number",
             "string",
-            "The confirmed or provided phone number. If they confirm {{request_data.phone}}, use that. Otherwise, capture the new number."
+            "If they confirm with words like 'yes', 'correct', 'that's right', or similar, extract from {{request_data.phone}}. If they provide a new number, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -143,7 +143,7 @@
           [
             "delivery_location",
             "string",
-            "The confirmed or provided full address (street, city, state, zip). If they confirm {{request_data.event_address}}, use that. Otherwise, capture the new address. Format the address as follows: '123 Main St, Springfield, IL 62704'. Accept general location names like 'downtown' or 'near the park' initially if user is vague, but aim to get a full address."
+            "If they confirm with words like 'yes', 'correct', 'that one is correct', or similar, extract from {{request_data.event_address}}. If they provide a new address, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -165,7 +165,7 @@
           ]
         ],
         "modelOptions": {
-          "interruptionThreshold": 100
+          "interruptionThreshold": 200
         }
       }
     },
@@ -174,16 +174,14 @@
       "type": "Webhook",
       "data": {
         "name": "Trigger Background Location Lookup",
-        "prompt": "Thanks for confirming the address. Allow me a moment to process the location for service area verification and other details.",
+        "prompt": "Thanks for confirming the address. Let me verify your location and check our service area coverage.",
         "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/location/lookup/sync",
         "method": "POST",
         "headers": {
           "Content-Type": "application/json",
           "Authorization": "Bearer 7%FRtf@34hi"
         },
-        "body": {
-          "delivery_location": "{{delivery_location | default: delivery_location}}"
-        },
+        "body": "{\"delivery_location\": \"{{delivery_location}}\"}",
         "response_data": [
           {
             "name": "location_api_success",
@@ -199,39 +197,22 @@
           },
           {
             "name": "api_delivery_location",
-            "data": "$.data.delivery_location"
+            "data": "$.data.distance_result.delivery_location"
+          },
+          {
+            "name": "is_in_service_area",
+            "data": "$.data.distance_result.within_service_area"
           },
           {
             "name": "api_error_message",
             "data": "$.error_message"
           }
         ],
-        "modelOptions": {
-          "interruptionThreshold": 0.8
-        }
-      }
-    },
-    {
-      "id": "check_service_area_logic_node",
-      "type": "Default",
-      "data": {
-        "name": "Check Service Area Logic",
-        "prompt": "Thanks, I've processed the location: {{api_delivery_location}}. (Location lookup status: {{lookup_message | default: 'Processed.'}}). Now, let me check if this is in our service area. Our service states are Arizona(AZ), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), and Wyoming (WY). Based on the state in the address, is it in our service area?",
-        "extractVars": [
-          [
-            "state",
-            "string",
-            "Extract the 2-letter state abbreviation from the {{api_delivery_location}} string. For example, from '123 Main St, Anytown, CA 90210', extract 'CA'."
-          ],
-          [
-            "is_in_service_area",
-            "boolean",
-            "Determine if the extracted state is one of AZ, CO, IL, IA, KS, LA, MN, MO, MT, NE, NM, ND, OK, SD, TX, WI, WY. Set to true if it is, false otherwise."
-          ]
-        ],
-        "modelOptions": {
-          "interruptionThreshold": 50
-        }
+        "speechDuringWebhook": {
+          "enabled": true,
+          "text": "One moment while I verify your location and check our service area coverage."
+        },
+        "afterWebhookPrompt": "Perfect! I've verified your location: {{api_delivery_location}}."
       }
     },
     {
@@ -239,12 +220,12 @@
       "type": "Default",
       "data": {
         "name": "Handle Out of Service Area",
-        "prompt": "Okay, it looks like the address provided, {{delivery_location}}, is outside our standard service area based on the state {{state}}. Unfortunately, we wouldn't be able to deliver our units there directly. However, we do sometimes partner with other providers. Would you like me to see if we can refer you to someone who might be able to help in your area?",
+        "prompt": "I understand this may be disappointing, but your location at {{api_delivery_location}} is outside our current service coverage area. However, we're always expanding our services and sometimes work with trusted partner providers. Would you like me to see if we can connect you with a qualified partner in your area who might be able to help?",
         "extractVars": [
           [
             "offer_referral_consent",
             "boolean",
-            "Does the user consent to being referred to a partner provider? (true/false)"
+            "Does the user want to be referred to a partner provider? (true for yes, false for no)"
           ]
         ]
       }
@@ -276,6 +257,11 @@
             "project_category",
             "string",
             "The user's confirmed primary project category (Event, Construction, Disaster Relief, Construction Company, Facility)."
+          ],
+          [
+            "usage_type",
+            "string",
+            "Extract the lowercase usage type: 'event' for Event, 'construction' for Construction/Construction Company, 'disaster relief' for Disaster Relief, 'facility' for Facility."
           ]
         ],
         "modelOptions": {
@@ -704,27 +690,16 @@
       "type": "Webhook",
       "data": {
         "name": "Get Quote (StahlaQuoteTool_v2)",
-        "prompt": "Okay, hang tight while I retrieve a quote for you based on the information you provided. This may take a few seconds.",
+        "prompt": "Perfect! I have all the information needed. Let me calculate your customized quote right now.",
         "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/quote",
         "method": "POST",
         "headers": {
           "Content-Type": "application/json",
           "Authorization": "Bearer 7%FRtf@34hi"
         },
-        "body": {
-          "delivery_location": "{{delivery_location}}",
-          "trailer_type": "{{trailer_type}}",
-          "rental_start_date": "{{rental_start_date}}",
-          "rental_days": "{{rental_days}}",
-          "usage_type": "{{usage_type}}",
-          "extras": "{{extras_list}}",
-          "customer_details": {
-            "name": "{{contact_name}}",
-            "email": "{{contact_email}}",
-            "phone": "{{phone_number}}",
-            "company": "{{company_name}}"
-          }
-        },
+        "body": "{\"delivery_location\": \"{{delivery_location}}\", \"trailer_type\": \"{{trailer_type}}\", \"rental_start_date\": \"{{rental_start_date}}\", \"rental_days\": \"{{rental_days}}\", \"usage_type\": \"{{usage_type}}\", \"extras\": \"{{extras_list}}\", \"customer_details\": {\"name\": \"{{contact_name}}\", \"email\": \"{{contact_email | request_data.email}}\", \"phone\": \"{{phone_number | request_data.phone}}\", \"company\": \"{{company_name}}\"}}",
+        "timeout": 15,
+        "retries": 2,
         "response_data": [
           {
             "name": "quote_api_success",
@@ -754,22 +729,20 @@
             "name": "api_error_message",
             "data": "$.error_message"
           }
-        ]
+        ],
+        "speechDuringWebhook": {
+          "enabled": true,
+          "text": "I'm calculating your personalized quote based on your requirements. This may take just a moment."
+        },
+        "afterWebhookPrompt": "Perfect! I've successfully generated your quote."
       }
     },
     {
       "id": "convey_quote_and_followup_offer_node",
       "type": "Default",
       "data": {
-        "name": "Convey Quote & Offer Follow-up",
-        "prompt": "Alright, I have the quote details. The Quote ID is {{quote_id | default: 'being generated'}}, and the estimated total is approximately ${{estimated_total | default: 'being finalized'}}. {{quote_notes | default: ''}}. We'll also email this full quote to {{email}}. Would you find it helpful to schedule a brief follow-up call for tomorrow or the next business day to go over the details together?",
-        "extractVars": [
-          [
-            "schedule_follow_up",
-            "boolean",
-            "User confirms if they want to schedule a follow-up call (true for yes, false for no)."
-          ]
-        ],
+        "name": "Convey Quote & Inform Follow-up",
+        "prompt": "Great! Here are your quote details: The estimated total is ${{estimated_total | default: 'being finalized'}}. Please note that this is an estimate, and we'll be sending a copy of the complete quote details to your email address at {{contact_email}}. One of our representatives will also follow up with you to discuss the details.",
         "modelOptions": {
           "interruptionThreshold": 100
         }
@@ -780,14 +753,7 @@
       "type": "Default",
       "data": {
         "name": "API Error Quote Tool",
-        "prompt": "I'm sorry, there was an issue generating your quote ({{api_error_message | default: 'a technical problem occurred'}}). Our team has been notified and will prepare it manually. We'll email it to {{email}}. Would you like to schedule a follow-up call for tomorrow or the next business day to discuss it once it's ready?",
-        "extractVars": [
-          [
-            "schedule_follow_up_after_error",
-            "boolean",
-            "Whether to schedule a follow-up after a quote error."
-          ]
-        ],
+        "prompt": "I'm sorry, there was an issue generating your quote right now. No worries though - our team has been notified and a representative will follow up with you shortly with the quote details.",
         "modelOptions": {
           "interruptionThreshold": 100
         }
@@ -798,12 +764,12 @@
       "type": "Default",
       "data": {
         "name": "API Error Location Tool",
-        "prompt": "I'm having a bit of trouble processing that address right now ({{api_error_message | default: 'technical issue'}}). Could you please confirm the full address again, including the city and state? We'll try once more.",
+        "prompt": "I'm having a bit of trouble processing that address right now ({{api_error_message | default: 'technical issue'}}). Could you please confirm the full address again, including the city and state?",
         "extractVars": [
           [
             "delivery_location",
             "string",
-            "The corrected full delivery address including street, city, state, and zip code"
+            "The full delivery address provided by the user. Extract the complete address they provide, including street number, street name, city, state. Do not add 'null' or other placeholders."
           ]
         ],
         "modelOptions": {
@@ -812,18 +778,12 @@
       }
     },
     {
-      "id": "handle_followup_scheduling",
+      "id": "location_final_error_continue",
       "type": "Default",
       "data": {
-        "name": "Handle Follow-up Scheduling",
-        "prompt": "Okay, great! I've made a note for our team to reach out and schedule that follow-up call with you. What time generally works best for you tomorrow or the next business day?",
-        "extractVars": [
-          [
-            "followup_time_preference",
-            "string",
-            "The preferred time/day for a follow-up call."
-          ]
-        ],
+        "name": "Location Verification Failed - Continue",
+        "prompt": "I'm still having trouble verifying that specific address, but let's continue with your order requirements so we can still help you. What type of restroom or service are you looking for?",
+        "extractVars": [],
         "modelOptions": {
           "interruptionThreshold": 100
         }
@@ -869,15 +829,7 @@
       "type": "Default",
       "data": {
         "name": "Closing with Follow-up Scheduled/Offered",
-        "prompt": "Thank you for your time, {{contact_name}}! We will be in touch regarding the follow-up {{followup_time_preference | default: 'soon'}}. The quote information will be sent to {{email}}. Have a great day! Goodbye."
-      }
-    },
-    {
-      "id": "closing_without_followup_node",
-      "type": "Default",
-      "data": {
-        "name": "Closing without Follow-up Scheduled",
-        "prompt": "Thank you for your time, {{contact_name}}! The quote information will be sent to {{email}}. Feel free to contact us if you have more questions. Have a great day! Goodbye."
+        "prompt": "Thank you for your time, {{contact_name}}! One of our representatives will be in touch with you soon. The quote information will be sent to {{contact_email}}. Have a great day! Goodbye."
       }
     },
     {
@@ -945,40 +897,34 @@
       "label": "Delivery address type collected"
     },
     {
-      "id": "edge_trigger_location_tool_to_check_service_area",
-      "source": "trigger_background_location_processing_node",
-      "target": "check_service_area_logic_node",
-      "label": "{{location_api_success}} == true && {{api_delivery_location}} != null"
-    },
-    {
       "id": "edge_trigger_location_tool_to_error",
       "source": "trigger_background_location_processing_node",
       "target": "api_error_location_tool",
-      "label": "{{location_api_success}} == false || {{api_delivery_location}} == null"
+      "label": "{{location_api_success}} is false"
     },
     {
-      "id": "edge_location_error_to_retry",
-      "source": "api_error_location_tool",
-      "target": "trigger_background_location_processing_node",
-      "label": "{{delivery_location}} != null"
-    },
-    {
-      "id": "edge_location_error_to_manual_processing",
-      "source": "api_error_location_tool",
-      "target": "check_service_area_logic_node",
-      "label": "Manual address processing needed"
-    },
-    {
-      "id": "edge_check_service_area_to_oos",
-      "source": "check_service_area_logic_node",
-      "target": "handle_out_of_service_area",
-      "label": "{{is_in_service_area}} == false"
-    },
-    {
-      "id": "edge_check_service_area_to_determine_order_cat",
-      "source": "check_service_area_logic_node",
+      "id": "edge_trigger_location_tool_to_determine_order_cat",
+      "source": "trigger_background_location_processing_node",
       "target": "determine_order_category",
-      "label": "{{is_in_service_area}} == true"
+      "label": "{{location_api_success}} is true and {{is_in_service_area}} is true"
+    },
+    {
+      "id": "edge_trigger_location_tool_to_oos",
+      "source": "trigger_background_location_processing_node",
+      "target": "handle_out_of_service_area",
+      "label": "{{location_api_success}} is true and {{is_in_service_area}} is false"
+    },
+    {
+      "id": "edge_location_error_to_continue",
+      "source": "api_error_location_tool",
+      "target": "location_final_error_continue",
+      "label": "Address collected - continue without location verification"
+    },
+    {
+      "id": "edge_location_final_error_to_continue",
+      "source": "location_final_error_continue",
+      "target": "determine_order_category",
+      "label": "Continue with order after location verification failed"
     },
     {
       "id": "edge_handle_oos_to_wants_referral",
@@ -1014,19 +960,25 @@
       "id": "edge_determine_prod_type_to_event_flow_start",
       "source": "determine_product_type",
       "target": "sa_ask_event_duration_days",
-      "label": "{{project_category}}.toLowerCase() == 'event'"
+      "label": "{{project_category}} contains 'event'"
     },
     {
       "id": "edge_determine_prod_type_to_construction_flow_start",
       "source": "determine_product_type",
-      "target": "sb_ask_onsite_contact",
-      "label": "({{project_category}}.toLowerCase() == 'construction' || {{project_category}}.toLowerCase() == 'construction company' || {{project_category}}.toLowerCase() == 'facility')"
+      "target": "ask_site_conditions_trailer",
+      "label": "{{project_category}} contains 'construction' or {{project_category}} contains 'facility'"
     },
     {
       "id": "edge_determine_prod_type_to_disaster_flow_start",
       "source": "determine_product_type",
       "target": "ask_site_conditions_trailer",
-      "label": "{{project_category}}.toLowerCase() == 'disaster relief'"
+      "label": "{{project_category}} contains 'disaster'"
+    },
+    {
+      "id": "edge_determine_prod_type_to_default_flow",
+      "source": "determine_product_type",
+      "target": "ask_site_conditions_trailer",
+      "label": "Default flow for other categories"
     },
     {
       "id": "edge_sa_duration_to_total_hours",
@@ -1105,54 +1057,6 @@
       "source": "sa_ask_ada_event",
       "target": "ask_site_conditions_trailer",
       "label": "Event ADA info collected"
-    },
-    {
-      "id": "edge_sb_onsite_contact_to_working_hours",
-      "source": "sb_ask_onsite_contact",
-      "target": "sb_ask_working_hours",
-      "label": "Onsite contact info collected"
-    },
-    {
-      "id": "edge_sb_working_hours_to_weekend_use",
-      "source": "sb_ask_working_hours",
-      "target": "sb_ask_weekend_use",
-      "label": "Working hours collected"
-    },
-    {
-      "id": "edge_sb_weekend_use_to_ada",
-      "source": "sb_ask_weekend_use",
-      "target": "sb_ask_ada_construction",
-      "label": "Weekend use info collected"
-    },
-    {
-      "id": "edge_sb_ada_to_people_supported",
-      "source": "sb_ask_ada_construction",
-      "target": "sb_ask_people_supported",
-      "label": "Construction ADA info collected"
-    },
-    {
-      "id": "edge_sb_people_supported_to_other_facilities",
-      "source": "sb_ask_people_supported",
-      "target": "sb_ask_other_facilities_construction",
-      "label": "People supported count collected"
-    },
-    {
-      "id": "edge_sb_other_facilities_to_other_products",
-      "source": "sb_ask_other_facilities_construction",
-      "target": "sb_ask_other_products_construction",
-      "label": "Other facilities info collected"
-    },
-    {
-      "id": "edge_sb_other_products_to_cleaning",
-      "source": "sb_ask_other_products_construction",
-      "target": "sb_ask_cleaning_restocking",
-      "label": "Other products info collected"
-    },
-    {
-      "id": "edge_sb_cleaning_to_ask_site_conditions",
-      "source": "sb_ask_cleaning_restocking",
-      "target": "ask_site_conditions_trailer",
-      "label": "Cleaning info collected"
     },
     {
       "id": "edge_ask_site_conditions_to_ask_duration_trailer",
@@ -1236,37 +1140,19 @@
       "id": "edge_get_quote_failure_to_api_error",
       "source": "get_quote_webhook_node",
       "target": "api_error_quote_tool",
-      "label": "{{quote_api_success}} == false || {{estimated_total}} == null"
+      "label": "{{quote_api_success}} is false"
     },
     {
-      "id": "edge_convey_quote_sched_yes",
-      "source": "convey_quote_and_followup_offer_node",
-      "target": "handle_followup_scheduling",
-      "label": "{{schedule_follow_up}} == true"
-    },
-    {
-      "id": "edge_convey_quote_sched_no",
+      "id": "edge_convey_quote_to_final_questions",
       "source": "convey_quote_and_followup_offer_node",
       "target": "ask_final_questions",
-      "label": "{{schedule_follow_up}} == false"
+      "label": "Quote conveyed successfully"
     },
     {
-      "id": "edge_api_error_sched_yes",
-      "source": "api_error_quote_tool",
-      "target": "handle_followup_scheduling",
-      "label": "{{schedule_follow_up_after_error}} == true"
-    },
-    {
-      "id": "edge_api_error_sched_no",
+      "id": "edge_api_error_to_final_questions",
       "source": "api_error_quote_tool",
       "target": "ask_final_questions",
-      "label": "{{schedule_follow_up_after_error}} == false"
-    },
-    {
-      "id": "edge_handle_followup_to_ask_final",
-      "source": "handle_followup_scheduling",
-      "target": "ask_final_questions",
-      "label": "Follow-up scheduling info collected"
+      "label": "Quote error handled"
     },
     {
       "id": "edge_ask_final_q_yes",
@@ -1275,38 +1161,20 @@
       "label": "{{has_final_questions}} == true && {{final_questions_text}} != null && {{final_questions_text}} != ''"
     },
     {
-      "id": "edge_ask_final_q_no_direct_to_closing_with_followup",
+      "id": "edge_ask_final_q_no_to_closing",
       "source": "ask_final_questions",
       "target": "closing_with_followup_node",
-      "label": "({{has_final_questions}} == false || {{final_questions_text}} == null || {{final_questions_text}} == '') && ({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
+      "label": "{{has_final_questions}} is false"
     },
     {
-      "id": "edge_ask_final_q_no_direct_to_closing_without_followup",
-      "source": "ask_final_questions",
-      "target": "closing_without_followup_node",
-      "label": "({{has_final_questions}} == false || {{final_questions_text}} == null || {{final_questions_text}} == '') && {{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false"
-    },
-    {
-      "id": "edge_answer_kb_to_closing_with_followup",
+      "id": "edge_answer_kb_to_closing",
       "source": "answer_final_question_kb",
       "target": "closing_with_followup_node",
-      "label": "({{schedule_follow_up}} == true || {{schedule_follow_up_after_error}} == true)"
-    },
-    {
-      "id": "edge_answer_kb_to_closing_without_followup",
-      "source": "answer_final_question_kb",
-      "target": "closing_without_followup_node",
-      "label": "({{schedule_follow_up}} == false && {{schedule_follow_up_after_error}} == false)"
+      "label": "Final question answered"
     },
     {
       "id": "edge_closing_with_followup_to_end",
       "source": "closing_with_followup_node",
-      "target": "end_call_speak_final",
-      "label": "End call"
-    },
-    {
-      "id": "edge_closing_without_followup_to_end",
-      "source": "closing_without_followup_node",
       "target": "end_call_speak_final",
       "label": "End call"
     }
