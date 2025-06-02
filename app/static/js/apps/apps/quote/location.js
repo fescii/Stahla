@@ -193,56 +193,60 @@ export default class LocationLookup extends HTMLElement {
       this.state.isLoading = false;
       this.render();
 
-      // After a short delay, make a second request to demonstrate Redis caching
-      setTimeout(async () => {
-        this.state.isLoading = true;
+      // First request is now complete. Make a second request immediately to demonstrate Redis caching
+      // Only proceed if the first request was successful
+      if (!this.state.result?.success) {
+        console.log("First request was not successful, skipping second request");
+        return;
+      }
+
+      this.state.isLoading = true;
+      this.render();
+
+      try {
+        const secondStartTime = performance.now();
+
+        const secondResponse = await this.api.post(this.url, {
+          content: "json",
+          headers: {
+            Authorization: "Bearer 7%FRtf@34hi",
+          },
+          body: {
+            delivery_location: this.state.selectedLocation,
+          },
+        });
+
+        const secondEndTime = performance.now();
+        const secondClientProcessingTime = Math.round(
+          secondEndTime - secondStartTime
+        );
+
+        if (secondResponse.data) {
+          secondResponse.data.client_processing_time_ms =
+            secondClientProcessingTime;
+          secondResponse.data.request_number = 2;
+          secondResponse.data.cached = true;
+        }
+
+        this.state.secondResult = secondResponse;
+        this.state.showComparison = true;
+        this.state.isLoading = false;
         this.render();
 
-        try {
-          const secondStartTime = performance.now();
-
-          const secondResponse = await this.api.post(this.url, {
-            content: "json",
-            headers: {
-              Authorization: "Bearer 7%FRtf@34hi",
-            },
-            body: {
-              delivery_location: this.state.selectedLocation,
-            },
-          });
-
-          const secondEndTime = performance.now();
-          const secondClientProcessingTime = Math.round(
-            secondEndTime - secondStartTime
+        // Animate the comparison metrics to highlight the difference
+        setTimeout(() => {
+          const comparisonElements = this.shadowObj.querySelectorAll(
+            ".comparison-highlight"
           );
-
-          if (secondResponse.data) {
-            secondResponse.data.client_processing_time_ms =
-              secondClientProcessingTime;
-            secondResponse.data.request_number = 2;
-            secondResponse.data.cached = true;
-          }
-
-          this.state.secondResult = secondResponse;
-          this.state.showComparison = true;
-          this.state.isLoading = false;
-          this.render();
-
-          // Animate the comparison metrics to highlight the difference
-          setTimeout(() => {
-            const comparisonElements = this.shadowObj.querySelectorAll(
-              ".comparison-highlight"
-            );
-            comparisonElements.forEach((el) => {
-              el.classList.add("highlight-animation");
-            });
-          }, 500);
-        } catch (error) {
-          console.error("Error on second location lookup:", error);
-          this.state.isLoading = false;
-          this.render();
-        }
-      }, 1500); // Wait 1.5 seconds before making second request
+          comparisonElements.forEach((el) => {
+            el.classList.add("highlight-animation");
+          });
+        }, 500);
+      } catch (error) {
+        console.error("Error on second location lookup:", error);
+        this.state.isLoading = false;
+        this.render();
+      }
     } catch (error) {
       console.error("Error looking up location:", error);
       this.state.isLoading = false;

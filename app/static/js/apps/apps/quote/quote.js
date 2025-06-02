@@ -385,55 +385,59 @@ export default class Quote extends HTMLElement {
       this.render();
       this._scrollToResults();
 
-      // After a short delay, make a second request to demonstrate Redis caching
-      setTimeout(async () => {
-        this.state.isLoading = true;
-        this.render();
+      // First request is now complete. Make a second request immediately to demonstrate Redis caching
+      // Only proceed if the first request was successful
+      if (!this.state.result?.success) {
+        console.log("First request was not successful, skipping second request");
+        return;
+      }
 
-        try {
-          const secondStartTime = performance.now();
+      this.state.isLoading = true;
+      this.render();
 
-          const secondResponse = await this.api.post(this.url, {
-            content: "json",
-            headers: {
-              Authorization: "Bearer 7%FRtf@34hi",
-            },
-            body: selectedQuote.body,
-          });
+      try {
+        const secondStartTime = performance.now();
 
-          const secondEndTime = performance.now();
-          const secondClientProcessingTime = Math.round(
-            secondEndTime - secondStartTime
-          );
+        const secondResponse = await this.api.post(this.url, {
+          content: "json",
+          headers: {
+            Authorization: "Bearer 7%FRtf@34hi",
+          },
+          body: selectedQuote.body,
+        });
 
-          if (secondResponse.data) {
-            secondResponse.data.client_processing_time_ms =
-              secondClientProcessingTime;
-            secondResponse.data.request_number = 2;
-            secondResponse.data.cached = true;
-          }
+        const secondEndTime = performance.now();
+        const secondClientProcessingTime = Math.round(
+          secondEndTime - secondStartTime
+        );
 
-          this.state.secondResult = secondResponse;
-          this.state.showComparison = true;
-          this.state.isLoading = false;
-          this.render();
-          this._scrollToResults();
-
-          // Animate the comparison metrics to highlight the difference
-          setTimeout(() => {
-            const comparisonElements = this.shadowObj.querySelectorAll(
-              ".comparison-highlight"
-            );
-            comparisonElements.forEach((el) => {
-              el.classList.add("highlight-animation");
-            });
-          }, 500);
-        } catch (error) {
-          console.error("Error on second quote request:", error);
-          this.state.isLoading = false;
-          this.render();
+        if (secondResponse.data) {
+          secondResponse.data.client_processing_time_ms =
+            secondClientProcessingTime;
+          secondResponse.data.request_number = 2;
+          secondResponse.data.cached = true;
         }
-      }, 1500); // Wait 1.5 seconds before making second request
+
+        this.state.secondResult = secondResponse;
+        this.state.showComparison = true;
+        this.state.isLoading = false;
+        this.render();
+        this._scrollToResults();
+
+        // Animate the comparison metrics to highlight the difference
+        setTimeout(() => {
+          const comparisonElements = this.shadowObj.querySelectorAll(
+            ".comparison-highlight"
+          );
+          comparisonElements.forEach((el) => {
+            el.classList.add("highlight-animation");
+          });
+        }, 500);
+      } catch (error) {
+        console.error("Error on second quote request:", error);
+        this.state.isLoading = false;
+        this.render();
+      }
     } catch (error) {
       console.error("Error generating quote:", error);
       this.state.isLoading = false;
@@ -676,11 +680,10 @@ export default class Quote extends HTMLElement {
           </div>
           
           <div class="form-container">
-            ${
-              this.state.error
-                ? `<div class="error-alert">${this.state.error}</div>`
-                : ""
-            }
+            ${this.state.error
+        ? `<div class="error-alert">${this.state.error}</div>`
+        : ""
+      }
             
             <div class="info-alert">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -727,10 +730,9 @@ export default class Quote extends HTMLElement {
       <div class="quick-options">
         <div class="sample-quotes-grid">
           ${this.state.sampleQuotes
-            .map(
-              (quote) => `
-            <div class="sample-card ${
-              this.state.selectedQuote === quote.id ? "active" : ""
+        .map(
+          (quote) => `
+            <div class="sample-card ${this.state.selectedQuote === quote.id ? "active" : ""
             }" data-id="${quote.id}">
               <div class="card-header">
                 <div>
@@ -758,10 +760,9 @@ export default class Quote extends HTMLElement {
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Usage</span>
-                  <span class="detail-value">${
-                    quote.body.usage_type.charAt(0).toUpperCase() +
-                    quote.body.usage_type.slice(1)
-                  }</span>
+                  <span class="detail-value">${quote.body.usage_type.charAt(0).toUpperCase() +
+            quote.body.usage_type.slice(1)
+            }</span>
                 </div>
               </div>
               
@@ -774,8 +775,8 @@ export default class Quote extends HTMLElement {
               </button>
             </div>
           `
-            )
-            .join("")}
+        )
+        .join("")}
         </div>
       </div>
     `;
@@ -816,15 +817,13 @@ export default class Quote extends HTMLElement {
     return /* html */ `
       <div class="tabs-container">
         <div class="tab active" data-tab="quote">Quote Details</div>
-        <div class="tab ${
-          !this.state.showComparison ? "disabled" : ""
-        }" data-tab="performance">
+        <div class="tab ${!this.state.showComparison ? "disabled" : ""
+      }" data-tab="performance">
           Performance Comparison
-          ${
-            !this.state.showComparison
-              ? ""
-              : `<span style="display: inline-block; width: 0.5rem; height: 0.5rem; background: var(--accent-color); border-radius: 50%; margin-left: 0.25rem;"></span>`
-          }
+          ${!this.state.showComparison
+        ? ""
+        : `<span style="display: inline-block; width: 0.5rem; height: 0.5rem; background: var(--accent-color); border-radius: 50%; margin-left: 0.25rem;"></span>`
+      }
         </div>
       </div>
       
@@ -860,17 +859,15 @@ export default class Quote extends HTMLElement {
       <div class="quote-result">
         <div class="result-header">
           <div class="result-title">
-            <h3>Quote #${
-              responseData.quote_id
-                ? responseData.quote_id.split("-").pop()
-                : "N/A"
-            }</h3>
+            <h3>Quote #${responseData.quote_id
+        ? responseData.quote_id.split("-").pop()
+        : "N/A"
+      }</h3>
             <p style="color: var(--gray-color); font-size: 0.875rem; margin-top: 0.25rem;">
-              ${
-                quote?.product_details?.product_name ||
-                selectedQuoteInfo?.body?.trailer_type ||
-                "N/A"
-              }
+              ${quote?.product_details?.product_name ||
+      selectedQuoteInfo?.body?.trailer_type ||
+      "N/A"
+      }
             </p>
           </div>
           <div class="result-actions">
@@ -889,31 +886,28 @@ export default class Quote extends HTMLElement {
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label quote-id">Quote ID</div>
-              <div class="detail-card-value quote-id">${
-                responseData.quote_id || "N/A"
-              }</div>
+              <div class="detail-card-value quote-id">${responseData.quote_id || "N/A"
+      }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Subtotal</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote?.subtotal || 0
-              )}</div>
+        quote?.subtotal || 0
+      )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Generated</div>
-              <div class="detail-card-value">${
-                metadata?.generated_at
-                  ? new Date(metadata.generated_at).toLocaleDateString()
-                  : "N/A"
-              }</div>
+              <div class="detail-card-value">${metadata?.generated_at
+        ? new Date(metadata.generated_at).toLocaleDateString()
+        : "N/A"
+      }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Valid Until</div>
-              <div class="detail-card-value">${
-                metadata?.valid_until
-                  ? new Date(metadata.valid_until).toLocaleDateString()
-                  : "N/A"
-              }</div>
+              <div class="detail-card-value">${metadata?.valid_until
+        ? new Date(metadata.valid_until).toLocaleDateString()
+        : "N/A"
+      }</div>
             </div>
           </div>
         </div>
@@ -921,19 +915,18 @@ export default class Quote extends HTMLElement {
         <div class="detail-section">
           <h4>Line Items</h4>
           <div class="price-breakdown">
-            ${
-              quote?.line_items
-                ?.map(
-                  (item) => `
+            ${quote?.line_items
+        ?.map(
+          (item) => `
               <div class="price-item">
                 <span>${item.description || "N/A"}</span>
                 <span>${this._formatCurrency(item.total || 0)}</span>
               </div>
             `
-                )
-                .join("") ||
-              '<div class="price-item"><span>No line items available</span><span>$0.00</span></div>'
-            }
+        )
+        .join("") ||
+      '<div class="price-item"><span>No line items available</span><span>$0.00</span></div>'
+      }
             <div class="price-item total">
               <span>Subtotal</span>
               <span>${this._formatCurrency(quote?.subtotal || 0)}</span>
@@ -941,291 +934,259 @@ export default class Quote extends HTMLElement {
           </div>
         </div>
 
-        ${
-          quote?.rental_details
-            ? `
+        ${quote?.rental_details
+        ? `
         <div class="detail-section">
           <h4>Rental Details</h4>
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label">Start Date</div>
-              <div class="detail-card-value">${
-                quote.rental_details.rental_start_date || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.rental_details.rental_start_date || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">End Date</div>
-              <div class="detail-card-value">${
-                quote.rental_details.rental_end_date || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.rental_details.rental_end_date || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Duration</div>
-              <div class="detail-card-value">${
-                quote.rental_details.rental_days || 0
-              } days</div>
+              <div class="detail-card-value">${quote.rental_details.rental_days || 0
+        } days</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Usage Type</div>
-              <div class="detail-card-value">${
-                quote.rental_details.usage_type || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.rental_details.usage_type || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Pricing Tier</div>
-              <div class="detail-card-value">${
-                quote.rental_details.pricing_tier_applied || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.rental_details.pricing_tier_applied || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Season</div>
-              <div class="detail-card-value">${
-                quote.rental_details.seasonal_rate_name || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.rental_details.seasonal_rate_name || "N/A"
+        }</div>
             </div>
           </div>
         </div>
         `
-            : ""
-        }
+        : ""
+      }
 
-        ${
-          quote?.delivery_details
-            ? `
+        ${quote?.delivery_details
+        ? `
         <div class="detail-section">
           <h4>Delivery Details</h4>
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label">Distance</div>
-              <div class="detail-card-value">${
-                quote.delivery_details.miles?.toFixed(2) || "N/A"
-              } miles</div>
+              <div class="detail-card-value">${quote.delivery_details.miles?.toFixed(2) || "N/A"
+        } miles</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Delivery Cost</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.delivery_details.total_delivery_cost || 0
-              )}</div>
+          quote.delivery_details.total_delivery_cost || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Rate Applied</div>
-              <div class="detail-card-value">$${
-                quote.delivery_details.per_mile_rate_applied?.toFixed(2) ||
-                "0.00"
-              }/mile</div>
+              <div class="detail-card-value">$${quote.delivery_details.per_mile_rate_applied?.toFixed(2) ||
+        "0.00"
+        }/mile</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Base Fee</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.delivery_details.base_fee_applied || 0
-              )}</div>
+          quote.delivery_details.base_fee_applied || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Seasonal Multiplier</div>
-              <div class="detail-card-value">${
-                quote.delivery_details.seasonal_multiplier_applied || 1.0
-              }x</div>
+              <div class="detail-card-value">${quote.delivery_details.seasonal_multiplier_applied || 1.0
+        }x</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Estimated Distance</div>
-              <div class="detail-card-value">${
-                quote.delivery_details.is_distance_estimated ? "Yes" : "No"
-              }</div>
+              <div class="detail-card-value">${quote.delivery_details.is_distance_estimated ? "Yes" : "No"
+        }</div>
             </div>
           </div>
         </div>
         `
-            : ""
-        }
+        : ""
+      }
 
-        ${
-          locationDetails
-            ? `
+        ${locationDetails
+        ? `
         <div class="detail-section">
           <h4>Location Information</h4>
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label">Delivery Address</div>
-              <div class="detail-card-value">${
-                locationDetails.delivery_address || "N/A"
-              }</div>
+              <div class="detail-card-value">${locationDetails.delivery_address || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Nearest Branch</div>
-              <div class="detail-card-value">${
-                locationDetails.nearest_branch || "N/A"
-              }</div>
+              <div class="detail-card-value">${locationDetails.nearest_branch || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Branch Address</div>
-              <div class="detail-card-value">${
-                locationDetails.branch_address || "N/A"
-              }</div>
+              <div class="detail-card-value">${locationDetails.branch_address || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Service Area</div>
-              <div class="detail-card-value">${
-                locationDetails.service_area_type || "N/A"
-              }</div>
+              <div class="detail-card-value">${locationDetails.service_area_type || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Drive Time</div>
-              <div class="detail-card-value">${
-                locationDetails.estimated_drive_time_minutes
-                  ? `${Math.floor(
-                      locationDetails.estimated_drive_time_minutes / 60
-                    )}h ${locationDetails.estimated_drive_time_minutes % 60}m`
-                  : "N/A"
-              }</div>
+              <div class="detail-card-value">${locationDetails.estimated_drive_time_minutes
+          ? `${Math.floor(
+            locationDetails.estimated_drive_time_minutes / 60
+          )}h ${locationDetails.estimated_drive_time_minutes % 60}m`
+          : "N/A"
+        }</div>
             </div>
-            ${
-              locationDetails.geocoded_coordinates
-                ? `
+            ${locationDetails.geocoded_coordinates
+          ? `
             <div class="detail-card">
               <div class="detail-card-label">Coordinates</div>
-              <div class="detail-card-value">${
-                locationDetails.geocoded_coordinates.latitude?.toFixed(6) ||
-                "N/A"
-              }, ${
-                    locationDetails.geocoded_coordinates.longitude?.toFixed(
-                      6
-                    ) || "N/A"
-                  }</div>
+              <div class="detail-card-value">${locationDetails.geocoded_coordinates.latitude?.toFixed(6) ||
+          "N/A"
+          }, ${locationDetails.geocoded_coordinates.longitude?.toFixed(
+            6
+          ) || "N/A"
+          }</div>
             </div>
             `
-                : ""
-            }
+          : ""
+        }
           </div>
         </div>
         `
-            : ""
-        }
+        : ""
+      }
 
-        ${
-          quote?.budget_details
-            ? `
+        ${quote?.budget_details
+        ? `
         <div class="detail-section">
           <h4>Budget Analysis</h4>
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label">Daily Rate Equivalent</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.budget_details.daily_rate_equivalent || 0
-              )}</div>
+          quote.budget_details.daily_rate_equivalent || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Weekly Rate Equivalent</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.budget_details.weekly_rate_equivalent || 0
-              )}</div>
+          quote.budget_details.weekly_rate_equivalent || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Monthly Rate Equivalent</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.budget_details.monthly_rate_equivalent || 0
-              )}</div>
+          quote.budget_details.monthly_rate_equivalent || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Free Delivery</div>
-              <div class="detail-card-value">${
-                quote.budget_details.is_delivery_free ? "Yes" : "No"
-              }</div>
+              <div class="detail-card-value">${quote.budget_details.is_delivery_free ? "Yes" : "No"
+        }</div>
             </div>
           </div>
-          ${
-            quote.budget_details.cost_breakdown
-              ? `
+          ${quote.budget_details.cost_breakdown
+          ? `
             <h5 class="enhanced-section-header">Cost Breakdown</h5>
             <div class="price-breakdown">
               ${Object.entries(quote.budget_details.cost_breakdown)
-                .map(
-                  ([category, amount]) => `
+            .map(
+              ([category, amount]) => `
                 <div class="price-item">
-                  <span>${
-                    category.charAt(0).toUpperCase() + category.slice(1)
-                  }</span>
+                  <span>${category.charAt(0).toUpperCase() + category.slice(1)
+                }</span>
                   <span>${this._formatCurrency(amount || 0)}</span>
                 </div>
               `
-                )
-                .join("")}
+            )
+            .join("")}
             </div>
           `
-              : ""
-          }
+          : ""
+        }
         </div>
         `
-            : ""
-        }
+        : ""
+      }
 
-        ${
-          quote?.product_details
-            ? `
+        ${quote?.product_details
+        ? `
         <div class="detail-section">
           <h4>Product Information</h4>
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label">Product ID</div>
-              <div class="detail-card-value">${
-                quote.product_details.product_id || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.product_details.product_id || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Product Name</div>
-              <div class="detail-card-value">${
-                quote.product_details.product_name || "N/A"
-              }</div>
+              <div class="detail-card-value">${quote.product_details.product_name || "N/A"
+        }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Base Rate</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.product_details.base_rate || 0
-              )}</div>
+          quote.product_details.base_rate || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Adjusted Rate</div>
               <div class="detail-card-value">${this._formatCurrency(
-                quote.product_details.adjusted_rate || 0
-              )}</div>
+          quote.product_details.adjusted_rate || 0
+        )}</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">ADA Compliant</div>
-              <div class="detail-card-value">${
-                quote.product_details.is_ada_compliant ? "Yes" : "No"
-              }</div>
+              <div class="detail-card-value">${quote.product_details.is_ada_compliant ? "Yes" : "No"
+        }</div>
             </div>
-            ${
-              quote.product_details.stall_count
-                ? `
+            ${quote.product_details.stall_count
+          ? `
             <div class="detail-card">
               <div class="detail-card-label">Stall Count</div>
               <div class="detail-card-value">${quote.product_details.stall_count}</div>
             </div>
             `
-                : ""
-            }
+          : ""
+        }
           </div>
         </div>
         `
-            : ""
-        }
+        : ""
+      }
 
         <div class="detail-section">
           <h4>Performance & Metadata</h4>
           <div class="detail-grid">
             <div class="detail-card">
               <div class="detail-card-label">Processing Time</div>
-              <div class="detail-card-value">${
-                metadata?.calculation_time_ms ||
-                responseData.client_processing_time_ms ||
-                "N/A"
-              }${
-      metadata?.calculation_time_ms
+              <div class="detail-card-value">${metadata?.calculation_time_ms ||
+      responseData.client_processing_time_ms ||
+      "N/A"
+      }${metadata?.calculation_time_ms
         ? "ms"
         : responseData.client_processing_time_ms
-        ? "ms"
-        : ""
-    }</div>
+          ? "ms"
+          : ""
+      }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">System Version</div>
@@ -1233,62 +1194,56 @@ export default class Quote extends HTMLElement {
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Source System</div>
-              <div class="detail-card-value">${
-                metadata?.source_system || "N/A"
-              }</div>
+              <div class="detail-card-value">${metadata?.source_system || "N/A"
+      }</div>
             </div>
             <div class="detail-card">
               <div class="detail-card-label">Calculation Method</div>
-              <div class="detail-card-value">${
-                metadata?.calculation_method || "N/A"
-              }</div>
+              <div class="detail-card-value">${metadata?.calculation_method || "N/A"
+      }</div>
             </div>
           </div>
-          ${
-            metadata?.data_sources
-              ? `
+          ${metadata?.data_sources
+        ? `
             <h5 class="enhanced-section-header">Data Sources</h5>
             <div class="detail-grid">
               ${Object.entries(metadata.data_sources)
-                .map(
-                  ([source, value]) => `
+          .map(
+            ([source, value]) => `
                 <div class="detail-card">
-                  <div class="detail-card-label">${
-                    source.charAt(0).toUpperCase() + source.slice(1)
-                  }</div>
+                  <div class="detail-card-label">${source.charAt(0).toUpperCase() + source.slice(1)
+              }</div>
                   <div class="detail-card-value">${value || "N/A"}</div>
                 </div>
               `
-                )
-                .join("")}
+          )
+          .join("")}
             </div>
           `
-              : ""
-          }
-          ${
-            metadata?.warnings && metadata.warnings.length > 0
-              ? `
+        : ""
+      }
+          ${metadata?.warnings && metadata.warnings.length > 0
+        ? `
             <h5 class="enhanced-section-header warning">Warnings</h5>
             <div class="price-breakdown">
               ${metadata.warnings
-                .map(
-                  (warning) => `
+          .map(
+            (warning) => `
                 <div class="price-item warning-item-container">
                   <span>${warning}</span>
                   <span class="warning-icon">⚠️</span>
                 </div>
               `
-                )
-                .join("")}
+          )
+          .join("")}
             </div>
           `
-              : ""
-          }
+        : ""
+      }
         </div>
 
-        ${
-          quote?.notes
-            ? `
+        ${quote?.notes
+        ? `
         <div class="detail-section">
           <h4>Notes</h4>
           <div class="notes-container">
@@ -1296,8 +1251,8 @@ export default class Quote extends HTMLElement {
           </div>
         </div>
         `
-            : ""
-        }
+        : ""
+      }
       </div>
     `;
   }
@@ -1338,15 +1293,13 @@ export default class Quote extends HTMLElement {
           
           <div class="performance-metrics">
             <div class="metric-card">
-              <div class="metric-value" style="color: ${
-                firstScore.color
-              }">${firstTime}ms</div>
+              <div class="metric-value" style="color: ${firstScore.color
+      }">${firstTime}ms</div>
               <div class="metric-label">Processing Time</div>
             </div>
             <div class="metric-card">
-              <div class="metric-value" style="color: ${firstScore.color}">${
-      firstScore.score
-    }</div>
+              <div class="metric-value" style="color: ${firstScore.color}">${firstScore.score
+      }</div>
               <div class="metric-label">Performance Score</div>
             </div>
           </div>
@@ -1358,15 +1311,13 @@ export default class Quote extends HTMLElement {
           
           <div class="performance-metrics">
             <div class="metric-card comparison-highlight">
-              <div class="metric-value" style="color: ${
-                secondScore.color
-              }">${secondTime}ms</div>
+              <div class="metric-value" style="color: ${secondScore.color
+      }">${secondTime}ms</div>
               <div class="metric-label">Processing Time</div>
             </div>
             <div class="metric-card comparison-highlight">
-              <div class="metric-value" style="color: ${secondScore.color}">${
-      secondScore.score
-    }</div>
+              <div class="metric-value" style="color: ${secondScore.color}">${secondScore.score
+      }</div>
               <div class="metric-label">Performance Score</div>
             </div>
           </div>
@@ -1588,8 +1539,8 @@ export default class Quote extends HTMLElement {
       // Update loading state in results section only
       this._updateResultsSection(
         '<div class="loading-container">' +
-          this._getLoadingSpinner() +
-          '<p class="loading-text">Generating custom quote...</p></div>'
+        this._getLoadingSpinner() +
+        '<p class="loading-text">Generating custom quote...</p></div>'
       );
 
       console.log("Making API request for custom quote:", quoteBody);
@@ -1636,8 +1587,8 @@ export default class Quote extends HTMLElement {
       setTimeout(async () => {
         this._updateResultsSection(
           '<div class="loading-container">' +
-            this._getLoadingSpinner() +
-            '<p class="loading-text">Making cached request...</p></div>'
+          this._getLoadingSpinner() +
+          '<p class="loading-text">Making cached request...</p></div>'
         );
 
         try {
