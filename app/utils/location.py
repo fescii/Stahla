@@ -1,11 +1,13 @@
 """
 Location utilities for determining locality based on drive time from key service hubs.
+Enhanced with better address parsing for improved geocoding reliability.
 """
 
 import math
 import json
 import hashlib
 import time
+import re
 from typing import Tuple, List, Optional, Dict, Any
 import logfire
 
@@ -13,6 +15,9 @@ import logfire
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from geopy.distance import geodesic  # For more accurate distance
+
+# Import our enhanced address parsing functions
+from app.services.location.location import parse_and_normalize_address, extract_location_components
 
 # Define the key service hubs (latitude, longitude)
 SERVICE_HUBS = {
@@ -145,6 +150,7 @@ def geocode_location(
   """
   Convert a location description to coordinates using Nominatim with caching.
   Handles potential errors during geocoding with multiple fallback strategies.
+  Enhanced with better address parsing for improved reliability.
 
   Args:
       location_description: Text description of the location
@@ -173,7 +179,6 @@ def geocode_location(
 
     try:
       logfire.info(f"Geocoding state only: '{state_query}'")
-      # Remove type-problematic parameters
       location = geolocator.geocode(state_query, exactly_one=True)
 
       # Safely extract coordinates
@@ -187,113 +192,97 @@ def geocode_location(
       logfire.warn(f"State geocoding failed: {str(e)}")
       return None, None
 
-  # Try direct geocoding with state code if provided
-  if state_code:
-    enhanced_query = f"{location_description}, {state_code}, USA"
+  # Use our enhanced address parsing to get multiple variations
+  address_variations = parse_and_normalize_address(location_description)
+  components = extract_location_components(location_description)
+
+  logfire.info(
+      f"Generated {len(address_variations)} address variations for geocoding")
+
+  # Try each variation, starting with the most specific
+  for i, variation in enumerate(address_variations):
+    # Add state code if provided and not already in the variation
+    if state_code and state_code.upper() not in variation.upper():
+      enhanced_variation = f"{variation}, {state_code}, USA"
+    else:
+      enhanced_variation = variation
 
     # Try cache first
-    cached_coords = _get_cached_geocode(enhanced_query)
+    cached_coords = _get_cached_geocode(enhanced_variation)
     if cached_coords:
+      logfire.info(f"Cache hit for variation {i+1}: '{enhanced_variation}'")
       return cached_coords
 
     try:
-      logfire.info(f"Trying geocoding with state: '{enhanced_query}'")
-      # Remove type-problematic parameters
-      location = geolocator.geocode(
-          enhanced_query, exactly_one=True)
+      logfire.info(
+          f"Trying geocoding variation {i+1}/{len(address_variations)}: '{enhanced_variation}'")
+      location = geolocator.geocode(enhanced_variation, exactly_one=True)
 
       # Safely extract coordinates
       lat, lon = _extract_coordinates_safely(location)
       if lat is not None and lon is not None:
-        _cache_geocode(enhanced_query, lat, lon)
+        _cache_geocode(enhanced_variation, lat, lon)
         logfire.info(
-            f"State-enhanced geocoding successful: Found ({lat}, {lon})")
+            f"Geocoding successful for variation {i+1}: Found ({lat}, {lon})")
         return lat, lon
-      return None, None
-    except Exception as e:
-      logfire.warn(f"State-enhanced geocoding failed: {str(e)}")
 
-  # Try direct geocoding first (without state)
-  # Try cache first
-  cached_coords = _get_cached_geocode(location_description)
-  if cached_coords:
-    return cached_coords
-
-  try:
-    logfire.info(f"Trying direct geocoding: '{location_description}'")
-    # Remove type-problematic parameters
-    location = geolocator.geocode(
-        location_description, exactly_one=True)
-
-    # Safely extract coordinates
-    lat, lon = _extract_coordinates_safely(location)
-    if lat is not None and lon is not None:
-      _cache_geocode(location_description, lat, lon)
-      logfire.info(f"Direct geocoding successful: Found ({lat}, {lon})")
-      return lat, lon
-    return None, None
-  except Exception as e:
-    logfire.warn(f"Initial geocoding attempt failed: {str(e)}")
-
-  # If direct geocoding failed, try with common city contexts
-  common_contexts = ["New York, NY", "USA", "United States"]
-
-  for context in common_contexts:
-    enhanced_query = f"{location_description}, {context}"
-
-    # Try cache first
-    cached_coords = _get_cached_geocode(enhanced_query)
-    if cached_coords:
-      return cached_coords
-
-    try:
-      logfire.info(f"Trying enhanced query: '{enhanced_query}'")
-      location = geolocator.geocode(enhanced_query, exactly_one=True)
-
-      # Safely extract coordinates
-      lat, lon = _extract_coordinates_safely(location)
-      if lat is not None and lon is not None:
-        _cache_geocode(enhanced_query, lat, lon)
-        logfire.info(
-            f"Enhanced geocoding successful: Found ({lat}, {lon})")
-        return lat, lon
-      return None, None
+    except (GeocoderTimedOut, GeocoderServiceError) as e:
+      logfire.warn(
+          f"Geocoding timeout/service error for variation {i+1} '{enhanced_variation}': {str(e)}")
+      continue  # Try next variation
     except Exception as e:
       logfire.warn(
-          f"Enhanced geocoding attempt failed for '{enhanced_query}': {str(e)}")
+          f"Geocoding error for variation {i+1} '{enhanced_variation}': {str(e)}")
+      continue  # Try next variation
 
-  # Try with more permissive structured query
-  try:
-    # Extract likely place name from the description
-    place_terms = location_description.split(",")[0].strip()
+  # If all address variations failed, try some fallback strategies
 
-    # Try cache first
-    cached_coords = _get_cached_geocode(place_terms)
+  # Try with just city and state if we extracted them
+  if components["city"] and components["state"]:
+    fallback_query = f"{components['city']}, {components['state']}, USA"
+
+    cached_coords = _get_cached_geocode(fallback_query)
     if cached_coords:
+      logfire.info(f"Cache hit for city/state fallback: '{fallback_query}'")
       return cached_coords
 
-    logfire.info(f"Trying structured query with place: '{place_terms}'")
-    location = geolocator.geocode(
-        {"q": place_terms}, exactly_one=False, limit=1)
+    try:
+      logfire.info(f"Trying city/state fallback: '{fallback_query}'")
+      location = geolocator.geocode(fallback_query, exactly_one=True)
 
-    # Ensure location is a list before proceeding
-    if isinstance(location, list) and len(location) > 0:
-      first_match = location[0]
-
-      # Safely extract coordinates
-      lat, lon = _extract_coordinates_safely(first_match)
+      lat, lon = _extract_coordinates_safely(location)
       if lat is not None and lon is not None:
-        _cache_geocode(place_terms, lat, lon)
-        logfire.info(
-            f"Structured geocoding successful: Found ({lat}, {lon})")
+        _cache_geocode(fallback_query, lat, lon)
+        logfire.info(f"City/state fallback successful: Found ({lat}, {lon})")
         return lat, lon
-      return None, None
-  except Exception as e:
-    logfire.warn(f"Structured geocoding attempt failed: {str(e)}")
+    except Exception as e:
+      logfire.warn(f"City/state fallback failed: {str(e)}")
+
+  # Try with just state if we extracted it
+  if components["state"]:
+    state_query = f"{components['state']}, USA"
+
+    cached_coords = _get_cached_geocode(state_query)
+    if cached_coords:
+      logfire.info(f"Cache hit for state fallback: '{state_query}'")
+      return cached_coords
+
+    try:
+      logfire.info(f"Trying state fallback: '{state_query}'")
+      location = geolocator.geocode(state_query, exactly_one=True)
+
+      lat, lon = _extract_coordinates_safely(location)
+      if lat is not None and lon is not None:
+        _cache_geocode(state_query, lat, lon)
+        logfire.info(f"State fallback successful: Found ({lat}, {lon})")
+        return lat, lon
+    except Exception as e:
+      logfire.warn(f"State fallback failed: {str(e)}")
 
   # All attempts failed
   logfire.warn(
-      f"Geocoding failed: No location found for '{location_description}'", state_code=state_code)
+      f"Geocoding failed: No location found for '{location_description}' after trying {len(address_variations)} variations and fallbacks",
+      state_code=state_code)
   return None, None
 
 

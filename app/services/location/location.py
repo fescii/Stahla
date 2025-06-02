@@ -3,6 +3,7 @@ import asyncio
 import functools
 import logging
 import time
+import re
 from typing import List, Optional, Tuple, Dict, Any
 
 import googlemaps
@@ -34,6 +35,169 @@ MILES_PER_METER = 0.000621371
 CACHE_TTL_SECONDS = 24 * 60 * 60  # 24 hours
 # Constants for stats
 LOCATION_LOOKUP_STAT_NAME = "location_lookups"
+
+
+def parse_and_normalize_address(address: str) -> List[str]:
+  """
+  Parse and normalize an address to generate multiple variations for Google Maps API.
+
+  For addresses like "47 W 13th St, New York, NY 10011, USA", this generates:
+  1. Original address
+  2. Without country: "47 W 13th St, New York, NY 10011"
+  3. Street + City + State: "47 W 13th St, New York, NY"
+  4. City + State + ZIP: "New York, NY 10011"
+  5. City + State: "New York, NY"
+  6. Just the street address: "47 W 13th St"
+
+  Args:
+      address: The input address string
+
+  Returns:
+      List of normalized address variations ordered by specificity (most to least)
+  """
+  if not address or not address.strip():
+    return []
+
+  address = address.strip()
+  variations = [address]  # Start with original
+
+  # Split by commas and clean up parts
+  parts = [part.strip() for part in address.split(',') if part.strip()]
+
+  if len(parts) <= 1:
+    return variations
+
+  # Common patterns to identify address components
+  zip_pattern = r'\b\d{5}(-\d{4})?\b'  # ZIP codes
+  state_pattern = r'\b[A-Z]{2}\b'  # State codes like NY, CA, TX
+  country_pattern = r'\b(USA|US|United States|America)\b'
+
+  # Identify components
+  has_zip = any(re.search(zip_pattern, part) for part in parts)
+  has_state = any(re.search(state_pattern, part) for part in parts)
+  has_country = any(re.search(country_pattern, part, re.IGNORECASE)
+                    for part in parts)
+
+  # Generate variations based on structure
+  if len(parts) >= 2:
+    # Without last part (often country or redundant info)
+    variation = ', '.join(parts[:-1])
+    if variation != address and variation not in variations:
+      variations.append(variation)
+
+  if len(parts) >= 3:
+    # First part + last two parts (street + city/state info)
+    if has_state or has_zip:
+      variation = ', '.join([parts[0]] + parts[-2:])
+      if variation not in variations:
+        variations.append(variation)
+
+    # Without first part (city/state/zip without street)
+    variation = ', '.join(parts[1:])
+    if variation not in variations:
+      variations.append(variation)
+
+  if len(parts) >= 4:
+    # Street + City + State (without ZIP and country)
+    # Look for the pattern: street, city, state, zip
+    if has_state and has_zip:
+      # Assume: street, city, state+zip or zip, country
+      variation = ', '.join(parts[:3])
+      if variation not in variations:
+        variations.append(variation)
+
+    # First and last two parts
+    variation = ', '.join([parts[0]] + parts[-2:])
+    if variation not in variations:
+      variations.append(variation)
+
+  # Add just the first part (street address)
+  if len(parts) > 1 and parts[0] not in variations:
+    variations.append(parts[0])
+
+  # Add city + state combinations
+  for i, part in enumerate(parts):
+    if re.search(state_pattern, part):  # Found state
+      if i > 0:  # Has city before state
+        city_state = ', '.join(parts[i-1:i+1])
+        if city_state not in variations:
+          variations.append(city_state)
+      break
+
+  # Remove duplicates while preserving order
+  seen = set()
+  unique_variations = []
+  for var in variations:
+    if var not in seen:
+      seen.add(var)
+      unique_variations.append(var)
+
+  return unique_variations
+
+
+def extract_location_components(address: str) -> Dict[str, Optional[str]]:
+  """
+  Extract structured components from an address string.
+
+  Args:
+      address: Input address string
+
+  Returns:
+      Dictionary with components: street, city, state, zip_code, country
+  """
+  if not address:
+    return {"street": None, "city": None, "state": None, "zip_code": None, "country": None}
+
+  parts = [part.strip() for part in address.split(',') if part.strip()]
+
+  # Initialize components with proper typing
+  components: Dict[str, Optional[str]] = {
+      "street": None,
+      "city": None,
+      "state": None,
+      "zip_code": None,
+      "country": None
+  }
+
+  # Patterns
+  zip_pattern = r'\b(\d{5}(-\d{4})?)\b'
+  state_pattern = r'\b([A-Z]{2})\b'
+  country_pattern = r'\b(USA|US|United States|America)\b'
+
+  # Process parts from right to left (more specific to less specific)
+  for i, part in enumerate(reversed(parts)):
+    reverse_idx = len(parts) - 1 - i
+
+    # Check for country
+    if re.search(country_pattern, part, re.IGNORECASE) and not components["country"]:
+      components["country"] = part
+      continue
+
+    # Check for ZIP code
+    zip_match = re.search(zip_pattern, part)
+    if zip_match and not components["zip_code"]:
+      components["zip_code"] = zip_match.group(1)
+      # Remove ZIP from the part for further processing
+      part_without_zip = re.sub(zip_pattern, '', part).strip()
+      if part_without_zip:
+        part = part_without_zip
+
+    # Check for state
+    state_match = re.search(state_pattern, part)
+    if state_match and not components["state"]:
+      components["state"] = state_match.group(1)
+      # Remove state from the part for further processing
+      part_without_state = re.sub(state_pattern, '', part).strip()
+      if part_without_state:
+        part = part_without_state
+
+    # Assign remaining parts
+    if reverse_idx == 0 and not components["street"]:
+      components["street"] = parts[0]  # First part is usually street
+    elif part and not components["city"] and reverse_idx > 0:
+      components["city"] = part
+
+  return components
 
 
 class LocationService:
@@ -162,7 +326,7 @@ class LocationService:
   async def _get_distance_from_google(
       self, origin: str, destination: str
   ) -> Optional[Dict[str, Any]]:
-    """Helper to get distance using Google Maps API, run in executor. Logs errors to MongoDB."""
+    """Helper to get distance using Google Maps API with multiple address variations. Logs errors to MongoDB."""
     if not self.gmaps:
       msg = "Google Maps client not initialized."
       logfire.error(msg)
@@ -175,182 +339,98 @@ class LocationService:
       return None
 
     loop = asyncio.get_running_loop()
-    tried_normalized = False
     final_result_data: Optional[Dict[str, Any]] = None
+    attempted_variations = []
 
-    # Attempt 1: Original destination
-    try:
-      logfire.info(
-          f"Attempting Google Maps API call for origin: '{origin}', destination: '{destination}' (original)")
-      await increment_request_counter_bg(
-          self.redis_service, GMAPS_API_CALLS_KEY
-      )
-      func_call_orig = functools.partial(
-          self.gmaps.distance_matrix,  # type: ignore
-          origins=[origin],
-          destinations=[destination],  # Original destination
-          mode="driving",
-      )
-      result_orig = await loop.run_in_executor(None, func_call_orig)
+    # Get multiple variations of the destination address
+    destination_variations = parse_and_normalize_address(destination)
+    logfire.info(
+        f"Generated {len(destination_variations)} address variations for '{destination}': {destination_variations}")
 
-      gmaps_status_orig = result_orig.get("status")
-      element_status_orig = (
-          result_orig["rows"][0]["elements"][0].get("status")
-          if gmaps_status_orig == "OK" and result_orig.get("rows") and result_orig["rows"][0].get("elements")
-          # if gmaps_status itself is an error
-          else "N/A" if gmaps_status_orig == "OK" else gmaps_status_orig
-      )
-
-      if gmaps_status_orig == "OK" and element_status_orig == "OK":
-        element = result_orig["rows"][0]["elements"][0]
-        distance_meters = element["distance"]["value"]
-        duration_seconds = element["duration"]["value"]
-        distance_miles = distance_meters * MILES_PER_METER
+    # Try each variation until we get a successful result
+    for i, dest_variation in enumerate(destination_variations):
+      try:
         logfire.info(
-            f"Google Maps distance (original): {distance_miles:.2f} miles, Duration: {duration_seconds}s for {origin} -> {destination}"
+            f"Attempting Google Maps API call for origin: '{origin}', destination: '{dest_variation}' (variation {i+1}/{len(destination_variations)})")
+        await increment_request_counter_bg(
+            self.redis_service, GMAPS_API_CALLS_KEY
         )
-        final_result_data = {
-            "distance_miles": round(distance_miles, 2),
-            "distance_meters": distance_meters,
-            "duration_seconds": duration_seconds,
-            "origin": origin,
-            "destination": destination,
-        }
-      elif element_status_orig == "ZERO_RESULTS":
-        logfire.warning(
-            f"Google Maps API returned ZERO_RESULTS for original destination: '{destination}'. Attempting normalization.")
-        normalized_destination = destination.split(',')[0].strip()
-        if normalized_destination and normalized_destination.lower() != destination.lower():
-          tried_normalized = True
+
+        func_call = functools.partial(
+            self.gmaps.distance_matrix,  # type: ignore
+            origins=[origin],
+            destinations=[dest_variation],
+            mode="driving",
+        )
+        result = await loop.run_in_executor(None, func_call)
+        attempted_variations.append(dest_variation)
+
+        gmaps_status = result.get("status")
+        element_status = (
+            result["rows"][0]["elements"][0].get("status")
+            if gmaps_status == "OK" and result.get("rows") and result["rows"][0].get("elements")
+            else "N/A" if gmaps_status == "OK" else gmaps_status
+        )
+
+        if gmaps_status == "OK" and element_status == "OK":
+          element = result["rows"][0]["elements"][0]
+          distance_meters = element["distance"]["value"]
+          duration_seconds = element["duration"]["value"]
+          distance_miles = distance_meters * MILES_PER_METER
           logfire.info(
-              f"Attempting Google Maps API call for origin: '{origin}', destination: '{normalized_destination}' (normalized)")
-          # Increment API call counter again for the second distinct API call
-          await increment_request_counter_bg(
-              self.redis_service, GMAPS_API_CALLS_KEY
+              f"Google Maps distance (variation {i+1}): {distance_miles:.2f} miles, Duration: {duration_seconds}s for {origin} -> {dest_variation}"
           )
-          func_call_norm = functools.partial(
-              self.gmaps.distance_matrix,  # type: ignore
-              origins=[origin],
-              destinations=[normalized_destination],
-              mode="driving",
-          )
-          result_norm = await loop.run_in_executor(None, func_call_norm)
-          gmaps_status_norm = result_norm.get("status")
-          element_status_norm = (
-              result_norm["rows"][0]["elements"][0].get("status")
-              if gmaps_status_norm == "OK" and result_norm.get("rows") and result_norm["rows"][0].get("elements")
-              else "N/A" if gmaps_status_norm == "OK" else gmaps_status_norm
-          )
+          final_result_data = {
+              "distance_miles": round(distance_miles, 2),
+              "distance_meters": distance_meters,
+              "duration_seconds": duration_seconds,
+              "origin": origin,
+              "destination": destination,  # Return original destination for consistency
+              "successful_variation": dest_variation,
+          }
+          break  # Success! Stop trying other variations
 
-          if gmaps_status_norm == "OK" and element_status_norm == "OK":
-            element_norm = result_norm["rows"][0]["elements"][0]
-            distance_meters_norm = element_norm["distance"]["value"]
-            duration_seconds_norm = element_norm["duration"]["value"]
-            distance_miles_norm = distance_meters_norm * MILES_PER_METER
-            logfire.info(
-                f"Google Maps distance (normalized): {distance_miles_norm:.2f} miles, Duration: {duration_seconds_norm}s for {origin} -> {normalized_destination}"
-            )
-            final_result_data = {
-                "distance_miles": round(distance_miles_norm, 2),
-                "distance_meters": distance_meters_norm,
-                "duration_seconds": duration_seconds_norm,
-                "origin": origin,
-                "destination": destination,  # Return original destination for consistency
-            }
-          else:
-            # Normalized attempt also failed
-            msg = f"Google Maps API error for normalized_destination '{normalized_destination}' (original: '{destination}'): GMaps Status: {gmaps_status_norm}, Element Status: {element_status_norm}"
-            logfire.warning(msg)
-            await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
-            await self.mongo_service.log_error_to_db(
-                service_name="LocationService._get_distance_from_google",
-                error_type="GoogleMapsAPINormalizedFailed",
-                message=msg,
-                details={
-                    "origin": origin,
-                    "original_destination": destination,
-                    "normalized_destination_attempt": normalized_destination,
-                    "gmaps_status_normalized": gmaps_status_norm,
-                    "element_status_normalized": element_status_norm,
-                    "full_response_normalized": result_norm,
-                    "gmaps_status_original": gmaps_status_orig,  # from first attempt
-                    "element_status_original": element_status_orig,  # from first attempt
-                    "full_response_original": result_orig,  # from first attempt
-                },
-            )
-        else:  # Original was ZERO_RESULTS, and normalized is same or empty
-          msg = f"Google Maps API error for '{destination}': GMaps Status: {gmaps_status_orig}, Element Status: {element_status_orig}. No distinct normalized version to try or normalized is empty."
-          logfire.warning(msg)
-          await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
-          await self.mongo_service.log_error_to_db(
-              service_name="LocationService._get_distance_from_google",
-              error_type="GoogleMapsAPIError",  # Keep as general API error
-              message=msg,
-              details={
-                  "origin": origin,
-                  "destination": destination,
-                  "gmaps_status": gmaps_status_orig,
-                  "element_status": element_status_orig,
-                  "full_response": result_orig,
-              },
-          )
-      else:  # Original attempt failed with something other than ZERO_RESULTS or OK/OK
-        msg = f"Google Maps API error for '{destination}': GMaps Status: {gmaps_status_orig}, Element Status: {element_status_orig}"
+        elif element_status == "ZERO_RESULTS":
+          logfire.warning(
+              f"Google Maps API returned ZERO_RESULTS for variation {i+1}: '{dest_variation}'. Trying next variation.")
+          continue  # Try next variation
+
+        else:
+          # Other error status - log but continue trying
+          logfire.warning(
+              f"Google Maps API error for variation {i+1} '{dest_variation}': GMaps Status: {gmaps_status}, Element Status: {element_status}")
+          continue  # Try next variation
+
+      except (ApiError, HTTPError, Timeout, TransportError) as e:
+        msg = f"Google Maps API client error for variation {i+1} '{dest_variation}': {type(e).__name__} - {str(e)}"
         logfire.warning(msg)
-        await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
-        await self.mongo_service.log_error_to_db(
-            service_name="LocationService._get_distance_from_google",
-            error_type="GoogleMapsAPIError",
-            message=msg,
-            details={
-                "origin": origin,
-                "destination": destination,
-                "gmaps_status": gmaps_status_orig,
-                "element_status": element_status_orig,
-                "full_response": result_orig,
-            },
-        )
+        attempted_variations.append(dest_variation)
+        continue  # Try next variation
 
-      return final_result_data
+      except Exception as e:
+        msg = f"Unexpected error during Google Maps API call for variation {i+1} '{dest_variation}': {str(e)}"
+        logfire.warning(msg)
+        attempted_variations.append(dest_variation)
+        continue  # Try next variation
 
-    except (ApiError, HTTPError, Timeout, TransportError) as e:
-      msg = f"Google Maps API client error for '{origin}' -> '{destination}': {type(e).__name__} - {str(e)}"
-      logfire.error(msg, exc_info=True)
-      # Increment error counter if it hasn't been for this specific attempt path
-      # The GMAPS_API_CALLS_KEY is incremented at the start of each attempt.
-      # GMAPS_API_ERRORS_KEY should be incremented if an attempt fails.
-      # If an ApiError occurs, it implies the attempt failed before we could check status codes.
+    # If we reach here and final_result_data is None, all variations failed
+    if final_result_data is None:
+      msg = f"Google Maps API failed for all {len(attempted_variations)} address variations of '{destination}'"
+      logfire.error(msg)
       await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
       await self.mongo_service.log_error_to_db(
           service_name="LocationService._get_distance_from_google",
-          error_type=f"GoogleMapsClient{type(e).__name__}",
+          error_type="GoogleMapsAPIAllVariationsFailed",
           message=msg,
           details={
               "origin": origin,
-              "destination": destination,
-              "tried_normalized": tried_normalized,
-              "exception_type": type(e).__name__,
-              "args": e.args,
+              "original_destination": destination,
+              "attempted_variations": attempted_variations,
+              "total_variations_tried": len(attempted_variations),
           },
       )
-      return None
-    except Exception as e:
-      msg = f"Unexpected error during Google Maps API call for '{origin}' -> '{destination}': {str(e)}"
-      logfire.error(msg, exc_info=True)
-      await increment_request_counter_bg(self.redis_service, GMAPS_API_ERRORS_KEY)
-      await self.mongo_service.log_error_to_db(
-          service_name="LocationService._get_distance_from_google",
-          error_type="UnexpectedException",
-          message=msg,
-          details={
-              "origin": origin,
-              "destination": destination,
-              "tried_normalized": tried_normalized,
-              "exception_type": type(e).__name__,
-              "args": e.args,
-          },
-      )
-      return None
+
+    return final_result_data
 
   async def get_distance_to_nearest_branch(
       # Ensure BackgroundTasks is injected
@@ -532,6 +612,7 @@ class LocationService:
     """
     Checks if the delivery location is within the service area by extracting the state
     from the address and comparing it against the cached states data.
+    Enhanced to handle complex address formats.
     """
     try:
       # Get states data from cache or MongoDB
@@ -554,27 +635,54 @@ class LocationService:
           if state_code:
             valid_codes.add(state_code)
 
-      # Extract state information from delivery location
-      # Look for state patterns in the address
+      # Extract structured components from the address
+      components = extract_location_components(delivery_location)
+
+      # Check state component first (most reliable)
+      if components["state"] and components["state"].upper() in valid_codes:
+        logfire.info(
+            f"Location '{delivery_location}' is in service area (extracted state code: {components['state']})")
+        return True
+
+      # Extract state information from delivery location using multiple approaches
       location_upper = delivery_location.upper()
       location_lower = delivery_location.lower()
 
-      # Check for state codes (e.g., "CA", "TX", "NY")
-      import re
+      # Check for state codes (e.g., "CA", "TX", "NY") - enhanced pattern
       state_code_pattern = r'\b([A-Z]{2})\b'
       code_matches = re.findall(state_code_pattern, location_upper)
 
       for code in code_matches:
         if code in valid_codes:
           logfire.info(
-              f"Location '{delivery_location}' is in service area (state code: {code})")
+              f"Location '{delivery_location}' is in service area (found state code: {code})")
           return True
 
-      # Check for full state names
+      # Check for full state names (with word boundaries)
       for state in valid_states:
-        if state in location_lower:
+        # Use word boundary regex for more accurate matching
+        state_pattern = r'\b' + re.escape(state) + r'\b'
+        if re.search(state_pattern, location_lower):
           logfire.info(
-              f"Location '{delivery_location}' is in service area (state name: {state})")
+              f"Location '{delivery_location}' is in service area (found state name: {state})")
+          return True
+
+      # Additional checks for abbreviated address parts
+      address_parts = [part.strip() for part in delivery_location.split(',')]
+      for part in address_parts:
+        part_upper = part.upper().strip()
+        part_lower = part.lower().strip()
+
+        # Check if any part is exactly a state code
+        if part_upper in valid_codes:
+          logfire.info(
+              f"Location '{delivery_location}' is in service area (address part state code: {part_upper})")
+          return True
+
+        # Check if any part contains a state name
+        if part_lower in valid_states:
+          logfire.info(
+              f"Location '{delivery_location}' is in service area (address part state name: {part_lower})")
           return True
 
       logfire.info(f"Location '{delivery_location}' is NOT in service area")
