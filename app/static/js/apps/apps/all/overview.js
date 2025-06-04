@@ -571,9 +571,10 @@ export default class Overview extends HTMLElement {
         minute: "2-digit",
         hour12: true,
       };
-      return new Date(dateString).toLocaleDateString(
+      const date = new Date(dateString);
+      return date.toLocaleString(
         "en-US",
-        options || defaultOptions
+        { ...defaultOptions, ...options }
       );
     } catch (e) {
       return dateString; // fallback

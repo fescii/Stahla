@@ -1,44 +1,30 @@
 #!/bin/bash
-# Script to update codebase and restart the app without full deployment
+# Script to update codebase on Fly.io using proper deployment
 
 set -e
 
-echo "===== Starting Stahla Update Process ====="
+echo "===== Starting Stahla Fly.io Update Process ====="
 
-# 1. Pull latest code changes
+# Get the app name from fly.toml
+APP_NAME=$(grep '^app = ' fly/fly.toml | sed 's/app = "\(.*\)"/\1/')
+echo "Using Fly.io app: $APP_NAME"
+
+# 1. Pull latest code changes locally first
 echo "Pulling latest code changes..."
 git pull
 
-# 2. Install any new dependencies
-echo "Installing dependencies..."
-python3 -m pip install -r requirements.txt
+# 2. Deploy the updated code to Fly.io
+echo "Deploying updated code to Fly.io..."
+fly deploy --config fly/fly.toml
 
-# 3. Stop running services
-echo "Stopping services..."
-
-# Find and kill the uvicorn/FastAPI process
-FASTAPI_PID=$(ps aux | grep '[u]vicorn app.main:app' | awk '{print $2}')
-if [ ! -z "$FASTAPI_PID" ]; then
-  echo "Stopping FastAPI (PID: $FASTAPI_PID)..."
-  kill $FASTAPI_PID
-  sleep 2
-fi
-
-# 4. Start the application again
-echo "Starting FastAPI application..."
-cd /home/femar/A03/Stahla
-nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > /dev/null 2>&1 &
-
-# 5. Wait for app to start
-echo "Waiting for application to start..."
-sleep 5
-
-# 6. Verify the application is running
-if curl -s http://localhost:8000/health | grep -q "status"; then
-  echo "✓ Application successfully restarted and health check passed"
+# 3. Verify the application is running
+echo "Verifying application health..."
+sleep 10
+if curl -s https://$APP_NAME.fly.dev/health | grep -q "status"; then
+  echo "✓ Application successfully updated and deployed on Fly.io"
 else
   echo "⚠ Warning: Application may not have started correctly"
-  echo "Please check the application logs"
+  echo "Run 'fly logs --config fly/fly.toml' to check the application logs"
 fi
 
 echo "===== Update process completed ====="

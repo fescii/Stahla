@@ -19,7 +19,7 @@ export default class ServicesStatus extends HTMLElement {
   connectedCallback() {
     // Fetch status data first
     this.fetchStatusData();
-    
+
     // Set up refresh timer and event listeners
     setTimeout(() => {
       this._setupEventListeners();
@@ -64,7 +64,7 @@ export default class ServicesStatus extends HTMLElement {
       this._loading = false;
       this._block = false;
       this._empty = false;
-      
+
       this.statusData = response;
       this.render();
 
@@ -128,7 +128,46 @@ export default class ServicesStatus extends HTMLElement {
     if (exportBtn) {
       exportBtn.addEventListener('click', this._handleExport);
     }
+
+    // Service pill interactions
+    const servicePills = this.shadowObj.querySelectorAll('.service-pill');
+    servicePills.forEach(pill => {
+      // Click handler
+      pill.addEventListener('click', (e) => {
+        const serviceName = pill.dataset.service;
+        this._handleServicePillClick(serviceName, pill);
+      });
+
+      // Keyboard handler
+      pill.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const serviceName = pill.dataset.service;
+          this._handleServicePillClick(serviceName, pill);
+        }
+      });
+
+      // Animation on hover
+      pill.addEventListener('mouseenter', () => {
+        pill.style.transform = 'translateY(-2px)';
+      });
+
+      pill.addEventListener('mouseleave', () => {
+        pill.style.transform = 'translateY(0)';
+      });
+    });
   }
+
+  _handleServicePillClick = (serviceName, pillElement) => {
+    // Add a brief animation to indicate interaction
+    pillElement.style.transform = 'scale(0.98)';
+    setTimeout(() => {
+      pillElement.style.transform = 'translateY(-2px)';
+    }, 100);
+
+    // You can add additional functionality here, like showing service details
+    console.log(`Service clicked: ${serviceName}`);
+  };
 
   // Handle export functionality
   _handleExport = () => {
@@ -141,10 +180,10 @@ export default class ServicesStatus extends HTMLElement {
     try {
       const services = this.statusData.data.services;
       const lastUpdated = this.statusData.data.last_updated;
-      
+
       // Create CSV content
       let csvContent = 'Service Name,Status,Message,Timestamp\n';
-      
+
       // Add each service data row
       services.forEach(service => {
         const row = [
@@ -155,7 +194,7 @@ export default class ServicesStatus extends HTMLElement {
         ];
         csvContent += row.join(',') + '\n';
       });
-      
+
       csvContent += `\nLast Updated,"${lastUpdated}"`;
 
       // Create a blob and download link
@@ -195,8 +234,10 @@ export default class ServicesStatus extends HTMLElement {
     return /* html */ `
       <div class="container">
         ${this._getHeaderHTML()}
-        ${this._getStatusGridHTML()}
-        ${this._getStatusDetailsHTML()}
+        <div class="status-content-grid">
+          ${this._getStatusGridHTML()}
+          ${this._getStatusDetailsHTML()}
+        </div>
       </div>
     `;
   };
@@ -204,7 +245,7 @@ export default class ServicesStatus extends HTMLElement {
   _getHeaderHTML = () => {
     const services = this.statusData.data.services || [];
     const lastUpdated = new Date(this.statusData.data.last_updated).toLocaleString();
-    
+
     // Count services by status
     const statusCount = {
       ok: services.filter(s => s.status === 'ok').length,
@@ -212,11 +253,11 @@ export default class ServicesStatus extends HTMLElement {
       error: services.filter(s => s.status === 'error').length,
       unknown: services.filter(s => !['ok', 'warning', 'error'].includes(s.status)).length
     };
-    
+
     // Overall status
     let overallStatus = 'operational';
     let overallMessage = 'All systems operational';
-    
+
     if (statusCount.error > 0) {
       overallStatus = 'outage';
       overallMessage = 'System outage detected';
@@ -224,7 +265,7 @@ export default class ServicesStatus extends HTMLElement {
       overallStatus = 'degraded';
       overallMessage = 'Degraded performance';
     }
-    
+
     return /* html */ `
     <div class="status-header">
       <div class="status-title">
@@ -248,12 +289,85 @@ export default class ServicesStatus extends HTMLElement {
         </button>
       </div>
     </div>
+    
+    <div class="dashboard-overview">
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-title">Total Services</div>
+                <div class="stat-icon icon-services">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                        <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                        <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-value">${services.length}</div>
+            <div class="stat-details">
+                <span class="stat-success">${statusCount.ok} Operational</span> &bull;
+                <span class="stat-error">${statusCount.error + statusCount.warning} Issues</span>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-title">Operational</div>
+                <div class="stat-icon icon-operational">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-value">${statusCount.ok}</div>
+            <div class="stat-details">
+                <span class="stat-success">Services running normally</span>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-title">Issues</div>
+                <div class="stat-icon icon-issues">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-value">${statusCount.error + statusCount.warning}</div>
+            <div class="stat-details">
+                ${statusCount.warning > 0 ? `<span class="stat-warning">${statusCount.warning} Warning</span>` : ''}
+                ${statusCount.warning > 0 && statusCount.error > 0 ? ' &bull; ' : ''}
+                ${statusCount.error > 0 ? `<span class="stat-error">${statusCount.error} Error</span>` : ''}
+                ${statusCount.error === 0 && statusCount.warning === 0 ? '<span>No issues detected</span>' : ''}
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-title">Last Updated</div>
+                <div class="stat-icon icon-time">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+            </div>
+            <div class="stat-value">${new Date(this.statusData.data.last_updated).toLocaleDateString()}</div>
+            <div class="stat-details">
+                <span>${new Date(this.statusData.data.last_updated).toLocaleTimeString()}</span>
+            </div>
+        </div>
+    </div>
     `;
   };
 
   _getStatusGridHTML = () => {
     const services = this.statusData.data.services || [];
-    
+
     if (!services.length) {
       return /* html */ `
       <div class="empty-state">
@@ -268,162 +382,101 @@ export default class ServicesStatus extends HTMLElement {
       </div>
       `;
     }
-    
+
     return /* html */ `
-    <div class="status-grid">
-      ${services.map(service => this._getServiceCardHTML(service)).join('')}
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title">Service Status</h2>
+            <div class="panel-actions">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </div>
+        </div>
+        <div class="panel-body">
+           <div class="services-grid">
+             ${services.map(service => this._getServicePillHTML(service)).join('')}
+           </div>
+        </div>
     </div>
     `;
   };
 
-  _getServiceCardHTML = (service) => {
+  _getServicePillHTML = (service) => {
     // Format timestamp
-    const timestamp = new Date(service.timestamp).toLocaleString();
-    
-    // Determine status class
-    let statusClass = 'unknown';
-    let statusIcon = '';
-    
-    switch (service.status) {
-      case 'ok':
-        statusClass = 'operational';
-        statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
-        break;
-      case 'warning':
-        statusClass = 'degraded';
-        statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
-        break;
-      case 'error':
-        statusClass = 'outage';
-        statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
-        break;
-      default:
-        statusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
-    }
-    
+    const timestamp = new Date(service.timestamp).toLocaleDateString();
+
+    // Determine status text and class
+    const isOk = service.status.toLowerCase() === 'ok' || service.status.toLowerCase() === 'operational';
+    const statusClass = isOk ? 'status-ok' : 'status-error';
+    const statusText = isOk ? 'OK' : 'Error';
+
     // Format service name
     const formattedName = service.service_name
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-    
+
     return /* html */ `
-    <div class="service-card ${statusClass}" data-service="${service.service_name}">
-      <div class="service-icon">
-        ${this._getServiceIcon(service.service_name)}
+    <div class="service-pill" title="${service.message || ''}" tabindex="0" role="button" aria-label="Service: ${formattedName}, Status: ${service.status}" data-service="${service.service_name}">
+      <div class="service-pill-header">
+        <div class="service-pill-name">${formattedName}</div>
+        <div class="service-pill-status ${statusClass}">${statusText}</div>
       </div>
-      <div class="service-info">
-        <h3 class="service-name">${formattedName}</h3>
-        <div class="service-status">
-          <span class="status-icon">${statusIcon}</span>
-          <span class="status-message">${service.message}</span>
-        </div>
-        <div class="service-time">${timestamp}</div>
-      </div>
+      <div class="service-pill-date">Last sync: ${timestamp}</div>
     </div>
     `;
   };
 
-  _getServiceIcon = (serviceName) => {
-    // Map service names to appropriate icons
-    switch (serviceName) {
-      case 'mongodb':
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-        </svg>`;
-      case 'redis':
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
-          <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
-        </svg>`;
-      case 'bland_ai':
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0-3 3v1a3 3 0 0 0-3 3v2a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-2a3 3 0 0 0-3-3h-9V9a1 1 0 0 1 1-1h8a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3z"/>
-          <circle cx="8" cy="16" r="1"/>
-          <circle cx="16" cy="16" r="1"/>
-        </svg>`;
-      case 'google_sheets':
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <line x1="3" y1="9" x2="21" y2="9"/>
-          <line x1="3" y1="15" x2="21" y2="15"/>
-          <line x1="9" y1="3" x2="9" y2="21"/>
-          <line x1="15" y1="3" x2="15" y2="21"/>
-        </svg>`;
-      case 'hubspot':
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" id="hubspot">
-          <path fill="currentColor" d="M22.75 14.358c0-3.056-2.221-5.587-5.132-6.033V5.437c.815-.347 1.313-1.116 1.313-2.011 0-1.223-.974-2.245-2.189-2.245s-2.175 1.022-2.175 2.245c0 .895.499 1.664 1.313 2.011v2.869a5.979 5.979 0 0 0-1.989.638c-1.286-.98-5.472-4.017-7.865-5.85a2.46 2.46 0 0 0 .093-.647A2.443 2.443 0 0 0 3.681 0 2.441 2.441 0 0 0 1.25 2.447a2.442 2.442 0 0 0 2.431 2.452c.456 0 .88-.136 1.248-.356l7.6 5.377-.002-.001a6.099 6.099 0 0 0-1.9 4.434c0 1.373.452 2.639 1.211 3.656l-2.305 2.334a1.892 1.892 0 0 0-.652-.117c-.503 0-.974.197-1.327.553-.354.356-.549.834-.549 1.341s.196.98.549 1.336c.354.356.829.544 1.328.544.503 0 .974-.183 1.332-.544a1.888 1.888 0 0 0 .461-1.903l2.329-2.353a6.006 6.006 0 0 0 3.693 1.261c3.347 0 6.053-2.733 6.053-6.103zm-6.055 3.229c-1.774 0-3.213-1.448-3.213-3.234s1.438-3.234 3.213-3.234c1.774 0 3.213 1.448 3.213 3.234s-1.439 3.234-3.213 3.234z"></path>
-        </svg>`;
-      default:
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-          <line x1="6" y1="6" x2="6.01" y2="6"/>
-          <line x1="6" y1="18" x2="6.01" y2="18"/>
-        </svg>`;
-    }
-  };
+
 
   _getStatusDetailsHTML = () => {
     // Create a timeline of status updates
     const services = this.statusData.data.services || [];
-    
+
     if (!services.length) {
       return '';
     }
-    
+
     // Sort services by timestamp (newest first)
-    const sortedServices = [...services].sort((a, b) => 
+    const sortedServices = [...services].sort((a, b) =>
       new Date(b.timestamp) - new Date(a.timestamp)
     );
-    
+
     return /* html */ `
-    <div class="status-details">
-      <h2 class="details-title">Status History</h2>
-      <div class="status-timeline">
-        ${sortedServices.map(service => {
-          const timestamp = new Date(service.timestamp);
-          const formattedName = service.service_name
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-            
-          let statusBadge = '';
-          switch (service.status) {
-            case 'ok':
-              statusBadge = '<span class="status-badge operational">Operational</span>';
-              break;
-            case 'warning':
-              statusBadge = '<span class="status-badge degraded">Degraded</span>';
-              break;
-            case 'error':
-              statusBadge = '<span class="status-badge outage">Outage</span>';
-              break;
-            default:
-              statusBadge = '<span class="status-badge unknown">Unknown</span>';
-          }
-          
-          return /* html */ `
-          <div class="timeline-item">
-            <div class="timeline-content">
-              <div class="timeline-dot ${service.status === 'ok' ? 'operational' : (service.status === 'warning' ? 'degraded' : (service.status === 'error' ? 'outage' : 'unknown'))}"></div>
-              <div class="timeline-header">
-                <h3 class="timeline-service">${formattedName}</h3>
-                ${statusBadge}
-              </div>
-              <p class="timeline-message">${service.message}</p>
-              <div class="timeline-time">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                ${timestamp.toLocaleString()}
-              </div>
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title">Status History</h2>
+            <div class="panel-actions">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
             </div>
-          </div>
-          `;
-        }).join('')}
+        </div>
+        <div class="panel-body">
+           <div class="services-grid">
+             ${sortedServices.map(service => this._getHistoryPillHTML(service)).join('')}
+           </div>
+        </div>
+    </div>
+    `;
+  };
+
+  _getHistoryPillHTML = (service) => {
+    const timestamp = new Date(service.timestamp).toLocaleDateString();
+    const formattedName = service.service_name
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    // Determine status text and class
+    const isOk = service.status.toLowerCase() === 'ok' || service.status.toLowerCase() === 'operational';
+    const statusClass = isOk ? 'status-ok' : 'status-error';
+    const statusText = isOk ? 'OK' : 'Error';
+
+    return /* html */ `
+    <div class="service-pill" title="${service.message || ''}" tabindex="0" role="button" aria-label="Service: ${formattedName}, Status: ${service.status}">
+      <div class="service-pill-header">
+        <div class="service-pill-name">${formattedName}</div>
+        <div class="service-pill-status ${statusClass}">${statusText}</div>
       </div>
+      <div class="service-pill-date">${timestamp}</div>
     </div>
     `;
   };
@@ -467,6 +520,21 @@ export default class ServicesStatus extends HTMLElement {
           width: 100%;
           background-color: var(--background);
           min-height: 100vh;
+        }
+
+        .status-content-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 2rem;
+          margin-top: 2rem;
+        }
+
+        @media (max-width: 780px) {
+          .status-content-grid {
+            display: flex;
+            flex-flow: column;
+            gap: 1.5rem;
+          }
         }
 
         .loader-container {
@@ -547,21 +615,21 @@ export default class ServicesStatus extends HTMLElement {
         }
 
         .status-indicator.operational {
-          background-color: rgba(16, 185, 129, 0.1);
-          color: rgb(16, 185, 129);
-          border: 1px solid rgba(16, 185, 129, 0.2);
+          background: var(--success-background);
+          color: var(--accent-color);
+          border: 1px solid var(--success-border);
         }
 
         .status-indicator.degraded {
-          background-color: rgba(245, 158, 11, 0.1);
-          color: rgb(245, 158, 11);
-          border: 1px solid rgba(245, 158, 11, 0.2);
+          background: var(--warning-background);
+          color: var(--warning-color);
+          border: 1px solid var(--warning-border);
         }
 
         .status-indicator.outage {
-          background-color: rgba(239, 68, 68, 0.1);
-          color: rgb(239, 68, 68);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: var(--error-background);
+          color: var(--error-color);
+          border: 1px solid var(--error-border);
         }
 
         .status-dot {
@@ -572,18 +640,18 @@ export default class ServicesStatus extends HTMLElement {
         }
 
         .operational .status-dot {
-          background-color: rgb(16, 185, 129);
-          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+          background-color: var(--accent-color);
+          box-shadow: 0 0 0 2px var(--success-background);
         }
 
         .degraded .status-dot {
-          background-color: rgb(245, 158, 11);
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+          background-color: var(--warning-color);
+          box-shadow: 0 0 0 2px var(--warning-background);
         }
 
         .outage .status-dot {
-          background-color: rgb(239, 68, 68);
-          box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+          background-color: var(--error-color);
+          box-shadow: 0 0 0 2px var(--error-background);
         }
 
         .status-subtitle {
@@ -610,253 +678,295 @@ export default class ServicesStatus extends HTMLElement {
         .export-btn {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: var(--spacing-sm);
           background: var(--action-linear);
           color: var(--white-color);
           border: var(--action-border);
-          padding: 0.5rem 1rem;
-          border-radius: 0.375rem;
-          font-weight: 500;
-          font-size: 0.875rem;
+          padding: var(--spacing-sm) var(--spacing-md);
+          border-radius: var(--border-radius-md);
+          font-weight: var(--font-weight-medium);
+          font-size: var(--font-size-sm);
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.2s ease;
         }
 
         .export-btn:hover {
           background: var(--accent-linear);
+          transform: translateY(-1px);
+          box-shadow: var(--hover-box-shadow);
         }
 
         .export-btn svg {
           stroke-width: 2px;
         }
 
-        /* Status Grid Styles */
-        .status-grid {
+        /* Dashboard Overview Styles - Match overview.js */
+        .dashboard-overview {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 1rem;
-          margin-bottom: 2rem;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.25rem;
+          margin: 1.5rem 0 2rem;
         }
 
-        .service-card {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1.25rem;
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          border-left: 4px solid transparent;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .service-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--hover-box-shadow);
-        }
-
-        .service-card.operational {
-          border-left-color: rgb(16, 185, 129);
-        }
-
-        .service-card.degraded {
-          border-left-color: rgb(245, 158, 11);
-        }
-
-        .service-card.outage {
-          border-left-color: rgb(239, 68, 68);
-        }
-
-        .service-card.unknown {
-          border-left-color: rgb(107, 114, 128);
-        }
-
-        .service-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 48px;
-          height: 48px;
+        .stat-card {
           background-color: var(--stat-background);
-          border-radius: 0.5rem;
-          color: var(--accent-color);
-        }
-
-        .service-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .service-name {
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 0 0 0.375rem 0;
-          color: var(--title-color);
-        }
-
-        .service-status {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.375rem;
-        }
-
-        .status-icon {
-          color: inherit;
-        }
-
-        .operational .status-icon {
-          color: rgb(16, 185, 129);
-        }
-
-        .degraded .status-icon {
-          color: rgb(245, 158, 11);
-        }
-
-        .outage .status-icon {
-          color: rgb(239, 68, 68);
-        }
-
-        .status-message {
-          font-size: 0.875rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .service-time {
-          font-size: 0.75rem;
-          color: var(--gray-color);
-        }
-
-        /* Status Details Styles */
-        .status-details {
-          margin-top: 3rem;
-        }
-
-        .details-title {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin-bottom: 1.5rem;
-          color: var(--title-color);
-          padding-bottom: 0.5rem;
-          border-bottom: var(--border);
-        }
-
-        .status-timeline {
+          border-radius: 12px;
+          padding: 1.25rem;
+          box-shadow: var(--card-box-shadow-alt);
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           position: relative;
+          overflow: hidden;
         }
 
-        .status-timeline:before {
-          content: '';
+        .stat-card:after {
+          content: "";
           position: absolute;
           top: 0;
-          bottom: 0;
-          left: 17px;
-          width: 2px;
-          background-color: var(--border-color);
-          z-index: 1;
+          right: 0;
+          height: 4px;
+          width: 100%;
+          background: var(--accent-linear);
+          opacity: 0;
+          transition: opacity 0.3s ease;
         }
 
-        .timeline-item {
-          position: relative;
-          margin-bottom: 1.5rem;
+        .stat-card:hover {
+          transform: translateY(-5px);
+          box-shadow: var(--card-box-shadow);
         }
 
-        .timeline-item:last-child {
-          margin-bottom: 0;
+        .stat-card:hover:after {
+          opacity: 1;
         }
 
-        .timeline-dot {
-          position: absolute;
-          left: 1rem;
-          top: 1.25rem;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background-color: rgb(107, 114, 128);
-          border: 4px solid var(--background);
-          z-index: 2;
-        }
-
-        .timeline-dot.operational {
-          background-color: rgb(16, 185, 129);
-        }
-
-        .timeline-dot.degraded {
-          background-color: rgb(245, 158, 11);
-        }
-
-        .timeline-dot.outage {
-          background-color: rgb(239, 68, 68);
-        }
-
-        .timeline-content {
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          padding: 1.25rem 1rem 1rem 2.5rem;
-          position: relative;
-        }
-
-        .timeline-header {
+        .stat-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 0.5rem;
+          margin-bottom: 1rem;
         }
 
-        .timeline-service {
-          font-size: 1rem;
+        .stat-title {
           font-weight: 600;
-          margin: 0;
-          color: var(--title-color);
+          color: var(--gray-color);
+          font-size: 0.92rem;
+          text-transform: capitalize;
+          letter-spacing: 0.5px;
         }
 
-        .status-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
-          font-size: 0.75rem;
+        .stat-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white-color);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+          transform: rotate(0deg);
+          transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover .stat-icon {
+          transform: rotate(5deg) scale(1.05);
+        }
+
+        .icon-services { background: var(--action-linear); }
+        .icon-operational { background: var(--accent-linear); }
+        .icon-issues { background: var(--error-linear); }
+        .icon-time { background: var(--second-linear); }
+
+        .stat-value {
+          font-size: 2.25rem;
+          font-weight: 700;
+          color: var(--title-color);
+          margin-bottom: 0.75rem;
+          font-family: var(--font-main), sans-serif;
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+
+        .stat-details {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.875rem;
+          flex-wrap: wrap;
+          position: relative;
+        }
+
+        .stat-details:before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: -0.5rem;
+          width: 2rem;
+          height: 2px;
+          background: var(--accent-linear);
+          opacity: 0.5;
+          transition: width 0.3s ease;
+        }
+
+        .stat-card:hover .stat-details:before {
+          width: 3rem;
+        }
+
+        .stat-success {
+          color: var(--success-color);
           font-weight: 500;
         }
 
-        .status-badge.operational {
-          background-color: rgba(16, 185, 129, 0.1);
-          color: rgb(16, 185, 129);
-          border: 1px solid rgba(16, 185, 129, 0.2);
+        .stat-warning {
+          color: var(--alt-color);
+          font-weight: 500;
         }
 
-        .status-badge.degraded {
-          background-color: rgba(245, 158, 11, 0.1);
-          color: rgb(245, 158, 11);
-          border: 1px solid rgba(245, 158, 11, 0.2);
+        .stat-error {
+          color: var(--error-color);
+          font-weight: 500;
         }
 
-        .status-badge.outage {
-          background-color: rgba(239, 68, 68, 0.1);
-          color: rgb(239, 68, 68);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+        /* Panel Styles - Match overview.js */
+        .panel {
+          background-color: var(--hover-background);
+          border-radius: 8px;
+          padding: 0;
+          box-shadow: var(--card-box-shadow-alt);
+          transition: box-shadow 0.2s ease;
+          overflow: hidden;
         }
 
-        .status-badge.unknown {
-          background-color: rgba(107, 114, 128, 0.1);
-          color: rgb(107, 114, 128);
-          border: 1px solid rgba(107, 114, 128, 0.2);
+        .panel:hover {
+          box-shadow: var(--card-box-shadow);
         }
 
-        .timeline-message {
-          font-size: 0.875rem;
-          margin: 0 0 0.5rem 0;
-          color: var(--text-color);
-        }
-
-        .timeline-time {
+        .panel-header {
+          padding: 12px 1.25rem;
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          gap: 0.375rem;
+          position: relative;
+          box-shadow: 0 1px 0 rgba(107, 114, 128, 0.1);
+        }
+
+        .panel-header:after {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          width: 4px;
+          background: var(--accent-linear);
+          opacity: 0.7;
+        }
+
+        .panel-title {
+          padding: 0;
+          margin: 0;
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: var(--title-color);
+          font-family: var(--font-main), sans-serif;
+          letter-spacing: -0.01em;
+        }
+
+        .panel-actions {
+          display: flex;
+          gap: 0.5rem;
+          color: var(--gray-color);
+        }
+
+        .panel-body {
+          padding: 1.25rem;
+        }
+
+        /* Services Grid - Match overview.js */
+        .services-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 1rem;
+          width: 100%;
+        }
+        
+        @media (max-width: 768px) {
+          .services-grid {
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          }
+        }
+        
+        @media (min-width: 1024px) {
+          .services-grid {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+          }
+        }
+
+        .service-pill {
+          display: flex;
+          flex-direction: column;
+          padding: 0.9rem 1rem;
+          background-color: var(--stat-background);
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          box-shadow: var(--card-box-shadow-alt);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .service-pill:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--card-box-shadow);
+          background-color: var(--hover-background);
+        }
+        
+        .service-pill:active {
+          transform: translateY(0) scale(0.98);
+        }
+        
+        .service-pill-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+        
+        .service-pill-name {
+          font-weight: 600;
+          color: var(--title-color);
+          font-size: 0.95rem;
+          letter-spacing: -0.01em;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+        
+        .service-pill-status {
+          font-size: 0.8rem;
+          font-weight: 600;
+          padding: 0.15rem 0.5rem;
+          border-radius: 4px;
+          min-width: 40px;
+          text-align: center;
+        }
+        
+        .service-pill-status.status-ok {
+          color: var(--accent-color);
+          background-color: rgba(0, 96, 223, 0.1);
+        }
+        
+        .service-pill-status.status-error {
+          color: var(--error-color);
+          background-color: rgba(236, 75, 25, 0.1);
+        }
+        
+        .service-pill-date {
           font-size: 0.75rem;
           color: var(--gray-color);
+          margin-top: 2px;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          white-space: nowrap;
         }
 
         /* Empty state styles */
@@ -907,10 +1017,32 @@ export default class ServicesStatus extends HTMLElement {
             justify-content: center;
           }
           
-          .timeline-header {
+          .services-grid {
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: var(--spacing-md);
+          }
+          
+          .dashboard-overview {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          }
+        }
+
+        @media (max-width: 480px) {
+          .services-grid {
+            display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
+            gap: 1rem;
+          }
+          
+          .dashboard-overview {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .services-grid {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
           }
         }
       </style>
