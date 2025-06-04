@@ -69,8 +69,8 @@ RUN mkdir -p /data/mongodb /data/redis /data/logs /var/log/nginx && \
 
 # Copy service initialization script
 COPY startup.sh ./startup.sh
-COPY fly-deployment/init-all-services.sh ./init-all-services.sh
-RUN chmod +x ./startup.sh ./init-mongo.sh ./init-all-services.sh
+COPY fly-deployment/init.sh ./init.sh
+RUN chmod +x ./startup.sh ./init-mongo.sh ./init.sh
 
 # Remove default nginx site
 RUN rm -f /etc/nginx/sites-enabled/default

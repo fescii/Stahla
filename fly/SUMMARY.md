@@ -14,7 +14,7 @@
 fly-deployment/
 ├── fly.toml                    # Main Fly.io app configuration
 ├── Dockerfile                  # Unified container with all services
-├── init-all-services.sh        # Service initialization script
+├── init.sh        # Service initialization script
 ├── deploy-unified.sh          # One-command deployment script
 ├── manage-unified.sh          # Application management script
 ├── validate.sh                # Pre-deployment validation
@@ -117,13 +117,13 @@ flyctl scale count 2 --app stahla  # Scale to 2 instances
 
 ## 🔧 Configuration Files Summary
 
-| File                   | Purpose                            |
-| ---------------------- | ---------------------------------- |
-| `fly.toml`             | Main Fly.io configuration          |
-| `Dockerfile`           | Multi-service container definition |
-| `init-all-services.sh` | Service startup and initialization |
-| `deploy-unified.sh`    | Deployment automation              |
-| `manage-unified.sh`    | Operations management              |
-| `validate.sh`          | Pre-deployment validation          |
+| File                | Purpose                            |
+| ------------------- | ---------------------------------- |
+| `fly.toml`          | Main Fly.io configuration          |
+| `Dockerfile`        | Multi-service container definition |
+| `init.sh`           | Service startup and initialization |
+| `deploy-unified.sh` | Deployment automation              |
+| `manage-unified.sh` | Operations management              |
+| `validate.sh`       | Pre-deployment validation          |
 
 The deployment is now ready for a single Fly.io app that will run all services efficiently at `https://stahla.fly.dev`!

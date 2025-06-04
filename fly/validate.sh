@@ -40,7 +40,7 @@ validation_failed=0
 echo -e "${BLUE}Checking main configuration files:${NC}"
 check_file "fly.toml" || validation_failed=1
 check_file "Dockerfile" || validation_failed=1
-check_file "init-all-services.sh" || validation_failed=1
+check_file "init.sh" || validation_failed=1
 check_file "deploy-unified.sh" || validation_failed=1
 check_file "manage-unified.sh" || validation_failed=1
 echo
@@ -63,7 +63,7 @@ check_file "old-individual-services/mongodb/init-mongo-fly.sh" || validation_fai
 echo
 
 echo -e "${BLUE}Checking script permissions:${NC}"
-for script in "deploy-unified.sh" "manage-unified.sh" "init-all-services.sh"; do
+for script in "deploy-unified.sh" "manage-unified.sh" "init.sh"; do
     if [ -x "$script" ]; then
         echo -e "${GREEN}✓${NC} $script (executable)"
     else

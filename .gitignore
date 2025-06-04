@@ -68,9 +68,6 @@ htmlcov/
 # Production
 .secrets.toml
 prod_config.py
-fly/
-fly/*
-/fly/*
 
 # Local development configuration
 dev_config.py

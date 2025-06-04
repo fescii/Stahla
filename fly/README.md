@@ -272,7 +272,7 @@ Internet → Fly.io → stahla.fly.dev (Nginx:80/443)
 
 - `fly.toml` - Main Fly.io application configuration
 - `Dockerfile` - Unified container with all services
-- `init-all-services.sh` - Service initialization script
+- `init.sh` - Service initialization script
 
 ### Nginx Configuration
 
@@ -503,6 +503,6 @@ This unified deployment approach provides:
 - `Dockerfile` - Unified container with all services
 - `deploy-unified.sh` - One-command deployment
 - `manage-unified.sh` - Application management
-- `init-all-services.sh` - Service initialization
+- `init.sh` - Service initialization
 
 Ready to deploy! Run `./deploy-unified.sh` to get started.

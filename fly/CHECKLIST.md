@@ -153,7 +153,7 @@ ps aux | grep -E "(mongod|redis|uvicorn|nginx)"
 tail -f /data/logs/*.log
 
 # Restart services manually if needed
-/app/init-all-services.sh --supervisor
+/app/init.sh --supervisor
 ```
 
 ### Get Help
