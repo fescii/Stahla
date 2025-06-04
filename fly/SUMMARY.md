@@ -4,23 +4,27 @@
 
 ### 1. **Single Unified App Configuration**
 
-- Converted from multiple separate Fly.io apps to one unified app: `stahla`
+- Configured a single unified Fly.io app: `stahla`
 - All services (MongoDB, Redis, FastAPI, Nginx) run in the same container
 - Communication via localhost for better performance and lower costs
 
 ### 2. **Complete File Structure Created**
 
-```
-fly-deployment/
-├── fly.toml                    # Main Fly.io app configuration
-├── Dockerfile                  # Unified container with all services
-├── init.sh        # Service initialization script
-├── deploy-unified.sh          # One-command deployment script
-├── manage-unified.sh          # Application management script
-├── validate.sh                # Pre-deployment validation
-├── README.md                  # Complete documentation
-└── old-individual-services/   # Backup of original configs
-    ├── api/
+```bash
+fly/
+├── fly.toml                 # Main Fly.io app configuration
+├── deploy.sh                # Deployment script
+├── manage.sh                # Application management script
+├── startup.sh               # Release command script
+├── init.sh                  # Service initialization script
+├── validate.sh              # Pre-deployment validation
+├── secrets.sh               # Secret management
+├── README.md                # Complete documentation
+├── REFERENCE.md             # Quick reference guide
+├── TROUBLESHOOT.md          # Troubleshooting guide
+├── CHECKLIST.md             # Deployment checklist
+└── api/                     # Subdirectories with service-specific configs
+    ├── fly.toml
     ├── mongodb/
     ├── nginx/
     └── redis/
@@ -28,23 +32,23 @@ fly-deployment/
 
 ### 3. **Key Configuration Details**
 
-#### App Configuration (`fly.toml`):
+#### App Configuration (fly.toml)
 
 - **App Name**: `stahla`
 - **Region**: `sjc` (San Jose)
-- **Domain**: `https://stahla.fly.dev`
+- **Domain**: `stahla.fly.dev`
 - **Volume**: `stahla_data` for persistent storage
 - **VM Size**: 2 CPUs, 2GB RAM
 - **Process**: Single supervisor process managing all services
 
-#### Services:
+#### Services
 
 - **MongoDB**: Port 27017 (localhost), authenticated, persistent data
 - **Redis**: Port 6379 (localhost), with persistence
 - **FastAPI**: Port 8000 (localhost), Python application
 - **Nginx**: Port 80/443 (external), reverse proxy + static files
 
-#### Environment Variables:
+#### Environment Variables
 
 - `MONGO_HOST=localhost`
 - `REDIS_URL=redis://localhost:6379/0`
@@ -53,8 +57,8 @@ fly-deployment/
 ### 4. **Deployment Process**
 
 1. **Validate**: `./validate.sh` - Check configuration
-2. **Deploy**: `./deploy-unified.sh` - One-command deployment
-3. **Manage**: `./manage-unified.sh` - Status, logs, health checks
+2. **Deploy**: `./deploy.sh` - One-command deployment
+3. **Manage**: `./manage.sh` - Status, logs, health checks
 
 ### 5. **Benefits of Unified Approach**
 
@@ -62,10 +66,10 @@ fly-deployment/
 ✅ **Lower Costs**: Single machine vs multiple instances  
 ✅ **Faster Communication**: localhost vs network calls  
 ✅ **Easier Debugging**: All services in one place  
-✅ **Single Domain**: https://stahla.fly.dev for everything  
+✅ **Single Domain**: All services under single domain  
 ✅ **Automatic SSL**: Handled by Fly.io
 
-## 🚀 Ready to Deploy!
+## 🚀 Ready to Deploy
 
 ### Prerequisites
 
@@ -76,8 +80,8 @@ fly-deployment/
 ### Deploy Command
 
 ```bash
-cd /home/femar/AO3/Stahla/fly-deployment
-./deploy-unified.sh
+cd /home/femar/A03/Stahla/fly
+./deploy.sh
 ```
 
 This will automatically:
@@ -90,20 +94,20 @@ This will automatically:
 
 ### Post-Deployment
 
-- **Application URL**: https://stahla.fly.dev
-- **Health Check**: https://stahla.fly.dev/health
-- **Management**: `./manage-unified.sh status`
+- **Application URL**: Check your Fly.io dashboard
+- **Health Check**: Access the /health endpoint
+- **Management**: `./manage.sh status`
 
 ## 📋 Quick Reference
 
 ### Deployment Commands
 
 ```bash
-./deploy-unified.sh           # Deploy application
-./manage-unified.sh status    # Check status
-./manage-unified.sh logs      # View logs
-./manage-unified.sh ssh       # SSH into machine
-./manage-unified.sh health    # Check health
+./deploy.sh           # Deploy application
+./manage.sh status    # Check status
+./manage.sh logs      # View logs
+./manage.sh ssh       # SSH into machine
+./manage.sh health    # Check health
 ```
 
 ### Fly.io Commands
@@ -117,13 +121,15 @@ flyctl scale count 2 --app stahla  # Scale to 2 instances
 
 ## 🔧 Configuration Files Summary
 
-| File                | Purpose                            |
-| ------------------- | ---------------------------------- |
-| `fly.toml`          | Main Fly.io configuration          |
-| `Dockerfile`        | Multi-service container definition |
-| `init.sh`           | Service startup and initialization |
-| `deploy-unified.sh` | Deployment automation              |
-| `manage-unified.sh` | Operations management              |
-| `validate.sh`       | Pre-deployment validation          |
+| File         | Purpose                            |
+| ------------ | ---------------------------------- |
+| `fly.toml`   | Main Fly.io configuration          |
+| `Dockerfile` | Multi-service container definition |
+| `init.sh`    | Service startup and initialization |
+| `startup.sh` | Release command script             |
+| `deploy.sh`  | Deployment automation              |
+| `manage.sh`  | Operations management              |
+| `secrets.sh` | Secret management                  |
+| `validate.sh`| Pre-deployment validation          |
 
-The deployment is now ready for a single Fly.io app that will run all services efficiently at `https://stahla.fly.dev`!
+The deployment is now ready for a single Fly.io app that will run all services efficiently!

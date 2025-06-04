@@ -8,7 +8,7 @@ Follow this checklist to successfully deploy your Stahla application to Fly.io.
 
 - [ ] Fly.io CLI installed (`curl -L https://fly.io/install.sh | sh`)
 - [ ] Authenticated with Fly.io (`flyctl auth login`)
-- [ ] In the correct directory (`cd /home/femar/AO3/Stahla/fly-deployment`)
+- [ ] In the correct directory (`cd Stahla/fly`)
 
 ### 2. Configuration Validation
 
@@ -33,7 +33,7 @@ Follow this checklist to successfully deploy your Stahla application to Fly.io.
 ### Step 1: Deploy the Application
 
 ```bash
-./deploy-unified.sh
+./deploy.sh
 ```
 
 This will:
@@ -48,10 +48,10 @@ This will:
 
 ```bash
 # Check application status
-./manage-unified.sh status
+./manage.sh status
 
 # View deployment logs
-./manage-unified.sh logs
+./manage.sh logs
 
 # Test health endpoint
 curl https://stahla.fly.dev/health
@@ -59,7 +59,7 @@ curl https://stahla.fly.dev/health
 
 ### Step 3: Access Your Application
 
-- [ ] Open https://stahla.fly.dev
+- [ ] Open <https://stahla.fly.dev>
 - [ ] Verify API endpoints work
 - [ ] Check that static files load correctly
 
@@ -67,16 +67,16 @@ curl https://stahla.fly.dev/health
 
 ### Health Checks
 
-- [ ] Application responds at https://stahla.fly.dev
-- [ ] Health endpoint returns 200: https://stahla.fly.dev/health
-- [ ] API endpoints accessible: https://stahla.fly.dev/api/v1/
-- [ ] Static files loading: https://stahla.fly.dev/static/
+- [ ] Application responds at <https://stahla.fly.dev>
+- [ ] Health endpoint returns 200: <https://stahla.fly.dev/health>
+- [ ] API endpoints accessible: <https://stahla.fly.dev/api/v1/>
+- [ ] Static files loading: <https://stahla.fly.dev/static/>
 
 ### Service Status
 
 ```bash
 # SSH into the machine
-./manage-unified.sh ssh
+./manage.sh ssh
 
 # Check all services are running
 ps aux | grep -E "(mongod|redis|uvicorn|nginx)"
@@ -102,10 +102,10 @@ redis-cli ping
 
 ```bash
 # View real-time logs
-./manage-unified.sh logs
+./manage.sh logs
 
 # Check application status
-./manage-unified.sh status
+./manage.sh status
 
 # Monitor resource usage
 flyctl status --app stahla
@@ -125,10 +125,10 @@ flyctl scale vm shared-cpu-2x --app stahla
 
 ```bash
 # Redeploy after code changes
-./deploy-unified.sh
+./deploy.sh
 
 # Restart without redeploying
-./manage-unified.sh restart
+./manage.sh restart
 ```
 
 ## 🆘 Troubleshooting
@@ -138,13 +138,13 @@ flyctl scale vm shared-cpu-2x --app stahla
 1. Check the error message carefully
 2. Run `./validate.sh` to verify configuration
 3. Check `TROUBLESHOOTING.md` for common issues
-4. View logs: `./manage-unified.sh logs`
+4. View logs: `./manage.sh logs`
 
 ### If Services Won't Start
 
 ```bash
 # SSH into the machine
-./manage-unified.sh ssh
+./manage.sh ssh
 
 # Check what's running
 ps aux | grep -E "(mongod|redis|uvicorn|nginx)"
@@ -159,15 +159,15 @@ tail -f /data/logs/*.log
 ### Get Help
 
 - Review `README.md` for detailed documentation
-- Check `TROUBLESHOOTING.md` for specific issues
-- Use `./manage-unified.sh help` for management commands
-- Fly.io docs: https://fly.io/docs/
+- Check `TROUBLESHOOT.md` for specific issues
+- Use `./manage.sh help` for management commands
+- Fly.io docs: <https://fly.io/docs/>
 
 ## 🎉 Success Criteria
 
 Your deployment is successful when:
 
-- [ ] https://stahla.fly.dev loads without errors
+- [ ] <https://stahla.fly.dev> loads without errors
 - [ ] Health check returns 200 OK
 - [ ] All services show as running in logs
 - [ ] Database connections work
@@ -185,4 +185,4 @@ After successful deployment:
 
 ---
 
-**Ready to deploy?** Run `./deploy-unified.sh` and watch your application come to life! 🚀
+**Ready to deploy?** Run `./deploy.sh` and watch your application come to life! 🚀

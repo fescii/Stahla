@@ -5,23 +5,23 @@
 ### 🚀 Deploy
 
 ```bash
-./deploy-unified.sh          # Full deployment
+./deploy.sh          # Full deployment
 ```
 
 ### 📊 Monitor
 
 ```bash
-./manage-unified.sh status   # App status
-./manage-unified.sh logs     # View logs
-./manage-unified.sh health   # Health check
+./manage.sh status   # App status
+./manage.sh logs     # View logs
+./manage.sh health   # Health check
 ```
 
 ### 🔧 Manage
 
 ```bash
-./manage-unified.sh ssh      # SSH into machine
-./manage-unified.sh restart  # Restart app
-./manage-unified.sh info     # Detailed info
+./manage.sh ssh      # SSH into machine
+./manage.sh restart  # Restart app
+./manage.sh info     # Detailed info
 ```
 
 ### 🔍 Debug
@@ -48,16 +48,20 @@ flyctl status --app stahla  # Fly.io status
 ## File Structure
 
 ```
-fly-deployment/
+fly/
 ├── fly.toml                 # Main config
-├── Dockerfile               # Multi-service container
-├── deploy-unified.sh        # Deployment script
-├── manage-unified.sh        # Management script
-├── init.sh     # Service initialization
+├── Dockerfile               # Multi-service container (referenced from parent directory)
+├── deploy.sh                # Deployment script
+├── manage.sh                # Management script
+├── init.sh                  # Service initialization
+├── startup.sh               # Release command script 
 ├── validate.sh              # Validation script
 ├── README.md                # Full documentation
-├── TROUBLESHOOTING.md       # Problem solving
-└── old-individual-services/ # Backup configs
+├── TROUBLESHOOT.md          # Problem solving
+└── api/                     # Subdirectories with old configs
+    mongodb/
+    nginx/
+    redis/
 ```
 
 ## Emergency Commands
@@ -71,7 +75,7 @@ flyctl apps restart stahla
 ### View All Processes
 
 ```bash
-./manage-unified.sh ssh
+./manage.sh ssh
 ps aux | grep -E "(mongod|redis|uvicorn|nginx)"
 ```
 
@@ -79,14 +83,14 @@ ps aux | grep -E "(mongod|redis|uvicorn|nginx)"
 
 ```bash
 flyctl apps destroy stahla  # ⚠️ BE VERY CAREFUL!
-./deploy-unified.sh         # Redeploy from scratch
+./deploy.sh                 # Redeploy from scratch
 ```
 
 ## Getting Help
 
 ```bash
-./manage-unified.sh help     # Management commands
-flyctl help                  # Fly.io commands
+./manage.sh help     # Management commands
+flyctl help          # Fly.io commands
 ```
 
 ---

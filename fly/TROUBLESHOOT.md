@@ -60,10 +60,10 @@ Error: health check failed
 
 ```bash
 # Check logs
-./manage-unified.sh logs
+./manage.sh logs
 
 # SSH into machine to debug
-./manage-unified.sh ssh
+./manage.sh ssh
 
 # Check individual services
 ps aux | grep -E "(mongod|redis|uvicorn|nginx)"
@@ -79,20 +79,20 @@ Error: Authentication failed
 
 ```bash
 # SSH into machine
-./manage-unified.sh ssh
+./manage.sh ssh
 
 # Check MongoDB status
 systemctl status mongod
 
 # Test MongoDB connection
-mongosh localhost:27017/stahla_dashboard
+mongosh localhost:27017/admin
 ```
 
 ### 7. **Port Conflicts**
 
 ```
 Error: bind: address already in use
-```
+```s
 
 **Solution**: This shouldn't happen in the unified setup, but if it does:
 
@@ -124,20 +124,20 @@ flyctl apps restart stahla
 ### Redeploy
 
 ```bash
-./deploy-unified.sh
+./deploy.sh
 ```
 
 ### Check Status
 
 ```bash
-./manage-unified.sh status
-./manage-unified.sh health
+./manage.sh status
+./manage.sh health
 ```
 
 ### Get Help
 
 ```bash
-./manage-unified.sh help
+./manage.sh help
 flyctl help
 ```
 
@@ -148,11 +148,11 @@ If everything is broken and you want to start fresh:
 ```bash
 # WARNING: This will destroy all data!
 flyctl apps destroy stahla
-./deploy-unified.sh  # Redeploy from scratch
+./deploy.sh  # Redeploy from scratch
 ```
 
 ## Contact Support
 
-- **Fly.io Support**: https://fly.io/docs/
+- **Fly.io Support**: <https://fly.io/docs/>
 - **GitHub Issues**: Create an issue with your logs
 - **Discord**: Fly.io community Discord

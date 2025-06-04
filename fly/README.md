@@ -50,8 +50,8 @@ All services run within the same machine and communicate via localhost, providin
 
 ## Prerequisites
 
-1. **Fly.io CLI** - Install from https://fly.io/install.sh
-2. **Fly.io Account** - Sign up at https://fly.io
+1. **Fly.io CLI** - Install from <https://fly.io/install.sh>
+2. **Fly.io Account** - Sign up at <https://fly.io>
 3. **Environment Variables** - Create a `.env` file in the project root
 
 ### Required Environment Variables
@@ -87,13 +87,13 @@ API_V1_STR=/api/v1
 
 ## Quick Start
 
-### Unified Deployment (Recommended)
+### Unified Deployment
 
 Deploy the entire application as a single unified Fly.io app:
 
 ```bash
-cd fly-deployment
-./deploy-unified.sh
+cd fly
+./deploy.sh
 ```
 
 This script will:
@@ -151,29 +151,29 @@ Use the unified management script for all operations:
 
 ```bash
 # Check application status
-./manage-unified.sh status
+./manage.sh status
 
 # View logs (all services)
-./manage-unified.sh logs
+./manage.sh logs
 
 # View specific service logs
-./manage-unified.sh logs-api
-./manage-unified.sh logs-nginx
+./manage.sh logs-api
+./manage.sh logs-nginx
 
 # SSH into the application
-./manage-unified.sh ssh
+./manage.sh ssh
 
 # Restart the application
-./manage-unified.sh restart
+./manage.sh restart
 
 # Check health
-./manage-unified.sh health
+./manage.sh health
 
 # View detailed information
-./manage-unified.sh info
+./manage.sh info
 
 # Get help
-./manage-unified.sh help
+./manage.sh help
 ```
 
 ### Direct Fly.io Commands
@@ -286,8 +286,8 @@ Internet → Fly.io → stahla.fly.dev (Nginx:80/443)
 
 ### Deployment Scripts
 
-- `deploy-unified.sh` - Complete unified deployment
-- `manage-unified.sh` - Application management script
+- `deploy.sh` - Complete unified deployment
+- `manage.sh` - Application management script
 
 ## Post-Deployment
 
@@ -310,16 +310,16 @@ mongodb://stahla_app:your_password@localhost:27017/stahla_dashboard
 
 ```bash
 # Check application status
-./manage-unified.sh status
+./manage.sh status
 
 # View all logs
-./manage-unified.sh logs
+./manage.sh logs
 
 # SSH into the machine
-./manage-unified.sh ssh
+./manage.sh ssh
 
 # Check health
-./manage-unified.sh health
+./manage.sh health
 ````
 
 ### Direct Fly.io Commands
@@ -407,6 +407,7 @@ flyctl deploy --app stahla
    ```
 
 2. **Database connection issues**:
+
    ```bash
    # Test MongoDB connection
    mongosh "mongodb://stahla_app:password@localhost:27017/stahla_dashboard"
@@ -477,10 +478,10 @@ flyctl sftp get /tmp/backup ./backup --app stahla
 
 For issues with this deployment setup:
 
-1. Check the logs: `./manage-unified.sh logs`
-2. Verify service status: `./manage-unified.sh status`
-3. SSH into the machine: `./manage-unified.sh ssh`
-4. Check health endpoint: `./manage-unified.sh health`
+1. Check the logs: `./manage.sh logs`
+2. Verify service status: `./manage.sh status`
+3. SSH into the machine: `./manage.sh ssh`
+4. Check health endpoint: `./manage.sh health`
 
 For Fly.io specific issues, consult the [Fly.io documentation](https://fly.io/docs/).
 
@@ -497,12 +498,13 @@ This unified deployment approach provides:
 ✅ **Persistent data** via mounted volume for MongoDB and Redis  
 ✅ **Health monitoring** with built-in health check endpoint
 
-### Key Files for Deployment:
+### Key Files for Deployment
 
 - `fly.toml` - Main application configuration
 - `Dockerfile` - Unified container with all services
-- `deploy-unified.sh` - One-command deployment
-- `manage-unified.sh` - Application management
+- `deploy.sh` - One-command deployment
+- `manage.sh` - Application management
 - `init.sh` - Service initialization
+- `startup.sh` - Release command script
 
-Ready to deploy! Run `./deploy-unified.sh` to get started.
+Ready to deploy! Run `./deploy.sh` to get started.
