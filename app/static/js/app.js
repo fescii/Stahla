@@ -1317,8 +1317,6 @@ export default class AppMain extends HTMLElement {
           min-height: calc(100dvh - 70px);
           display: flex;
           flex-flow: column;
-          align-items: center;
-          justify-content: center;
           gap: 0;
           padding: 0;
         }

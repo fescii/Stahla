@@ -281,8 +281,8 @@ Internet → Fly.io → stahla.fly.dev (Nginx:80/443)
 
 ### MongoDB Initialization
 
-- `old-individual-services/mongodb/init-mongo-fly.sh` - MongoDB setup script
-- `old-individual-services/mongodb/init-mongo-fly.js` - MongoDB collections and users
+- `old-individual-services/mongodb/init.sh` - MongoDB setup script
+- `old-individual-services/mongodb/init.js` - MongoDB collections and users
 
 ### Deployment Scripts
 

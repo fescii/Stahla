@@ -48,12 +48,12 @@ COPY requirements.txt ./requirements.txt
 COPY app/static /usr/share/nginx/html
 
 # Copy configuration files
-COPY fly-deployment/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY fly-deployment/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY fly/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY fly/nginx/default.conf /etc/nginx/conf.d/default.conf
 
 # Copy MongoDB initialization files
-COPY fly-deployment/mongodb/init-mongo-fly.js ./init-mongo.js
-COPY fly-deployment/mongodb/init-mongo-fly.sh ./init-mongo.sh
+COPY fly/mongodb/init.js ./init-mongo.js
+COPY fly/mongodb/init.sh ./init-mongo.sh
 
 # Create Python virtual environment and install dependencies
 RUN python3 -m venv /app/venv && \
@@ -69,7 +69,7 @@ RUN mkdir -p /data/mongodb /data/redis /data/logs /var/log/nginx && \
 
 # Copy service initialization script
 COPY startup.sh ./startup.sh
-COPY fly-deployment/init.sh ./init.sh
+COPY fly/init.sh ./init.sh
 RUN chmod +x ./startup.sh ./init-mongo.sh ./init.sh
 
 # Remove default nginx site

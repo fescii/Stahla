@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ROOT="/home/femar/AO3/Stahla"
-FLY_DEPLOYMENT_DIR="$PROJECT_ROOT/fly-deployment"
+FLY_DEPLOYMENT_DIR="$PROJECT_ROOT/fly"
 ENV_FILE="$PROJECT_ROOT/.env"
 
 # Function to print colored output

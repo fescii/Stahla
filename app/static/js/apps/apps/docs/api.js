@@ -1312,9 +1312,9 @@ export default class ApiDocs extends HTMLElement {
     `;
   }
 
-   
+
   getContentForSection(section) {
-    switch(section) {
+    switch (section) {
       case 'introduction':
         return this.getIntroductionSection();
       case 'authentication':
@@ -1947,7 +1947,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         e.preventDefault();
         const section = link.dataset.section;
         const category = link.dataset.category;
-        
+
         if (category) {
           // Toggle category expansion
           this._toggleCategoryExpansion(category);
@@ -1957,7 +1957,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         }
       });
     });
-    
+
     // Handle mobile toggle
     const toggleNav = this.shadowObj.getElementById('toggle-nav');
     if (toggleNav) {
@@ -1973,7 +1973,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         }
       });
     }
-    
+
     // Set up the initial content event listeners
     this._setupContentEventListeners();
   }
@@ -1990,8 +1990,8 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         this.state.expandedEndpoints.add(endpointId);
       }
     });
-  } 
-  
+  }
+
   /**
    * Set up event listeners for content elements that will be re-added when content changes
    */
@@ -2005,11 +2005,11 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         e.stopPropagation();
         const endpoint = button.closest('.endpoint');
         const endpointId = endpoint.dataset.endpoint;
-        
+
         this._toggleEndpoint(endpoint, endpointId, button);
       });
     });
-    
+
     // Handle header clicks to toggle endpoints
     const endpointHeaders = this.shadowObj.querySelectorAll('#content-container .endpoint-header');
     endpointHeaders.forEach(header => {
@@ -2018,17 +2018,17 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         if (e.target.closest('.toggle-btn')) {
           return;
         }
-        
+
         const endpoint = header.closest('.endpoint');
         const endpointId = endpoint.dataset.endpoint;
         const toggleBtn = header.querySelector('.toggle-btn');
-        
+
         if (toggleBtn) {
           this._toggleEndpoint(endpoint, endpointId, toggleBtn);
         }
       });
     });
-    
+
     // Handle copy buttons
     const copyButtons = this.shadowObj.querySelectorAll('#content-container .copy-btn');
     copyButtons.forEach(button => {
@@ -2042,7 +2042,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
               button.textContent = 'Copied!';
               button.style.backgroundColor = 'var(--accent-color)';
               button.style.color = 'var(--white-color)';
-              
+
               setTimeout(() => {
                 button.textContent = originalText;
                 button.style.backgroundColor = '';
@@ -2054,19 +2054,19 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
       });
     });
   }
-  
+
   /**
    * Toggle category expansion in the sidebar
    * @param {string} category - The category to toggle
    */
   _toggleCategoryExpansion(category) {
     const navSection = this.shadowObj.querySelector(`.nav-section [data-category="${category}"]`).closest('.nav-section');
-    
+
     if (this.state.expandedCategories.has(category)) {
       this.state.expandedCategories.delete(category);
       navSection.classList.remove('expanded');
       navSection.classList.add('collapsed');
-      
+
       // Update the expand icon
       const expandIcon = navSection.querySelector('.expand-icon');
       if (expandIcon) expandIcon.textContent = '+';
@@ -2074,15 +2074,15 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
       this.state.expandedCategories.add(category);
       navSection.classList.add('expanded');
       navSection.classList.remove('collapsed');
-      
+
       // Update the expand icon
       const expandIcon = navSection.querySelector('.expand-icon');
       if (expandIcon) expandIcon.textContent = '−';
     }
-    
+
     // No need to re-render the entire component
   }
-  
+
   /**
    * Navigate to a specific section
    * @param {string} section - The section to navigate to
@@ -2092,7 +2092,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
     // The state will be updated inside _updateActiveSection
     this._updateActiveSection(section);
   }
-  
+
   /**
    * Update UI to reflect the active section
    * @param {string} section - The active section
@@ -2100,28 +2100,28 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
   _updateActiveSection(section) {
     // Store the previous section for comparison
     const previousSection = this.state.activeSection;
-    
+
     // 1. Update the state
     this.state.activeSection = section;
-    
+
     // 2. Update navigation UI 
     // Remove active class from all nav links and sections
     const allNavLinks = this.shadowObj.querySelectorAll('.nav-link');
     allNavLinks.forEach(link => link.classList.remove('active'));
-    
+
     const allNavSections = this.shadowObj.querySelectorAll('.nav-section');
     allNavSections.forEach(navSection => navSection.classList.remove('active'));
-    
+
     // Add active class to current nav link
     const activeNavLink = this.shadowObj.querySelector(`.nav-link[data-section="${section}"]`);
     if (activeNavLink) {
       activeNavLink.classList.add('active');
-      
+
       // Mark parent section as active if it's a sub-link
       const parentSection = activeNavLink.closest('.nav-section');
       if (parentSection) {
         parentSection.classList.add('active');
-        
+
         // If it's a nested item, make sure we expand the parent
         if (activeNavLink.classList.contains('sub')) {
           const parentCategory = parentSection.querySelector('.nav-link.parent');
@@ -2134,7 +2134,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         }
       }
     }
-    
+
     // 3. Ensure proper category expansion
     // If it's under endpoints, make sure the endpoints dropdown is expanded
     if (this.isEndpointsActive()) {
@@ -2142,32 +2142,32 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         this._toggleCategoryExpansion('endpoints');
       }
     }
-    
+
     // If it's under external APIs, make sure the external dropdown is expanded
     if (this.isExternalActive()) {
       if (!this.state.expandedCategories.has('external')) {
         this._toggleCategoryExpansion('external');
       }
     }
-    
+
     // 4. ONLY update the content container's innerHTML, not the whole component
     const contentContainer = this.shadowObj.querySelector('#content-container');
     if (contentContainer) {
       console.log(`Updating content for section: ${section} (previous: ${previousSection})`);
-      
+
       // Show loading state
       contentContainer.innerHTML = `<div class="loading">Loading content...</div>`;
-      
+
       // Update only the content container with a small delay for loading state
       setTimeout(() => {
         contentContainer.innerHTML = this.getContentForSection(section);
-        
+
         // Re-add event listeners for the new content elements
         this._setupContentEventListeners();
       }, 10);
     }
   }
-  
+
   /**
    * Toggle an endpoint's expanded/collapsed state
    * @param {HTMLElement} endpoint - The endpoint element
@@ -2187,13 +2187,13 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
       this.state.expandedEndpoints.delete(endpointId);
       endpoint.classList.remove('expanded');
       endpoint.classList.add('collapsed');
-      
+
       // Update the toggle button icon
       const icon = button.querySelector('.icon');
       if (icon) icon.textContent = '+';
     }
   }
-  
+
   getDashboardSection() {
     return /* html */ `
       <section id="dashboard" class="endpoint-group ${this.state.activeSection === 'dashboard' ? 'active' : this.state.activeSection === 'endpoints' ? 'active' : ''}">
@@ -2437,7 +2437,7 @@ N8N_API_KEY=your_n8n_api_key</code></pre>
         }
         
         .api-content-container {
-          max-width: 800px;
+          max-width: 100%;
         }
         
         .content-section {

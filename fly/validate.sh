@@ -58,8 +58,8 @@ check_file "old-individual-services/nginx/default.conf" || validation_failed=1
 echo
 
 echo -e "${BLUE}Checking MongoDB initialization:${NC}"
-check_file "old-individual-services/mongodb/init-mongo-fly.js" || validation_failed=1
-check_file "old-individual-services/mongodb/init-mongo-fly.sh" || validation_failed=1
+check_file "old-individual-services/mongodb/init.js" || validation_failed=1
+check_file "old-individual-services/mongodb/init.sh" || validation_failed=1
 echo
 
 echo -e "${BLUE}Checking script permissions:${NC}"

@@ -5,7 +5,7 @@ export default class HubspotDocs extends HTMLElement {
     this.app = window.app;
     this.api = this.app.api;
     this.renderCount = 0;
-    
+
     // Component state
     this.state = {
       activeSection: 'introduction',
@@ -102,7 +102,7 @@ export default class HubspotDocs extends HTMLElement {
   }
 
   getContentForSection(section) {
-    switch(section) {
+    switch (section) {
       case 'introduction':
         return this.getIntroductionSection();
       case 'properties':
@@ -1715,7 +1715,7 @@ response = client.crm.properties.core_api.create(
           color: var(--text-color);
           font-size: 0.95rem;
           margin-bottom: 25px;
-          max-width: 800px;
+          max-width: 100%;
         }
         
         /* Service type values styling */
@@ -2397,14 +2397,14 @@ response = client.crm.properties.core_api.create(
       if (navLink) {
         const section = navLink.dataset.section;
         const category = navLink.dataset.category;
-        
+
         if (category) {
           this._toggleCategoryExpansion(category);
         } else if (section) {
           this._navigateToSection(section);
         }
       }
-      
+
       // Handle property item clicks in the grid
       const propertyItem = event.target.closest('.property-item');
       if (propertyItem) {
@@ -2413,13 +2413,13 @@ response = client.crm.properties.core_api.create(
           this._navigateToSection(property);
         }
       }
-      
+
       // Toggle mobile nav
       if (event.target.closest('#toggle-nav')) {
         this.state.expandedSubmenu = !this.state.expandedSubmenu;
         this.render();
       }
-      
+
       // Handle copy button clicks
       const copyBtn = event.target.closest('.copy-btn');
       if (copyBtn) {
@@ -2436,7 +2436,7 @@ response = client.crm.properties.core_api.create(
       }
     });
   }
-  
+
   /**
    * Toggle category expansion in the sidebar
    * @param {string} category - The category to toggle
@@ -2449,23 +2449,23 @@ response = client.crm.properties.core_api.create(
     }
     this.render();
   }
-  
+
   /**
    * Navigate to a specific section
    * @param {string} section - The section to navigate to
    */
   _navigateToSection(section) {
     this.state.activeSection = section;
-    
+
     // If navigating to a section within a category, ensure that category is expanded
     if (section === 'contact' || section === 'service' || section === 'event' ||
-        section === 'site' || section === 'ai' || section === 'lead' ||
-        section === 'consent' || section === 'dropdown') {
+      section === 'site' || section === 'ai' || section === 'lead' ||
+      section === 'consent' || section === 'dropdown') {
       this.state.expandedCategories.add('properties');
     }
-    
+
     this.render();
-    
+
     // Scroll to top of content
     const mainElement = this.shadowObj.querySelector('#hubspot-docs-main');
     if (mainElement) {
