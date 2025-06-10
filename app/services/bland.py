@@ -67,7 +67,7 @@ def _load_pathway_definition() -> Dict[str, Any]:
 									# Extract the endpoint path from the ngrok URL
 									path = old_url.split("/api/")[1] if "/api/" in old_url else ""
 									# Use the base URL from settings with the extracted path
-									base_url = settings.BASE_URL.rstrip("/")
+									base_url = settings.BASE_URL.rstrip("/") # type: ignore
 									new_url = f"{base_url}/api/{path}"
 									node["data"]["url"] = new_url
 									logfire.info(f"Replaced webhook URL in node {node.get('id')}: {old_url} -> {new_url}")
