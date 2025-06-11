@@ -167,6 +167,23 @@ class HubSpotManager:
     if hasattr(self, '_http_client'):
       await self._http_client.aclose()
 
+  async def check_connection(self) -> str:
+    """Check HubSpot API connection by making a simple API call."""
+    try:
+      # Use the HubSpot client directly for a simple API test
+      # This will test authentication and basic connectivity
+      if hasattr(self, 'client') and self.client:
+        # Try to access the contact properties endpoint which requires minimal permissions
+        response = self.client.crm.properties.core_api.get_all(
+            object_type="contacts",
+            archived=False
+        )
+        return "ok: HubSpot API connection successful"
+      else:
+        return "error: HubSpot client not initialized"
+    except Exception as e:
+      return f"error: {str(e)}"
+
   # Legacy method delegations for backward compatibility
   async def search_leads(self, search_request: HubSpotSearchRequest) -> HubSpotSearchResponse:
     """Search leads in HubSpot."""

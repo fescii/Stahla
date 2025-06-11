@@ -29,7 +29,7 @@ This section details the main service classes responsible for specific domains o
   - `_sync_pathway()`: Updates the specified Bland.ai pathway with the loaded definition.
   - `_sync_location_tool()`: Updates the specified Bland.ai location tool.
   - `_sync_quote_tool()`: Updates the specified Bland.ai quote tool.
-  - `_sync_bland()`: Performs all synchronization tasks for pathway and tools.
+  - `sync_bland()`: Performs all synchronization tasks for pathway and tools.
   - `initiate_callback(request: BlandCallbackRequest, contact_id: str, background_tasks: BackgroundTasks)`: Initiates a call. (Method signature inferred from typical usage, actual parameters might vary based on endpoint definitions).
   - `process_webhook_data(payload: BlandWebhookPayload)`: Processes incoming webhook data from Bland.ai after a call. (Method signature inferred).
   - `_make_request()`: A helper to execute HTTP requests to the Bland.ai API, handling responses and errors.

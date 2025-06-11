@@ -256,7 +256,7 @@ export default class ServicesDocs extends HTMLElement {
           <li><code>_sync_pathway()</code>: Updates the specified Bland.ai pathway with the loaded definition.</li>
           <li><code>_sync_location_tool()</code>: Updates the specified Bland.ai location tool.</li>
           <li><code>_sync_quote_tool()</code>: Updates the specified Bland.ai quote tool.</li>
-          <li><code>_sync_bland()</code>: Performs all synchronization tasks for pathway and tools.</li>
+          <li><code>sync_bland()</code>: Performs all synchronization tasks for pathway and tools.</li>
           <li><code>_make_request()</code>: A helper to execute HTTP requests to the Bland.ai API, handling responses and errors.</li>
         </ul>
         

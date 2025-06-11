@@ -35,10 +35,12 @@ from .parsers.states import StatesParser
 from .parsers.pricing import PricingParser
 from .storage.redis import RedisStorage
 from .storage.mongo import MongoStorage
-from ..utils.constants import (
+from app.core.cachekeys import (
     PRICING_CATALOG_CACHE_KEY,
     BRANCH_LIST_CACHE_KEY,
     STATES_LIST_CACHE_KEY,
+)
+from ..utils.constants import (
     SYNC_INTERVAL_SECONDS,
     PRODUCT_HEADER_MAP,
     GENERATOR_HEADER_MAP,

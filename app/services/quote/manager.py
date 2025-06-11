@@ -14,6 +14,7 @@ from app.models.location import DistanceResult, BranchLocation
 from app.services.redis.redis import RedisService
 from app.services.location.location import LocationService
 from app.services.mongo.mongo import MongoService
+from app.services.mongo.mongo import get_mongo_service
 from app.utils.location import geocode_location, SERVICE_HUBS, get_distance_km
 
 from .pricing.catalog.retriever import CatalogRetriever
@@ -193,7 +194,6 @@ async def get_quote_service(
     location_service = get_location_service_dep()
 
   if mongo_service is None:
-    from app.services.mongo.mongo import get_mongo_service
     mongo_service = await get_mongo_service()
 
   return QuoteService(

@@ -12,20 +12,22 @@ from app.services.mongo.mongo import get_mongo_service
 from fastapi import Depends
 from app.services.mongo.mongo import get_mongo_service, MongoService
 
+# Import centralized cache keys
+from app.core.cachekeys import (
+    RECENT_REQUESTS_KEY,
+    RECENT_ERRORS_KEY,
+    TOTAL_QUOTE_REQUESTS_KEY,
+    SUCCESS_QUOTE_REQUESTS_KEY,
+    ERROR_QUOTE_REQUESTS_KEY,
+    TOTAL_LOCATION_LOOKUPS_KEY,
+    GMAPS_API_CALLS_KEY,
+    GMAPS_API_ERRORS_KEY,
+)
+
 logger = logging.getLogger(__name__)
 
 # Constants from dashboard service (or define centrally)
-RECENT_REQUESTS_KEY = "dash:recent_requests"
-RECENT_ERRORS_KEY = "dash:recent_errors"
 MAX_LOG_ENTRIES = 20
-# Redis keys for counters (examples)
-TOTAL_QUOTE_REQUESTS_KEY = "dash:requests:quote:total"
-SUCCESS_QUOTE_REQUESTS_KEY = "dash:requests:quote:success"
-ERROR_QUOTE_REQUESTS_KEY = "dash:requests:quote:error"
-TOTAL_LOCATION_LOOKUPS_KEY = "dash:requests:location:total"
-# Redis keys for Google Maps stats (examples)
-GMAPS_API_CALLS_KEY = "dash:gmaps:calls"
-GMAPS_API_ERRORS_KEY = "dash:gmaps:errors"
 # TODO: Add keys for latency tracking if implementing (e.g., using Redis Streams or Sorted Sets)
 
 

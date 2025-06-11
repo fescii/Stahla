@@ -16,12 +16,7 @@ from app.services.mongo.mongo import (
     SHEET_CONFIG_COLLECTION,
     SHEET_STATES_COLLECTION,
 )  # Import Mongo and collection names
-from app.services.quote.sync import (
-    SheetSyncService,
-    PRICING_CATALOG_CACHE_KEY,
-    BRANCH_LIST_CACHE_KEY,
-    STATES_LIST_CACHE_KEY,
-)
+from app.services.quote.sync import SheetSyncService
 
 # Access the running SheetSyncService instance (use with caution)
 
@@ -50,27 +45,28 @@ from app.models.dash.dashboard import (
 # Import quote models for recent requests
 from app.models.quote import QuoteRequest, QuoteResponse
 
-# Import background task constants
-from app.services.dash.background import (
+# Import background task constants and cache keys from centralized location
+from app.core.cachekeys import (
+    PRICING_CATALOG_CACHE_KEY,
+    BRANCH_LIST_CACHE_KEY,
+    STATES_LIST_CACHE_KEY,
     TOTAL_QUOTE_REQUESTS_KEY,
     SUCCESS_QUOTE_REQUESTS_KEY,
     ERROR_QUOTE_REQUESTS_KEY,
     TOTAL_LOCATION_LOOKUPS_KEY,
     GMAPS_API_CALLS_KEY,
     GMAPS_API_ERRORS_KEY,
+    PRICING_CACHE_HITS_KEY,
+    PRICING_CACHE_MISSES_KEY,
+    MAPS_CACHE_HITS_KEY,
+    MAPS_CACHE_MISSES_KEY,
+    RECENT_REQUESTS_DASHBOARD_KEY,
 )
-
-# New Redis keys for cache hit/miss tracking
-PRICING_CACHE_HITS_KEY = "dash:cache:pricing:hits"
-PRICING_CACHE_MISSES_KEY = "dash:cache:pricing:misses"
-MAPS_CACHE_HITS_KEY = "dash:cache:maps:hits"
-MAPS_CACHE_MISSES_KEY = "dash:cache:maps:misses"
 
 logger = logging.getLogger(__name__)
 
-# Placeholder constants to resolve NameError - Review if these Redis keys/limits are still needed
+# Placeholder constants to resolve NameError
 MAX_LOG_ENTRIES = 100
-RECENT_REQUESTS_KEY = "dash:requests:recent"
 
 
 class DashboardService:
@@ -347,7 +343,7 @@ class DashboardService:
     # Try to get service statuses from the background service monitor
     try:
       # Import here to avoid circular imports
-      from app.services.dash.background_check import service_status_monitor
+      from app.services.dash.health.checker import service_status_monitor
 
       if service_status_monitor:
         # Get the latest status for all services from MongoDB
@@ -861,7 +857,7 @@ class DashboardService:
 
     try:
       # Import the constant from background_check.py
-      from app.services.dash.background_check import SERVICE_STATUS_COLLECTION
+      from app.services.dash.health.checker import SERVICE_STATUS_COLLECTION
 
       db = await self.mongo.get_db()
       collection = db[SERVICE_STATUS_COLLECTION]

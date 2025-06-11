@@ -2,7 +2,7 @@
 
 from app.core.middleware import http_exception_handler, generic_exception_handler
 from app.core.middleware import LoggingMiddleware
-from app.services.dash.background_check import (
+from app.services.dash.health.checker import (
     initialize_service_monitor,
     shutdown_service_monitor,
 )
@@ -108,7 +108,7 @@ async def lifespan(app: FastAPI):
       # Startup tasks can log synchronously
       app.state.bland_manager.background_tasks = None
       asyncio.create_task(
-          app.state.bland_manager._sync_bland()  # Call without arguments
+          app.state.bland_manager.sync_bland()  # Call without arguments
       )
       logfire.info("Bland pathway sync task scheduled.")
     elif not mongo_service_instance:

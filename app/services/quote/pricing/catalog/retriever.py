@@ -7,10 +7,8 @@ Catalog retrieval operations for managing pricing catalogs.
 import logging
 from typing import Any, Dict, Optional
 
-from app.services.quote.utils.constants import (
+from app.core.cachekeys import (
     PRICING_CATALOG_CACHE_KEY,
-)
-from app.services.dash.dashboard import (
     PRICING_CACHE_HITS_KEY,
     PRICING_CACHE_MISSES_KEY,
 )

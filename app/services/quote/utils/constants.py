@@ -2,12 +2,8 @@
 
 """
 Constants used throughout the quote service.
+Excludes cache keys (moved to app.core.cachekeys for centralization).
 """
-
-# Cache keys
-PRICING_CATALOG_CACHE_KEY = "pricing:catalog"
-BRANCH_LIST_CACHE_KEY = "stahla:branches"  # Redis key for branches list
-STATES_LIST_CACHE_KEY = "stahla:states"  # Redis key for states list
 
 # Constants for pricing logic
 DAYS_PER_MONTH_APPROX = 30.4375  # Average days in a month

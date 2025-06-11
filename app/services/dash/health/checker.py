@@ -7,7 +7,7 @@ import httpx
 from redis.exceptions import RedisError
 
 from app.services.bland import BlandAIManager
-from app.services.hubspot import hubspot_manager
+from app.services.hubspot.manager import HubSpotManager
 from app.services.mongo.mongo import MongoService
 from app.services.redis.redis import RedisService
 from app.services.quote.sync import SheetSyncService
@@ -38,6 +38,7 @@ class ServiceStatusMonitor:
     self.redis_service = redis_service
     self.bland_ai_manager = bland_ai_manager
     self.sheet_sync_service = sheet_sync_service
+    self.hubspot_manager = HubSpotManager()
     self.running = False
     self.task = None
 
@@ -122,7 +123,8 @@ class ServiceStatusMonitor:
         logger.error(f"Error during service check: {result}", exc_info=True)
         continue
 
-      if result:  # If result is not None
+      # If result is a valid tuple
+      if result and isinstance(result, tuple) and len(result) == 2:
         service_name, status_data = result
         service_status = {
             "service_name": service_name,
@@ -205,7 +207,7 @@ class ServiceStatusMonitor:
     """Check HubSpot connection status."""
     service_name = "hubspot"
     try:
-      hubspot_status_str = await hubspot_manager.check_connection()
+      hubspot_status_str = await self.hubspot_manager.check_connection()
       if hubspot_status_str.startswith("ok"):
         return service_name, {
             "status": "ok",

@@ -4,10 +4,12 @@
 Shared constants for the quote service and related modules.
 """
 
-# Cache keys for Redis
-PRICING_CATALOG_CACHE_KEY = "stahla:pricing_catalog"
-BRANCH_LIST_CACHE_KEY = "stahla:branches"
-STATES_LIST_CACHE_KEY = "stahla:states"
+# Import shared cache keys
+from app.core.cachekeys import (
+    PRICING_CATALOG_CACHE_KEY,
+    BRANCH_LIST_CACHE_KEY,
+    STATES_LIST_CACHE_KEY,
+)
 
 # MongoDB collection names
 SHEET_CONFIG_COLLECTION = "sheet_config"

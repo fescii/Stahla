@@ -2,4 +2,7 @@
 
 from .manager import HubSpotManager
 
-__all__ = ["HubSpotManager"]
+# Create singleton instance for backward compatibility
+hubspot_manager = HubSpotManager()
+
+__all__ = ["HubSpotManager", "hubspot_manager"]
