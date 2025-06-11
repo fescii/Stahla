@@ -22,7 +22,7 @@ from app.services.mongo.mongo import (
     get_mongo_service,
     SHEET_STATES_COLLECTION,
 )  # Added MongoService, get_mongo_service, and SHEET_STATES_COLLECTION
-from app.services.quote.sync import BRANCH_LIST_CACHE_KEY, STATES_LIST_CACHE_KEY
+from app.services.quote.shared.constants import BRANCH_LIST_CACHE_KEY, STATES_LIST_CACHE_KEY
 from app.services.dash.background import (
     increment_request_counter_bg,
     log_error_bg,
