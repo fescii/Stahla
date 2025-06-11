@@ -20,7 +20,6 @@ from app.services.mongo.mongo import (
 )
 from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown
 from app.services.quote.sync import lifespan_startup as sheet_sync_startup
-from app.services.email import EmailManager
 from app.services.hubspot import HubSpotManager
 from app.services.bland import bland_manager
 from app.api.v1.api import api_router_v1
@@ -99,8 +98,7 @@ async def lifespan(app: FastAPI):
         bland_manager  # bland_manager is already initialized globally
     )
     app.state.hubspot_manager = HubSpotManager(settings.HUBSPOT_API_KEY)
-    app.state.email_manager = EmailManager()
-    logfire.info("HubSpotManager and EmailManager initialized.")
+    logfire.info("HubSpotManager initialized.")
 
     # Trigger initial Bland pathway sync (non-blocking)
     if app.state.bland_manager and mongo_service_instance:
@@ -193,10 +191,6 @@ async def lifespan(app: FastAPI):
     logfire.debug("Attempting hubspot_manager.close...")
     if hasattr(app.state, "hubspot_manager") and app.state.hubspot_manager:
       await app.state.hubspot_manager.close()
-
-    logfire.debug("Attempting email_manager.close...")
-    if hasattr(app.state, "email_manager") and app.state.email_manager:
-      await app.state.email_manager.close()
 
     # Shutdown the service status monitor
     logfire.debug("Attempting service status monitor shutdown...")

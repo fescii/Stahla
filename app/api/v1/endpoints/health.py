@@ -214,7 +214,6 @@ def get_environment_info() -> Dict[str, Any]:
         "app_name": settings.PROJECT_NAME,
         "api_version": "v1",
         "environment": os.environ.get("ENVIRONMENT", "development"),
-        "email_sending_enabled": settings.EMAIL_SENDING_ENABLED,
         "llm_provider": settings.LLM_PROVIDER
     }
   except Exception as e:

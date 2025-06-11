@@ -36,29 +36,7 @@ This section details the main service classes responsible for specific domains o
   - `check_connection()`: Verifies connectivity with the Bland.ai API.
   - `close()`: Closes the underlying `httpx.AsyncClient`.
 
-### 2. Email Service (`app/services/email.py`)
-
-- **Class:** `EmailManager`
-- **Purpose:** Handles the processing of incoming emails, including parsing content, extracting relevant data, checking for completeness, and managing automated replies. It also facilitates sending handoff notifications to sales teams.
-- **Key Responsibilities:**
-  - Parsing email subject and body (text and HTML) to extract structured data (e.g., contact info, product interest, event details).
-  - Utilizing regex patterns for initial data extraction.
-  - Optionally using an LLM (e.g., Marvin via `MARVIN_API_KEY`) for more advanced data extraction from email content if configured (`LLM_PROVIDER`).
-  - Checking the completeness of extracted data against predefined required and desired fields.
-  - Sending automated email replies to request missing information if the initial data is incomplete and email sending is enabled (`EMAIL_SENDING_ENABLED`).
-  - Sending handoff notification emails to internal teams (e.g., sales) after a lead has been classified and processed in HubSpot. The recipient team is determined by the lead classification type.
-- **Initialization:**
-  - Initializes an `httpx.AsyncClient` for potential external email sending or API interactions.
-- **Core Methods:**
-  - `_extract_data_with_llm(payload: EmailWebhookPayload)`: Uses an LLM to extract structured data from email content.
-  - `_parse_email_content(payload: EmailWebhookPayload)`: Parses email content using regex and basic logic.
-  - `_check_email_data_completeness(extracted_data: Dict[str, Any])`: Checks if extracted data meets minimum requirements.
-  - `_send_auto_reply(original_payload: EmailWebhookPayload, missing_fields: List[str], extracted_data: Dict[str, Any])`: Sends an email requesting missing information.
-  - `send_handoff_notification(classification_result: ClassificationResult, contact_result: Optional[HubSpotContactResult], lead_result: Optional[HubSpotApiResult])`: Sends a notification email to the appropriate team.
-  - `process_incoming_email(payload: EmailWebhookPayload)`: Main entry point to process an email. It orchestrates parsing, LLM enhancement (if applicable), completeness checks, and auto-replies.
-  - `close_client()` / `close()`: Closes the `httpx.AsyncClient`.
-
-### 3. HubSpot Service (`app/services/hubspot.py`)
+### 2. HubSpot Service (`app/services/hubspot.py`)
 
 - **Class:** `HubSpotManager`
 - **Purpose:** Manages all interactions with the HubSpot CRM API. This includes creating, reading, updating, and deleting (archiving) HubSpot objects like Contacts, Companies, Deals, and Tickets. It also handles associations between these objects and manages pipeline/stage lookups.

@@ -5,7 +5,7 @@ export default class ServicesDocs extends HTMLElement {
     this.app = window.app;
     this.api = this.app.api;
     this.renderCount = 0;
-    
+
     // Component state
     this.state = {
       activeSection: 'introduction',
@@ -82,7 +82,6 @@ export default class ServicesDocs extends HTMLElement {
             </a>
             <div class="subnav">
               <a class="nav-link sub ${this.state.activeSection === 'bland' ? 'active' : ''}" data-section="bland">Bland AI Service</a>
-              <a class="nav-link sub ${this.state.activeSection === 'email' ? 'active' : ''}" data-section="email">Email Service</a>
               <a class="nav-link sub ${this.state.activeSection === 'hubspot' ? 'active' : ''}" data-section="hubspot">HubSpot Service</a>
               <a class="nav-link sub ${this.state.activeSection === 'n8n' ? 'active' : ''}" data-section="n8n">n8n Integration</a>
               <a class="nav-link sub ${this.state.activeSection === 'auth' ? 'active' : ''}" data-section="auth">Authentication</a>
@@ -100,20 +99,18 @@ export default class ServicesDocs extends HTMLElement {
   }
 
   isServicesActive() {
-    const servicesSections = ['services', 'bland', 'email', 'hubspot', 'n8n', 'auth', 'classify', 'dashboard', 'location', 'mongo', 'quote', 'redis'];
+    const servicesSections = ['services', 'bland', 'hubspot', 'n8n', 'auth', 'classify', 'dashboard', 'location', 'mongo', 'quote', 'redis'];
     return servicesSections.includes(this.state.activeSection);
   }
 
   getContentForSection(section) {
-    switch(section) {
+    switch (section) {
       case 'introduction':
         return this.getIntroductionSection();
       case 'services':
         return this.getServicesSection();
       case 'bland':
         return this.getBlandSection();
-      case 'email':
-        return this.getEmailSection();
       case 'hubspot':
         return this.getHubspotSection();
       case 'n8n':
@@ -152,10 +149,6 @@ export default class ServicesDocs extends HTMLElement {
             <p>Manages interactions with the Bland.ai API for voice calls and conversations.</p>
           </div>
           <div class="service-card">
-            <h4>Email Service</h4>
-            <p>Handles incoming email processing, data extraction, and automated replies.</p>
-          </div>
-          <div class="service-card">
             <h4>HubSpot Service</h4>
             <p>Manages CRM operations through the HubSpot API for contacts, companies, deals, and tickets.</p>
           </div>
@@ -180,10 +173,6 @@ export default class ServicesDocs extends HTMLElement {
           <div class="service-item" data-service="bland">
             <h3>Bland AI Service</h3>
             <p>Manages interactions with the Bland.ai API for voice calls.</p>
-          </div>
-          <div class="service-item" data-service="email">
-            <h3>Email Service</h3>
-            <p>Processes incoming emails and manages automatic responses.</p>
           </div>
           <div class="service-item" data-service="hubspot">
             <h3>HubSpot Service</h3>
@@ -227,7 +216,7 @@ export default class ServicesDocs extends HTMLElement {
   }
 
   // This is the start of the individual service sections
-  
+
   getBlandSection() {
     return `
       <section id="bland" class="content-section ${this.state.activeSection === 'bland' ? 'active' : ''}">
@@ -277,47 +266,6 @@ export default class ServicesDocs extends HTMLElement {
           <li><code>process_webhook_data(payload: BlandWebhookPayload)</code>: Processes incoming webhook data from Bland.ai after a call.</li>
           <li><code>check_connection()</code>: Verifies connectivity with the Bland.ai API.</li>
           <li><code>close()</code>: Closes the underlying <code>httpx.AsyncClient</code>.</li>
-        </ul>
-      </section>
-    `;
-  }
-
-  getEmailSection() {
-    return `
-      <section id="email" class="content-section ${this.state.activeSection === 'email' ? 'active' : ''}">
-        <h2>Email Service</h2>
-        <p>The Email Service handles the processing of incoming emails, parsing content, extracting relevant data, checking completeness, and managing automated replies.</p>
-        
-        <h3>Class: EmailManager</h3>
-        <div class="code-block">
-          <pre><code>class EmailManager:
-    def __init__(self)</code></pre>
-        </div>
-        
-        <h3>Key Responsibilities</h3>
-        <ul>
-          <li>Parsing email subject and body (text and HTML) to extract structured data (e.g., contact info, product interest, event details).</li>
-          <li>Utilizing regex patterns for initial data extraction.</li>
-          <li>Optionally using an LLM for more advanced data extraction from email content if configured.</li>
-          <li>Checking the completeness of extracted data against predefined required and desired fields.</li>
-          <li>Sending automated email replies to request missing information if the initial data is incomplete.</li>
-          <li>Sending handoff notification emails to internal teams after a lead has been classified and processed in HubSpot.</li>
-        </ul>
-        
-        <h3>Core Methods</h3>
-        <h4>Internal Methods</h4>
-        <ul>
-          <li><code>_extract_data_with_llm(payload: EmailWebhookPayload)</code>: Uses an LLM to extract structured data from email content.</li>
-          <li><code>_parse_email_content(payload: EmailWebhookPayload)</code>: Parses email content using regex and basic logic.</li>
-          <li><code>_check_email_data_completeness(extracted_data: Dict[str, Any])</code>: Checks if extracted data meets minimum requirements.</li>
-          <li><code>_send_auto_reply(original_payload: EmailWebhookPayload, missing_fields: List[str], extracted_data: Dict[str, Any])</code>: Sends an email requesting missing information.</li>
-        </ul>
-        
-        <h4>Public Methods</h4>
-        <ul>
-          <li><code>send_handoff_notification(classification_result: ClassificationResult, contact_result: Optional[HubSpotContactResult], lead_result: Optional[HubSpotApiResult])</code>: Sends a notification email to the appropriate team.</li>
-          <li><code>process_incoming_email(payload: EmailWebhookPayload)</code>: Main entry point to process an email. It orchestrates parsing, LLM enhancement (if applicable), completeness checks, and auto-replies.</li>
-          <li><code>close_client()</code> / <code>close()</code>: Closes the <code>httpx.AsyncClient</code>.</li>
         </ul>
       </section>
     `;
@@ -741,14 +689,14 @@ export default class ServicesDocs extends HTMLElement {
       if (navLink) {
         const section = navLink.dataset.section;
         const category = navLink.dataset.category;
-        
+
         if (category) {
           this._toggleCategoryExpansion(category);
         } else if (section) {
           this._navigateToSection(section);
         }
       }
-      
+
       // Handle service item clicks in the grid
       const serviceItem = event.target.closest('.service-item');
       if (serviceItem) {
@@ -757,7 +705,7 @@ export default class ServicesDocs extends HTMLElement {
           this._navigateToSection(service);
         }
       }
-      
+
       // Toggle mobile nav
       if (event.target.closest('#toggle-nav')) {
         this.state.expandedSubmenu = !this.state.expandedSubmenu;
@@ -765,7 +713,7 @@ export default class ServicesDocs extends HTMLElement {
       }
     });
   }
-  
+
   /**
    * Toggle category expansion in the sidebar
    * @param {string} category - The category to toggle
@@ -778,7 +726,7 @@ export default class ServicesDocs extends HTMLElement {
     }
     this.render();
   }
-  
+
   /**
    * Navigate to a specific section
    * @param {string} section - The section to navigate to

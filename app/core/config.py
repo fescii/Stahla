@@ -121,33 +121,10 @@ class Settings(BaseSettings):
   # Classification Method
   CLASSIFICATION_METHOD: Literal["rules", "ai"] = "ai"
 
-  # Email Service Settings
-  RESEND_API_KEY: Optional[str] = Field(
-      default=None, validation_alias="RESEND_API_KEY")
-
   # N8N / Orchestration Configuration (Optional)
   N8N_ENABLED: bool = Field(default=False, validation_alias="N8N_ENABLED")
   N8N_WEBHOOK_URL_CLASSIFICATION_DONE: Optional[str] = Field(
       default=None, validation_alias="N8N_WEBHOOK_URL_CLASSIFICATION_DONE")
-
-  # Email Configuration (Optional - if sending auto-replies)
-  EMAIL_SENDING_ENABLED: bool = Field(
-      default=False, validation_alias="EMAIL_SENDING_ENABLED")
-  SMTP_HOST: Optional[str] = Field(default=None, validation_alias="SMTP_HOST")
-  SMTP_PORT: Optional[int] = Field(default=587, validation_alias="SMTP_PORT")
-  SMTP_USER: Optional[str] = Field(default=None, validation_alias="SMTP_USER")
-  SMTP_PASSWORD: Optional[str] = Field(
-      default=None, validation_alias="SMTP_PASSWORD")
-  EMAIL_FROM_ADDRESS: Optional[EmailStr] = Field(
-      default=None, validation_alias="EMAIL_FROM_ADDRESS")
-
-  # Add validator for EMAIL_FROM_ADDRESS
-  @validator('EMAIL_FROM_ADDRESS', pre=True)
-  def empty_str_to_none(cls, v: Any) -> Optional[str]:
-    """Convert empty string to None before validation."""
-    if isinstance(v, str) and v.strip() == '':
-      return None
-    return v
 
   # Classification Logic Settings
   LOCAL_DISTANCE_THRESHOLD_MILES: int = Field(

@@ -5,7 +5,7 @@ export default class FeaturesDocs extends HTMLElement {
     this.app = window.app;
     this.api = this.app.api;
     this.renderCount = 0;
-    
+
     // Component state
     this.state = {
       activeSection: 'introduction',
@@ -104,7 +104,7 @@ export default class FeaturesDocs extends HTMLElement {
   }
 
   getContentForSection(section) {
-    switch(section) {
+    switch (section) {
       case 'introduction':
         return this.getIntroductionSection();
       case 'features':
@@ -220,7 +220,7 @@ export default class FeaturesDocs extends HTMLElement {
   }
 
   // This is the start of the individual feature sections
-  
+
   getIntakeSection() {
     return /* html */ `
       <section id="intake" class="content-section ${this.state.activeSection === 'intake' ? 'active' : ''}">
@@ -270,7 +270,7 @@ process_incoming_email(
           <li>Bland.ai service for voice interactions</li>
           <li>HubSpot service for recording lead information</li>
           <li>Classification engine for lead categorization</li>
-          <li>Email service for follow-up communications</li>
+          <li>n8n workflows for automated notifications</li>
         </ul>
       </section>
     `;
@@ -397,12 +397,11 @@ classify_lead(
         </ul>
         
         <div class="code-block">
-          <pre><code>// Example notification method
-send_handoff_notification(
-    classification_result: ClassificationResult,
-    contact_result: HubSpotContactResult,
-    lead_result: HubSpotApiResult
-)</code></pre>
+          <pre><code>// Example notification workflow
+// Notifications can be implemented through:
+// - HubSpot task assignments
+// - External integrations (Slack, Teams)
+// - Third-party notification services</code></pre>
         </div>
         
         <h3>Notification Content</h3>
@@ -421,12 +420,12 @@ send_handoff_notification(
         </ul>
         
         <h3>Implementation Details</h3>
-        <p>The handoff notification system leverages the EmailManager service for sending notifications with the following features:</p>
+        <p>The handoff notification system leverages n8n workflow automation to provide the following features:</p>
         <ul>
-          <li><strong>HTML Templating:</strong> Uses HTML email templates with dynamic content insertion.</li>
-          <li><strong>Delivery Verification:</strong> Includes delivery tracking to ensure notifications reach recipients.</li>
-          <li><strong>Fallback Mechanisms:</strong> Implements fallback routing if primary recipient is unavailable.</li>
-          <li><strong>Customization Options:</strong> Supports team-specific notification templates and content.</li>
+          <li><strong>Workflow Integration:</strong> Uses n8n workflows to trigger email notifications based on classification results.</li>
+          <li><strong>Team Routing:</strong> Routes notifications to appropriate sales teams through n8n workflow logic.</li>
+          <li><strong>Template Management:</strong> Manages email templates and content through n8n workflow configuration.</li>
+          <li><strong>Delivery Tracking:</strong> Provides notification delivery status through n8n webhook responses.</li>
         </ul>
       </section>
     `;
@@ -476,7 +475,7 @@ send_auto_reply(
         <p>The follow-up system connects with multiple components:</p>
         <ul>
           <li><strong>Bland.ai Service:</strong> For voice-based follow-ups</li>
-          <li><strong>Email Service:</strong> For email follow-up communications</li>
+          <li><strong>n8n Workflows:</strong> For automated notification workflows</li>
           <li><strong>Data Validation:</strong> For determining missing or incomplete information</li>
           <li><strong>Tracking System:</strong> For monitoring follow-up outcomes</li>
         </ul>
@@ -764,14 +763,14 @@ async def handle_n8n_webhook(
       if (navLink) {
         const section = navLink.dataset.section;
         const category = navLink.dataset.category;
-        
+
         if (category) {
           this._toggleCategoryExpansion(category);
         } else if (section) {
           this._navigateToSection(section);
         }
       }
-      
+
       // Handle feature item clicks in the grid
       const featureItem = event.target.closest('.feature-item');
       if (featureItem) {
@@ -780,7 +779,7 @@ async def handle_n8n_webhook(
           this._navigateToSection(feature);
         }
       }
-      
+
       // Toggle mobile nav
       if (event.target.closest('#toggle-nav')) {
         this.state.expandedSubmenu = !this.state.expandedSubmenu;
@@ -788,7 +787,7 @@ async def handle_n8n_webhook(
       }
     });
   }
-  
+
   /**
    * Toggle category expansion in the sidebar
    * @param {string} category - The category to toggle
@@ -801,24 +800,24 @@ async def handle_n8n_webhook(
     }
     this.render();
   }
-  
+
   /**
    * Navigate to a specific section
    * @param {string} section - The section to navigate to
    */
   _navigateToSection(section) {
     this.state.activeSection = section;
-    
+
     // If navigating to a section within a category, ensure that category is expanded
     if (section === 'intake' || section === 'hubspot' || section === 'classification' ||
-        section === 'handoff' || section === 'followup' || section === 'config' ||
-        section === 'pricing' || section === 'dashboard' || section === 'workflow' ||
-        section === 'nongoals') {
+      section === 'handoff' || section === 'followup' || section === 'config' ||
+      section === 'pricing' || section === 'dashboard' || section === 'workflow' ||
+      section === 'nongoals') {
       this.state.expandedCategories.add('features');
     }
-    
+
     this.render();
-    
+
     // Scroll to top of content
     const mainElement = this.shadowObj.querySelector('#features-docs-main');
     if (mainElement) {
