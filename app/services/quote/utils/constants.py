@@ -19,36 +19,39 @@ SHEET_GENERATORS_COLLECTION = "generators"  # Collection for generators
 # Sync configuration
 SYNC_INTERVAL_SECONDS = 60 * 60 * 24  # Sync every 1 day
 
-# Header mappings for sheet parsing
+# Header mappings for sheet parsing (from original sync.py)
 PRODUCT_HEADER_MAP = {
-    "product_id": "product_id",
-    "name": "name",
-    "description": "description",
-    "base_rate": "base_rate",
-    "weekly_7_day": "weekly_7_day",
-    "rate_28_day": "rate_28_day",
-    "rate_2_5_month": "rate_2_5_month",
-    "rate_6_plus_month": "rate_6_plus_month",
-    "rate_18_plus_month": "rate_18_plus_month",
-    "event_standard": "event_standard",
-    "event_premium": "event_premium",
-    "event_premium_plus": "event_premium_plus",
-    "event_premium_platinum": "event_premium_platinum"
+    # ID and Name are sourced from 'Primary Column' based on Stahla - products.csv
+    "primary column": "id",
+    # 'name' will default to the value from the 'id' field (i.e., 'Primary Column')
+    # as there isn't a separate column designated for product name in the CSV.
+    # Pricing fields (lowercase header from sheet -> Pydantic field name)
+    "weekly pricing (7 day)": "weekly_7_day",
+    "28 day rate": "rate_28_day",
+    "2-5 month rate": "rate_2_5_month",
+    "6+ month pricing": "rate_6_plus_month",
+    "18+ month pricing": "rate_18_plus_month",
+    "event standard (<4 days)": "event_standard",
+    "event premium (<4 days)": "event_premium",
+    "event premium plus (<4 days)": "event_premium_plus",
+    "event premium platinum (<4 days)": "event_premium_platinum",
 }
 
 GENERATOR_HEADER_MAP = {
-    "generator_id": "generator_id",
-    "name": "name",
-    "description": "description",
-    "daily_rate": "daily_rate",
-    "weekly_rate": "weekly_rate",
-    "monthly_rate": "monthly_rate"
+    # ID and Name are sourced from 'Generator Rental' based on Stahla - generators.csv
+    "generator rental": "id",
+    # 'name' will default to the value from the 'id' field (i.e., 'Generator Rental').
+    # Pricing fields
+    "event (< 3 day rate)": "rate_event",
+    "7 day rate": "rate_7_day",
+    "28 day rate": "rate_28_day",
 }
 
+# List of known extra service headers (lowercase) from 'Stahla - products.csv'
+# These will be put into the 'extras' dictionary for products.
 KNOWN_PRODUCT_EXTRAS_HEADERS = [
-    "attendant_service",
-    "delivery_setup",
-    "cleaning_fee",
-    "damage_waiver",
-    "weekend_premium"
+    "pump out waste tank",
+    "fresh water tank fill",
+    "cleaning",
+    "restocking",
 ]

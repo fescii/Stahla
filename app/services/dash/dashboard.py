@@ -660,10 +660,18 @@ class DashboardService:
       logger.info("sync_service instance found.")
       try:
         logger.info("Calling current_sync_service.sync_full_catalog()")
-        success = await current_sync_service.sync_full_catalog()
+        sync_result = await current_sync_service.sync_full_catalog()
         logger.info(
-            f"current_sync_service.sync_full_catalog() returned: {success}"
+            f"current_sync_service.sync_full_catalog() returned: {sync_result}"
         )
+
+        # Check if the sync was successful (all 3 components: branches, states, pricing)
+        success = (
+            sync_result.get("branches", {}).get("success", False) and
+            sync_result.get("states", {}).get("success", False) and
+            sync_result.get("pricing", {}).get("success", False)
+        )
+
         logger.info(f"Manual sync trigger result: {success}")
         return success
       except Exception as e:

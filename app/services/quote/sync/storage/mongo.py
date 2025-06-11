@@ -167,10 +167,11 @@ class MongoStorage:
         return True
 
       # Use replace_sheet_collection_data for atomic replacement
+      # Use address as ID field for branches (matches original sync.py)
       await self.mongo_service.replace_sheet_collection_data(
           collection_name=collection,
           data=branches,
-          id_field="id"
+          id_field="address"
       )
 
       logfire.info(
@@ -297,19 +298,21 @@ class MongoStorage:
 
       # Convert states to documents if they're just strings
       if states and isinstance(states[0], str):
-        state_docs = [{"state": state, "name": state, "id": i}
-                      for i, state in enumerate(states)]
+        state_docs = [{"state": state, "code": state}
+                      for state in states]
       else:
         state_docs = states
-        # Ensure each doc has an id field
-        for i, doc in enumerate(state_docs):
-          if "id" not in doc:
-            doc["id"] = i
+        # Ensure each doc has required fields
+        for doc in state_docs:
+          if "code" not in doc and "state" in doc:
+            # Use state name as code if code is missing
+            doc["code"] = doc["state"]
 
+      # Use 'code' as the id_field since that's what the unique index is on
       await self.mongo_service.replace_sheet_collection_data(
           collection_name=collection,
           data=state_docs,
-          id_field="id"
+          id_field="code"
       )
 
       logfire.info(
@@ -351,19 +354,33 @@ class MongoStorage:
 
       success = True
 
-      # Store products
+      # Store products - convert dict to list of values
       if catalog.get("products"):
+        products_data = catalog["products"]
+        if isinstance(products_data, dict):
+          # Convert dict to list of values
+          products_list = list(products_data.values())
+        else:
+          products_list = products_data
+
         products_success = await self.store_products(
-            catalog["products"],
+            products_list,
             SHEET_PRODUCTS_COLLECTION,
             background_tasks
         )
         success = success and products_success
 
-      # Store generators
+      # Store generators - convert dict to list of values
       if catalog.get("generators"):
+        generators_data = catalog["generators"]
+        if isinstance(generators_data, dict):
+          # Convert dict to list of values
+          generators_list = list(generators_data.values())
+        else:
+          generators_list = generators_data
+
         generators_success = await self.store_generators(
-            catalog["generators"],
+            generators_list,
             SHEET_GENERATORS_COLLECTION,
             background_tasks
         )

@@ -386,7 +386,7 @@ class SheetSyncService:
       logfire.info("Fetching states from Google Sheets")
       sheet_data = await self.sheets_service.fetch_sheet_data(
           settings.GOOGLE_SHEET_ID,
-          settings.GOOGLE_SHEET_CONFIG_RANGE
+          settings.GOOGLE_SHEET_STATES_RANGE
       )
 
       if not sheet_data:
@@ -443,8 +443,8 @@ class SheetSyncService:
       if not force_refresh and self.redis_storage:
         cached_catalog = await self.redis_storage.get_pricing_catalog_default()
         if cached_catalog:
-          total_items = len(cached_catalog.get("products", [])) + \
-              len(cached_catalog.get("generators", []))
+          total_items = len(cached_catalog.get("products", {})) + \
+              len(cached_catalog.get("generators", {}))
           logfire.info(
               f"Using cached pricing catalog: {total_items} total items")
           result["success"] = True
@@ -492,8 +492,8 @@ class SheetSyncService:
       if self.mongo_storage:
         await self.mongo_storage.store_pricing_catalog(catalog)
 
-      total_items = len(catalog.get("products", [])) + \
-          len(catalog.get("generators", []))
+      total_items = len(catalog.get("products", {})) + \
+          len(catalog.get("generators", {}))
       result["success"] = True
       result["count"] = total_items
       result["source"] = "sheets"

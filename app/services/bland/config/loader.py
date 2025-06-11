@@ -7,7 +7,8 @@ from typing import Dict, Any
 from app.core.config import settings
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_SCRIPT_DIR)))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.dirname(_SCRIPT_DIR))))
 PATHWAY_JSON_PATH = os.path.join(_PROJECT_ROOT, "app", "assets", "call.json")
 LOCATION_TOOL_JSON_PATH = os.path.join(
     _PROJECT_ROOT, "app", "assets", "location.json")

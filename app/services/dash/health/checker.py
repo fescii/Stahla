@@ -273,7 +273,7 @@ class ServiceStatusMonitor:
       }
 
     try:
-      if self.sheet_sync_service.sheet_service:
+      if self.sheet_sync_service.sheets_service:
         # Simple check to see if the service is initialized
         return service_name, {
             "status": "ok",
