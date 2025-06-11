@@ -8,14 +8,15 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Literal
 from datetime import date
+from fastapi import Depends
 
 from app.models.quote import QuoteRequest, QuoteResponse
 from app.models.location import DistanceResult, BranchLocation
-from app.services.redis.redis import RedisService
+from app.services.redis.redis import RedisService, get_redis_service
 from app.services.location.location import LocationService
-from app.services.mongo.mongo import MongoService
-from app.services.mongo.mongo import get_mongo_service
+from app.services.mongo.mongo import MongoService, get_mongo_service
 from app.utils.location import geocode_location, SERVICE_HUBS, get_distance_km
+from app.core.dependencies import get_location_service_dep
 
 from .pricing.catalog.retriever import CatalogRetriever
 from .pricing.delivery.calculator import DeliveryCalculator
@@ -23,15 +24,7 @@ from .pricing.extras.calculator import ExtrasCalculator
 from .pricing.seasonal.multiplier import SeasonalMultiplier
 from .pricing.trailer.calculator import TrailerCalculator
 from .quote.builder.orchestrator import QuoteBuildingOrchestrator
-from .shared.constants import (
-    DAYS_PER_MONTH_APPROX,
-    MONTHS_2,
-    MONTHS_6,
-    MONTHS_18,
-    SHEET_CONFIG_COLLECTION,
-    SHEET_PRODUCTS_COLLECTION,
-    SHEET_GENERATORS_COLLECTION,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -179,22 +172,17 @@ class QuoteService:
 
 
 async def get_quote_service(
-    redis_service: Optional[RedisService] = None,
-    location_service: Optional[LocationService] = None,
-    mongo_service: Optional[MongoService] = None,
+    redis_service: RedisService = Depends(get_redis_service),
+    mongo_service: MongoService = Depends(get_mongo_service),
 ) -> QuoteService:
   """Factory function to get QuoteService instance."""
-  # Import dependencies if not provided
-  if redis_service is None:
-    from app.services.redis.redis import get_redis_service
-    redis_service = await get_redis_service()
 
-  if location_service is None:
-    from app.core.dependencies import get_location_service_dep
-    location_service = get_location_service_dep()
-
-  if mongo_service is None:
-    mongo_service = await get_mongo_service()
+  # Create location service dependency
+  # Get location service with its required dependencies
+  location_service = get_location_service_dep(
+      redis_service=redis_service,
+      mongo_service=mongo_service
+  )
 
   return QuoteService(
       redis_service=redis_service,

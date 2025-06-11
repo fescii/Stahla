@@ -7,9 +7,7 @@ from typing import Optional
 from app.services.mongo.mongo import MongoService, get_mongo_service
 from app.services.auth.auth import AuthService, get_auth_service
 from app.services.redis.redis import RedisService, get_redis_service
-from app.services.dash.dashboard import (
-    DashboardService,
-)  # Import DashboardService class
+# DashboardService import moved to function to avoid circular dependency
 from app.services.location.location import (
     LocationService,
 )  # Import LocationService class
@@ -41,7 +39,10 @@ def get_dashboard_service_dep(
     mongo_service: MongoService = Depends(
         get_mongo_service),  # Use direct injector
     # Removed sync_service from here, it's internal to DashboardService now
-) -> DashboardService:
+):
+  # Import here to avoid circular dependency
+  from app.services.dash.dashboard import DashboardService
+
   # Instantiate DashboardService with its dependencies
   # sync_service will be initialized within DashboardService if needed
   return DashboardService(redis_service=redis_service, mongo_service=mongo_service)

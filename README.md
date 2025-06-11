@@ -16,13 +16,13 @@ The goal is to create a reliable, scalable AI-driven intake and quoting flow tha
 
 ## High-Level Approach
 
-1.  **AI Intake Agent:** Uses voice (Bland.ai), email parsing, and web form follow-ups to greet prospects, ask dynamic questions, and populate HubSpot.
-2.  **Classification & Routing:** Determines the appropriate business unit (Services, Logistics, Leads, or Disqualify) based on lead data and assigns the deal in HubSpot.
-3.  **Real-time Pricing Agent (Integrated):** Provides instant price quotes via a secure webhook, using dynamically synced pricing rules from Google Sheets and cached Google Maps distance calculations.
-4.  **Human Handoff:** Provides reps with summaries, context, and **quotes** for quick follow-up or disqualification.
-5.  **Operational Dashboard Backend:** Exposes API endpoints for monitoring system status, cache performance, sync status, errors, recent requests, and limited cache/sync management.
-6.  **Extensible Framework:** Built for future agent additions.
-7.  **Integration Layer:** Uses n8n for managing specific webhook workflows (e.g., lead processing trigger).
+1. **AI Intake Agent:** Uses voice (Bland.ai), email parsing, and web form follow-ups to greet prospects, ask dynamic questions, and populate HubSpot.
+2. **Classification & Routing:** Determines the appropriate business unit (Services, Logistics, Leads, or Disqualify) based on lead data and assigns the deal in HubSpot.
+3. **Real-time Pricing Agent (Integrated):** Provides instant price quotes via a secure webhook, using dynamically synced pricing rules from Google Sheets and cached Google Maps distance calculations.
+4. **Human Handoff:** Provides reps with summaries, context, and **quotes** for quick follow-up or disqualification.
+5. **Operational Dashboard Backend:** Exposes API endpoints for monitoring system status, cache performance, sync status, errors, recent requests, and limited cache/sync management.
+6. **Extensible Framework:** Built for future agent additions.
+7. **Integration Layer:** Uses n8n for managing specific webhook workflows (e.g., lead processing trigger).
 
 ## Key Technologies
 
@@ -201,8 +201,8 @@ _(See `docs/features.md` for more details)_
 
 ## Setup & Running
 
-1.  **Clone the repository.**
-2.  **Create and configure `.env`:**
+1. **Clone the repository.**
+2. **Create and configure `.env`:**
     - Copy `.env.example` to `.env`.
     - Fill in API keys: `HUBSPOT_API_KEY`, `BLAND_API_KEY`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`, `PRICING_WEBHOOK_API_KEY`, and your chosen `LLM_PROVIDER`'s key.
     - Configure `GOOGLE_SHEET_ID` and the `GOOGLE_SHEET_*_RANGE` variables for products, generators, branches, and config tabs/ranges.
@@ -211,15 +211,20 @@ _(See `docs/features.md` for more details)_
     - Configure `APP_BASE_URL`.
     - Configure n8n settings if `N8N_ENABLED=true`.
     - Adjust other settings as needed.
-3.  **Install dependencies:**
+3. **Install dependencies:**
+
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Run locally using Uvicorn:**
+
+4. **Run locally using Uvicorn:**
+
     ```bash
     uvicorn app.main:app --reload --port 8000
     ```
-5.  **Run using Docker Compose:**
+
+5. **Run using Docker Compose:**
+
     ```bash
     docker-compose up --build
     ```
@@ -296,6 +301,7 @@ We've created a deployment script to simplify the process:
    ```
 
 2. Run the deployment script:
+
    ```
    ./deploy-to-fly.sh
    ```
@@ -333,6 +339,7 @@ If you prefer to deploy manually:
    ```
 
 4. Deploy the application:
+
    ```
    flyctl deploy
    ```
@@ -374,6 +381,7 @@ This application uses a cloud MongoDB service (like MongoDB Atlas) for data stor
 ```
 
 This script will:
+
 1. Connect to your cloud MongoDB instance
 2. Create necessary collections
 3. Set up required indexes
