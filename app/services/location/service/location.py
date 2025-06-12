@@ -29,15 +29,23 @@ class LocationService:
         self.cache_ops, self.google_ops, self.area_checker)
 
   async def get_distance_to_nearest_branch(
-      self, delivery_location: str, background_tasks: BackgroundTasks
+      self, delivery_location: str
   ) -> Optional[DistanceResult]:
     """
     Finds the nearest Stahla branch to a delivery location.
-    """
-    return await self.distance_calc.get_distance_to_nearest_branch(delivery_location, background_tasks)
 
-  async def prefetch_distance(self, delivery_location: str, background_tasks: BackgroundTasks):
+    Note: Background tasks should be attached using:
+    from app.services.background.util import attach_background_tasks
+    attach_background_tasks(location_service, background_tasks)
+    """
+    return await self.distance_calc.get_distance_to_nearest_branch(delivery_location)
+
+  async def prefetch_distance(self, delivery_location: str):
     """
     Triggers the distance calculation and caching in the background.
+
+    Note: Background tasks should be attached using:
+    from app.services.background.util import attach_background_tasks
+    attach_background_tasks(location_service, background_tasks)
     """
-    await self.distance_calc.prefetch_distance(delivery_location, background_tasks)
+    await self.distance_calc.prefetch_distance(delivery_location)

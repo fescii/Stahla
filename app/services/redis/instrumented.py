@@ -21,8 +21,13 @@ class InstrumentedRedisService(RedisService):
   This provides transparent latency monitoring at the Redis level.
   """
 
-  def __init__(self, background_tasks: Optional[BackgroundTasks] = None):
+  def __init__(self):
     super().__init__()
+    self.background_tasks = None
+
+  def set_background_tasks(self, background_tasks: BackgroundTasks):
+    """Set background tasks for latency recording.
+    This should be called by attach_background_tasks utility."""
     self.background_tasks = background_tasks
 
   def _record_latency(self, operation: str, latency_ms: float, success: bool = True):
@@ -165,6 +170,9 @@ class InstrumentedRedisService(RedisService):
 
 
 # Dependency injection function for instrumented Redis
-async def get_instrumented_redis_service(background_tasks: BackgroundTasks) -> InstrumentedRedisService:
-  """Creates and returns an InstrumentedRedisService instance."""
-  return InstrumentedRedisService(background_tasks)
+async def get_instrumented_redis_service() -> InstrumentedRedisService:
+  """Creates and returns an InstrumentedRedisService instance without background tasks.
+
+  Note: BackgroundTasks should be set in the endpoint using service.set_background_tasks()
+  """
+  return InstrumentedRedisService()

@@ -201,12 +201,17 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         end_time = time.monotonic()
         latency_ms = (end_time - start_time) * 1000
 
-        current_background_tasks = response.background if response and response.background else BackgroundTasks()
+        # Create a new BackgroundTasks instance if one doesn't exist
+        current_background_tasks: BackgroundTasks = BackgroundTasks()
+        if response and hasattr(response, 'background') and response.background is not None:
+            # Use the existing background tasks if available
+          current_background_tasks = response.background  # type: ignore
+
         try:
-          # Attempt to get RedisService. This is a simplified approach.
-          # In a real app, you might pass the service or a factory to the middleware.
+          # Get instrumented Redis service for better monitoring
           redis_service = await get_redis_service()
-          current_background_tasks.add_task(  # type: ignore
+          # Add the logging task to the background tasks
+          current_background_tasks.add_task(
               log_request_response_bg,
               redis=redis_service,
               endpoint=str(request.url.path),

@@ -10,7 +10,7 @@ import functools
 import logging
 from typing import Any, Dict, Optional, Callable, TypeVar, Awaitable
 from fastapi import BackgroundTasks
-from app.services.redis.instrumented import InstrumentedRedisService
+from app.services.redis.redis import RedisService
 from app.services.dash.background import record_external_api_latency_bg
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class LatencyTracker:
   def __init__(
       self,
       service_type: str,
-      redis_service: InstrumentedRedisService,
+      redis_service: RedisService,
       background_tasks: BackgroundTasks,
       operation_name: str = "unknown",
       request_id: Optional[str] = None
@@ -151,7 +151,7 @@ def track_latency(
 def track_external_call_latency(
     service_type: str,
     operation: str,
-    redis_service: InstrumentedRedisService,
+    redis_service: RedisService,
     background_tasks: BackgroundTasks,
     request_id: Optional[str] = None
 ) -> LatencyTracker:
@@ -173,7 +173,7 @@ def track_external_call_latency(
 
 def track_redis_operation_latency(
     operation: str,
-    redis_service: InstrumentedRedisService,
+    redis_service: RedisService,
     background_tasks: BackgroundTasks
 ) -> LatencyTracker:
   """

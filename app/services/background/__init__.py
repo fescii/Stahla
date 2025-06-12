@@ -12,6 +12,7 @@ from .latency import (
     record_location_latency_bg,
     record_external_api_latency_bg
 )
+from .util import attach_background_tasks
 
 __all__ = [
     "log_request_response_bg",
@@ -21,5 +22,6 @@ __all__ = [
     "record_latency_bg",
     "record_quote_latency_bg",
     "record_location_latency_bg",
-    "record_external_api_latency_bg"
+    "record_external_api_latency_bg",
+    "attach_background_tasks"
 ]

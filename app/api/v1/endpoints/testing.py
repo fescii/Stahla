@@ -76,9 +76,13 @@ async def test_location_service(
   error_msg: Optional[str] = None
 
   try:
+    # Attach background tasks to the service
+    from app.services.background.util import attach_background_tasks
+    attach_background_tasks(location_service, background_tasks)
+
     # Use the correct method that returns DistanceResult
     distance_result = await location_service.get_distance_to_nearest_branch(
-        request_payload.delivery_location, background_tasks
+        request_payload.delivery_location
     )
     if distance_result:
       branch_info = distance_result.nearest_branch

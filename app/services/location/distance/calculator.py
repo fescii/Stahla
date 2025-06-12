@@ -2,13 +2,13 @@
 import asyncio
 import logfire
 from typing import Optional, List
-from fastapi import BackgroundTasks
 from app.models.location import BranchLocation, DistanceResult
 from app.services.location.cache import LocationCacheOperations
 from app.services.location.google import GoogleMapsOperations
 from app.services.location.areas import ServiceAreaChecker
 from app.core.cachekeys import MAPS_CACHE_HITS_KEY, MAPS_CACHE_MISSES_KEY
-from app.services.dash.background import increment_request_counter_bg
+from app.services.background import increment_request_counter_bg
+from app.services.background.util import add_task_safely
 
 CACHE_TTL_SECONDS = 24 * 60 * 60  # 24 hours
 LOCATION_LOOKUP_STAT_NAME = "location_lookups"
@@ -28,12 +28,16 @@ class DistanceCalculator:
     self.area_checker = area_checker
 
   async def get_distance_to_nearest_branch(
-      self, delivery_location: str, background_tasks: BackgroundTasks
+      self, delivery_location: str
   ) -> Optional[DistanceResult]:
     """
     Finds the nearest Stahla branch (loaded from Redis) to a delivery location
     and calculates the driving distance using Google Maps API and Redis caching.
     Logs errors to MongoDB and increments location lookup stats.
+
+    Note: 
+      Make sure to attach background tasks before calling this method using:
+      app.services.background.util.attach_background_tasks(calculator, background_tasks)
     """
     success = False  # Initialize success flag for stat tracking
     try:
@@ -161,22 +165,30 @@ class DistanceCalculator:
       success = True  # Set success to True as we have a result
       return final_result
     finally:
-      # Increment location lookup stats in a background task
-      # This task will run after the response has been sent if called from an endpoint
-      background_tasks.add_task(
-          self.cache_ops.mongo_service.increment_request_stat, LOCATION_LOOKUP_STAT_NAME, success)
+      # Use our utility function to safely add a background task
+      from app.services.background.util import add_task_safely
 
-  async def prefetch_distance(self, delivery_location: str, background_tasks: BackgroundTasks):
+      # Increment location lookup stats in a background task if available
+      add_task_safely(
+          self,
+          self.cache_ops.mongo_service.increment_request_stat,
+          LOCATION_LOOKUP_STAT_NAME,
+          success)
+
+  async def prefetch_distance(self, delivery_location: str):
     """
     Triggers the distance calculation and caching in the background.
     Used by the early location lookup webhook. Logs errors to MongoDB.
     The stat incrementation is handled by get_distance_to_nearest_branch.
+
+    Note: 
+      Make sure to attach background tasks before calling this method using:
+      app.services.background.util.attach_background_tasks(calculator, background_tasks)
     """
     logfire.info(f"Prefetching distance for location: {delivery_location}")
     try:
-      # Pass background_tasks to get_distance_to_nearest_branch
       # The success/failure of this operation will be recorded by get_distance_to_nearest_branch's finally block.
-      await self.get_distance_to_nearest_branch(delivery_location, background_tasks)
+      await self.get_distance_to_nearest_branch(delivery_location)
     except Exception as e:
       msg = (
           f"Error prefetching distance for location {delivery_location}: {str(e)}"
