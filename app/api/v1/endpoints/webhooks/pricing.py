@@ -17,11 +17,12 @@ from app.models.common import GenericResponse, MessageResponse
 
 # Import service classes and their injectors
 from app.services.location import LocationService
-from app.services.quote import QuoteService, get_quote_service
-from app.services.redis.redis import RedisService, get_redis_service
+from app.services.quote import QuoteService
+from app.services.redis.factory import get_instrumented_redis_service
+from app.services.redis.instrumented import InstrumentedRedisService
 
 # Import dependency injectors from core
-from app.core.dependencies import get_location_service_dep
+from app.core.dependencies import get_location_service_dep, get_quote_service_dep
 from app.core.security import get_api_key  # Import API key security from core
 
 # Import background task helpers
@@ -29,6 +30,12 @@ from app.services.dash.background import (
     log_request_response_bg,
     increment_request_counter_bg,
     log_error_bg,
+    record_quote_latency_bg,
+    record_location_latency_bg,
+)
+
+# Import cache keys
+from app.core.cachekeys import (
     TOTAL_QUOTE_REQUESTS_KEY,
     SUCCESS_QUOTE_REQUESTS_KEY,
     ERROR_QUOTE_REQUESTS_KEY,
@@ -59,9 +66,9 @@ async def webhook_location_lookup(
         background_tasks: BackgroundTasks,
         location_service: LocationService = Depends(
             get_location_service_dep
-        ),  # Use core dependency
-        redis_service: RedisService = Depends(
-            get_redis_service),  # Use direct injector
+        ),  # Use unified dependency
+        redis_service: InstrumentedRedisService = Depends(
+            get_instrumented_redis_service),  # Use instrumented injector
         api_key: str = Depends(get_api_key),  # Enforce API Key Auth
 ):
   """
@@ -106,8 +113,10 @@ async def webhook_location_lookup_sync(
         payload: ModelLocationLookupRequest,
         # Keep for consistency, though not strictly needed for sync logic other than counters
         background_tasks: BackgroundTasks,
-        location_service: LocationService = Depends(get_location_service_dep),
-        redis_service: RedisService = Depends(get_redis_service),
+        location_service: LocationService = Depends(
+            get_location_service_dep),
+        redis_service: InstrumentedRedisService = Depends(
+            get_instrumented_redis_service),
         api_key: str = Depends(get_api_key),
 ) -> GenericResponse[LocationLookupResponse]:
   """
@@ -198,11 +207,11 @@ async def webhook_quote(
         payload: QuoteRequest,
         background_tasks: BackgroundTasks,  # Keep for error logging
         quote_service: QuoteService = Depends(
-            get_quote_service
+            get_quote_service_dep
         ),  # Use injector from quote.py
-        redis_service: RedisService = Depends(
-            get_redis_service
-        ),  # Use direct injector for error logging
+        redis_service: InstrumentedRedisService = Depends(
+            get_instrumented_redis_service
+        ),  # Use instrumented injector for error logging
         api_key: str = Depends(get_api_key),
 ) -> GenericResponse[QuoteResponse]:  # Updated return type hint
   request_id = payload.request_id
@@ -238,6 +247,18 @@ async def webhook_quote(
         increment_request_counter_bg, redis_service, TOTAL_QUOTE_REQUESTS_KEY)
     background_tasks.add_task(
         increment_request_counter_bg, redis_service, SUCCESS_QUOTE_REQUESTS_KEY)
+
+    # Record quote latency for monitoring
+    background_tasks.add_task(
+        record_quote_latency_bg,
+        redis_service,
+        processing_time_ms,
+        request_id,
+        payload.usage_type if hasattr(payload, 'usage_type') else None,
+        payload.delivery_location if hasattr(
+            payload, 'delivery_location') else None
+    )
+
     # Return GenericResponse on success
     return GenericResponse(data=quote_response_data)
   except ValueError as ve:

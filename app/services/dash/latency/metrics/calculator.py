@@ -2,13 +2,14 @@ import logging
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timezone
 
-from app.services.redis.redis import RedisService
+from app.services.redis.instrumented import InstrumentedRedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_SORTED_SET,
     LOCATION_LATENCY_SORTED_SET,
     HUBSPOT_LATENCY_SORTED_SET,
     BLAND_LATENCY_SORTED_SET,
     GMAPS_LATENCY_SORTED_SET,
+    REDIS_LATENCY_SORTED_SET,
     QUOTE_LATENCY_SUM_KEY,
     QUOTE_LATENCY_COUNT_KEY,
     LOCATION_LATENCY_SUM_KEY,
@@ -19,6 +20,8 @@ from app.core.cachekeys import (
     BLAND_LATENCY_COUNT_KEY,
     GMAPS_LATENCY_SUM_KEY,
     GMAPS_LATENCY_COUNT_KEY,
+    REDIS_LATENCY_SUM_KEY,
+    REDIS_LATENCY_COUNT_KEY,
     LATENCY_THRESHOLD_P95_MS,
     LATENCY_THRESHOLD_P99_MS,
 )
@@ -29,7 +32,7 @@ logger = logging.getLogger(__name__)
 class LatencyCalculator:
   """Calculates latency metrics from Redis data structures."""
 
-  def __init__(self, redis_service: RedisService):
+  def __init__(self, redis_service: InstrumentedRedisService):
     self.redis = redis_service
 
     self.sorted_set_keys = {
@@ -38,6 +41,7 @@ class LatencyCalculator:
         "hubspot": HUBSPOT_LATENCY_SORTED_SET,
         "bland": BLAND_LATENCY_SORTED_SET,
         "gmaps": GMAPS_LATENCY_SORTED_SET,
+        "redis": REDIS_LATENCY_SORTED_SET,
     }
 
     self.sum_keys = {
@@ -46,6 +50,7 @@ class LatencyCalculator:
         "hubspot": HUBSPOT_LATENCY_SUM_KEY,
         "bland": BLAND_LATENCY_SUM_KEY,
         "gmaps": GMAPS_LATENCY_SUM_KEY,
+        "redis": REDIS_LATENCY_SUM_KEY,
     }
 
     self.count_keys = {
@@ -54,6 +59,7 @@ class LatencyCalculator:
         "hubspot": HUBSPOT_LATENCY_COUNT_KEY,
         "bland": BLAND_LATENCY_COUNT_KEY,
         "gmaps": GMAPS_LATENCY_COUNT_KEY,
+        "redis": REDIS_LATENCY_COUNT_KEY,
     }
 
   async def get_percentiles(

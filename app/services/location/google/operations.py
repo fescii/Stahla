@@ -2,15 +2,18 @@
 import asyncio
 import functools
 import logfire
+import time
 from typing import Dict, Any, Optional
 import googlemaps
 from googlemaps.exceptions import ApiError, HTTPError, Timeout, TransportError
+from fastapi import BackgroundTasks
 from app.core.config import settings
-from app.services.redis.redis import RedisService
+from app.services.redis.instrumented import InstrumentedRedisService
 from app.services.mongo import MongoService
 from app.services.location.parsing import parse_and_normalize_address
 from app.core.cachekeys import GMAPS_API_CALLS_KEY, GMAPS_API_ERRORS_KEY
-from app.services.dash.background import increment_request_counter_bg
+from app.services.dash.background import increment_request_counter_bg, record_external_api_latency_bg
+from app.utils.latency import LatencyTracker
 
 MILES_PER_METER = 0.000621371
 
@@ -18,9 +21,10 @@ MILES_PER_METER = 0.000621371
 class GoogleMapsOperations:
   """Handles Google Maps API operations for location service."""
 
-  def __init__(self, redis_service: RedisService, mongo_service: MongoService):
+  def __init__(self, redis_service: InstrumentedRedisService, mongo_service: MongoService, background_tasks: Optional[BackgroundTasks] = None):
     self.redis_service = redis_service
     self.mongo_service = mongo_service
+    self.background_tasks = background_tasks
     self.gmaps = googlemaps.Client(key=settings.GOOGLE_MAPS_API_KEY)
 
   async def get_distance_from_google(
@@ -56,13 +60,31 @@ class GoogleMapsOperations:
             self.redis_service, GMAPS_API_CALLS_KEY
         )
 
-        func_call = functools.partial(
-            self.gmaps.distance_matrix,  # type: ignore
-            origins=[origin],
-            destinations=[dest_variation],
-            mode="driving",
-        )
-        result = await loop.run_in_executor(None, func_call)
+        # Track latency for this specific API call
+        if self.background_tasks:
+          with LatencyTracker(
+              service_type="gmaps",
+              redis_service=self.redis_service,
+              background_tasks=self.background_tasks,
+              operation_name="distance_matrix",
+              request_id=f"{origin}:{dest_variation}"
+          ):
+            func_call = functools.partial(
+                self.gmaps.distance_matrix,  # type: ignore
+                origins=[origin],
+                destinations=[dest_variation],
+                mode="driving",
+            )
+            result = await loop.run_in_executor(None, func_call)
+        else:
+          func_call = functools.partial(
+              self.gmaps.distance_matrix,  # type: ignore
+              origins=[origin],
+              destinations=[dest_variation],
+              mode="driving",
+          )
+          result = await loop.run_in_executor(None, func_call)
+
         attempted_variations.append(dest_variation)
 
         gmaps_status = result.get("status")

@@ -2,13 +2,14 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone, timedelta
 
-from app.services.redis.redis import RedisService
+from app.services.redis.instrumented import InstrumentedRedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_STREAM,
     LOCATION_LATENCY_STREAM,
     HUBSPOT_LATENCY_STREAM,
     BLAND_LATENCY_STREAM,
     GMAPS_LATENCY_STREAM,
+    REDIS_LATENCY_STREAM,
 )
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class LatencyAnalyzer:
   """Performs advanced latency analysis using Redis Streams."""
 
-  def __init__(self, redis_service: RedisService):
+  def __init__(self, redis_service: InstrumentedRedisService):
     self.redis = redis_service
 
     self.stream_keys = {
@@ -26,6 +27,7 @@ class LatencyAnalyzer:
         "hubspot": HUBSPOT_LATENCY_STREAM,
         "bland": BLAND_LATENCY_STREAM,
         "gmaps": GMAPS_LATENCY_STREAM,
+        "redis": REDIS_LATENCY_STREAM,
     }
 
   async def get_recent_latency_trend(

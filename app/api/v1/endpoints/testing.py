@@ -14,11 +14,8 @@ from app.models.quote import QuoteRequest, QuoteResponse
 
 # Service and dependency imports
 from app.services.location import LocationService
-from app.services.quote import (
-    QuoteService,
-    get_quote_service,
-)  # Import get_quote_service directly
-from app.core.dependencies import get_location_service_dep
+from app.services.quote import QuoteService
+from app.core.dependencies import get_location_service_dep, get_quote_service_dep
 from app.models.common import GenericResponse  # Added import
 
 router = APIRouter()
@@ -125,9 +122,7 @@ async def test_location_service(
 )  # Updated response_model
 async def test_quote_service(
     request_payload: QuoteRequest,
-    quote_service: QuoteService = Depends(
-        get_quote_service
-    ),  # Use get_quote_service directly
+    quote_service: QuoteService = Depends(get_quote_service_dep),
 ):
   """
   Tests the quote service by calling `build_quote`

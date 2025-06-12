@@ -17,6 +17,8 @@ class AllServicesPercentiles(BaseModel):
       None, description="Bland.ai API percentiles")
   gmaps: Optional["ServicePercentiles"] = Field(
       None, description="Google Maps API percentiles")
+  redis: Optional["ServicePercentiles"] = Field(
+      None, description="Redis operations percentiles")
   overall_status: LatencyStatus = Field(
       LatencyStatus.UNKNOWN, description="Overall system latency status")
   total_samples: int = Field(

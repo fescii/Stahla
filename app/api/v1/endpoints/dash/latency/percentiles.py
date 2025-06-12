@@ -41,6 +41,7 @@ async def get_all_services_percentiles(
         hubspot=None,
         bland=None,
         gmaps=None,
+        redis=None,
         overall_status=LatencyStatus.UNKNOWN,
         total_samples=0,
         services_with_data=0

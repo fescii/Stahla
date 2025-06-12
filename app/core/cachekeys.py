@@ -56,6 +56,7 @@ LOCATION_LATENCY_SORTED_SET = f"{LATENCY_PREFIX}location:percentiles"
 HUBSPOT_LATENCY_SORTED_SET = f"{LATENCY_PREFIX}hubspot:percentiles"
 BLAND_LATENCY_SORTED_SET = f"{LATENCY_PREFIX}bland:percentiles"
 GMAPS_LATENCY_SORTED_SET = f"{LATENCY_PREFIX}gmaps:percentiles"
+REDIS_LATENCY_SORTED_SET = f"{LATENCY_PREFIX}redis:percentiles"
 
 # Redis Streams for time-series latency data (detailed logging)
 QUOTE_LATENCY_STREAM = f"{LATENCY_PREFIX}quote:stream"
@@ -63,6 +64,7 @@ LOCATION_LATENCY_STREAM = f"{LATENCY_PREFIX}location:stream"
 HUBSPOT_LATENCY_STREAM = f"{LATENCY_PREFIX}hubspot:stream"
 BLAND_LATENCY_STREAM = f"{LATENCY_PREFIX}bland:stream"
 GMAPS_LATENCY_STREAM = f"{LATENCY_PREFIX}gmaps:stream"
+REDIS_LATENCY_STREAM = f"{LATENCY_PREFIX}redis:stream"
 
 # Recent latency averages (simple counters for moving averages)
 QUOTE_LATENCY_SUM_KEY = f"{LATENCY_PREFIX}quote:sum"
@@ -75,6 +77,8 @@ BLAND_LATENCY_SUM_KEY = f"{LATENCY_PREFIX}bland:sum"
 BLAND_LATENCY_COUNT_KEY = f"{LATENCY_PREFIX}bland:count"
 GMAPS_LATENCY_SUM_KEY = f"{LATENCY_PREFIX}gmaps:sum"
 GMAPS_LATENCY_COUNT_KEY = f"{LATENCY_PREFIX}gmaps:count"
+REDIS_LATENCY_SUM_KEY = f"{LATENCY_PREFIX}redis:sum"
+REDIS_LATENCY_COUNT_KEY = f"{LATENCY_PREFIX}redis:count"
 
 # Latency thresholds for alerting
 LATENCY_THRESHOLD_P95_MS = 500  # Target P95 latency

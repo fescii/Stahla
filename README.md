@@ -269,7 +269,7 @@ This application can be deployed to Fly.io with the provided Docker Compose setu
 
 1. Install the Fly.io CLI (flyctl):
 
-   ```
+   ```bash
    # On macOS
    brew install flyctl
 
@@ -282,7 +282,9 @@ This application can be deployed to Fly.io with the provided Docker Compose setu
 
 2. Sign up and log in to Fly.io:
 
-   ```
+   ```bash
+   # If you don't have an account, sign up
+   # This will open a browser window for authentication
    flyctl auth signup
    # OR
    flyctl auth login
@@ -296,13 +298,13 @@ We've created a deployment script to simplify the process:
 
 1. Make the script executable (if not already):
 
-   ```
-   chmod +x deploy-to-fly.sh
+```bash
+chmod +x deploy-to-fly.sh
    ```
 
 2. Run the deployment script:
 
-   ```
+   ```bash
    ./deploy-to-fly.sh
    ```
 

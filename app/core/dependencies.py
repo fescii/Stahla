@@ -1,13 +1,18 @@
-# filepath: app/core/dependencies.py
-# Add BackgroundTasks
+# app/core/dependencies.py
+
+"""
+Unified dependency injection module for the application.
+All dependencies use InstrumentedRedisService by default for automatic latency monitoring.
+"""
+
 from fastapi import Request, HTTPException, status, Depends, BackgroundTasks
 from typing import Optional
 
-# Import Service Classes and their *actual* injectors
-from app.services.mongo import MongoService, get_mongo_service
+# Import Service Classes and their injectors
+from app.services.mongo.dependency import MongoService, get_mongo_service
 from app.services.auth.auth import AuthService, get_auth_service
-from app.services.redis.redis import RedisService, get_redis_service
-# DashboardService import moved to function to avoid circular dependency
+from app.services.redis.instrumented import InstrumentedRedisService
+from app.services.redis.factory import get_instrumented_redis_service
 from app.services.location import LocationService
 from app.services.bland import (
     bland_manager,
@@ -15,42 +20,96 @@ from app.services.bland import (
 )  # Import the singleton instance and the class
 
 
-# Dependency to get the LocationService instance
-# This service needs its own dependencies injected
-def get_location_service_dep(
-    redis_service: RedisService = Depends(
-        get_redis_service),  # Use direct injector
-    mongo_service: MongoService = Depends(
-        get_mongo_service
-    ),  # Add mongo_service dependency
+# Core Redis Service Dependency (Instrumented by default)
+async def get_redis_service_dep(
+    background_tasks: BackgroundTasks
+) -> InstrumentedRedisService:
+    """
+    Get instrumented Redis service with automatic latency tracking.
+    This is the default Redis service for all application components.
+    """
+    return await get_instrumented_redis_service(background_tasks)
+
+
+# Location Service Dependency
+async def get_location_service_dep(
+    background_tasks: BackgroundTasks,
+    mongo_service: MongoService = Depends(get_mongo_service),
 ) -> LocationService:
-  # Instantiate LocationService with its dependencies
-  # BackgroundTasks will be injected into the specific methods that need it (e.g., API endpoints)
-  return LocationService(redis_service, mongo_service)
+    """
+    Get LocationService with instrumented Redis for automatic latency monitoring.
+    """
+    redis_service = await get_instrumented_redis_service(background_tasks)
+    return LocationService(redis_service, mongo_service)
 
 
-# Dependency to get the DashboardService instance
-# This service needs its own dependencies injected
-def get_dashboard_service_dep(
-    redis_service: RedisService = Depends(
-        get_redis_service),  # Use direct injector
-    mongo_service: MongoService = Depends(
-        get_mongo_service),  # Use direct injector
-    # Removed sync_service from here, it's internal to DashboardService now
+# Dashboard Service Dependency
+async def get_dashboard_service_dep(
+    background_tasks: BackgroundTasks,
+    mongo_service: MongoService = Depends(get_mongo_service),
 ):
-  # Import here to avoid circular dependency
-  from app.services.dash import DashboardService
+    """
+    Get DashboardService with instrumented Redis for automatic latency monitoring.
+    """
+    # Import here to avoid circular dependency
+    from app.services.dash import DashboardService
+    
+    redis_service = await get_instrumented_redis_service(background_tasks)
+    return DashboardService(redis_service=redis_service, mongo_service=mongo_service)
 
-  # Instantiate DashboardService with its dependencies
-  # sync_service will be initialized within DashboardService if needed
-  return DashboardService(redis_service=redis_service, mongo_service=mongo_service)
+
+# Quote Service Dependency
+async def get_quote_service_dep(
+    background_tasks: BackgroundTasks,
+    mongo_service: MongoService = Depends(get_mongo_service),
+):
+    """
+    Get QuoteService with instrumented Redis for automatic latency monitoring.
+    """
+    from app.services.quote import QuoteService
+    
+    redis_service = await get_instrumented_redis_service(background_tasks)
+    location_service = LocationService(redis_service, mongo_service)
+    
+    return QuoteService(
+        redis_service=redis_service,
+        location_service=location_service,
+        mongo_service=mongo_service,
+    )
 
 
-# Dependency to get the BlandAIManager instance (the singleton)
+# BlandAI Manager Dependency (Singleton)
 def get_bland_manager_dep() -> BlandAIManager:
-  return bland_manager
+    """
+    Get the BlandAI manager singleton instance.
+    """
+    return bland_manager
 
 
-# Dependency to get the QuoteService instance
-# This injector is defined in quote.py itself to avoid circular imports
-# from app.services.quote.quote import get_quote_service # Example if it were here
+# Auth Service Dependency
+def get_auth_service_dep(
+    mongo_service: MongoService = Depends(get_mongo_service)
+) -> AuthService:
+    """
+    Get AuthService instance.
+    """
+    return AuthService(mongo_service)
+
+
+# Mongo Service Dependency (Re-export for convenience)
+async def get_mongo_service_dep() -> MongoService:
+    """
+    Get MongoService instance.
+    """
+    return await get_mongo_service()
+
+
+__all__ = [
+    "get_redis_service_dep",
+    "get_location_service_dep", 
+    "get_dashboard_service_dep",
+    "get_quote_service_dep",
+    "get_bland_manager_dep",
+    "get_auth_service_dep",
+    "get_mongo_service_dep",
+]

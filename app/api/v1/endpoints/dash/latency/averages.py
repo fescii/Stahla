@@ -30,6 +30,7 @@ async def get_all_services_averages(
   - HubSpot API
   - Bland.ai API
   - Google Maps API
+  - Redis operations
 
   Also includes overall system average and summary statistics.
   """
@@ -44,6 +45,7 @@ async def get_all_services_averages(
         hubspot=None,
         bland=None,
         gmaps=None,
+        redis=None,
         overall_average_ms=None,
         overall_status=LatencyStatus.UNKNOWN,
         total_samples=0,

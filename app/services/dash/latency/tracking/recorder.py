@@ -3,18 +3,20 @@ import time
 from typing import Dict, Any, Optional, cast
 from datetime import datetime, timezone
 
-from app.services.redis.redis import RedisService
+from app.services.redis.instrumented import InstrumentedRedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_SORTED_SET,
     LOCATION_LATENCY_SORTED_SET,
     HUBSPOT_LATENCY_SORTED_SET,
     BLAND_LATENCY_SORTED_SET,
     GMAPS_LATENCY_SORTED_SET,
+    REDIS_LATENCY_SORTED_SET,
     QUOTE_LATENCY_STREAM,
     LOCATION_LATENCY_STREAM,
     HUBSPOT_LATENCY_STREAM,
     BLAND_LATENCY_STREAM,
     GMAPS_LATENCY_STREAM,
+    REDIS_LATENCY_STREAM,
     QUOTE_LATENCY_SUM_KEY,
     QUOTE_LATENCY_COUNT_KEY,
     LOCATION_LATENCY_SUM_KEY,
@@ -25,6 +27,8 @@ from app.core.cachekeys import (
     BLAND_LATENCY_COUNT_KEY,
     GMAPS_LATENCY_SUM_KEY,
     GMAPS_LATENCY_COUNT_KEY,
+    REDIS_LATENCY_SUM_KEY,
+    REDIS_LATENCY_COUNT_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +37,7 @@ logger = logging.getLogger(__name__)
 class LatencyRecorder:
   """Records latency data to Redis using Sorted Sets and Streams."""
 
-  def __init__(self, redis_service: RedisService):
+  def __init__(self, redis_service: InstrumentedRedisService):
     self.redis = redis_service
 
     # Mapping of service types to their corresponding Redis keys
@@ -43,6 +47,7 @@ class LatencyRecorder:
         "hubspot": HUBSPOT_LATENCY_SORTED_SET,
         "bland": BLAND_LATENCY_SORTED_SET,
         "gmaps": GMAPS_LATENCY_SORTED_SET,
+        "redis": REDIS_LATENCY_SORTED_SET,
     }
 
     self.stream_keys = {
@@ -51,6 +56,7 @@ class LatencyRecorder:
         "hubspot": HUBSPOT_LATENCY_STREAM,
         "bland": BLAND_LATENCY_STREAM,
         "gmaps": GMAPS_LATENCY_STREAM,
+        "redis": REDIS_LATENCY_STREAM,
     }
 
     self.sum_keys = {
@@ -59,6 +65,7 @@ class LatencyRecorder:
         "hubspot": HUBSPOT_LATENCY_SUM_KEY,
         "bland": BLAND_LATENCY_SUM_KEY,
         "gmaps": GMAPS_LATENCY_SUM_KEY,
+        "redis": REDIS_LATENCY_SUM_KEY,
     }
 
     self.count_keys = {
@@ -67,6 +74,7 @@ class LatencyRecorder:
         "hubspot": HUBSPOT_LATENCY_COUNT_KEY,
         "bland": BLAND_LATENCY_COUNT_KEY,
         "gmaps": GMAPS_LATENCY_COUNT_KEY,
+        "redis": REDIS_LATENCY_COUNT_KEY,
     }
 
   async def record_latency(

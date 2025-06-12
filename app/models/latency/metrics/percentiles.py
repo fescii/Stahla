@@ -11,6 +11,7 @@ class ServiceType(str, Enum):
   HUBSPOT = "hubspot"
   BLAND = "bland"
   GMAPS = "gmaps"
+  REDIS = "redis"
 
 
 class LatencyStatus(str, Enum):

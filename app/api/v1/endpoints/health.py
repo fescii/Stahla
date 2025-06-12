@@ -17,11 +17,11 @@ from app.services.hubspot import hubspot_manager
 # from app.services.mongo import mongo_service_instance # Removed direct import
 from app.core.config import settings
 from app.models.common import HealthCheckResponse, GenericResponse  # Updated import
-# Added get_redis_service
-from app.core.dependencies import get_bland_manager_dep, get_mongo_service, get_redis_service
-from app.services.bland import BlandAIManager  # Added import for type hinting
-from app.services.mongo import MongoService  # Added import for type hinting
-from app.services.redis.redis import RedisService  # Added import for type hinting
+# Import unified dependencies
+from app.core.dependencies import get_mongo_service_dep, get_redis_service_dep
+from app.services.bland import bland_manager, BlandAIManager
+from app.services.mongo.dependency import MongoService
+from app.services.redis.instrumented import InstrumentedRedisService
 # Added import for Redis specific errors
 from redis.exceptions import RedisError
 
@@ -107,7 +107,7 @@ async def _perform_mongo_check(mongo_db_service: MongoService) -> Tuple[str, Dic
     return check_name, {"status": "error", "message": str(e)}
 
 
-async def _perform_redis_check(redis_service: RedisService) -> Tuple[str, Dict[str, Any]]:
+async def _perform_redis_check(redis_service: InstrumentedRedisService) -> Tuple[str, Dict[str, Any]]:
   check_name = "redis_connection"
   redis_client = None
   try:
@@ -137,12 +137,10 @@ async def _perform_redis_check(redis_service: RedisService) -> Tuple[str, Dict[s
 # Updated response_model
 @router.get("", response_model=GenericResponse[HealthCheckResponse], summary="Perform Health Check", tags=["Health"])
 async def health_check(
-    bland_ai_manager: BlandAIManager = Depends(
-        get_bland_manager_dep),  # Added dependency
     mongo_db_service: MongoService = Depends(
-        get_mongo_service),  # Added dependency
-    redis_service: RedisService = Depends(
-        get_redis_service)  # Added dependency
+        get_mongo_service_dep),  # Added dependency
+    redis_service: InstrumentedRedisService = Depends(
+        get_redis_service_dep)  # Use unified dependency
 ):
   """Checks the health of the application and its dependencies.
   Includes basic system resource usage.
@@ -173,7 +171,7 @@ async def health_check(
   # Define tasks for concurrent execution
   service_check_tasks = [
       _perform_hubspot_check(),
-      _perform_blandai_check(bland_ai_manager),
+      _perform_blandai_check(bland_manager),
       _perform_mongo_check(mongo_db_service),
       _perform_redis_check(redis_service),
   ]

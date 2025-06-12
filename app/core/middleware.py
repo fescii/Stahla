@@ -11,7 +11,7 @@ import logfire
 
 # Import background task functions and Redis service dependency
 from app.services.redis.redis import get_redis_service
-from app.services.dash.background import log_request_response_bg
+from app.services.background.request import log_request_response_bg
 
 # Import GenericResponse for error formatting
 from app.models.common import GenericResponse
@@ -137,11 +137,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         response_body = response.body
         try:
           response_payload_dict = json.loads(
-              response_body.decode('utf-8'))  # type: ignore
+              bytes(response_body).decode('utf-8'))  # type: ignore
         except json.JSONDecodeError:
           # type: ignore
           logger.warning(
-              f"Could not parse JSONResponse body for logging: {response_body.decode('utf-8', errors='replace')}")
+              f"Could not parse JSONResponse body for logging: {bytes(response_body).decode('utf-8', errors='replace')}")
           response_payload_dict = {"detail": "<Malformed JSONResponse body>"}
       elif hasattr(response, 'body'):  # For other Response types that might have a .body attribute
         response_body = getattr(response, 'body', b'')
