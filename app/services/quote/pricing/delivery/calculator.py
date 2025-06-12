@@ -30,9 +30,45 @@ class DeliveryCalculator:
     Calculates the delivery cost based on distance and delivery tiers,
     applying seasonal multipliers. Returns a dictionary with detailed cost breakdown.
     """
-    # Try multiple potential keys for delivery configuration
-    delivery_config = catalog.get(
-        "delivery") or catalog.get("delivery_costs") or {}
+    # Try multiple possible locations for delivery configuration
+    delivery_config = None
+
+    # Check all possible locations where delivery config might be stored
+    possible_keys = ["delivery", "delivery_costs",
+                     "config.delivery_costs", "config.delivery"]
+    catalog_keys_checked = []
+
+    for key in possible_keys:
+      if "." in key:
+        # Handle nested keys
+        parts = key.split(".")
+        subcatalog = catalog
+        for part in parts:
+          if isinstance(subcatalog, dict) and part in subcatalog:
+            subcatalog = subcatalog[part]
+          else:
+            subcatalog = None
+            break
+        if subcatalog:
+          delivery_config = subcatalog
+          logger.info(f"Found delivery configuration at nested key: {key}")
+          break
+      else:
+        # Direct key lookup
+        if key in catalog:
+          delivery_config = catalog[key]
+          logger.info(f"Found delivery configuration at key: {key}")
+          break
+
+      catalog_keys_checked.append(key)
+
+    if not delivery_config and "config" in catalog and isinstance(catalog["config"], dict):
+      # Try to extract delivery config from config dictionary
+      for key in ["delivery_costs", "delivery"]:
+        if key in catalog["config"]:
+          delivery_config = catalog["config"][key]
+          logger.info(f"Found delivery configuration in config.{key}")
+          break
 
     if not delivery_config:
       logger.warning("Delivery pricing configuration not found in catalog.")
@@ -40,17 +76,43 @@ class DeliveryCalculator:
           service_name="DeliveryCalculator.calculate_delivery_cost",
           error_type="ConfigurationMissing",
           message="Delivery pricing configuration not found in catalog.",
-          details={"catalog_keys": list(catalog.keys())},
+          details={
+              "catalog_keys": list(catalog.keys()),
+              "keys_checked": catalog_keys_checked,
+              "catalog_structure": {k: type(v).__name__ for k, v in catalog.items()}
+          },
       )
-      # Use default values instead of returning early
-      delivery_config = {
-          "free_miles_threshold": 25,
-          "base_fee": 80.0,
-          "per_mile_rates": {
-              "denver": 3.99,
-              "omaha_kansas_city": 2.99
-          }
-      }
+
+      # Fetch delivery config directly from MongoDB as last resort
+      try:
+        from app.services.quote.utils.helpers import SHEET_CONFIG_COLLECTION
+        config_docs = await self.manager.mongo_service.find_all(SHEET_CONFIG_COLLECTION)
+
+        for doc in config_docs:
+          if "delivery_costs" in doc:
+            delivery_config = doc["delivery_costs"]
+            logger.info(
+                f"Successfully retrieved delivery config directly from MongoDB")
+            break
+          elif "delivery" in doc:
+            delivery_config = doc["delivery"]
+            logger.info(
+                f"Successfully retrieved delivery config directly from MongoDB")
+            break
+      except Exception as e:
+        logger.error(f"Failed to fetch delivery config from MongoDB: {str(e)}")
+
+      # If still not found, use minimal default values
+      if not delivery_config:
+        logger.warning("Using default delivery configuration as last resort")
+        delivery_config = {
+            "free_miles_threshold": 25,
+            "base_fee": 80.0,
+            "per_mile_rates": {
+                "denver": 3.99,
+                "omaha_kansas_city": 2.99
+            }
+        }
 
     distance_miles = distance_result.distance_miles
     original_free_tier_miles = delivery_config.get("free_miles_threshold", 25)
@@ -100,22 +162,35 @@ class DeliveryCalculator:
           f"+ Base ${applied_base_fee:.2f}) with multiplier {seasonal_multiplier_for_calc:.2f}: ${cost:.2f}"
       )
 
+    # Safety checks to ensure we never return None values
+    if cost is None:
+      cost = 0.0
+    if original_per_mile_rate is None:
+      original_per_mile_rate = 0.0
+    if original_base_fee is None:
+      original_base_fee = 0.0
+    if seasonal_multiplier_for_calc is None:
+      seasonal_multiplier_for_calc = 1.0
+    if applied_per_mile_rate is None:
+      applied_per_mile_rate = 0.0
+    if applied_base_fee is None:
+      applied_base_fee = 0.0
+
     result = {
-        # Use 0.0 instead of None
-        "cost": round(cost, 2) if cost is not None else 0.0,
-        "tier_description": tier_description,
-        "miles": round(distance_miles, 2),
+        "cost": round(cost, 2),
+        # Include both cost and delivery_cost keys for compatibility
+        "delivery_cost": round(cost, 2),
+        "tier_description": tier_description if tier_description else "Standard delivery rate",
+        "miles": round(distance_miles, 2) if isinstance(distance_miles, (int, float)) else 0.0,
         "original_per_mile_rate": original_per_mile_rate,
         "original_base_fee": original_base_fee,
         "seasonal_multiplier_applied": (
-            # Use 1.0 instead of None
-            seasonal_multiplier_for_calc if cost is not None and cost > 0 else 1.0
+            seasonal_multiplier_for_calc if cost > 0 else 1.0
         ),
         "per_mile_rate_applied": (
-            round(applied_per_mile_rate,
-                  2) if cost is not None and cost > 0 else 0.0
+            round(applied_per_mile_rate, 2) if cost > 0 else 0.0
         ),
-        "base_fee_applied": round(applied_base_fee, 2) if cost is not None and cost > 0 else 0.0,
+        "base_fee_applied": round(applied_base_fee, 2) if cost > 0 else 0.0,
     }
 
     # Add estimation flag if distance was estimated

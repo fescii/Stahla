@@ -48,6 +48,10 @@ from ..utils.constants import (
     KNOWN_PRODUCT_EXTRAS_HEADERS,
 )
 
+# Imports for catalog sync - placed at top to avoid circular imports
+from ..pricing.catalog.retriever import CatalogRetriever
+from ..manager import QuoteService
+
 logger = logging.getLogger(__name__)
 
 
@@ -259,6 +263,42 @@ class SheetSyncService:
         if background_tasks and self.redis_service:
           background_tasks.add_task(
               log_error_bg, self.redis_service, "sync_pricing", str(e)
+          )
+
+      # Sync catalog to Redis after successful MongoDB updates
+      # This ensures Redis is always in sync with MongoDB
+      try:
+        if any(r["success"] for r in [results["branches"], results["states"], results["pricing"]]):
+          logfire.info(
+              "Triggering catalog sync to Redis after successful sheet sync")
+
+          # Ensure we have the required services
+          if not self.redis_service or not self.mongo_service:
+            logfire.warning("Cannot sync catalog: missing required services")
+            results["catalog_sync"] = {
+                "success": False, "error": "Missing required services"}
+          else:
+            # Build and sync catalog directly
+            sync_success = await self._sync_catalog_to_redis()
+
+            if sync_success:
+              logfire.info(
+                  "Successfully synced catalog to Redis after sheet update")
+              results["catalog_sync"] = {
+                  "success": True, "message": "Catalog synced to Redis"}
+            else:
+              logfire.warning(
+                  "Failed to sync catalog to Redis after sheet update")
+              results["catalog_sync"] = {
+                  "success": False, "message": "Catalog sync to Redis failed"}
+      except Exception as e:
+        error_msg = f"Error syncing catalog to Redis after sheet update: {e}"
+        logfire.error(error_msg)
+        results["catalog_sync"] = {"success": False, "error": error_msg}
+        if background_tasks and self.redis_service:
+          background_tasks.add_task(
+              log_error_bg, self.redis_service, "catalog_sync_after_sheet_update", str(
+                  e)
           )
 
       # Calculate total duration
@@ -543,6 +583,93 @@ class SheetSyncService:
   async def refresh_catalog(self, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
     """Force refresh of the entire catalog."""
     return await self.sync_full_catalog(background_tasks=background_tasks, force_refresh=True)
+
+  async def _sync_catalog_to_redis(self) -> bool:
+    """
+    Sync catalog from MongoDB to Redis.
+    Returns True if successful, False otherwise.
+    """
+    try:
+      if not self.redis_service or not self.mongo_service:
+        logfire.error("Cannot sync catalog: missing Redis or MongoDB service")
+        return False
+
+      # Build catalog from MongoDB
+      catalog = await self._build_catalog_from_mongo()
+      if not catalog:
+        logfire.error("Failed to build catalog from MongoDB")
+        return False
+
+      # Store in Redis
+      await self.redis_service.set_json(PRICING_CATALOG_CACHE_KEY, catalog)
+      logfire.info("Successfully synced catalog from MongoDB to Redis")
+      return True
+
+    except Exception as e:
+      logfire.error(f"Error syncing catalog to Redis: {e}")
+      return False
+
+  async def _build_catalog_from_mongo(self) -> Optional[Dict[str, Any]]:
+    """
+    Build catalog from MongoDB collections.
+    Returns the catalog dict or None if failed.
+    """
+    try:
+      if not self.mongo_service:
+        logfire.error("Cannot build catalog: MongoDB service not available")
+        return None
+
+      from app.services.mongo.collections.names import (
+          SHEET_PRODUCTS_COLLECTION,
+          SHEET_GENERATORS_COLLECTION,
+          SHEET_CONFIG_COLLECTION,
+      )
+
+      db = await self.mongo_service.get_db()
+
+      # Get products, generators, and config
+      products = await db[SHEET_PRODUCTS_COLLECTION].find({}).to_list(length=None)
+      generators = await db[SHEET_GENERATORS_COLLECTION].find({}).to_list(length=None)
+      config_docs = await db[SHEET_CONFIG_COLLECTION].find({}).to_list(length=None)
+
+      # Convert lists to dictionaries keyed by id
+      products_dict = {
+          product.get("id", f"unknown_{i}"): product
+          for i, product in enumerate(products)
+      }
+
+      generators_dict = {
+          generator.get("id", f"unknown_{i}"): generator
+          for i, generator in enumerate(generators)
+      }
+
+      # Extract configuration
+      delivery_config = {}
+      seasonal_config = {"standard": 1.0, "tiers": []}
+
+      for config_doc in config_docs:
+        if config_doc.get("_id") == "master_config" or config_doc.get("config_type") == "quote_config":
+          delivery_config = config_doc.get("delivery_config", {})
+          seasonal_config = config_doc.get(
+              "seasonal_multipliers_config", seasonal_config)
+          break
+
+      # Build the catalog structure
+      catalog = {
+          "products": products_dict,
+          "generators": generators_dict,
+          "delivery": delivery_config,
+          "seasonal_multipliers": seasonal_config,
+      }
+
+      logfire.info(
+          f"Built catalog from MongoDB. Products: {len(products_dict)}, Generators: {len(generators_dict)}"
+      )
+      return catalog
+
+    except Exception as e:
+      logfire.error(f"Error building catalog from MongoDB: {e}")
+      return None
 
 
 # Global service instance management

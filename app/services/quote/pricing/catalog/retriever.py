@@ -148,8 +148,16 @@ class CatalogRetriever:
         catalog["config"].update(config_item)
 
       # Extract delivery costs and seasonal info from config
+      # Store delivery configuration in multiple places to ensure compatibility
       if "delivery_costs" in catalog["config"]:
         catalog["delivery_costs"] = catalog["config"]["delivery_costs"]
+        # Add duplicate key for compatibility
+        catalog["delivery"] = catalog["config"]["delivery_costs"]
+      elif "delivery" in catalog["config"]:
+        catalog["delivery"] = catalog["config"]["delivery"]
+        # Add duplicate key for compatibility
+        catalog["delivery_costs"] = catalog["config"]["delivery"]
+
       if "seasonal_multipliers" in catalog["config"]:
         catalog["seasonal_multipliers"] = catalog["config"]["seasonal_multipliers"]
 
@@ -175,3 +183,48 @@ class CatalogRetriever:
     # Fallback to direct MongoDB config fetch
     config = await self.get_config_from_mongo()
     return config or {}
+
+  async def sync_catalog_to_redis(self) -> bool:
+    """
+    Synchronize the catalog from MongoDB to Redis cache.
+    This can be called periodically or when catalog data is updated.
+
+    Returns:
+        bool: True if sync succeeded, False otherwise
+    """
+    try:
+      # Build catalog from MongoDB
+      catalog = await self.build_catalog_from_mongo()
+
+      if not catalog:
+        logger.error("Failed to build catalog from MongoDB for sync")
+        return False
+
+      # Store in Redis
+      from app.core.cachekeys import PRICING_CATALOG_CACHE_KEY
+
+      await self.manager.redis_service.set_json(
+          PRICING_CATALOG_CACHE_KEY,
+          catalog,
+          expiration=86400 * 7  # 7 days expiration
+      )
+
+      logger.info(
+          f"Successfully synchronized catalog from MongoDB to Redis cache")
+      # Record sync timestamp
+      await self.manager.redis_service.set_value(
+          "catalog_last_sync",
+          f"{__import__('datetime').datetime.now().isoformat()}"
+      )
+
+      return True
+
+    except Exception as e:
+      logger.error(f"Error synchronizing catalog from MongoDB to Redis: {e}")
+      await self.manager.mongo_service.log_error_to_db(
+          service_name="CatalogRetriever.sync_catalog_to_redis",
+          error_type="SyncError",
+          message=f"Failed to sync catalog from MongoDB to Redis: {str(e)}",
+          details={"error": str(e)},
+      )
+      return False

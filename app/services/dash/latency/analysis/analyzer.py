@@ -30,6 +30,15 @@ class LatencyAnalyzer:
         "redis": REDIS_LATENCY_STREAM,
     }
 
+  def _safe_decode(self, value: Any, default: str = 'unknown') -> str:
+    """Safely decode bytes to string, handle both bytes and string inputs."""
+    if isinstance(value, bytes):
+      return value.decode('utf-8', errors='ignore')
+    elif value is not None:
+      return str(value)
+    else:
+      return default
+
   async def get_recent_latency_trend(
       self,
       service_type: str,
@@ -85,11 +94,12 @@ class LatencyAnalyzer:
             latencies.append(latency_ms)
 
             # Parse timestamp from stream ID or field
-            timestamp_ms = int(stream_id.decode().split('-')[0])
+            stream_id_str = self._safe_decode(stream_id)
+            timestamp_ms = int(stream_id_str.split('-')[0])
             timestamps.append(timestamp_ms)
 
             # Track endpoint distribution
-            endpoint = fields.get(b'endpoint', b'unknown').decode()
+            endpoint = self._safe_decode(fields.get(b'endpoint', b'unknown'))
             endpoints[endpoint] = endpoints.get(endpoint, 0) + 1
 
           except (ValueError, KeyError) as e:
@@ -202,18 +212,18 @@ class LatencyAnalyzer:
             latencies.append(latency_ms)
 
             entry = {
-                "stream_id": stream_id.decode(),
+                "stream_id": self._safe_decode(stream_id),
                 "latency_ms": latency_ms,
-                "request_id": fields.get(b'request_id', b'unknown').decode(),
-                "endpoint": fields.get(b'endpoint', b'unknown').decode(),
-                "timestamp": fields.get(b'timestamp', b'unknown').decode(),
+                "request_id": self._safe_decode(fields.get(b'request_id', b'unknown')),
+                "endpoint": self._safe_decode(fields.get(b'endpoint', b'unknown')),
+                "timestamp": self._safe_decode(fields.get(b'timestamp', b'unknown')),
             }
 
             # Add context fields
             for field_name, field_value in fields.items():
-              field_name_str = field_name.decode()
+              field_name_str = self._safe_decode(field_name)
               if field_name_str.startswith('ctx_'):
-                entry[field_name_str] = field_value.decode()
+                entry[field_name_str] = self._safe_decode(field_value)
 
             entries.append(entry)
 
@@ -292,7 +302,7 @@ class LatencyAnalyzer:
         for stream_id, fields in stream_data:
           try:
             latency_ms = float(fields.get(b'latency_ms', 0))
-            endpoint = fields.get(b'endpoint', b'unknown').decode()
+            endpoint = self._safe_decode(fields.get(b'endpoint', b'unknown'))
 
             if endpoint not in endpoint_data:
               endpoint_data[endpoint] = []
