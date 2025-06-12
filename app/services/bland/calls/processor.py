@@ -4,7 +4,7 @@ import logfire
 from datetime import datetime, timezone
 from app.models.bland import BlandWebhookPayload, BlandProcessingResult
 from app.models.blandlog import BlandCallStatus
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 from ..processing import extract_data_from_transcript
 
 

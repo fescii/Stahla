@@ -3,7 +3,7 @@
 
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.services.quote.logging.error.reporter import ErrorReporter
 

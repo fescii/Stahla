@@ -2,7 +2,7 @@
 
 import logfire
 from typing import Optional, Tuple
-from datetime import datetime, date
+from datetime import datetime, timezone, date
 
 # Import models
 from app.models.classification import (

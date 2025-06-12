@@ -1,7 +1,7 @@
 # app/api/v1/endpoints/hubspot.py
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path as PathlibPath
 from fastapi import APIRouter, Body, HTTPException, Path as FastAPIPath
 from typing import List, Optional, Literal, Dict, Any

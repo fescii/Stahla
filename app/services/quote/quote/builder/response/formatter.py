@@ -6,7 +6,7 @@ Response formatting builder component.
 
 import logging
 from typing import Any, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 
 import logfire
 from app.models.quote import QuoteResponse, QuoteBody, LineItem, QuoteMetadata
@@ -94,7 +94,7 @@ class ResponseFormatter:
 
       # Create metadata
       metadata = QuoteMetadata(
-          generated_at=datetime.utcnow(),
+          generated_at=datetime.now(timezone.utc),
           valid_until=None,
           version="1.0",
           source_system="Stahla Pricing API",
@@ -107,7 +107,7 @@ class ResponseFormatter:
       # Create final response
       response = QuoteResponse(
           request_id=quote_request.request_id,
-          quote_id=f"QT-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+          quote_id=f"QT-{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
           quote=quote_body,
           location_details=None,
           metadata=metadata
@@ -121,7 +121,7 @@ class ResponseFormatter:
       logfire.error(f"Error formatting quote response: {e}")
       # Return a basic error response
       error_metadata = QuoteMetadata(
-          generated_at=datetime.utcnow(),
+          generated_at=datetime.now(timezone.utc),
           valid_until=None,
           version="1.0",
           source_system="Stahla Pricing API",
@@ -144,7 +144,7 @@ class ResponseFormatter:
 
       return QuoteResponse(
           request_id=getattr(quote_request, 'request_id', 'unknown'),
-          quote_id=f"ERROR-{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+          quote_id=f"ERROR-{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
           quote=error_quote_body,
           location_details=None,
           metadata=error_metadata

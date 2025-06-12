@@ -14,7 +14,7 @@ from app.models.common import GenericResponse
 from app.services.bland import bland_manager
 from app.services.classify.classification import classification_manager
 from app.services.hubspot import hubspot_manager
-from app.services.mongo.mongo import MongoService, get_mongo_service  # Added import
+from app.services.mongo import MongoService, get_mongo_service  # Added import
 
 # Import helpers
 from .helpers import (

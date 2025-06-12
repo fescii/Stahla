@@ -169,7 +169,7 @@ def test_utility_functions():
     print("✓ format_contact_for_hubspot works")
 
     # Test date conversion
-    from datetime import datetime
+    from datetime import datetime, timezone
     test_date = datetime.now()
     timestamp = convert_date_to_timestamp_ms(test_date)
     assert isinstance(

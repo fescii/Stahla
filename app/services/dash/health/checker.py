@@ -2,13 +2,13 @@ import asyncio
 import logging
 import time
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import httpx
 from redis.exceptions import RedisError
 
 from app.services.bland import BlandAIManager
 from app.services.hubspot.manager import HubSpotManager
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 from app.services.redis.redis import RedisService
 from app.services.quote.sync import SheetSyncService
 

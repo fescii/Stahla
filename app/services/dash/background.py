@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logfire  # Import logfire
 
@@ -8,9 +8,9 @@ from app.models.dash.dashboard import RequestLogEntry
 from app.services import mongo
 from app.services.redis.redis import RedisService
 # Import the singleton instance and alias it
-from app.services.mongo.mongo import get_mongo_service
+from app.services.mongo import get_mongo_service
 from fastapi import Depends
-from app.services.mongo.mongo import get_mongo_service, MongoService
+from app.services.mongo import get_mongo_service, MongoService
 
 # Import centralized cache keys
 from app.core.cachekeys import (

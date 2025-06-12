@@ -2,12 +2,13 @@ import logging
 import json  # For previewing JSON values
 from typing import Any, Dict, Optional, List
 from collections import Counter  # For error aggregation
-from datetime import datetime  # For timestamping external service checks
+# For timestamping external service checks
+from datetime import datetime, timezone
 
 from fastapi import Depends
 
 from app.services.redis.redis import RedisService
-from app.services.mongo.mongo import (
+from app.services.mongo import (
     MongoService,
     get_mongo_service,
     SHEET_PRODUCTS_COLLECTION,

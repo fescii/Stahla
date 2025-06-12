@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator  # Add validator
 from typing import List, Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- Request Models ---
 

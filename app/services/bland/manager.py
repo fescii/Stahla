@@ -3,7 +3,7 @@
 from typing import Optional
 from fastapi import Depends, BackgroundTasks
 from app.core.config import settings
-from app.services.mongo.mongo import MongoService, get_mongo_service
+from app.services.mongo import MongoService, get_mongo_service
 from app.models.bland import BlandCallbackRequest, BlandApiResult, BlandWebhookPayload, BlandProcessingResult
 
 from .config import load_pathway_definition, load_location_tool_definition, load_quote_tool_definition

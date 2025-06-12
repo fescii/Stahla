@@ -4,7 +4,7 @@ from fastapi import Request, HTTPException, status, Depends, BackgroundTasks
 from typing import Optional
 
 # Import Service Classes and their *actual* injectors
-from app.services.mongo.mongo import MongoService, get_mongo_service
+from app.services.mongo import MongoService, get_mongo_service
 from app.services.auth.auth import AuthService, get_auth_service
 from app.services.redis.redis import RedisService, get_redis_service
 # DashboardService import moved to function to avoid circular dependency

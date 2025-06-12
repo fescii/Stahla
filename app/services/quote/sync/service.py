@@ -9,14 +9,14 @@ import logging
 import re
 import json
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 import logfire
 from fastapi import BackgroundTasks
 
 from app.core.config import settings
 from app.services.redis.redis import RedisService, get_redis_service
-from app.services.mongo.mongo import (
+from app.services.mongo import (
     MongoService,
     get_mongo_service,
     SHEET_PRODUCTS_COLLECTION,
@@ -193,7 +193,7 @@ class SheetSyncService:
     Returns:
         Dictionary with sync results and statistics
     """
-    sync_start_time = datetime.utcnow()
+    sync_start_time = datetime.now(timezone.utc)
     results = {
         "sync_start": sync_start_time.isoformat(),
         "branches": {"success": False, "count": 0, "error": None},
@@ -261,7 +261,7 @@ class SheetSyncService:
           )
 
       # Calculate total duration
-      sync_end_time = datetime.utcnow()
+      sync_end_time = datetime.now(timezone.utc)
       total_duration = (sync_end_time - sync_start_time).total_seconds()
       results["total_duration_seconds"] = total_duration
       results["sync_end"] = sync_end_time.isoformat()

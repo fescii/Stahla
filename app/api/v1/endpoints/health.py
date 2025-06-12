@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends  # Updated import
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import platform
 import psutil
@@ -14,13 +14,13 @@ import asyncio  # Added asyncio
 # Import service clients
 # from app.services.bland import bland_manager # Removed direct import
 from app.services.hubspot import hubspot_manager
-# from app.services.mongo.mongo import mongo_service_instance # Removed direct import
+# from app.services.mongo import mongo_service_instance # Removed direct import
 from app.core.config import settings
 from app.models.common import HealthCheckResponse, GenericResponse  # Updated import
 # Added get_redis_service
 from app.core.dependencies import get_bland_manager_dep, get_mongo_service, get_redis_service
 from app.services.bland import BlandAIManager  # Added import for type hinting
-from app.services.mongo.mongo import MongoService  # Added import for type hinting
+from app.services.mongo import MongoService  # Added import for type hinting
 from app.services.redis.redis import RedisService  # Added import for type hinting
 # Added import for Redis specific errors
 from redis.exceptions import RedisError

@@ -1,5 +1,5 @@
 # filepath: app/services/auth/auth.py
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta, timezone
 from typing import Optional
 # Import bcrypt functions directly as a workaround for potential import issues
 from bcrypt import checkpw, gensalt, hashpw
@@ -11,7 +11,7 @@ from fastapi import Depends
 # Ensure UserCreate is imported
 from app.models.user import User, UserCreate, UserInDB
 # Import get_mongo_service
-from app.services.mongo.mongo import MongoService, get_mongo_service
+from app.services.mongo import MongoService, get_mongo_service
 
 from app.core.config import settings
 

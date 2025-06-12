@@ -4,11 +4,11 @@ import logfire
 # Import QuoteLineItem
 from app.models.pricing import PricingInput, PriceQuote, QuoteLineItem
 # from app.services.pricing.optimizer import generate_optimized_quote
-from datetime import datetime  # Import datetime
+from datetime import datetime, timezone  # Import datetime
 import uuid  # Import uuid
 # Add authentication dependency if needed:
 # from app.api.dependencies import get_current_user
-from app.services.mongo.mongo import MongoService  # Import MongoService
+from app.services.mongo import MongoService  # Import MongoService
 from app.core.dependencies import get_mongo_service  # Import get_mongo_service
 from app.services.redis.redis import RedisService, get_redis_service  # Added
 from app.services.dash.background import (  # Added

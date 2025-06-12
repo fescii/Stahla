@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from typing import Optional, Dict, Any, List, Literal, Union
-from datetime import datetime  # Added datetime import
+from datetime import datetime, timezone  # Added datetime import
 from enum import Enum
 
 

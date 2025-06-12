@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from typing import List, Optional
 from pymongo import ASCENDING, DESCENDING  # For sort_order mapping
 
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 from app.services.bland import BlandAIManager, BlandApiResult
 from app.core.dependencies import get_bland_manager_dep
-from app.services.mongo.mongo import get_mongo_service
+from app.services.mongo import get_mongo_service
 from app.core.security import get_current_user
 from app.models.user import User
 from app.models.bland import BlandCallbackRequest  # Models from bland.py

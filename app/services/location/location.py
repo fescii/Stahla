@@ -17,7 +17,7 @@ from app.services.redis.redis import (
     RedisService,
     get_redis_service,
 )  # Added get_redis_service for dependency
-from app.services.mongo.mongo import (
+from app.services.mongo import (
     MongoService,
     get_mongo_service,
     SHEET_STATES_COLLECTION,

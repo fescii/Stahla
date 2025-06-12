@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from fastapi import BackgroundTasks
 from app.models.bland import BlandApiResult, BlandCallbackRequest
 from app.models.blandlog import BlandCallStatus
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 from ..api import BlandApiClient
 
 

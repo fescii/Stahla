@@ -6,7 +6,7 @@ Pricing data parser.
 
 import logging
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 import logfire
 
@@ -37,7 +37,7 @@ class PricingParser:
         "products": self._parse_products(products_data),
         "generators": self._parse_generators(generators_data),
         "delivery": self._parse_delivery(delivery_data),
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(timezone.utc).isoformat()
     }
 
     logfire.info("Successfully parsed pricing data")
@@ -272,7 +272,7 @@ class PricingParser:
     pricing_catalog: Dict[str, Any] = {
         "products": {},
         "generators": {},
-        "last_updated": datetime.utcnow().isoformat(),
+        "last_updated": datetime.now(timezone.utc).isoformat(),
     }
 
     # Parse Products

@@ -5,7 +5,7 @@ import logfire
 from typing import Dict, Any, Optional
 from fastapi import BackgroundTasks
 from app.models.bland import BlandApiResult
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 
 
 class BlandApiClient:

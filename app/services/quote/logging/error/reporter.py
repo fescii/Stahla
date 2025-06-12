@@ -7,11 +7,11 @@ Efficient error reporting and logging to database.
 import logging
 import asyncio
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 import logfire
 
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 from app.services.redis.redis import RedisService
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class ErrorReporter:
         "error_type": error_type,
         "message": message,
         "details": details or {},
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "severity": self._determine_severity(error_type)
     }
 

@@ -13,7 +13,7 @@ from app.services.redis.redis import (
     get_redis_service,
 )
 from app.services.auth.auth import startup_auth_service
-from app.services.mongo.mongo import (
+from app.services.mongo import (
     startup_mongo_service,
     shutdown_mongo_service,
     get_mongo_service,

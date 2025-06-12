@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import logfire
 from fastapi import BackgroundTasks
 
-from app.services.mongo.mongo import MongoService
+from app.services.mongo import MongoService
 from app.services.redis.redis import RedisService
 from ...background.tasks.processor import BackgroundTaskHelper
 
@@ -347,7 +347,7 @@ class MongoStorage:
         True if successful, False otherwise
     """
     try:
-      from app.services.mongo.mongo import (
+      from app.services.mongo import (
           SHEET_PRODUCTS_COLLECTION,
           SHEET_GENERATORS_COLLECTION
       )
@@ -412,7 +412,7 @@ class MongoStorage:
       background_tasks: Optional[BackgroundTasks] = None
   ) -> bool:
     """Store branches using the default collection."""
-    from app.services.mongo.mongo import SHEET_BRANCHES_COLLECTION
+    from app.services.mongo import SHEET_BRANCHES_COLLECTION
     return await self.store_branches(branches, SHEET_BRANCHES_COLLECTION, background_tasks)
 
   async def store_states_default(
@@ -421,5 +421,5 @@ class MongoStorage:
       background_tasks: Optional[BackgroundTasks] = None
   ) -> bool:
     """Store states using the default collection."""
-    from app.services.mongo.mongo import SHEET_STATES_COLLECTION
+    from app.services.mongo import SHEET_STATES_COLLECTION
     return await self.store_states(states, SHEET_STATES_COLLECTION, background_tasks)

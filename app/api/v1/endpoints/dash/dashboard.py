@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Response
 from typing import List, Optional, Dict  # Add Dict
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel  # Import BaseModel
 
 # Import dashboard models and services
@@ -24,7 +24,7 @@ from app.models.dash.dashboard import (
 from app.models.dash.service_status import ServicesStatusResponse, ServiceStatus
 from app.models.common import GenericResponse
 from app.services.dash.dashboard import DashboardService  # Import service class
-from app.services.mongo.mongo import MongoService  # Import MongoService
+from app.services.mongo import MongoService  # Import MongoService
 
 # Import the dependency injector from core
 # Add get_mongo_service
