@@ -3,7 +3,7 @@ import time
 from typing import Dict, Any, Optional, cast
 from datetime import datetime, timezone
 
-from app.services.redis.instrumented import InstrumentedRedisService
+from app.services.redis.service import RedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_SORTED_SET,
     LOCATION_LATENCY_SORTED_SET,
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class LatencyRecorder:
   """Records latency data to Redis using Sorted Sets and Streams."""
 
-  def __init__(self, redis_service: InstrumentedRedisService):
+  def __init__(self, redis_service: RedisService):
     self.redis = redis_service
 
     # Mapping of service types to their corresponding Redis keys

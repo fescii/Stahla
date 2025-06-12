@@ -12,8 +12,8 @@ from fastapi import Depends
 
 from app.models.quote import QuoteRequest, QuoteResponse
 from app.models.location import DistanceResult, BranchLocation
-from app.services.redis.instrumented import InstrumentedRedisService
-from app.services.redis.factory import get_instrumented_redis_service
+from app.services.redis.service import RedisService
+from app.services.redis.factory import get_redis_service
 from app.services.location import LocationService
 from app.services.mongo import MongoService, get_mongo_service
 from app.utils.location import geocode_location, SERVICE_HUBS, get_distance_km
@@ -37,7 +37,7 @@ class QuoteService:
 
   def __init__(
       self,
-      redis_service: InstrumentedRedisService,
+      redis_service: RedisService,
       location_service: LocationService,
       mongo_service: MongoService,
   ):
@@ -171,5 +171,5 @@ class QuoteService:
     )
 
 
-# NOTE: get_quote_service has been moved to app.core.dependencies 
+# NOTE: get_quote_service has been moved to app.core.dependencies
 # for unified dependency injection. Use get_quote_service_dep instead.

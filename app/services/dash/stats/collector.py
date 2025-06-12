@@ -1,7 +1,7 @@
 # filepath: app/services/dash/stats/collector.py
 import logging
 from typing import Dict, Any, Optional
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.mongo import MongoService
 from app.models.dash.dashboard import CacheStats, CacheHitMissRatio
 from app.core.cachekeys import (

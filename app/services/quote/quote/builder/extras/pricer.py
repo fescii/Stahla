@@ -35,10 +35,23 @@ class ExtrasPricer:
     """
     try:
       # Delegate to the dedicated extras calculator
-      extras_result = await self.quote_service.extras._calculate_extras_cost(
-          quote_request=quote_request,
+      extras_items = await self.quote_service.extras.calculate_extras_cost(
+          extras_input=quote_request.extras if hasattr(
+              quote_request, 'extras') and quote_request.extras else [],
+          trailer_id=quote_request.trailer_type,  # Using trailer_type as the product ID
+          rental_days=quote_request.rental_days,  # Using the correct field name
           catalog=catalog
       )
+
+      # Calculate total extras cost
+      extras_cost = sum(
+          item.total_price for item in extras_items if hasattr(item, 'total_price'))
+
+      # Prepare result structure
+      extras_result = {
+          "extras_cost": extras_cost,
+          "line_items": [item.model_dump() for item in extras_items]
+      }
 
       return {
           "extras_cost": extras_result.get("extras_cost", 0.0),

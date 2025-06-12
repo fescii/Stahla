@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, List
 
 from fastapi import Depends
 
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.mongo import MongoService, get_mongo_service
 from app.models.dash.dashboard import (
     DashboardOverview,

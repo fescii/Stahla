@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime
 from typing import Optional, List
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.mongo import MongoService
 from app.models.dash.dashboard import SyncStatus
 

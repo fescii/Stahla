@@ -35,17 +35,19 @@ class TrailerPricer:
     """
     try:
       # Delegate to the dedicated trailer calculator
-      trailer_cost = self.quote_service.trailer._calculate_trailer_cost(
+      # Unpacking the tuple returned by calculate_trailer_cost
+      trailer_cost, description_suffix = self.quote_service.trailer.calculate_trailer_cost(
+          trailer_id=quote_request.trailer_type,  # Using trailer_type as the product ID
+          rental_days=quote_request.rental_days,  # Using the correct field name
+          usage_type=quote_request.usage_type,    # Using the correct field name
+          rental_start_date=quote_request.rental_start_date,  # Using the correct field name
+          seasonal_config={},  # This will use defaults from catalog
           catalog=catalog,
-          product_id=quote_request.product_id,
-          rental_type=quote_request.rental_type,
-          rental_duration=quote_request.rental_duration,
-          rental_duration_unit=quote_request.rental_duration_unit,
-          start_date=quote_request.start_date,
       )
 
       return {
           "base_cost": trailer_cost,
+          "description_suffix": description_suffix,
           "success": True,
           "source": "catalog"
       }
@@ -54,6 +56,7 @@ class TrailerPricer:
       logfire.error(f"Error calculating trailer price: {e}")
       return {
           "base_cost": 0.0,
+          "description_suffix": "",
           "success": False,
           "error": str(e)
       }

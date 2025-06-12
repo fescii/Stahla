@@ -1,12 +1,3 @@
-from .latency import (
-    metrics_router,
-    percentiles_router,
-    averages_router,
-    alerts_router,
-    trends_router,
-    spikes_router,
-    overview_router
-)
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Response
 from typing import List, Optional, Dict  # Add Dict
@@ -689,19 +680,3 @@ async def get_services_status_endpoint(
     raise HTTPException(
         status_code=500, detail="Failed to retrieve external services status."
     )
-
-# Include latency sub-routers
-router.include_router(metrics_router, prefix="/latency",
-                      tags=["Latency Metrics"])
-router.include_router(
-    percentiles_router, prefix="/latency/percentiles", tags=["Latency Percentiles"])
-router.include_router(
-    averages_router, prefix="/latency/averages", tags=["Latency Averages"])
-router.include_router(
-    alerts_router, prefix="/latency/alerts", tags=["Latency Alerts"])
-router.include_router(
-    trends_router, prefix="/latency/trends", tags=["Latency Trends"])
-router.include_router(
-    spikes_router, prefix="/latency/spikes", tags=["Latency Spikes"])
-router.include_router(
-    overview_router, prefix="/latency/overview", tags=["Latency Overview"])

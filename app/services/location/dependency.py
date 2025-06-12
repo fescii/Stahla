@@ -1,6 +1,7 @@
 # filepath: app/services/location/dependency.py
 from fastapi import Depends
-from app.services.redis.redis import RedisService, get_redis_service
+from app.services.redis.service import RedisService
+from app.services.redis.factory import get_redis_service
 from app.services.mongo import MongoService, get_mongo_service
 from app.services.location.service import LocationService
 

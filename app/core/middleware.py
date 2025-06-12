@@ -10,7 +10,7 @@ import uuid
 import logfire
 
 # Import background task functions and Redis service dependency
-from app.services.redis.redis import get_redis_service
+from app.services.redis.factory import get_redis_service
 from app.services.background.request import log_request_response_bg
 
 # Import GenericResponse for error formatting

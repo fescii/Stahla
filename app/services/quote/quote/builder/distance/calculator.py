@@ -37,9 +37,18 @@ class DistanceCalculator:
     Raises:
         ValueError: If distance cannot be calculated
     """
+    # Attach background tasks to location service before calling method
+    from app.services.background.util import attach_background_tasks
+
+    # Make sure we have a BackgroundTasks instance
+    bg_tasks = background_tasks or BackgroundTasks()
+
+    # Attach background tasks to the location service
+    attach_background_tasks(self.manager.location_service, bg_tasks)
+
+    # Now call the method with the proper signature
     distance_result = await self.manager.location_service.get_distance_to_nearest_branch(
-        delivery_location,
-        background_tasks=background_tasks or BackgroundTasks(),
+        delivery_location
     )
 
     if not distance_result:

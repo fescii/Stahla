@@ -11,7 +11,7 @@ import logfire
 from fastapi import BackgroundTasks
 
 from app.services.mongo import MongoService
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from ...background.tasks.processor import BackgroundTaskHelper
 
 logger = logging.getLogger(__name__)

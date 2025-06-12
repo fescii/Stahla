@@ -10,7 +10,7 @@ from typing import Dict, Optional
 
 import logfire
 
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 
 logger = logging.getLogger(__name__)
 

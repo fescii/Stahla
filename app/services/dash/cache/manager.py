@@ -2,7 +2,7 @@
 import json
 import logging
 from typing import List, Optional
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.models.dash.dashboard import CacheItem, CacheSearchResult
 from app.core.cachekeys import PRICING_CATALOG_CACHE_KEY
 

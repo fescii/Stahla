@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import logfire
 
 from app.services.mongo import MongoService
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 
 logger = logging.getLogger(__name__)
 

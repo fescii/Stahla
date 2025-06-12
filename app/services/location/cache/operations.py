@@ -2,7 +2,7 @@
 import logfire
 from typing import List, Dict, Any, Optional
 from app.models.location import BranchLocation
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.mongo import MongoService, SHEET_STATES_COLLECTION
 from app.core.cachekeys import BRANCH_LIST_CACHE_KEY, STATES_LIST_CACHE_KEY
 

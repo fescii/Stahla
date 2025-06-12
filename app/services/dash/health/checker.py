@@ -9,7 +9,7 @@ from redis.exceptions import RedisError
 from app.services.bland import BlandAIManager
 from app.services.hubspot.manager import HubSpotManager
 from app.services.mongo import MongoService
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.quote.sync import SheetSyncService
 
 # Constants

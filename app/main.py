@@ -7,11 +7,7 @@ from app.services.dash.health.checker import (
     shutdown_service_monitor,
 )
 from app.services.n8n import close_n8n_client
-from app.services.redis.redis import (
-    startup_redis_service,
-    shutdown_redis_service,
-    get_redis_service,
-)
+from app.services.redis.factory import get_redis_service
 from app.services.auth.auth import startup_auth_service
 from app.services.mongo import (
     startup_mongo_service,
@@ -75,9 +71,15 @@ async def lifespan(app: FastAPI):
   logfire.info("Application startup: Initializing resources.")
 
   mongo_service_instance = None  # Initialize to None
+  redis_service = None  # Initialize Redis service variable
   try:
-    # Initialize Redis
-    await startup_redis_service()
+    # Test Redis connectivity using the new factory
+    try:
+      redis_service = await get_redis_service()
+      logfire.info("Redis service factory ready and tested.")
+    except Exception as redis_err:
+      logfire.warning(f"Redis service not available: {redis_err}")
+      redis_service = None  # Continue without Redis
 
     # Initialize MongoDB (connects, creates indexes)
     await startup_mongo_service()
@@ -120,7 +122,7 @@ async def lifespan(app: FastAPI):
       )
 
     # Initialize Service Status Monitor
-    redis_service = await get_redis_service()
+    # redis_service is already available from above
     if mongo_service_instance and redis_service and app.state.bland_manager:
       # Get the instance of the sheet sync service
       from app.services.quote.sync import _sheet_sync_service_instance
@@ -180,8 +182,10 @@ async def lifespan(app: FastAPI):
     logfire.debug("Attempting shutdown_mongo_service...")
     await shutdown_mongo_service()
 
-    logfire.debug("Attempting shutdown_redis_service...")
-    await shutdown_redis_service()  # Call redis shutdown
+    # Redis shutdown is no longer needed with the factory pattern
+    # Each Redis service instance manages its own connection lifecycle
+    logfire.debug(
+        "Redis services use self-managed connections (no shutdown needed)")
 
     # Close other services stored in app.state
     logfire.debug("Attempting bland_manager.close...")

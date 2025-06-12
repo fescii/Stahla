@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Any
 
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.dash.latency.tracking import LatencyRecorder
 from app.services.dash.latency.metrics import LatencyCalculator
 from app.services.dash.latency.analysis import LatencyAnalyzer

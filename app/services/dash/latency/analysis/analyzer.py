@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone, timedelta
 
-from app.services.redis.instrumented import InstrumentedRedisService
+from app.services.redis.service import RedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_STREAM,
     LOCATION_LATENCY_STREAM,
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class LatencyAnalyzer:
   """Performs advanced latency analysis using Redis Streams."""
 
-  def __init__(self, redis_service: InstrumentedRedisService):
+  def __init__(self, redis_service: RedisService):
     self.redis = redis_service
 
     self.stream_keys = {

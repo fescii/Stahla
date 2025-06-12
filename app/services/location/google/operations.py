@@ -8,7 +8,7 @@ import googlemaps
 from googlemaps.exceptions import ApiError, HTTPError, Timeout, TransportError
 from fastapi import BackgroundTasks
 from app.core.config import settings
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.mongo import MongoService
 from app.services.location.parsing import parse_and_normalize_address
 from app.core.cachekeys import GMAPS_API_CALLS_KEY, GMAPS_API_ERRORS_KEY

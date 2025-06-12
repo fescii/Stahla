@@ -10,7 +10,7 @@ import functools
 import logging
 from typing import Any, Dict, Optional, Callable, TypeVar, Awaitable
 from fastapi import BackgroundTasks
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.dash.background import record_external_api_latency_bg
 
 logger = logging.getLogger(__name__)

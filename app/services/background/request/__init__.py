@@ -64,7 +64,7 @@ async def log_request_response_bg(redis, endpoint: str, request_id: str, request
 async def increment_request_counter_bg(redis, key: str):
   """Background task to increment a Redis counter."""
   try:
-    await redis.incr(key)
+    await redis.increment(key)
     logger.debug(f"Incremented Redis counter: {key}")
   except Exception as e:
     logger.error(

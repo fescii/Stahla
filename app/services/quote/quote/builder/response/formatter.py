@@ -46,18 +46,37 @@ class ResponseFormatter:
     try:
       # Calculate total cost from individual results
       total_cost = 0.0
-      total_cost += trailer_result.get("base_cost", 0.0)
-      total_cost += delivery_result.get("delivery_cost", 0.0)
-      total_cost += extras_result.get("total_cost", 0.0)
+
+      # Make sure we safely handle any values that might be None
+      trailer_cost = trailer_result.get("base_cost", 0.0)
+      if trailer_cost is None:
+        trailer_cost = 0.0
+
+      delivery_cost = delivery_result.get("delivery_cost", 0.0)
+      if delivery_cost is None:
+        delivery_cost = 0.0
+
+      extras_cost = extras_result.get("total_cost", 0.0)
+      if extras_cost is None:
+        extras_cost = 0.0
+
+      total_cost += trailer_cost
+      total_cost += delivery_cost
+      total_cost += extras_cost
 
       # Create line items
       line_items = []
 
       # Add trailer line item
       if trailer_result.get("success") and trailer_result.get("base_cost", 0) > 0:
+        # Create description with suffix if available
+        description = f"{quote_request.trailer_type} - {quote_request.usage_type}"
+        if trailer_result.get("description_suffix"):
+          description += f" {trailer_result['description_suffix']}"
+
         line_items.append(
             LineItem(
-                description=f"{quote_request.trailer_type} - {quote_request.usage_type}",
+                description=description,
                 quantity=1,
                 unit_price=trailer_result["base_cost"],
                 total=trailer_result["base_cost"]

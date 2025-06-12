@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from fastapi import Depends
 
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.mongo import MongoService
 from app.models.dash.dashboard import (
     DashboardOverview,

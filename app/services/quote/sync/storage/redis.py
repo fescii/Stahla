@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import logfire
 
-from app.services.redis.redis import RedisService
+from app.services.redis.service import RedisService
 from app.services.quote.background.tasks.processor import log_error_to_db, BackgroundTaskHelper
 from app.core.cachekeys import (
     PRICING_CATALOG_CACHE_KEY,
