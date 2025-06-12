@@ -13,7 +13,7 @@ from fastapi import Depends
 from app.models.quote import QuoteRequest, QuoteResponse
 from app.models.location import DistanceResult, BranchLocation
 from app.services.redis.redis import RedisService, get_redis_service
-from app.services.location.location import LocationService
+from app.services.location import LocationService
 from app.services.mongo import MongoService, get_mongo_service
 from app.utils.location import geocode_location, SERVICE_HUBS, get_distance_km
 from app.core.dependencies import get_location_service_dep

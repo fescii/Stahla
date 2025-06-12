@@ -1,3 +1,12 @@
+from .latency import (
+    metrics_router,
+    percentiles_router,
+    averages_router,
+    alerts_router,
+    trends_router,
+    spikes_router,
+    overview_router
+)
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body, Response
 from typing import List, Optional, Dict  # Add Dict
@@ -23,14 +32,14 @@ from app.models.dash.dashboard import (
 )
 from app.models.dash.service_status import ServicesStatusResponse, ServiceStatus
 from app.models.common import GenericResponse
-from app.services.dash.dashboard import DashboardService  # Import service class
+from app.services.dash import DashboardService  # Import service class
 from app.services.mongo import MongoService  # Import MongoService
 
 # Import the dependency injector from core
 # Add get_mongo_service
 from app.core.dependencies import get_dashboard_service_dep, get_mongo_service
 from app.core.security import get_current_user  # Import JWT dependency
-from app.services.quote.sync import PRICING_CATALOG_CACHE_KEY  # Import cache key
+from app.core.cachekeys import PRICING_CATALOG_CACHE_KEY  # Import cache key
 # Import GMaps keys for accessing redis_counters
 from app.services.dash.background import GMAPS_API_CALLS_KEY, GMAPS_API_ERRORS_KEY
 
@@ -682,3 +691,19 @@ async def get_services_status_endpoint(
     raise HTTPException(
         status_code=500, detail="Failed to retrieve external services status."
     )
+
+# Include latency sub-routers
+router.include_router(metrics_router, prefix="/latency",
+                      tags=["Latency Metrics"])
+router.include_router(
+    percentiles_router, prefix="/latency/percentiles", tags=["Latency Percentiles"])
+router.include_router(
+    averages_router, prefix="/latency/averages", tags=["Latency Averages"])
+router.include_router(
+    alerts_router, prefix="/latency/alerts", tags=["Latency Alerts"])
+router.include_router(
+    trends_router, prefix="/latency/trends", tags=["Latency Trends"])
+router.include_router(
+    spikes_router, prefix="/latency/spikes", tags=["Latency Spikes"])
+router.include_router(
+    overview_router, prefix="/latency/overview", tags=["Latency Overview"])

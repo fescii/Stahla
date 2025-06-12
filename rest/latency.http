@@ -1,0 +1,204 @@
+### Unified Latency Metrics API Tests
+### All endpoints return aggregated data for ALL services
+### Base URL: {{baseUrl}}/api/v1/dash
+### Auth: Bearer token required
+
+# Variables (update these for your environment)
+@baseUrl = http://localhost:8000
+@authToken = your_jwt_token_here
+
+### =============================================================================
+### AUTHENTICATION - Get a token first
+### =============================================================================
+
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "your_password"
+}
+
+### =============================================================================
+### UNIFIED LATENCY OVERVIEW - All metrics in one response
+### =============================================================================
+
+### Get comprehensive latency overview for all services (RECOMMENDED)
+### Includes: percentiles, averages, alerts, trends, spikes, health score
+GET {{baseUrl}}/api/v1/dash/latency/overview/?time_range_minutes=60
+Authorization: Bearer {{authToken}}
+
+### Get latency overview with different time range (24 hours)
+GET {{baseUrl}}/api/v1/dash/latency/overview/?time_range_minutes=1440
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### UNIFIED PERCENTILES - All services percentiles
+### =============================================================================
+
+### Get P50, P75, P90, P95, P99 percentiles for ALL services
+### Response includes per-service data + cross-service aggregations
+GET {{baseUrl}}/api/v1/dash/latency/percentiles/all
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### UNIFIED AVERAGES - All services averages  
+### =============================================================================
+
+### Get average latency metrics for ALL services
+### Response includes per-service averages + overall system average
+GET {{baseUrl}}/api/v1/dash/latency/averages/
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### UNIFIED ALERTS - All services alerts
+### =============================================================================
+
+### Get all active latency alerts across ALL services
+GET {{baseUrl}}/api/v1/dash/latency/alerts/
+Authorization: Bearer {{authToken}}
+
+### Get only critical alerts across all services
+GET {{baseUrl}}/api/v1/dash/latency/alerts/severity/critical
+Authorization: Bearer {{authToken}}
+
+### Get only warning alerts across all services  
+GET {{baseUrl}}/api/v1/dash/latency/alerts/severity/warning
+Authorization: Bearer {{authToken}}
+
+### Get only info alerts across all services
+GET {{baseUrl}}/api/v1/dash/latency/alerts/severity/info
+Authorization: Bearer {{authToken}}
+
+### Get alerts for quote service only
+GET {{baseUrl}}/api/v1/dash/latency/alerts/service/quote
+Authorization: Bearer {{authToken}}
+
+### Get alerts for location service only
+GET {{baseUrl}}/api/v1/dash/latency/alerts/service/location
+Authorization: Bearer {{authToken}}
+
+### Get alerts for HubSpot service only
+GET {{baseUrl}}/api/v1/dash/latency/alerts/service/hubspot
+Authorization: Bearer {{authToken}}
+
+### Get alerts for Bland.ai service only
+GET {{baseUrl}}/api/v1/dash/latency/alerts/service/bland
+Authorization: Bearer {{authToken}}
+
+### Get alerts for Google Maps service only
+GET {{baseUrl}}/api/v1/dash/latency/alerts/service/gmaps
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### UNIFIED TRENDS - All services trend analysis
+### =============================================================================
+
+### Get trend analysis for ALL services (last hour)
+GET {{baseUrl}}/api/v1/dash/latency/trends/?time_range_minutes=60
+Authorization: Bearer {{authToken}}
+
+### Get trend analysis for ALL services (last 4 hours)
+GET {{baseUrl}}/api/v1/dash/latency/trends/?time_range_minutes=240
+Authorization: Bearer {{authToken}}
+
+### Get trend analysis for ALL services (last 24 hours)
+GET {{baseUrl}}/api/v1/dash/latency/trends/?time_range_minutes=1440
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### UNIFIED SPIKES - All services spike detection
+### =============================================================================
+
+### Get spike detection for ALL services (default: 3x threshold)
+GET {{baseUrl}}/api/v1/dash/latency/spikes/?time_range_minutes=60&threshold_multiplier=3.0
+Authorization: Bearer {{authToken}}
+
+### Get spike detection with higher sensitivity (2x threshold)
+GET {{baseUrl}}/api/v1/dash/latency/spikes/?time_range_minutes=60&threshold_multiplier=2.0
+Authorization: Bearer {{authToken}}
+
+### Get spike detection with lower sensitivity (5x threshold)
+GET {{baseUrl}}/api/v1/dash/latency/spikes/?time_range_minutes=60&threshold_multiplier=5.0
+Authorization: Bearer {{authToken}}
+
+### Get spike detection for last 4 hours
+GET {{baseUrl}}/api/v1/dash/latency/spikes/?time_range_minutes=240&threshold_multiplier=3.0
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### LEGACY ENDPOINTS - Individual service metrics (still available)
+### =============================================================================
+
+### Get latency summary for quote service
+GET {{baseUrl}}/api/v1/dash/latency/summary/quote
+Authorization: Bearer {{authToken}}
+
+### Get latency summary for location service
+GET {{baseUrl}}/api/v1/dash/latency/summary/location
+Authorization: Bearer {{authToken}}
+
+### Get latency summary for HubSpot API
+GET {{baseUrl}}/api/v1/dash/latency/summary/hubspot
+Authorization: Bearer {{authToken}}
+
+### Get latency summary for Bland.ai API
+GET {{baseUrl}}/api/v1/dash/latency/summary/bland
+Authorization: Bearer {{authToken}}
+
+### Get latency summary for Google Maps API
+GET {{baseUrl}}/api/v1/dash/latency/summary/gmaps
+Authorization: Bearer {{authToken}}
+
+### Get latency summary for all services (raw format)
+GET {{baseUrl}}/api/v1/dash/latency/summary
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### TESTING SCENARIOS
+### =============================================================================
+
+### Health Check Scenario - Get overview and check system health
+GET {{baseUrl}}/api/v1/dash/latency/overview/?time_range_minutes=60
+Authorization: Bearer {{authToken}}
+
+### Alert Monitoring Scenario - Check for any active alerts
+GET {{baseUrl}}/api/v1/dash/latency/alerts/
+Authorization: Bearer {{authToken}}
+
+### Performance Analysis Scenario - Get percentiles and trends
+GET {{baseUrl}}/api/v1/dash/latency/percentiles/all
+Authorization: Bearer {{authToken}}
+
+###
+GET {{baseUrl}}/api/v1/dash/latency/trends/?time_range_minutes=240
+Authorization: Bearer {{authToken}}
+
+### Spike Investigation Scenario - Look for recent spikes
+GET {{baseUrl}}/api/v1/dash/latency/spikes/?time_range_minutes=60&threshold_multiplier=2.0
+Authorization: Bearer {{authToken}}
+
+### =============================================================================
+### EXPECTED RESPONSE FORMATS
+### =============================================================================
+
+### All unified endpoints return structured data for ALL services:
+### 
+### /overview response includes:
+### - percentiles: {quote: {...}, location: {...}, hubspot: {...}, bland: {...}, gmaps: {...}}
+### - averages: {quote: {...}, location: {...}, ...}  
+### - alerts: {active_alerts: [...], critical_count: N, warning_count: N, ...}
+### - trends: {quote: {...}, location: {...}, overall_trend: "stable|increasing|decreasing"}
+### - spikes: {quote: {...}, location: {...}, total_spikes: N, services_with_spikes: [...]}
+### - overall_status: "good|warning|critical|unknown"
+### - system_health_score: 0-100
+###
+### /percentiles/all response includes:
+### - services: {quote: {p50: X, p90: Y, p95: Z, ...}, location: {...}, ...}
+### - global_percentiles: {service_name: "all", p50: X, p90: Y, ...}
+### - total_services: N, services_with_data: N
+### - overall_status: "good|warning|critical"
+### - worst_performing_service: "service_name"  
+### - best_performing_service: "service_name"
+###
+### Similar unified formats for /averages, /alerts, /trends, /spikes

@@ -13,7 +13,7 @@ from app.models.location import (
 from app.models.quote import QuoteRequest, QuoteResponse
 
 # Service and dependency imports
-from app.services.location.location import LocationService
+from app.services.location import LocationService
 from app.services.quote import (
     QuoteService,
     get_quote_service,

@@ -17,7 +17,8 @@ from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from geopy.distance import geodesic  # For more accurate distance
 
 # Import our enhanced address parsing functions
-from app.services.location.location import parse_and_normalize_address, extract_location_components
+from app.services.location.parsing.address import parse_and_normalize_address
+from app.services.location.parsing.address import extract_location_components
 
 # Define the key service hubs (latitude, longitude)
 SERVICE_HUBS = {

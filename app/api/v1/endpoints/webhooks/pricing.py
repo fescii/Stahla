@@ -16,7 +16,7 @@ from app.models.quote import QuoteRequest, QuoteResponse
 from app.models.common import GenericResponse, MessageResponse
 
 # Import service classes and their injectors
-from app.services.location.location import LocationService
+from app.services.location import LocationService
 from app.services.quote import QuoteService, get_quote_service
 from app.services.redis.redis import RedisService, get_redis_service
 

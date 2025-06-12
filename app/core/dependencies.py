@@ -8,9 +8,7 @@ from app.services.mongo import MongoService, get_mongo_service
 from app.services.auth.auth import AuthService, get_auth_service
 from app.services.redis.redis import RedisService, get_redis_service
 # DashboardService import moved to function to avoid circular dependency
-from app.services.location.location import (
-    LocationService,
-)  # Import LocationService class
+from app.services.location import LocationService
 from app.services.bland import (
     bland_manager,
     BlandAIManager,
@@ -41,7 +39,7 @@ def get_dashboard_service_dep(
     # Removed sync_service from here, it's internal to DashboardService now
 ):
   # Import here to avoid circular dependency
-  from app.services.dash.dashboard import DashboardService
+  from app.services.dash import DashboardService
 
   # Instantiate DashboardService with its dependencies
   # sync_service will be initialized within DashboardService if needed
