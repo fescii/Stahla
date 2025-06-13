@@ -18,10 +18,10 @@ export default class LatencyOverview extends HTMLElement {
 
   connectedCallback() {
     this.fetchLatencyData();
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 1 minute
     this.refreshInterval = setInterval(() => {
       this.fetchLatencyData();
-    }, 30000);
+    }, 60000);
   }
 
   disconnectedCallback() {
@@ -129,7 +129,7 @@ export default class LatencyOverview extends HTMLElement {
           ${this.getAverageSection()}
           ${this.getTrendSection()}
           ${this.getSpikeSection()}
-          ${this.getAlertsSection()}
+          <!--${this.getAlertsSection()}-->
         </div>
 
         <div class="summary">
