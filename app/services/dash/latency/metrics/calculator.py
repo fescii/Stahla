@@ -6,18 +6,12 @@ from app.services.redis.service import RedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_SORTED_SET,
     LOCATION_LATENCY_SORTED_SET,
-    HUBSPOT_LATENCY_SORTED_SET,
-    BLAND_LATENCY_SORTED_SET,
     GMAPS_LATENCY_SORTED_SET,
     REDIS_LATENCY_SORTED_SET,
     QUOTE_LATENCY_SUM_KEY,
     QUOTE_LATENCY_COUNT_KEY,
     LOCATION_LATENCY_SUM_KEY,
     LOCATION_LATENCY_COUNT_KEY,
-    HUBSPOT_LATENCY_SUM_KEY,
-    HUBSPOT_LATENCY_COUNT_KEY,
-    BLAND_LATENCY_SUM_KEY,
-    BLAND_LATENCY_COUNT_KEY,
     GMAPS_LATENCY_SUM_KEY,
     GMAPS_LATENCY_COUNT_KEY,
     REDIS_LATENCY_SUM_KEY,
@@ -38,8 +32,6 @@ class LatencyCalculator:
     self.sorted_set_keys = {
         "quote": QUOTE_LATENCY_SORTED_SET,
         "location": LOCATION_LATENCY_SORTED_SET,
-        "hubspot": HUBSPOT_LATENCY_SORTED_SET,
-        "bland": BLAND_LATENCY_SORTED_SET,
         "gmaps": GMAPS_LATENCY_SORTED_SET,
         "redis": REDIS_LATENCY_SORTED_SET,
     }
@@ -47,8 +39,6 @@ class LatencyCalculator:
     self.sum_keys = {
         "quote": QUOTE_LATENCY_SUM_KEY,
         "location": LOCATION_LATENCY_SUM_KEY,
-        "hubspot": HUBSPOT_LATENCY_SUM_KEY,
-        "bland": BLAND_LATENCY_SUM_KEY,
         "gmaps": GMAPS_LATENCY_SUM_KEY,
         "redis": REDIS_LATENCY_SUM_KEY,
     }
@@ -56,8 +46,6 @@ class LatencyCalculator:
     self.count_keys = {
         "quote": QUOTE_LATENCY_COUNT_KEY,
         "location": LOCATION_LATENCY_COUNT_KEY,
-        "hubspot": HUBSPOT_LATENCY_COUNT_KEY,
-        "bland": BLAND_LATENCY_COUNT_KEY,
         "gmaps": GMAPS_LATENCY_COUNT_KEY,
         "redis": REDIS_LATENCY_COUNT_KEY,
     }
@@ -169,11 +157,25 @@ class LatencyCalculator:
 
       # Determine status based on P95 threshold
       p95 = percentiles.get("p95.0")
+      # Service-specific thresholds
+      if service_type == "gmaps":
+        # Higher thresholds for external API calls
+        p95_target = 950   # 950ms and below is good for external API
+        p99_alert = 2000   # 2 seconds is warning threshold
+      elif service_type == "location":
+        # Higher thresholds for location lookups (may involve external calls)
+        p95_target = 950   # 950ms and below is good for location services
+        p99_alert = 1500   # 1.5 seconds is warning threshold
+      else:
+        # Default thresholds for internal services (quote, redis)
+        p95_target = LATENCY_THRESHOLD_P95_MS
+        p99_alert = LATENCY_THRESHOLD_P99_MS
+
       status = "unknown"
       if p95 is not None:
-        if p95 <= LATENCY_THRESHOLD_P95_MS:
+        if p95 <= p95_target:
           status = "good"
-        elif p95 <= LATENCY_THRESHOLD_P99_MS:
+        elif p95 <= p99_alert:
           status = "warning"
         else:
           status = "critical"
@@ -185,8 +187,8 @@ class LatencyCalculator:
           "total_measurements": total_count,
           "status": status,
           "thresholds": {
-              "p95_target_ms": LATENCY_THRESHOLD_P95_MS,
-              "p99_alert_ms": LATENCY_THRESHOLD_P99_MS,
+              "p95_target_ms": p95_target,
+              "p99_alert_ms": p99_alert,
           },
           "timestamp": datetime.now(timezone.utc).isoformat(),
       }

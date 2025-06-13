@@ -28,9 +28,8 @@ async def get_all_services_alerts(
   Returns alerts for:
   - Quote generation service
   - Location lookup service  
-  - HubSpot API
-  - Bland.ai API
   - Google Maps API
+  - Redis Cache
 
   Includes alert counts by severity and overall system alert status.
   """

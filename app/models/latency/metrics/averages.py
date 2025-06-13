@@ -28,10 +28,6 @@ class AllServicesAverageLatency(BaseModel):
       None, description="Quote service average latency")
   location: Optional[ServiceAverageLatency] = Field(
       None, description="Location service average latency")
-  hubspot: Optional[ServiceAverageLatency] = Field(
-      None, description="HubSpot API average latency")
-  bland: Optional[ServiceAverageLatency] = Field(
-      None, description="Bland.ai API average latency")
   gmaps: Optional[ServiceAverageLatency] = Field(
       None, description="Google Maps API average latency")
   redis: Optional[ServiceAverageLatency] = Field(
@@ -55,7 +51,7 @@ class AllServicesAverageLatency(BaseModel):
   def get_worst_status(self) -> LatencyStatus:
     """Determine the worst status across all services."""
     statuses = []
-    for service_data in [self.quote, self.location, self.hubspot, self.bland, self.gmaps, self.redis]:
+    for service_data in [self.quote, self.location, self.gmaps, self.redis]:
       if service_data:
         statuses.append(service_data.status)
 
@@ -73,7 +69,7 @@ class AllServicesAverageLatency(BaseModel):
     total_weighted_latency = 0.0
     total_samples = 0
 
-    for service_data in [self.quote, self.location, self.hubspot, self.bland, self.gmaps, self.redis]:
+    for service_data in [self.quote, self.location, self.gmaps, self.redis]:
       if service_data and service_data.average_ms is not None and service_data.sample_count > 0:
         total_weighted_latency += service_data.average_ms * service_data.sample_count
         total_samples += service_data.sample_count
@@ -87,8 +83,6 @@ class AllServicesAverageLatency(BaseModel):
     service_checks = [
         (self.quote, ServiceType.QUOTE),
         (self.location, ServiceType.LOCATION),
-        (self.hubspot, ServiceType.HUBSPOT),
-        (self.bland, ServiceType.BLAND),
         (self.gmaps, ServiceType.GMAPS),
         (self.redis, ServiceType.REDIS)
     ]

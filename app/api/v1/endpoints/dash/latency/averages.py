@@ -27,8 +27,6 @@ async def get_all_services_averages(
   Returns average latency for:
   - Quote generation service
   - Location lookup service  
-  - HubSpot API
-  - Bland.ai API
   - Google Maps API
   - Redis operations
 
@@ -42,8 +40,6 @@ async def get_all_services_averages(
     averages_data = AllServicesAverageLatency(
         quote=None,
         location=None,
-        hubspot=None,
-        bland=None,
         gmaps=None,
         redis=None,
         overall_average_ms=None,
@@ -59,13 +55,13 @@ async def get_all_services_averages(
       if summary and not summary.get("error") and summary.get("total_measurements", 0) > 0:
         try:
           service_type = ServiceType(service_type_str)
-          average_ms = summary.get("mean_latency")
+          average_ms = summary.get("average_ms")
           sample_count = summary.get("total_measurements", 0)
 
           # Only process if we have valid average
           if average_ms is not None:
-            # Determine status based on average
-            status = _determine_average_status(average_ms)
+            # Determine status based on average with service-specific thresholds
+            status = _determine_average_status(average_ms, service_type_str)
 
             service_avg = ServiceAverageLatency(
                 service_type=service_type,
@@ -101,11 +97,29 @@ async def get_all_services_averages(
         status_code=500, detail="Failed to retrieve average latency metrics")
 
 
-def _determine_average_status(average_ms: float) -> LatencyStatus:
-  """Determine status based on average latency."""
-  if average_ms <= 100:  # Good: <= 100ms
-    return LatencyStatus.GOOD
-  elif average_ms <= 500:  # Warning: 100-500ms
-    return LatencyStatus.WARNING
-  else:  # Critical: > 500ms
-    return LatencyStatus.CRITICAL
+def _determine_average_status(average_ms: float, service_type: str) -> LatencyStatus:
+  """Determine status based on average latency with service-specific thresholds."""
+  if service_type == "gmaps":
+    # Higher thresholds for external API calls
+    if average_ms <= 950:  # Good: <= 950ms
+      return LatencyStatus.GOOD
+    elif average_ms <= 1000:  # Warning: 950-1000ms
+      return LatencyStatus.WARNING
+    else:  # Critical: > 1000ms
+      return LatencyStatus.CRITICAL
+  elif service_type == "location":
+    # Higher thresholds for location lookups (may involve external calls)
+    if average_ms <= 950:  # Good: <= 950ms
+      return LatencyStatus.GOOD
+    elif average_ms <= 950:  # Warning: 750-950ms
+      return LatencyStatus.WARNING
+    else:  # Critical: > 950ms
+      return LatencyStatus.CRITICAL
+  else:
+    # Default thresholds for internal services (quote, redis)
+    if average_ms <= 100:  # Good: <= 100ms
+      return LatencyStatus.GOOD
+    elif average_ms <= 500:  # Warning: 100-500ms
+      return LatencyStatus.WARNING
+    else:  # Critical: > 500ms
+      return LatencyStatus.CRITICAL

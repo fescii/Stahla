@@ -29,9 +29,8 @@ async def get_all_services_trends(
   Analyzes trends over the specified time range for:
   - Quote generation service
   - Location lookup service  
-  - HubSpot API
-  - Bland.ai API
   - Google Maps API
+  - Redis Cache
 
   Returns trend direction, statistics, and overall system trends.
   """
@@ -40,9 +39,8 @@ async def get_all_services_trends(
     trends_data = AllServicesTrendAnalysis(
         quote=None,
         location=None,
-        hubspot=None,
-        bland=None,
         gmaps=None,
+        redis=None,
         time_range_minutes=time_range_minutes,
         overall_trend=TrendDirection.NO_DATA,
         services_analyzed=0,
@@ -53,7 +51,7 @@ async def get_all_services_trends(
     total_samples = 0
 
     # Analyze each service
-    for service_type_str in ["quote", "location", "hubspot", "bland", "gmaps"]:
+    for service_type_str in ["quote", "location", "gmaps", "redis"]:
       try:
         service_type = ServiceType(service_type_str)
 
@@ -103,7 +101,7 @@ def _determine_trend_direction(trend_result: dict) -> TrendDirection:
   """Determine trend direction from analysis result."""
   sample_count = trend_result.get("sample_count", 0)
 
-  if sample_count < 10:
+  if sample_count < 3:
     return TrendDirection.INSUFFICIENT_DATA
   elif sample_count == 0:
     return TrendDirection.NO_DATA
@@ -129,7 +127,7 @@ def _generate_trend_message(service_type: str, trend_result: dict) -> str:
 
   if sample_count == 0:
     return f"No data available for {service_type} service"
-  elif sample_count < 10:
+  elif sample_count < 3:
     return f"Insufficient data for trend analysis ({sample_count} samples)"
 
   mean_latency = stats.get("mean", 0)

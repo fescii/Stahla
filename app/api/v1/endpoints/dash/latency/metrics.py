@@ -24,9 +24,8 @@ async def get_latency_summary(
   **Service Types:**
   - quote: Quote generation latency
   - location: Location lookup latency  
-  - hubspot: HubSpot API latency
-  - bland: Bland.ai API latency
   - gmaps: Google Maps API latency
+  - redis: Redis operations latency
   """
   try:
     summary = await dashboard_service.latency_service.calculator.get_latency_summary(service_type)

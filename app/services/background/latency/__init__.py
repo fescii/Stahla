@@ -87,7 +87,7 @@ async def record_location_latency_bg(
 
 async def record_external_api_latency_bg(
     redis,
-    service_type: str,  # 'hubspot', 'bland', 'gmaps'
+    service_type: str,  # 'quote', 'location', 'gmaps', 'redis'
     latency_ms: float,
     request_id: Optional[str] = None,
     api_endpoint: Optional[str] = None,

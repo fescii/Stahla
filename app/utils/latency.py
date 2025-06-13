@@ -104,7 +104,7 @@ def track_latency(
   Decorator to automatically track latency for async methods.
 
   Args:
-      service_type: The service type for latency tracking (e.g., 'gmaps', 'hubspot')
+      service_type: The service type for latency tracking (e.g., 'gmaps', 'quote', 'location', 'redis')
       operation_name: Optional operation name (defaults to function name)
       redis_service_attr: Attribute name for RedisService on the instance
       background_tasks_attr: Attribute name for BackgroundTasks on the instance

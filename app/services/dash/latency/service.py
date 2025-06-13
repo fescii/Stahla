@@ -49,7 +49,7 @@ class LatencyService:
 
   async def record_external_api_latency(
       self,
-      service_type: str,  # 'hubspot', 'bland', 'gmaps'
+      service_type: str,  # 'quote', 'location', 'gmaps', 'redis'
       latency_ms: float,
       request_id: Optional[str] = None,
       api_endpoint: Optional[str] = None,
@@ -166,6 +166,149 @@ class LatencyService:
           "error": str(e),
           "generated_at": None,
       }
+
+  # --- Spike Analysis Methods ---
+
+  async def get_spike_summaries(self, time_range_minutes: int = 60):
+    """
+    Get averaged spike summaries for all services without individual spike details.
+    Uses a low threshold (1.0) to capture all potential spikes.
+    Returns simplified AllServicesSpikeAnalysis with summary data only.
+    """
+    try:
+      from app.models.latency.analysis.spikes import AllServicesSpikeAnalysis, ServiceSpikeAnalysis
+      from app.models.latency.metrics.percentiles import ServiceType
+      from datetime import datetime
+
+      services = ["quote", "location", "gmaps", "redis"]
+      total_spikes = 0
+      services_with_spikes = []
+      worst_spike_factor = None
+      worst_spike_service = None
+
+      # Create the main analysis object with default values
+      spike_analysis = AllServicesSpikeAnalysis(
+          quote=None,
+          location=None,
+          gmaps=None,
+          redis=None,
+          time_range_minutes=time_range_minutes,
+          threshold_multiplier=1.0,
+          total_spikes=0,
+          services_with_spikes=[],
+          worst_spike_factor=None,
+          worst_spike_service=None
+      )
+      spike_analysis.total_spikes = 0
+      spike_analysis.services_with_spikes = []
+      spike_analysis.worst_spike_factor = None
+      spike_analysis.worst_spike_service = None
+      spike_analysis.generated_at = datetime.now()
+
+      for service_type_str in services:
+        try:
+          service_type = ServiceType(service_type_str)
+
+          # Use low threshold to capture all potential spikes
+          spikes = await self.analyzer.get_latency_spikes(
+              service_type=service_type_str,
+              threshold_multiplier=1.0,
+              minutes=time_range_minutes
+          )
+
+          if spikes:
+            spike_count = len(spikes)
+            max_spike_factor = max(spike["spike_factor"] for spike in spikes)
+            avg_latency = sum(spike["latency_ms"]
+                              for spike in spikes) / spike_count
+
+            # Count affected endpoints
+            endpoints = set(spike["endpoint"] for spike in spikes)
+            most_affected_endpoint = max(
+                endpoints,
+                key=lambda ep: sum(
+                    1 for spike in spikes if spike["endpoint"] == ep)
+            )
+
+            # Create simplified service analysis (no individual spikes)
+            service_analysis = ServiceSpikeAnalysis(
+                service_type=service_type,
+                time_range_minutes=time_range_minutes,
+                threshold_multiplier=1.0,
+                spikes=[],  # Empty for summary
+                spike_count=spike_count,
+                max_spike_factor=round(max_spike_factor, 2),
+                most_affected_endpoint=most_affected_endpoint,
+                analysis_timestamp=datetime.now()
+            )
+
+            total_spikes += spike_count
+            services_with_spikes.append(service_type)
+
+            if worst_spike_factor is None or max_spike_factor > worst_spike_factor:
+              worst_spike_factor = max_spike_factor
+              worst_spike_service = service_type
+
+          else:
+            # Create empty service analysis
+            service_analysis = ServiceSpikeAnalysis(
+                service_type=service_type,
+                time_range_minutes=time_range_minutes,
+                threshold_multiplier=1.0,
+                spikes=[],
+                spike_count=0,
+                max_spike_factor=None,
+                most_affected_endpoint=None,
+                analysis_timestamp=datetime.now()
+            )
+
+          # Set the service analysis on the main object
+          setattr(spike_analysis, service_type_str, service_analysis)
+
+        except Exception as e:
+          logger.error(f"Failed to analyze spikes for {service_type_str}: {e}")
+          # Create error service analysis
+          service_analysis = ServiceSpikeAnalysis(
+              service_type=ServiceType(service_type_str),
+              time_range_minutes=time_range_minutes,
+              threshold_multiplier=1.0,
+              spikes=[],
+              spike_count=0,
+              max_spike_factor=None,
+              most_affected_endpoint=None,
+              analysis_timestamp=datetime.now()
+          )
+          setattr(spike_analysis, service_type_str, service_analysis)
+
+      # Update summary fields
+      spike_analysis.total_spikes = total_spikes
+      spike_analysis.services_with_spikes = services_with_spikes
+      spike_analysis.worst_spike_factor = round(
+          worst_spike_factor, 2) if worst_spike_factor else None
+      spike_analysis.worst_spike_service = worst_spike_service
+
+      # Update statistics
+      spike_analysis.update_statistics()
+
+      return spike_analysis
+
+    except Exception as e:
+      logger.error(f"Failed to get spike summaries: {e}", exc_info=True)
+      # Return empty analysis on error
+      from app.models.latency.analysis.spikes import AllServicesSpikeAnalysis
+      from datetime import datetime
+      return AllServicesSpikeAnalysis(
+          quote=None,
+          location=None,
+          gmaps=None,
+          redis=None,
+          time_range_minutes=60,
+          threshold_multiplier=1.0,
+          total_spikes=0,
+          services_with_spikes=[],
+          worst_spike_factor=None,
+          worst_spike_service=None
+      )
 
   # --- Maintenance Methods ---
 

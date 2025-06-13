@@ -11,11 +11,12 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, ValidationErro
 # Import models
 from app.models.hubspot import (
     HubSpotContactProperties,
+    HubSpotContactInput,
     HubSpotLeadProperties,
+    HubSpotLeadInput,
     HubSpotApiResult,
     HubSpotContactResult,
     HubSpotLeadResult,
-    HubSpotLeadInput,
 )
 
 # Import common models
@@ -87,9 +88,10 @@ async def test_hubspot_contact(contact_data: HubSpotContactProperties = Body(...
   logfire.info("Received request for /test/contact",
                contact_email=contact_data.email)
   try:
-    # Call the manager method which now returns HubSpotApiResult
+    # Call the manager method with proper input model
+    contact_input = HubSpotContactInput(properties=contact_data)
     result: HubSpotApiResult = await hubspot_manager.create_or_update_contact(
-        contact_data
+        contact_input
     )
 
     if result.status == "error":
@@ -136,10 +138,9 @@ async def test_hubspot_lead(
       contact_id=contact_id,
   )  # Updated log
   try:
-    # Call the manager method for creating leads
-    lead_input = HubSpotLeadInput(properties=lead_data)  # Wrap lead_data
-    # Removed contact_id
-    result: HubSpotApiResult = await hubspot_manager.create_lead(lead_input.properties)
+    # Call the manager method for creating leads with proper input model
+    lead_input = HubSpotLeadInput(properties=lead_data)
+    result: HubSpotApiResult = await hubspot_manager.create_lead(lead_input)
 
     if result.status == "error":
       logfire.error(
@@ -190,7 +191,7 @@ async def test_get_owners(email: Optional[str] = None):
 
 # Modified endpoint to accept form data in request body
 @router.post(
-    "/test/contact",
+    "/test/contact/form",
     response_model=GenericResponse[HubSpotApiResult],
     summary="Create HubSpot Contact from Form Data",
     tags=["HubSpot Tests"],
@@ -202,7 +203,7 @@ async def create_contact_from_form_data(form_data: SampleContactForm = Body(...)
   Useful for triggering the contact creation flow manually with specific data.
   """
   logfire.info(
-      "Received request for /test/contact with form data",
+      "Received request for /test/contact/form with form data",
       form_email=form_data.email,
       service_type=form_data.what_service_do_you_need_,
   )
@@ -245,9 +246,10 @@ async def create_contact_from_form_data(form_data: SampleContactForm = Body(...)
         email=contact_props.email,
     )
 
-    # Attempt to create/update the contact in HubSpot
+    # Attempt to create/update the contact in HubSpot with proper input model
+    contact_input = HubSpotContactInput(properties=contact_props)
     result: HubSpotApiResult = await hubspot_manager.create_or_update_contact(
-        contact_props
+        contact_input
     )
 
     if result.status == "error":
@@ -298,265 +300,4 @@ async def create_contact_from_form_data(form_data: SampleContactForm = Body(...)
 
     return GenericResponse.error(
         message=f"An unexpected error occurred: {str(e)}", status_code=500
-    )
-
-
-class PropertySyncRequest(BaseModel):
-  sync_contacts: bool = Field(
-      True, description="Whether to sync contact properties")
-  sync_leads: bool = Field(True, description="Whether to sync lead properties")
-  force_recreate: bool = Field(
-      False, description="Force recreation of existing properties")
-
-
-class PropertySyncResult(BaseModel):
-  object_type: str
-  created: List[Dict[str, Any]]
-  existing: List[Dict[str, Any]]
-  failed: List[Dict[str, Any]]
-  total_processed: int
-
-
-class PropertySyncResponse(BaseModel):
-  success: bool
-  message: str
-  results: List[PropertySyncResult]
-  total_created: int
-  total_existing: int
-  total_failed: int
-
-
-@router.post(
-    "/sync",
-    response_model=GenericResponse[PropertySyncResponse],
-    summary="Sync HubSpot Properties from JSON Files",
-    tags=["HubSpot Properties"],
-)
-async def sync_hubspot_properties(sync_request: PropertySyncRequest = Body(...)):
-  """
-  Bulk sync HubSpot properties for contacts and leads from predefined JSON files.
-
-  This endpoint loads property definitions from the JSON files in the info/ directory
-  and creates them in HubSpot if they don't already exist.
-
-  - **sync_contacts**: Enable/disable syncing contact properties
-  - **sync_leads**: Enable/disable syncing lead properties  
-  - **force_recreate**: Force recreation of existing properties (not implemented yet)
-  """
-  logfire.info("Starting HubSpot property sync",
-               sync_request=sync_request.model_dump())
-
-  if not hubspot_manager:
-    raise HTTPException(
-        status_code=500,
-        detail="HubSpot manager not available"
-    )
-
-  results = []
-  total_created = 0
-  total_existing = 0
-  total_failed = 0
-
-  # Get the project root directory
-  project_root = PathlibPath(__file__).parent.parent.parent.parent.parent
-  info_dir = project_root / "info"
-
-  try:
-    # Sync contact properties
-    if sync_request.sync_contacts:
-      contact_json_path = info_dir / "contact_properties_payload.json"
-
-      if not contact_json_path.exists():
-        logfire.error(
-            f"Contact properties JSON file not found: {contact_json_path}")
-        results.append(PropertySyncResult(
-            object_type="contacts",
-            created=[],
-            existing=[],
-            failed=[{"error": f"JSON file not found: {contact_json_path}"}],
-            total_processed=0
-        ))
-        total_failed += 1
-      else:
-        logfire.info(f"Syncing contact properties from {contact_json_path}")
-        contact_result = await hubspot_manager.sync_properties_from_json(
-            "contacts", str(contact_json_path)
-        )
-
-        results.append(PropertySyncResult(
-            object_type="contacts",
-            created=contact_result["created"],
-            existing=contact_result["existing"],
-            failed=contact_result["failed"],
-            total_processed=len(contact_result["created"]) +
-            len(contact_result["existing"]) +
-            len(contact_result["failed"])
-        ))
-
-        total_created += len(contact_result["created"])
-        total_existing += len(contact_result["existing"])
-        total_failed += len(contact_result["failed"])
-
-    # Sync lead properties
-    if sync_request.sync_leads:
-      lead_json_path = info_dir / "lead_properties_payload.json"
-
-      if not lead_json_path.exists():
-        logfire.error(f"Lead properties JSON file not found: {lead_json_path}")
-        results.append(PropertySyncResult(
-            object_type="leads",
-            created=[],
-            existing=[],
-            failed=[{"error": f"JSON file not found: {lead_json_path}"}],
-            total_processed=0
-        ))
-        total_failed += 1
-      else:
-        # Sync lead properties (will be mapped to contacts in HubSpot)
-        logfire.info(
-            f"Syncing lead properties from {lead_json_path} (will be mapped to contacts)")
-
-        try:
-          lead_result = await hubspot_manager.sync_properties_from_json(
-              "leads", str(lead_json_path)
-          )
-        except Exception as e:
-          logfire.error(f"Failed to sync lead properties: {str(e)}")
-          lead_result = {
-              "created": [],
-              "existing": [],
-              "failed": [{"error": f"Sync failed: {str(e)}"}]
-          }
-
-        results.append(PropertySyncResult(
-            object_type="leads",
-            created=lead_result["created"],
-            existing=lead_result["existing"],
-            failed=lead_result["failed"],
-            total_processed=len(lead_result["created"]) +
-            len(lead_result["existing"]) +
-            len(lead_result["failed"])
-        ))
-
-        total_created += len(lead_result["created"])
-        total_existing += len(lead_result["existing"])
-        total_failed += len(lead_result["failed"])
-
-    # Build response
-    success = total_failed == 0
-    message = f"Property sync completed. Created: {total_created}, Existing: {total_existing}, Failed: {total_failed}"
-
-    if not success:
-      message += f" (Some properties failed to sync)"
-
-    sync_response = PropertySyncResponse(
-        success=success,
-        message=message,
-        results=results,
-        total_created=total_created,
-        total_existing=total_existing,
-        total_failed=total_failed
-    )
-
-    logfire.info("HubSpot property sync completed",
-                 total_created=total_created,
-                 total_existing=total_existing,
-                 total_failed=total_failed)
-
-    return GenericResponse(data=sync_response)
-
-  except Exception as e:
-    logfire.exception("Unexpected error during HubSpot property sync")
-    raise HTTPException(
-        status_code=500,
-        detail=f"An unexpected error occurred during property sync: {str(e)}"
-    )
-
-
-@router.get(
-    "/properties/{object_type}",
-    response_model=GenericResponse[List[Dict[str, Any]]],
-    summary="Get All Properties for Object Type",
-    tags=["HubSpot Properties"],
-)
-async def get_hubspot_properties(
-    object_type: str = FastAPIPath(...,
-                                   description="Object type (contacts, leads, companies, etc.)")
-):
-  """
-  Retrieve all properties for the specified HubSpot object type.
-
-  This endpoint fetches all custom and standard properties from HubSpot
-  for the given object type.
-  """
-  logfire.info(f"Fetching all properties for object type: {object_type}")
-
-  if not hubspot_manager:
-    raise HTTPException(
-        status_code=500,
-        detail="HubSpot manager not available"
-    )
-
-  try:
-    properties = await hubspot_manager.get_all_properties(object_type)
-
-    logfire.info(f"Retrieved {len(properties)} properties for {object_type}")
-
-    return GenericResponse(data=properties)
-
-  except Exception as e:
-    logfire.exception(f"Error retrieving properties for {object_type}")
-    raise HTTPException(
-        status_code=500,
-        detail=f"Failed to retrieve properties for {object_type}: {str(e)}"
-    )
-
-
-@router.get(
-    "/properties/{object_type}/{property_name}",
-    response_model=GenericResponse[Dict[str, Any]],
-    summary="Get Specific Property Definition",
-    tags=["HubSpot Properties"],
-)
-async def get_hubspot_property(
-    object_type: str = FastAPIPath(...,
-                                   description="Object type (contacts, leads, companies, etc.)"),
-    property_name: str = FastAPIPath(...,
-                                     description="Internal name of the property")
-):
-  """
-  Retrieve a specific property definition from HubSpot.
-
-  Returns the complete property definition including type, options, etc.
-  """
-  logfire.info(
-      f"Fetching property '{property_name}' for object type: {object_type}")
-
-  if not hubspot_manager:
-    raise HTTPException(
-        status_code=500,
-        detail="HubSpot manager not available"
-    )
-
-  try:
-    property_def = await hubspot_manager.get_property(object_type, property_name)
-
-    if property_def is None:
-      raise HTTPException(
-          status_code=404,
-          detail=f"Property '{property_name}' not found for object type '{object_type}'"
-      )
-
-    logfire.info(f"Retrieved property definition for '{property_name}'")
-
-    return GenericResponse(data=property_def)
-
-  except HTTPException:
-    raise
-  except Exception as e:
-    logfire.exception(
-        f"Error retrieving property '{property_name}' for {object_type}")
-    raise HTTPException(
-        status_code=500,
-        detail=f"Failed to retrieve property '{property_name}' for {object_type}: {str(e)}"
     )

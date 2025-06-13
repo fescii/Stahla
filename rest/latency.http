@@ -78,7 +78,7 @@ GET {{host}}{{api_v1}}/latency/alerts/severity/info
 ### =============================================================================
 
 ### /overview - Comprehensive response includes:
-### - percentiles: {quote: {...}, location: {...}, hubspot: {...}, bland: {...}, redis: {...}}
+### - percentiles: {quote: {...}, location: {...}, gmaps: {...}, redis: {...}}
 ### - averages, alerts, trends, spikes, overall_status, system_health_score (0-100)
 ### 
 ### /percentiles - Per-service percentiles (P50, P75, P90, P95, P99) plus:

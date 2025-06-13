@@ -168,6 +168,12 @@ export default class Overview extends HTMLElement {
           <p class="subtitle">Stats and status overview of SDR AI & Pricing Platform</p>
         </div>
         ${this._getDashboardOverviewHTML()}
+        
+        <!-- Latency Overview Section -->
+        <div class="latency-section">
+          <latency-overview api="/latency/overview"></latency-overview>
+        </div>
+        
         <div class="dashboard-grid">
           <div class="main-content">
             ${this._getExternalServicesPanelHTML()}

@@ -8,8 +8,6 @@ class ServiceType(str, Enum):
   """Enum for supported service types."""
   QUOTE = "quote"
   LOCATION = "location"
-  HUBSPOT = "hubspot"
-  BLAND = "bland"
   GMAPS = "gmaps"
   REDIS = "redis"
 

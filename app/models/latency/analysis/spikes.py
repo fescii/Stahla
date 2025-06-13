@@ -71,12 +71,10 @@ class AllServicesSpikeAnalysis(BaseModel):
       None, description="Quote service spike analysis")
   location: Optional[ServiceSpikeAnalysis] = Field(
       None, description="Location service spike analysis")
-  hubspot: Optional[ServiceSpikeAnalysis] = Field(
-      None, description="HubSpot API spike analysis")
-  bland: Optional[ServiceSpikeAnalysis] = Field(
-      None, description="Bland.ai API spike analysis")
   gmaps: Optional[ServiceSpikeAnalysis] = Field(
       None, description="Google Maps API spike analysis")
+  redis: Optional[ServiceSpikeAnalysis] = Field(
+      None, description="Redis operations spike analysis")
   time_range_minutes: int = Field(
       60, description="Time range analyzed for spikes")
   threshold_multiplier: float = Field(
@@ -106,9 +104,8 @@ class AllServicesSpikeAnalysis(BaseModel):
     service_checks = [
         (self.quote, ServiceType.QUOTE),
         (self.location, ServiceType.LOCATION),
-        (self.hubspot, ServiceType.HUBSPOT),
-        (self.bland, ServiceType.BLAND),
-        (self.gmaps, ServiceType.GMAPS)
+        (self.gmaps, ServiceType.GMAPS),
+        (self.redis, ServiceType.REDIS)
     ]
 
     for service_data, service_type in service_checks:
@@ -130,7 +127,7 @@ class AllServicesSpikeAnalysis(BaseModel):
     """Get the top spikes across all services by spike factor."""
     all_spikes = []
 
-    for service_data in [self.quote, self.location, self.hubspot, self.bland, self.gmaps]:
+    for service_data in [self.quote, self.location, self.gmaps, self.redis]:
       if service_data:
         all_spikes.extend(service_data.spikes)
 

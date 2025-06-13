@@ -7,24 +7,16 @@ from app.services.redis.service import RedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_SORTED_SET,
     LOCATION_LATENCY_SORTED_SET,
-    HUBSPOT_LATENCY_SORTED_SET,
-    BLAND_LATENCY_SORTED_SET,
     GMAPS_LATENCY_SORTED_SET,
     REDIS_LATENCY_SORTED_SET,
     QUOTE_LATENCY_STREAM,
     LOCATION_LATENCY_STREAM,
-    HUBSPOT_LATENCY_STREAM,
-    BLAND_LATENCY_STREAM,
     GMAPS_LATENCY_STREAM,
     REDIS_LATENCY_STREAM,
     QUOTE_LATENCY_SUM_KEY,
     QUOTE_LATENCY_COUNT_KEY,
     LOCATION_LATENCY_SUM_KEY,
     LOCATION_LATENCY_COUNT_KEY,
-    HUBSPOT_LATENCY_SUM_KEY,
-    HUBSPOT_LATENCY_COUNT_KEY,
-    BLAND_LATENCY_SUM_KEY,
-    BLAND_LATENCY_COUNT_KEY,
     GMAPS_LATENCY_SUM_KEY,
     GMAPS_LATENCY_COUNT_KEY,
     REDIS_LATENCY_SUM_KEY,
@@ -44,8 +36,6 @@ class LatencyRecorder:
     self.sorted_set_keys = {
         "quote": QUOTE_LATENCY_SORTED_SET,
         "location": LOCATION_LATENCY_SORTED_SET,
-        "hubspot": HUBSPOT_LATENCY_SORTED_SET,
-        "bland": BLAND_LATENCY_SORTED_SET,
         "gmaps": GMAPS_LATENCY_SORTED_SET,
         "redis": REDIS_LATENCY_SORTED_SET,
     }
@@ -53,8 +43,6 @@ class LatencyRecorder:
     self.stream_keys = {
         "quote": QUOTE_LATENCY_STREAM,
         "location": LOCATION_LATENCY_STREAM,
-        "hubspot": HUBSPOT_LATENCY_STREAM,
-        "bland": BLAND_LATENCY_STREAM,
         "gmaps": GMAPS_LATENCY_STREAM,
         "redis": REDIS_LATENCY_STREAM,
     }
@@ -62,8 +50,6 @@ class LatencyRecorder:
     self.sum_keys = {
         "quote": QUOTE_LATENCY_SUM_KEY,
         "location": LOCATION_LATENCY_SUM_KEY,
-        "hubspot": HUBSPOT_LATENCY_SUM_KEY,
-        "bland": BLAND_LATENCY_SUM_KEY,
         "gmaps": GMAPS_LATENCY_SUM_KEY,
         "redis": REDIS_LATENCY_SUM_KEY,
     }
@@ -71,8 +57,6 @@ class LatencyRecorder:
     self.count_keys = {
         "quote": QUOTE_LATENCY_COUNT_KEY,
         "location": LOCATION_LATENCY_COUNT_KEY,
-        "hubspot": HUBSPOT_LATENCY_COUNT_KEY,
-        "bland": BLAND_LATENCY_COUNT_KEY,
         "gmaps": GMAPS_LATENCY_COUNT_KEY,
         "redis": REDIS_LATENCY_COUNT_KEY,
     }
@@ -211,7 +195,7 @@ class LatencyRecorder:
       api_endpoint: Optional[str] = None,
       response_status: Optional[int] = None
   ) -> bool:
-    """Records latency for external API calls (HubSpot, Bland.ai, Google Maps)."""
+    """Records latency for external API calls (Quote, Location, Google Maps, Redis)."""
     context = {}
     if api_endpoint:
       context["api_endpoint"] = api_endpoint

@@ -24,9 +24,8 @@ async def get_all_services_percentiles(
   Returns P50, P90, P95, and P99 latency percentiles for:
   - Quote generation service
   - Location lookup service  
-  - HubSpot API
-  - Bland.ai API
   - Google Maps API
+  - Redis Cache
 
   Also includes overall system status and summary statistics.
   """
@@ -38,8 +37,6 @@ async def get_all_services_percentiles(
     percentiles_data = AllServicesPercentiles(
         quote=None,
         location=None,
-        hubspot=None,
-        bland=None,
         gmaps=None,
         redis=None,
         overall_status=LatencyStatus.UNKNOWN,

@@ -33,7 +33,7 @@ async def get_latency_overview(
   - Overall system health score and status
 
   This endpoint provides a complete picture of system latency health
-  across all services: Quote, Location, HubSpot, Bland.ai, and Google Maps APIs.
+  across all services: Quote, Location, Google Maps, and Redis APIs.
   """
   try:
     # Import the individual endpoints to reuse their logic
@@ -46,7 +46,8 @@ async def get_latency_overview(
     percentiles = await get_all_services_percentiles(dashboard_service, current_user)
     averages = await get_all_services_averages(dashboard_service, current_user)
     trends = await get_all_services_trends(time_range_minutes, dashboard_service, current_user)
-    spikes = await get_all_services_spikes(time_range_minutes, 3.0, dashboard_service, current_user)
+    # Get spike summaries instead of detailed spike analysis for overview
+    spikes = await dashboard_service.latency_service.get_spike_summaries(time_range_minutes)
 
     # For alerts, create a simple mock since the full implementation needs more work
     from app.models.latency.alerts.alerts import AllServicesAlerts, AlertSeverity

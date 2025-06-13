@@ -11,10 +11,6 @@ class AllServicesPercentiles(BaseModel):
       None, description="Quote service percentiles")
   location: Optional["ServicePercentiles"] = Field(
       None, description="Location service percentiles")
-  hubspot: Optional["ServicePercentiles"] = Field(
-      None, description="HubSpot API percentiles")
-  bland: Optional["ServicePercentiles"] = Field(
-      None, description="Bland.ai API percentiles")
   gmaps: Optional["ServicePercentiles"] = Field(
       None, description="Google Maps API percentiles")
   redis: Optional["ServicePercentiles"] = Field(
@@ -36,7 +32,7 @@ class AllServicesPercentiles(BaseModel):
   def get_worst_status(self) -> LatencyStatus:
     """Determine the worst status across all services."""
     statuses = []
-    for service_data in [self.quote, self.location, self.hubspot, self.bland, self.gmaps]:
+    for service_data in [self.quote, self.location, self.gmaps, self.redis]:
       if service_data:
         statuses.append(service_data.status)
 
@@ -56,9 +52,8 @@ class AllServicesPercentiles(BaseModel):
     service_checks = [
         (self.quote, ServiceType.QUOTE),
         (self.location, ServiceType.LOCATION),
-        (self.hubspot, ServiceType.HUBSPOT),
-        (self.bland, ServiceType.BLAND),
-        (self.gmaps, ServiceType.GMAPS)
+        (self.gmaps, ServiceType.GMAPS),
+        (self.redis, ServiceType.REDIS)
     ]
 
     for service_data, service_type in service_checks:

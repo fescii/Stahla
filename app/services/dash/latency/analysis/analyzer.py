@@ -6,8 +6,6 @@ from app.services.redis.service import RedisService
 from app.core.cachekeys import (
     QUOTE_LATENCY_STREAM,
     LOCATION_LATENCY_STREAM,
-    HUBSPOT_LATENCY_STREAM,
-    BLAND_LATENCY_STREAM,
     GMAPS_LATENCY_STREAM,
     REDIS_LATENCY_STREAM,
 )
@@ -24,8 +22,6 @@ class LatencyAnalyzer:
     self.stream_keys = {
         "quote": QUOTE_LATENCY_STREAM,
         "location": LOCATION_LATENCY_STREAM,
-        "hubspot": HUBSPOT_LATENCY_STREAM,
-        "bland": BLAND_LATENCY_STREAM,
         "gmaps": GMAPS_LATENCY_STREAM,
         "redis": REDIS_LATENCY_STREAM,
     }
@@ -55,23 +51,16 @@ class LatencyAnalyzer:
 
       stream_key = self.stream_keys[service_type]
 
-      # Calculate time range (Redis stream IDs are timestamp-based)
-      end_time = datetime.now(timezone.utc)
-      start_time = end_time - timedelta(minutes=minutes)
-
-      # Convert to Redis stream ID format (milliseconds since epoch)
-      start_id = str(int(start_time.timestamp() * 1000))
-      end_id = str(int(end_time.timestamp() * 1000))
-
+      # Get all data from the stream
       redis_client = await self.redis.get_client()
 
       try:
-        # Read from stream within time range
+        # Read all data from stream
         stream_data = await redis_client.xrange(
             stream_key,
-            min=start_id,
-            max=end_id,
-            count=1000  # Limit to prevent excessive memory usage
+            min='-',
+            max='+',
+            count=10000  # Increased limit for all data
         )
 
         if not stream_data:
@@ -90,7 +79,7 @@ class LatencyAnalyzer:
 
         for stream_id, fields in stream_data:
           try:
-            latency_ms = float(fields.get(b'latency_ms', 0))
+            latency_ms = float(fields.get('latency_ms', 0))
             latencies.append(latency_ms)
 
             # Parse timestamp from stream ID or field
@@ -99,7 +88,7 @@ class LatencyAnalyzer:
             timestamps.append(timestamp_ms)
 
             # Track endpoint distribution
-            endpoint = self._safe_decode(fields.get(b'endpoint', b'unknown'))
+            endpoint = self._safe_decode(fields.get('endpoint', 'unknown'))
             endpoints[endpoint] = endpoints.get(endpoint, 0) + 1
 
           except (ValueError, KeyError) as e:
@@ -122,7 +111,7 @@ class LatencyAnalyzer:
 
         # Simple trend analysis (compare first half vs second half)
         mid_point = len(latencies) // 2
-        if mid_point > 0:
+        if len(latencies) >= 2 and mid_point > 0:
           first_half_avg = sum(latencies[:mid_point]) / mid_point
           second_half_avg = sum(
               latencies[mid_point:]) / (len(latencies) - mid_point)
@@ -134,7 +123,8 @@ class LatencyAnalyzer:
           else:
             trend = "stable"
         else:
-          trend = "insufficient_data"
+          # For very small samples, just mark as stable
+          trend = "stable" if len(latencies) >= 1 else "insufficient_data"
           first_half_avg = avg_latency
           second_half_avg = avg_latency
 
@@ -169,7 +159,7 @@ class LatencyAnalyzer:
   async def get_latency_spikes(
       self,
       service_type: str,
-      threshold_multiplier: float = 3.0,
+      threshold_multiplier: float = 2.0,
       minutes: int = 60
   ) -> List[Dict[str, Any]]:
     """
@@ -183,20 +173,15 @@ class LatencyAnalyzer:
 
       stream_key = self.stream_keys[service_type]
 
-      # Get recent data
-      end_time = datetime.now(timezone.utc)
-      start_time = end_time - timedelta(minutes=minutes)
-      start_id = str(int(start_time.timestamp() * 1000))
-      end_id = str(int(end_time.timestamp() * 1000))
-
+      # Get all data from the stream
       redis_client = await self.redis.get_client()
 
       try:
         stream_data = await redis_client.xrange(
             stream_key,
-            min=start_id,
-            max=end_id,
-            count=1000
+            min='-',
+            max='+',
+            count=10000  # Increased limit for all data
         )
 
         if not stream_data:
@@ -208,15 +193,17 @@ class LatencyAnalyzer:
 
         for stream_id, fields in stream_data:
           try:
-            latency_ms = float(fields.get(b'latency_ms', 0))
+            # Handle both string and bytes field keys (depending on Redis client version)
+            latency_ms = float(fields.get('latency_ms')
+                               or fields.get(b'latency_ms', 0))
             latencies.append(latency_ms)
 
             entry = {
                 "stream_id": self._safe_decode(stream_id),
                 "latency_ms": latency_ms,
-                "request_id": self._safe_decode(fields.get(b'request_id', b'unknown')),
-                "endpoint": self._safe_decode(fields.get(b'endpoint', b'unknown')),
-                "timestamp": self._safe_decode(fields.get(b'timestamp', b'unknown')),
+                "request_id": self._safe_decode(fields.get('request_id') or fields.get(b'request_id', b'unknown')),
+                "endpoint": self._safe_decode(fields.get('endpoint') or fields.get(b'endpoint', b'unknown')),
+                "timestamp": self._safe_decode(fields.get('timestamp') or fields.get(b'timestamp', b'unknown')),
             }
 
             # Add context fields
@@ -278,19 +265,15 @@ class LatencyAnalyzer:
 
       stream_key = self.stream_keys[service_type]
 
-      end_time = datetime.now(timezone.utc)
-      start_time = end_time - timedelta(minutes=minutes)
-      start_id = str(int(start_time.timestamp() * 1000))
-      end_id = str(int(end_time.timestamp() * 1000))
-
+      # Get all data from the stream
       redis_client = await self.redis.get_client()
 
       try:
         stream_data = await redis_client.xrange(
             stream_key,
-            min=start_id,
-            max=end_id,
-            count=1000
+            min='-',
+            max='+',
+            count=10000  # Increased limit for all data
         )
 
         if not stream_data:
@@ -301,8 +284,8 @@ class LatencyAnalyzer:
 
         for stream_id, fields in stream_data:
           try:
-            latency_ms = float(fields.get(b'latency_ms', 0))
-            endpoint = self._safe_decode(fields.get(b'endpoint', b'unknown'))
+            latency_ms = float(fields.get('latency_ms', 0))
+            endpoint = self._safe_decode(fields.get('endpoint', 'unknown'))
 
             if endpoint not in endpoint_data:
               endpoint_data[endpoint] = []

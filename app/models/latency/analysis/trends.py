@@ -41,12 +41,10 @@ class AllServicesTrendAnalysis(BaseModel):
       None, description="Quote service trend analysis")
   location: Optional[ServiceTrendAnalysis] = Field(
       None, description="Location service trend analysis")
-  hubspot: Optional[ServiceTrendAnalysis] = Field(
-      None, description="HubSpot API trend analysis")
-  bland: Optional[ServiceTrendAnalysis] = Field(
-      None, description="Bland.ai API trend analysis")
   gmaps: Optional[ServiceTrendAnalysis] = Field(
       None, description="Google Maps API trend analysis")
+  redis: Optional[ServiceTrendAnalysis] = Field(
+      None, description="Redis operations trend analysis")
   time_range_minutes: int = Field(
       60, description="Time range analyzed in minutes")
   overall_trend: TrendDirection = Field(
@@ -70,9 +68,8 @@ class AllServicesTrendAnalysis(BaseModel):
     service_checks = [
         (self.quote, ServiceType.QUOTE),
         (self.location, ServiceType.LOCATION),
-        (self.hubspot, ServiceType.HUBSPOT),
-        (self.bland, ServiceType.BLAND),
-        (self.gmaps, ServiceType.GMAPS)
+        (self.gmaps, ServiceType.GMAPS),
+        (self.redis, ServiceType.REDIS)
     ]
 
     for service_data, service_type in service_checks:
@@ -84,7 +81,7 @@ class AllServicesTrendAnalysis(BaseModel):
   def calculate_overall_trend(self) -> TrendDirection:
     """Calculate overall trend across all services."""
     trends = []
-    for service_data in [self.quote, self.location, self.hubspot, self.bland, self.gmaps]:
+    for service_data in [self.quote, self.location, self.gmaps, self.redis]:
       if service_data and service_data.trend != TrendDirection.NO_DATA:
         trends.append(service_data.trend)
 
