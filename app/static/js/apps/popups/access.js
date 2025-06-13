@@ -3,7 +3,7 @@ export default class AccessPopup extends HTMLElement {
     super();
     this.app = window.app;
     this.api = this.app.api;
-    this.shadowObj = this.attachShadow({mode: 'open'});
+    this.shadowObj = this.attachShadow({ mode: 'open' });
     this.url = this.getAttribute('api');
     this.render();
   }
@@ -28,14 +28,14 @@ export default class AccessPopup extends HTMLElement {
     document.body.classList.add("stop-scrolling");
 
     // if any scroll is attempted, set this to the previous value
-    window.onscroll = function() {
+    window.onscroll = function () {
       window.scrollTo(scrollLeft, scrollTop);
     };
   }
 
   enableScroll() {
     document.body.classList.remove("stop-scrolling");
-    window.onscroll = function() {};
+    window.onscroll = function () { };
   }
 
   submitForm = async form => {
@@ -190,7 +190,7 @@ export default class AccessPopup extends HTMLElement {
       </form>
     `;
   }
-  
+
   getStyles() {
     return /*css*/`
       <style>

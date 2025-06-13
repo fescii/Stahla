@@ -27,6 +27,30 @@ class GoogleMapsOperations:
     self.mongo_service = mongo_service
     self.gmaps = googlemaps.Client(key=settings.GOOGLE_MAPS_API_KEY)
 
+  async def _get_geocoded_coordinates(self, address: str) -> Optional[Dict[str, float]]:
+    """Get geocoded coordinates for an address using Google Geocoding API."""
+    if not self.gmaps:
+      return None
+
+    try:
+      loop = asyncio.get_running_loop()
+      func_call = functools.partial(
+          self.gmaps.geocode,  # type: ignore
+          address
+      )
+      geocode_result = await loop.run_in_executor(None, func_call)
+
+      if geocode_result and len(geocode_result) > 0:
+        location = geocode_result[0]['geometry']['location']
+        return {
+            "latitude": location['lat'],
+            "longitude": location['lng']
+        }
+    except Exception as e:
+      logfire.warning(f"Failed to geocode address '{address}': {e}")
+
+    return None
+
   async def get_distance_from_google(
       self, origin: str, destination: str
   ) -> Optional[Dict[str, Any]]:
@@ -114,6 +138,7 @@ class GoogleMapsOperations:
               "origin": origin,
               "destination": destination,  # Return original destination for consistency
               "successful_variation": dest_variation,
+              "geocoded_coordinates": await self._get_geocoded_coordinates(dest_variation),
           }
           break  # Success! Stop trying other variations
 

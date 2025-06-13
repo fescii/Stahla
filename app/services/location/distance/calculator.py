@@ -134,6 +134,8 @@ class DistanceCalculator:
                 distance_meters=distance_meters,
                 duration_seconds=duration_seconds,
                 within_service_area=within_service_area,
+                geocoded_coordinates=distance_info.get("geocoded_coordinates"),
+                is_distance_estimated=False,
             )
             potential_results.append(result)
             await self.cache_ops.redis_service.set_json(

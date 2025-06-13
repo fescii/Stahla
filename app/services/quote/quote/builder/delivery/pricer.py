@@ -66,6 +66,8 @@ class DeliveryPricer:
           "original_base_fee": delivery_result.get("original_base_fee", 0.0),
           "seasonal_multiplier_applied": delivery_result.get("seasonal_multiplier_applied", 1.0),
           "per_mile_rate_applied": delivery_result.get("per_mile_rate_applied", 0.0),
+          "base_fee_applied": delivery_result.get("base_fee_applied", 0.0),
+          "is_distance_estimated": delivery_result.get("is_estimated", False),
           "tier_name": delivery_result.get("tier_description", "Standard")
       }
 

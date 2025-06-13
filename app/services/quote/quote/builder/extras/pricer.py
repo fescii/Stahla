@@ -45,7 +45,7 @@ class ExtrasPricer:
 
       # Calculate total extras cost
       extras_cost = sum(
-          item.total_price for item in extras_items if hasattr(item, 'total_price'))
+          item.total for item in extras_items if hasattr(item, 'total'))
 
       # Prepare result structure
       extras_result = {

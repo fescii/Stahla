@@ -168,6 +168,9 @@ class QuoteService:
         distance_meters=distance_meters,
         duration_seconds=duration_seconds,
         within_service_area=True,  # Assume within service area for fallback
+        geocoded_coordinates={
+            "latitude": lat, "longitude": lon} if lat is not None and lon is not None else None,
+        is_distance_estimated=True,
     )
 
 

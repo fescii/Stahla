@@ -28,6 +28,10 @@ class DistanceResult(BaseModel):
   duration_seconds: int = Field(..., description="Driving duration in seconds")
   within_service_area: bool = Field(
       ..., description="Whether the location is within the service area")
+  geocoded_coordinates: Optional[dict] = Field(
+      None, description="Geocoded coordinates {latitude, longitude} of the delivery location")
+  is_distance_estimated: bool = Field(
+      False, description="Whether the distance was estimated using fallback methods")
 
 
 class LocationLookupResponse(BaseModel):

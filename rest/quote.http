@@ -25,7 +25,7 @@ Authorization: {{auth_token}}
 }
 
 ### Sample Request 2: Commercial, 4 Stall Trailer, Cupertino, Longer Rental --- 
-POST {{host}}/api/v1/webhook/quote
+POST {{host}}/api/v1/webhook/quote/
 Content-Type: application/json
 Authorization: {{auth_token}}
 
@@ -42,7 +42,7 @@ Authorization: {{auth_token}}
 }
 
 ### Sample Request 3: Event, 8 Stall Trailer, Omaha (Near Branch), No Extras --- 
-POST {{host}}/api/v1/webhook/quote
+POST {{host}}/api/v1/webhook/quote/
 Content-Type: application/json
 Authorization: {{auth_token}}
 

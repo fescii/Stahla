@@ -186,31 +186,76 @@ class ExtrasCalculator:
   def normalize_extra_id(
       self, extra_id: str, available_extras: Dict[str, Any]
   ) -> Optional[str]:
-    """Normalize extra ID for matching against available services."""
+    """
+    Normalizes extra_id to match available extras using case-insensitive matching
+    and fuzzy matching for common variations.
+
+    Returns the normalized key if found, None otherwise.
+    """
     if not extra_id or not available_extras:
       return None
 
-    # Direct match first
+    # First try exact match (case-sensitive)
     if extra_id in available_extras:
       return extra_id
 
-    # Try some common variations
-    variations = [
-        extra_id.lower(),
-        extra_id.upper(),
-        extra_id.replace(" ", "_").lower(),
-        extra_id.replace("-", "_").lower(),
-        extra_id.replace("_", "").lower(),
-    ]
+    # Convert to lowercase for case-insensitive matching
+    extra_id_lower = extra_id.lower().strip()
 
-    for variation in variations:
-      if variation in available_extras:
-        return variation
+    # Try direct lowercase match
+    for key in available_extras.keys():
+      if key.lower() == extra_id_lower:
+        return key
 
-    # Try partial matching
-    extra_lower = extra_id.lower()
-    for available_key in available_extras.keys():
-      if extra_lower in available_key.lower() or available_key.lower() in extra_lower:
-        return available_key
+    # Define common aliases and variations
+    service_aliases = {
+        # Restocking variations
+        "restocking": ["restock", "restocking service", "re-stocking", "restocking supplies"],
+
+        # Fresh water variations (stored as "fresh water tank fill")
+        "fresh water tank fill": [
+            "fresh water", "water fill", "fresh water fill", "water tank fill",
+            "fresh water service", "water service", "freshwater", "fresh water tank",
+            "water tank", "fresh water supply", "water supply", "fresh_water", "fresh_water_tank_fill"
+        ],
+
+        # Pump out variations (stored as "pump out waste tank")
+        "pump out waste tank": [
+            "pump out", "pump_out", "waste pump", "waste tank pump", "pump waste", "septic pump",
+            "waste removal", "pump out service", "waste tank service", "pump-out",
+            "waste tank", "septic service", "pumpout", "pump_out_waste_tank"
+        ],
+
+        # Cleaning variations
+        "cleaning": [
+            "clean", "cleaning service", "sanitizing", "sanitization", "disinfecting",
+            "deep clean", "maintenance cleaning"
+        ]
+    }
+
+    # Check if input matches any alias
+    for standard_name, aliases in service_aliases.items():
+      # Check if input matches any alias for this service
+      if extra_id_lower in [alias.lower() for alias in aliases]:
+        # Check if the standard name is in available extras
+        for available_key in available_extras.keys():
+          if available_key.lower() == standard_name.lower():
+            return available_key
+
+    # Fuzzy matching as last resort using difflib
+    import difflib
+    available_keys_lower = {
+        key.lower(): key for key in available_extras.keys()}
+
+    # Use difflib to find close matches (threshold of 0.6 for reasonable accuracy)
+    close_matches = difflib.get_close_matches(
+        extra_id_lower,
+        available_keys_lower.keys(),
+        n=1,
+        cutoff=0.6
+    )
+
+    if close_matches:
+      return available_keys_lower[close_matches[0]]
 
     return None

@@ -127,41 +127,6 @@ export default class Quote extends HTMLElement {
       });
     }
 
-    // Copy results button
-    const copyButton = this.shadowObj.querySelector(".copy-result");
-    if (copyButton) {
-      copyButton.addEventListener("click", () => {
-        this._copyResultToClipboard();
-      });
-    }
-
-    // Tab switching
-    const tabs = this.shadowObj.querySelectorAll(".tab:not(.disabled)");
-    if (tabs) {
-      tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-          // Skip if tab is disabled
-          if (tab.classList.contains("disabled")) return;
-
-          // Deactivate all tabs and tab content
-          this.shadowObj
-            .querySelectorAll(".tab")
-            .forEach((t) => t.classList.remove("active"));
-          this.shadowObj
-            .querySelectorAll(".tab-content")
-            .forEach((c) => c.classList.remove("active"));
-
-          // Activate selected tab and content
-          tab.classList.add("active");
-          const tabName = tab.dataset.tab;
-          const content = this.shadowObj.querySelector(`.${tabName}-tab`);
-          if (content) {
-            content.classList.add("active");
-          }
-        });
-      });
-    }
-
     // Reset form button
     const resetButton = this.shadowObj.querySelector("#reset-form-btn");
     if (resetButton) {
@@ -334,173 +299,30 @@ export default class Quote extends HTMLElement {
       return;
     }
 
-    console.log("Generating quote for:", quoteId, selectedQuote);
+    console.log("Opening quote modal for:", quoteId, selectedQuote);
 
-    this.state.isLoading = true;
-    this.state.error = null;
-    this.state.showComparison = false;
-    this.render();
-
-    try {
-      // First API request
-      const firstStartTime = performance.now();
-
-      console.log("Sending quote request with body:", selectedQuote.body);
-
-      const firstResponse = await this.api.post(this.url, {
-        content: "json",
-        headers: {
-          Authorization: "Bearer 7%FRtf@34hi",
-        },
-        body: selectedQuote.body,
-      });
-
-      const firstEndTime = performance.now();
-      const firstClientProcessingTime = Math.round(
-        firstEndTime - firstStartTime
-      );
-
-      console.log("Quote response received:", firstResponse);
-
-      if (!firstResponse.success) {
-        const errorMsg =
-          firstResponse.error_message || "Failed to generate quote";
-        this.state.error = errorMsg;
-        this.state.isLoading = false;
-        console.error("Quote generation failed:", errorMsg, firstResponse);
-        this.render();
-        return;
-      }
-
-      // Add client-side processing time for comparison
-      if (firstResponse.data) {
-        firstResponse.data.client_processing_time_ms =
-          firstClientProcessingTime;
-        firstResponse.data.request_number = 1;
-        firstResponse.data.cached = false;
-      }
-
-      this.state.result = firstResponse;
-      this.state.isLoading = false;
-      this.render();
-      this._scrollToResults();
-
-      // First request is now complete. Make a second request immediately to demonstrate Redis caching
-      // Only proceed if the first request was successful
-      if (!this.state.result?.success) {
-        console.log("First request was not successful, skipping second request");
-        return;
-      }
-
-      this.state.isLoading = true;
-      this.render();
-
-      try {
-        const secondStartTime = performance.now();
-
-        const secondResponse = await this.api.post(this.url, {
-          content: "json",
-          headers: {
-            Authorization: "Bearer 7%FRtf@34hi",
-          },
-          body: selectedQuote.body,
-        });
-
-        const secondEndTime = performance.now();
-        const secondClientProcessingTime = Math.round(
-          secondEndTime - secondStartTime
-        );
-
-        if (secondResponse.data) {
-          secondResponse.data.client_processing_time_ms =
-            secondClientProcessingTime;
-          secondResponse.data.request_number = 2;
-          secondResponse.data.cached = true;
-        }
-
-        this.state.secondResult = secondResponse;
-        this.state.showComparison = true;
-        this.state.isLoading = false;
-        this.render();
-        this._scrollToResults();
-
-        // Animate the comparison metrics to highlight the difference
-        setTimeout(() => {
-          const comparisonElements = this.shadowObj.querySelectorAll(
-            ".comparison-highlight"
-          );
-          comparisonElements.forEach((el) => {
-            el.classList.add("highlight-animation");
-          });
-        }, 500);
-      } catch (error) {
-        console.error("Error on second quote request:", error);
-        this.state.isLoading = false;
-        this.render();
-      }
-    } catch (error) {
-      console.error("Error generating quote:", error);
-      this.state.isLoading = false;
-      this.state.error = "An unexpected error occurred";
-      this.render();
-    }
+    // Open the quote result modal
+    this._openQuoteModal(selectedQuote.body);
   }
 
-  _copyResultToClipboard() {
-    if (!this.state.result) return;
-
-    const resultText = JSON.stringify(this.state.result, null, 2);
-    navigator.clipboard
-      .writeText(resultText)
-      .then(() => {
-        const copyButton = this.shadowObj.querySelector(".copy-result");
-        if (copyButton) {
-          const originalText = copyButton.innerHTML;
-
-          copyButton.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            Copied!
-          `;
-
-          setTimeout(() => {
-            copyButton.innerHTML = originalText;
-          }, 2000);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to copy result: ", err);
-      });
-  }
-
-  _calculatePerformanceScore(processingTime) {
-    // Calculate score based on response time
-    let color, score;
-
-    if (processingTime < 600) {
-      color = "var(--success-color)";
-      score = "Excellent";
-    } else if (processingTime < 850) {
-      color = "var(--accent-color)";
-      score = "Good";
-    } else if (processingTime < 1100) {
-      color = "var(--alt-color)";
-      score = "Average";
-    } else {
-      color = "var(--error-color)";
-      score = "Slow";
+  _openQuoteModal(quoteBody) {
+    // Prevent multiple modals from opening
+    const existingModal = document.querySelector('quote-popup');
+    if (existingModal) {
+      existingModal.remove();
     }
 
-    return { color, score };
-  }
+    // Create and insert the quote result modal
+    const quoteModal = document.createElement('quote-popup');
+    quoteModal.setAttribute('api', this.url);
+    quoteModal.setAttribute('quote-data', JSON.stringify(quoteBody));
 
-  _getLoadingSpinner() {
-    return /* html */ `
-      <svg class="spinner" viewBox="0 0 50 50">
-        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
-      </svg>
-    `;
+    document.body.insertAdjacentElement('beforeend', quoteModal);
+
+    // Add cleanup when modal is closed
+    quoteModal.addEventListener('quote-closed', () => {
+      quoteModal.remove();
+    });
   }
 
   _formatCurrency(amount) {
@@ -522,44 +344,6 @@ export default class Quote extends HTMLElement {
     };
 
     this.render();
-  }
-
-  _calculateAverageProcessingTime(firstTime, secondTime) {
-    return Math.round((firstTime + secondTime) / 2);
-  }
-
-  _calculatePercentageImprovement(firstTime, secondTime) {
-    if (!firstTime || !secondTime) return 0;
-    const improvement = ((firstTime - secondTime) / firstTime) * 100;
-    return Math.round(improvement);
-  }
-
-  _createAnimatedBarChart(firstTime, secondTime) {
-    const maxTime = Math.max(firstTime, secondTime);
-    const firstWidth = (firstTime / maxTime) * 100;
-    const secondWidth = (secondTime / maxTime) * 100;
-
-    return /* html */ `
-      <div class="comparison-bars">
-        <div class="comparison-bar-container">
-          <div class="comparison-label">First Request</div>
-          <div class="comparison-bar-wrapper">
-            <div class="comparison-bar" style="width: ${firstWidth}%; background: var(--accent-color);">
-              <span>${firstTime}ms</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="comparison-bar-container">
-          <div class="comparison-label">Redis Cached</div>
-          <div class="comparison-bar-wrapper">
-            <div class="comparison-bar comparison-highlight" style="width: ${secondWidth}%; background: var(--success-color);">
-              <span>${secondTime}ms</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
   }
 
   _renderCustomForm() {
@@ -783,56 +567,19 @@ export default class Quote extends HTMLElement {
   }
 
   _renderResultsSection() {
-    if (this.state.isLoading) {
-      return /* html */ `
-        <div class="loading-container">
-          ${this._getLoadingSpinner()}
-          <p class="loading-text">Generating quote...</p>
-        </div>
-      `;
-    }
-
-    if (this.state.error) {
-      return /* html */ `
-        <div class="error-container">
+    return /* html */ `
+      <div class="results-info">
+        <div class="info-container">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
-          ${this.state.error}
+          <div class="info-content">
+            <h3>Quote Results</h3>
+            <p>When you generate a quote, the results will open in a modal popup window with detailed pricing information and performance metrics.</p>
+          </div>
         </div>
-      `;
-    }
-
-    if (!this.state.result) {
-      return /* html */ `
-        <div class="no-results">
-          <p>Select a sample quote and click "Generate Quote" to see the results.</p>
-        </div>
-      `;
-    }
-
-    // If we have results, show the tabs
-    return /* html */ `
-      <div class="tabs-container">
-        <div class="tab active" data-tab="quote">Quote Details</div>
-        <div class="tab ${!this.state.showComparison ? "disabled" : ""
-      }" data-tab="performance">
-          Performance Comparison
-          ${!this.state.showComparison
-        ? ""
-        : `<span style="display: inline-block; width: 0.5rem; height: 0.5rem; background: var(--accent-color); border-radius: 50%; margin-left: 0.25rem;"></span>`
-      }
-        </div>
-      </div>
-      
-      <div class="tab-content quote-tab active">
-        ${this._renderQuoteResult()}
-      </div>
-      
-      <div class="tab-content performance-tab">
-        ${this._renderPerformanceComparison()}
       </div>
     `;
   }
@@ -1430,10 +1177,10 @@ export default class Quote extends HTMLElement {
         extras: selectedExtras,
       };
 
-      console.log("Processing custom quote directly:", customQuoteBody);
+      console.log("Opening quote modal for custom quote:", customQuoteBody);
 
-      // Process the custom quote directly without adding to samples
-      await this._processCustomQuoteDirectly(customQuoteBody);
+      // Open the quote result modal with custom quote data
+      this._openQuoteModal(customQuoteBody);
     } catch (error) {
       console.error("Error generating custom quote:", error);
       this._updateError(
@@ -2376,6 +2123,49 @@ export default class Quote extends HTMLElement {
           animation: dash 1.5s ease-in-out infinite;
         }
         
+        .results-section {
+          margin-top: 2rem;
+          padding: 2rem 0;
+        }
+
+        .results-info {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 200px;
+          padding: 2rem;
+        }
+
+        .info-container {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 2rem;
+          border: var(--border);
+          border-radius: 0.75rem;
+          background: var(--stat-background);
+          max-width: 600px;
+          text-align: left;
+        }
+
+        .info-container svg {
+          color: var(--accent-color);
+          flex-shrink: 0;
+        }
+
+        .info-content h3 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--title-color);
+          margin-bottom: 0.5rem;
+        }
+
+        .info-content p {
+          color: var(--text-color);
+          font-size: 0.9rem;
+          line-height: 1.5;
+        }
+
         .loading-container {
           display: flex;
           flex-direction: column;
