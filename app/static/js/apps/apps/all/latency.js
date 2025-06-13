@@ -4,7 +4,7 @@ export default class LatencyOverview extends HTMLElement {
     this.shadowObj = this.attachShadow({ mode: "open" });
     this.app = window.app;
     this.api = this.app.api;
-    this.url = this.getAttribute("api") || "/dash/latency/overview";
+    this.url = this.getAttribute("api") || "/latency/overview/";
     this.latencyData = null;
     this.refreshInterval = null;
     this._loading = true;

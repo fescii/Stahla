@@ -10,7 +10,21 @@ export default class AppMain extends HTMLElement {
     this.initThemeSystem();
     this.registerComponents();
     this.preferences();
-    this.api = new APIManager('/api/v1', 9500, 'v1');
+
+    // Clear any HTTP caches immediately if we're on HTTPS
+    this.clearLegacyHttpCaches();
+
+    // Force HTTPS for production - simple and bulletproof approach
+    let baseURL;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // Development - use current protocol
+      baseURL = window.location.protocol + '//' + window.location.host + '/api/v1';
+    } else {
+      // Production - always use HTTPS
+      baseURL = 'https://' + window.location.host + '/api/v1';
+    }
+    console.log('Initializing API with base URL:', baseURL); // Debug logging
+    this.api = new APIManager(baseURL, 9500, 'v1');
     window.app = this;
     this.mql = window.matchMedia('(max-width: 660px)');
     this.render();
@@ -1475,5 +1489,79 @@ export default class AppMain extends HTMLElement {
         }
       }
     });
+  }
+
+  clearLegacyHttpCaches() {
+    // Only proceed if we're on HTTPS
+    if (window.location.protocol !== 'https:') return;
+
+    // Clear the cache for all registered service workers
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(registration => {
+          registration.unregister();
+        });
+      });
+    }
+
+    // Delete all caches
+    if (caches && caches.keys) {
+      caches.keys().then(cacheNames => {
+        cacheNames.forEach(cacheName => {
+          caches.delete(cacheName);
+        });
+      });
+    }
+
+    // Optionally, you can also clear specific storage if needed
+    // localStorage.clear();
+    // sessionStorage.clear();
+  }
+
+  async clearLegacyHttpCaches() {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return; // Skip in development
+    }
+
+    try {
+      // Clear Cache Storage
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          const cache = await caches.open(cacheName);
+          const requests = await cache.keys();
+          for (const request of requests) {
+            if (request.url.includes('http://')) {
+              console.log('Clearing legacy HTTP cache:', request.url);
+              await cache.delete(request);
+            }
+          }
+        }
+      }
+
+      // Clear localStorage API cache metadata
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('api-cache') && key.includes('http://')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => {
+        console.log('Clearing legacy localStorage cache:', key);
+        localStorage.removeItem(key);
+      });
+
+      // Force a hard reload if we detected any HTTP caches
+      if (keysToRemove.length > 0) {
+        console.log('Legacy HTTP caches found and cleared. Forcing page reload...');
+        setTimeout(() => {
+          window.location.reload(true);
+        }, 1000);
+        return;
+      }
+    } catch (error) {
+      console.warn('Failed to clear legacy HTTP caches:', error);
+    }
   }
 }

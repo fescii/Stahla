@@ -17,14 +17,41 @@ export default class APIManager {
 
     // Initialize cache
     this.initCache();
-  }
-
-  async initCache() {
+  } async initCache() {
     if ('caches' in window) {
+      // Clear all caches first in production to fix mixed content issues
+      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        await this.clearAllCaches();
+      }
+
       // Open or create the cache
       await caches.open(this.cacheName);
+
+      // Clear any cached HTTP requests if we're on HTTPS
+      if (window.location.protocol === 'https:') {
+        await this.clearHttpCaches();
+      }
     } else {
       console.warn('Cache Storage API is not available in this browser');
+    }
+  }
+
+  async clearHttpCaches() {
+    try {
+      const cache = await caches.open(this.cacheName);
+      const requests = await cache.keys();
+
+      for (const request of requests) {
+        if (request.url.startsWith('http://')) {
+          console.log('Clearing HTTP cache for:', request.url);
+          await cache.delete(request);
+          // Also clear localStorage metadata
+          const key = `${this.cacheName}-metadata-${request.url}-${request.method}`;
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to clear HTTP caches:', error);
     }
   }
 
@@ -47,12 +74,15 @@ export default class APIManager {
   }
 
   #generateCacheKey(url, options = {}) {
+    console.log('Generating cache key for URL:', url);
     const normalizedOptions = { ...options };
     delete normalizedOptions.signal;
-    return new Request(url, {
+    const request = new Request(url, {
       ...normalizedOptions,
       method: options.method || 'GET',
     });
+    console.log('Generated Request object URL:', request.url);
+    return request;
   }
 
   async #storeCacheMetadata(request, data, cacheOptions) {
@@ -148,7 +178,31 @@ export default class APIManager {
   }
 
   async #request(url, options = {}, cacheOptions = {}) {
-    const fullURL = this.baseURL + url;
+    // Construct the full URL
+    let fullURL;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      fullURL = url;
+    } else if (url.startsWith('//')) {
+      fullURL = window.location.protocol + url;
+    } else {
+      fullURL = this.baseURL + url;
+    }
+
+    // Force HTTPS in production (bulletproof approach)
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      if (fullURL.startsWith('http://')) {
+        console.warn('Converting HTTP to HTTPS:', fullURL);
+        fullURL = fullURL.replace(/^http:\/\//, 'https://');
+      }
+    }
+
+    // Add cache-busting parameter in production to avoid cached HTTP requests
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      const separator = fullURL.includes('?') ? '&' : '?';
+      fullURL += `${separator}_cb=${Date.now()}`;
+    }
+
+    console.log('API Request - Base URL:', this.baseURL, 'Relative URL:', url, 'Final URL:', fullURL);
     const request = this.#generateCacheKey(fullURL, options);
 
     // Check cache first - will automatically handle expiry
@@ -187,13 +241,20 @@ export default class APIManager {
 
     const fetchPromise = (async () => {
       try {
-        const response = await fetch(request.url, {
+        console.log('About to fetch - Using URL directly:', fullURL);
+        console.log('About to fetch - Method:', options.method);
+        console.log('About to fetch - Headers:', [...processedHeaders.entries()]);
+
+        const response = await fetch(fullURL, {
           method: options.method,
           body,
           headers: processedHeaders,
           signal: controller.signal,
           credentials: 'include',
         });
+
+        console.log('Fetch completed - Response URL:', response.url);
+        console.log('Fetch completed - Response Status:', response.status);
 
         const data = await this.#processResponse(response);
         await this.#setCacheData(request, data, cacheOptions);
@@ -263,6 +324,36 @@ export default class APIManager {
           }
         });
       }
+    }
+  }
+
+  async clearAllCaches() {
+    try {
+      // Clear all Cache Storage
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          console.log('Deleting cache:', cacheName);
+          await caches.delete(cacheName);
+        }
+      }
+
+      // Clear all localStorage items related to API cache
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('api-cache')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => {
+        console.log('Clearing localStorage cache:', key);
+        localStorage.removeItem(key);
+      });
+
+      console.log('All caches cleared successfully');
+    } catch (error) {
+      console.warn('Failed to clear all caches:', error);
     }
   }
 

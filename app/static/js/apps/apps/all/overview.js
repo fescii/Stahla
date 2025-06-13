@@ -171,7 +171,7 @@ export default class Overview extends HTMLElement {
         
         <!-- Latency Overview Section -->
         <div class="latency-section">
-          <latency-overview api="/latency/overview"></latency-overview>
+          <latency-overview api="/latency/overview/"></latency-overview>
         </div>
         
         <div class="dashboard-grid">
