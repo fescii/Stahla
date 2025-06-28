@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone, timedelta
 
 from app.services.redis.service import RedisService
-from app.core.cachekeys import (
+from app.core.keys import (
     QUOTE_LATENCY_STREAM,
     LOCATION_LATENCY_STREAM,
     GMAPS_LATENCY_STREAM,

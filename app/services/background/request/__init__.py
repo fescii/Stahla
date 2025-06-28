@@ -6,7 +6,7 @@ from datetime import datetime
 import json
 
 from app.models.dash.dashboard import RequestLogEntry
-from app.core.cachekeys import (
+from app.core.keys import (
     RECENT_REQUESTS_KEY,
     TOTAL_QUOTE_REQUESTS_KEY,
     SUCCESS_QUOTE_REQUESTS_KEY,

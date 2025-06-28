@@ -22,7 +22,7 @@ from app.services.dash.background import (
     log_error_bg,
     record_quote_latency_bg,
 )
-from app.core.cachekeys import (
+from app.core.keys import (
     TOTAL_QUOTE_REQUESTS_KEY,
     SUCCESS_QUOTE_REQUESTS_KEY,
     ERROR_QUOTE_REQUESTS_KEY,

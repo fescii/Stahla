@@ -16,7 +16,7 @@ from app.services.redis.factory import get_redis_service
 from app.core.security import get_api_key
 from app.services.background.util import attach_background_tasks
 from app.services.dash.background import increment_request_counter_bg
-from app.core.cachekeys import TOTAL_LOCATION_LOOKUPS_KEY
+from app.core.keys import TOTAL_LOCATION_LOOKUPS_KEY
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

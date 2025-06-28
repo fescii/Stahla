@@ -16,7 +16,7 @@ from .constants import (
 )
 
 # Import cache keys from centralized location
-from app.core.cachekeys import (
+from app.core.keys import (
     PRICING_CATALOG_CACHE_KEY,
     BRANCH_LIST_CACHE_KEY,
 )

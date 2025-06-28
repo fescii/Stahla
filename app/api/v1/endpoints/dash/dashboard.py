@@ -30,7 +30,7 @@ from app.services.mongo import MongoService  # Import MongoService
 # Add get_mongo_service
 from app.core.dependencies import get_dashboard_service_dep, get_mongo_service_dep
 from app.core.security import get_current_user  # Import JWT dependency
-from app.core.cachekeys import PRICING_CATALOG_CACHE_KEY, GMAPS_API_CALLS_KEY, GMAPS_API_ERRORS_KEY
+from app.core.keys import PRICING_CATALOG_CACHE_KEY, GMAPS_API_CALLS_KEY, GMAPS_API_ERRORS_KEY
 
 
 # Simple model for message responses

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import json
 import logfire
 
-from app.core.cachekeys import (
+from app.core.keys import (
     RECENT_ERRORS_KEY,
 )
 

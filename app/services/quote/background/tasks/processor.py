@@ -60,7 +60,7 @@ class BackgroundTaskHelper:
       cache_type: str = "pricing"
   ):
     """Add cache hit increment task."""
-    from app.core.cachekeys import PRICING_CACHE_HITS_KEY
+    from app.core.keys import PRICING_CACHE_HITS_KEY
     key = PRICING_CACHE_HITS_KEY if cache_type == "pricing" else f"cache_hits:{cache_type}"
     BackgroundTaskHelper.add_metrics_task(
         background_tasks, redis_service, "cache_hit", key)
@@ -72,7 +72,7 @@ class BackgroundTaskHelper:
       cache_type: str = "pricing"
   ):
     """Add cache miss increment task."""
-    from app.core.cachekeys import PRICING_CACHE_MISSES_KEY
+    from app.core.keys import PRICING_CACHE_MISSES_KEY
     key = PRICING_CACHE_MISSES_KEY if cache_type == "pricing" else f"cache_misses:{cache_type}"
     BackgroundTaskHelper.add_metrics_task(
         background_tasks, redis_service, "cache_miss", key)

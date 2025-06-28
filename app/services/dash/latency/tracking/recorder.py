@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, cast
 from datetime import datetime, timezone
 
 from app.services.redis.service import RedisService
-from app.core.cachekeys import (
+from app.core.keys import (
     QUOTE_LATENCY_SORTED_SET,
     LOCATION_LATENCY_SORTED_SET,
     GMAPS_LATENCY_SORTED_SET,

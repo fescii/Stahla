@@ -7,7 +7,7 @@ Catalog retrieval operations for managing pricing catalogs.
 import logging
 from typing import Any, Dict, Optional
 
-from app.core.cachekeys import (
+from app.core.keys import (
     PRICING_CATALOG_CACHE_KEY,
     PRICING_CACHE_HITS_KEY,
     PRICING_CACHE_MISSES_KEY,
@@ -201,7 +201,7 @@ class CatalogRetriever:
         return False
 
       # Store in Redis
-      from app.core.cachekeys import PRICING_CATALOG_CACHE_KEY
+      from app.core.keys import PRICING_CATALOG_CACHE_KEY
 
       await self.manager.redis_service.set_json(
           PRICING_CATALOG_CACHE_KEY,

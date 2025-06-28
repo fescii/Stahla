@@ -222,11 +222,10 @@ export default class UsersList extends HTMLElement {
       <div class="container">
         ${this._loading ? this.getLoader() : ""}
         ${!this._loading && this._error ? this._getErrorHTML() : ""}
-        ${
-          !this._loading && !this._error && this.usersData
-            ? this._getUsersListHTML()
-            : ""
-        }
+        ${!this._loading && !this._error && this.usersData
+        ? this._getUsersListHTML()
+        : ""
+      }
       </div>
     `;
   };
@@ -239,14 +238,12 @@ export default class UsersList extends HTMLElement {
             <h1 class="users-title">Users</h1>
             <div class="users-count">
               <span class="count">${this._filteredUsers.length}</span>
-              <span class="total-text">${
-                this._filteredUsers.length === 1 ? "user" : "users"
-              }</span>
-              ${
-                this._searchTerm
-                  ? `<span class="filter-text">(filtered from ${this.usersData.length})</span>`
-                  : ""
-              }
+              <span class="total-text">${this._filteredUsers.length === 1 ? "user" : "users"
+      }</span>
+              ${this._searchTerm
+        ? `<span class="filter-text">(filtered from ${this.usersData.length})</span>`
+        : ""
+      }
             </div>
           </div>
           <button class="add-user-btn">
@@ -266,9 +263,8 @@ export default class UsersList extends HTMLElement {
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" class="search-input" placeholder="Search users by name, email, or role" value="${
-              this._searchTerm
-            }">
+            <input type="text" class="search-input" placeholder="Search users by name, email, or role" value="${this._searchTerm
+      }">
           </div>
         </div>
         
@@ -304,13 +300,12 @@ export default class UsersList extends HTMLElement {
               </tr>
             </thead>
             <tbody>
-              ${
-                this._filteredUsers.length > 0
-                  ? this._filteredUsers
-                      .map((user) => this._getUserRowHTML(user))
-                      .join("")
-                  : `<tr class="empty-row"><td colspan="5">No users found</td></tr>`
-              }
+              ${this._filteredUsers.length > 0
+        ? this._filteredUsers
+          .map((user) => this._getUserRowHTML(user))
+          .join("")
+        : `<tr class="empty-row"><td colspan="5">No users found</td></tr>`
+      }
             </tbody>
           </table>
         </div>
@@ -341,26 +336,23 @@ export default class UsersList extends HTMLElement {
         </td>
         <td class="user-status-cell">
           <div class="centered-content">
-            <span class="status-badge ${
-              user.is_active ? "active" : "inactive"
-            }">
+            <span class="status-badge ${user.is_active ? "active" : "inactive"
+      }">
               ${user.is_active ? "Active" : "Inactive"}
             </span>
           </div>
         </td>
         <td class="user-actions-cell">
           <div class="actions-buttons">
-            <button class="action-btn edit-btn" data-user-id="${
-              user.id
-            }" title="Edit User">
+            <button class="action-btn edit-btn" data-user-id="${user.id
+      }" title="Edit User">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </button>
-            <button class="action-btn delete-btn" data-user-id="${
-              user.id
-            }" title="Delete User">
+            <button class="action-btn delete-btn" data-user-id="${user.id
+      }" title="Delete User">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 6h18"></path>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -464,9 +456,8 @@ export default class UsersList extends HTMLElement {
         <line x1="12" y1="16" x2="12.01" y2="16"></line>
       </svg>
       <h3>Unable to Load Users</h3>
-      <p>${
-        this._errorMessage ||
-        "An error occurred while loading users data. Please try again or contact support if the problem persists."
+      <p>${this._errorMessage ||
+      "An error occurred while loading users data. Please try again or contact support if the problem persists."
       }</p>
       <button class="retry-btn" onclick="this._fetchUsersData()">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -507,7 +498,7 @@ export default class UsersList extends HTMLElement {
       }
       
       .container {
-      max-width: 1200px;
+      max-width: 100%;
       margin: 0 auto;
       padding: 2rem 1rem;
       will-change: transform, opacity;

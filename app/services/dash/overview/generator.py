@@ -13,7 +13,7 @@ from app.models.dash.dashboard import (
     ErrorLogEntry,
     CacheHitMissRatio,
 )
-from app.core.cachekeys import (
+from app.core.keys import (
     PRICING_CATALOG_CACHE_KEY,
     TOTAL_QUOTE_REQUESTS_KEY,
     SUCCESS_QUOTE_REQUESTS_KEY,

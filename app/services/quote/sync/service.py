@@ -36,7 +36,7 @@ from .parsers.states import StatesParser
 from .parsers.pricing import PricingParser
 from .storage.redis import RedisStorage
 from .storage.mongo import MongoStorage
-from app.core.cachekeys import (
+from app.core.keys import (
     PRICING_CATALOG_CACHE_KEY,
     BRANCH_LIST_CACHE_KEY,
     STATES_LIST_CACHE_KEY,

@@ -16,7 +16,7 @@ from app.services.redis.factory import get_redis_service
 from app.core.security import get_api_key
 from app.services.background.util import attach_background_tasks
 from app.services.dash.background import increment_request_counter_bg
-from app.core.cachekeys import TOTAL_LOCATION_LOOKUPS_KEY
+from app.core.keys import TOTAL_LOCATION_LOOKUPS_KEY
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,7 +37,8 @@ async def location_lookup_webhook(
   - Adds a background task to call `location_service.prefetch_distance`.
   - Returns `202 Accepted` immediately.
   """
-  logger.info(f"Received location_lookup webhook for: {payload.delivery_location}")
+  logger.info(
+      f"Received location_lookup webhook for: {payload.delivery_location}")
 
   # Attach background tasks to services
   attach_background_tasks(location_service, background_tasks)
@@ -54,7 +55,7 @@ async def location_lookup_webhook(
   logger.info(
       f"Background tasks added for prefetching distance and incrementing counter for: {payload.delivery_location}"
   )
-  
+
   return GenericResponse(
       data=MessageResponse(
           message=f"Location lookup initiated for {payload.delivery_location}"),

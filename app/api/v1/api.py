@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 # Import endpoint routers
-from .endpoints import health, classify, hubspot, documentation  # Removed home
+from .endpoints import health, classify, hubspot
 from .endpoints import bland  # Changed from bland_calls
 from .endpoints import testing  # Changed from test_services
 from .endpoints import errors  # Added error_logs router -> Changed from error_logs
@@ -26,8 +26,6 @@ api_router_v1.include_router(
     classify.router, prefix="/classify", tags=["Classification"])
 api_router_v1.include_router(
     hubspot.router, prefix="/hubspot", tags=["HubSpot"])
-api_router_v1.include_router(
-    documentation.router, prefix="/docs", tags=["Documentation"])
 api_router_v1.include_router(
     bland.router, prefix="/bland", tags=["Bland AI Calls"])
 api_router_v1.include_router(testing.router, prefix="/test", tags=["Testing"])

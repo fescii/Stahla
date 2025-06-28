@@ -2,7 +2,7 @@
 
 """
 Constants used throughout the quote service.
-Excludes cache keys (moved to app.core.cachekeys for centralization).
+Excludes cache keys (moved to app.core.keys for centralization).
 """
 
 # Constants for pricing logic

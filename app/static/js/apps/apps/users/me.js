@@ -10,14 +10,14 @@ export default class UserProfile extends HTMLElement {
     this._loading = true;
     this._error = false;
     this._errorMessage = null;
-    
+
     this.render();
   }
 
   render() {
     console.log("Rendering UserProfile component");
     this.shadowObj.innerHTML = this.getTemplate();
-    
+
     // Set up event listeners after each render
     setTimeout(() => {
       this._setupEventListeners();
@@ -26,7 +26,7 @@ export default class UserProfile extends HTMLElement {
 
   connectedCallback() {
     console.log("UserProfile connectedCallback fired");
-    
+
     // Fetch user data when component is connected to the DOM
     setTimeout(() => {
       this._fetchUserData();
@@ -49,12 +49,12 @@ export default class UserProfile extends HTMLElement {
 
     try {
       const response = await this.api.get(this.url, { content: "json" });
-      
+
       // Check for errors in the response
       if (
         response.status_code === 401 ||
         (response.error_message &&
-         response.error_message.includes("validate credentials"))
+          response.error_message.includes("validate credentials"))
       ) {
         console.log("Authentication required for user profile access");
         this._loading = false;
@@ -77,16 +77,16 @@ export default class UserProfile extends HTMLElement {
       this._loading = false;
       this._error = false;
       this._errorMessage = null;
-      
+
       // Remove hashed_password from the displayed data for security
       const userData = { ...response.data };
       if (userData.hashed_password) {
         delete userData.hashed_password;
       }
-      
+
       this.userData = userData;
       console.log("User data fetched successfully:", this.userData);
-      
+
       // Render with the new data
       this.render();
 
@@ -211,40 +211,40 @@ export default class UserProfile extends HTMLElement {
 
   _getInitialsAvatar = (name) => {
     if (!name) return '';
-    
+
     // Get initials from name (first and last name if available)
     const nameParts = name.split(' ');
     let initials = nameParts[0][0].toUpperCase();
-    
+
     if (nameParts.length > 1) {
       initials += nameParts[nameParts.length - 1][0].toUpperCase();
     }
-    
+
     // Generate a consistent color based on the name
     const hue = this._getHashCode(name) % 360;
     const backgroundColor = `hsl(${hue}, 75%, 55%)`;
-    
+
     return /* html */ `
       <div class="avatar-circle" style="background-color: ${backgroundColor}">
         <span class="avatar-initials">${initials}</span>
       </div>
     `;
   };
-  
+
   // Simple hash function for generating consistent colors
   _getHashCode = (str) => {
     let hash = 0;
     if (str.length === 0) return hash;
-    
+
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32bit integer
     }
-    
+
     return Math.abs(hash);
   };
-  
+
   _formatRole = (role) => {
     if (!role) return 'User';
     return role.charAt(0).toUpperCase() + role.slice(1);
@@ -299,7 +299,7 @@ export default class UserProfile extends HTMLElement {
       }
       
       .container {
-        max-width: 1200px;
+        max-width: 100%;
         margin: 0 auto;
         padding: 2rem 1rem;
       }

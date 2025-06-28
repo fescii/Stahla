@@ -23,49 +23,41 @@ export default class CacheSearch extends HTMLElement {
       { value: "sync:last_successful_timestamp", label: "Last Sync Timestamp" },
       { value: "sync:*", label: "All Sync Data" }
     ];
-    
+
     // Initialize with Maps Cache Counters option
     this.selectedOption = "dash:cache:maps:*";
     console.log("Initial selectedOption set to:", this.selectedOption);
-    
+
     this.render();
   }
 
   render() {
     console.log("Rendering component, searchData:", this.searchData ? "exists" : "null", "selectedOption:", this.selectedOption);
     this.shadowObj.innerHTML = this.getTemplate();
-    
+
     // Set up event listeners after each render
     setTimeout(() => {
       console.log("Setting up event listeners after render");
       this._setupEventListeners();
-      
-      // Ensure select has correct value after rendering
-      const searchSelect = this.shadowObj.querySelector('#search-select');
-      if (searchSelect) {
-        console.log("Select before update:", searchSelect.value);
-        searchSelect.value = this.selectedOption;
-        console.log("Select after update:", searchSelect.value);
-      }
     }, 0);
   }
 
   // Method specifically for the first-time load
   _triggerInitialSearch() {
     console.log("Triggering initial search for:", this.selectedOption);
-    
+
     // Reset any potential blocking states
     this._block = false;
     this._loading = false;
-    
+
     // Directly call the search API to load the initial data
     this.api.get(`${this.url}?pattern=${this.selectedOption}`, { content: "json" })
       .then(response => {
         console.log("Initial search response received");
-        
+
         // Process the response similar to _handleSearch
-        if (response.status_code === 401 || 
-            (response.error_message && response.error_message.includes("validate credentials"))) {
+        if (response.status_code === 401 ||
+          (response.error_message && response.error_message.includes("validate credentials"))) {
           console.log("Authentication required for search access");
           this.app.showAccess();
           return;
@@ -79,10 +71,10 @@ export default class CacheSearch extends HTMLElement {
           this.searchData = response;
           console.log("Initial search completed successfully");
         }
-        
+
         // Render with the new data
         this.render();
-        
+
         // Set up event listeners for the newly rendered content
         setTimeout(() => {
           this._setupPricingEntryListeners();
@@ -99,67 +91,56 @@ export default class CacheSearch extends HTMLElement {
 
   connectedCallback() {
     console.log("connectedCallback fired");
-    
+
     // Make sure the component is fully initialized before triggering the search
     setTimeout(() => {
       console.log("connectedCallback timeout fired");
       console.log("Current selectedOption:", this.selectedOption);
-      
+
       // Set up event listeners
       this._setupEventListeners();
-      
-      // Ensure the select element is set to the right value
-      const searchSelect = this.shadowObj.querySelector('#search-select');
-      if (searchSelect) {
-        searchSelect.value = this.selectedOption;
-        console.log("Search select value set to:", searchSelect.value);
-      }
-      
+
       // Trigger the initial search
       this._triggerInitialSearch();
     }, 300);
   }
 
   _setupEventListeners() {
-    // Search form submission
-    const searchForm = this.shadowObj.querySelector('.search-form');
-    if (searchForm) {
-      // Remove any existing event listeners to prevent duplicates
-      const oldForm = searchForm.cloneNode(true);
-      searchForm.parentNode.replaceChild(oldForm, searchForm);
-      
-      // Add the event listener to the new form
-      oldForm.addEventListener('submit', (e) => {
-        console.log("Search form submitted");
+    // Option button click handlers
+    const optionButtons = this.shadowObj.querySelectorAll('.option-btn');
+    optionButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this._handleSearch();
-        return false;
-      });
-    }
 
-    // Search option change
-    const searchSelect = this.shadowObj.querySelector('#search-select');
-    if (searchSelect) {
-      searchSelect.addEventListener('change', (e) => {
-        this.selectedOption = e.target.value;
-        console.log("Selected option changed to:", this.selectedOption);
+        const value = button.getAttribute('data-value');
+        console.log("Option button clicked:", value);
+
+        // Update selected option
+        this.selectedOption = value;
+
+        // Update button states
+        optionButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        // Trigger search immediately
+        this._handleSearch();
       });
-    }      
-    
+    });
+
     // Export button
     const exportBtn = this.shadowObj.querySelector('.export-btn');
     if (exportBtn) {
       exportBtn.addEventListener('click', this._handleExport);
     }
-    
+
     // Set up pricing entry toggle buttons if they exist
     this._setupPricingEntryListeners();
-    
+
     // Set up counter tabs if they exist
     this._setupCounterTabListeners();
   }
-  
+
   // Set up event listeners for counter tabs
   _setupCounterTabListeners() {
     // Counter tab switching
@@ -171,11 +152,11 @@ export default class CacheSearch extends HTMLElement {
           counterTabs.forEach(t => t.classList.remove('active'));
           // Add active class to clicked tab
           tab.classList.add('active');
-          
+
           // Hide all tab content
           const tabContents = this.shadowObj.querySelectorAll('.counter-tabs .tab-content');
           tabContents.forEach(content => content.classList.add('hidden'));
-          
+
           // Show the selected tab content
           const tabId = tab.getAttribute('data-tab') + '-tab';
           const selectedContent = this.shadowObj.getElementById(tabId);
@@ -186,7 +167,7 @@ export default class CacheSearch extends HTMLElement {
       });
     }
   }
-  
+
   // Set up event listeners for pricing entries toggle buttons
   _setupPricingEntryListeners() {
     // Set up pricing tabs if they exist
@@ -198,11 +179,11 @@ export default class CacheSearch extends HTMLElement {
           pricingTabs.forEach(t => t.classList.remove('active'));
           // Add active class to clicked tab
           tab.classList.add('active');
-          
+
           // Hide all tab content
           const tabContents = this.shadowObj.querySelectorAll('.pricing-tab-content');
           tabContents.forEach(content => content.classList.remove('active'));
-          
+
           // Show the selected tab content
           const tabId = tab.dataset.tab;
           const selectedContent = this.shadowObj.querySelector(`.pricing-tab-content[data-tab="${tabId}"]`);
@@ -217,13 +198,13 @@ export default class CacheSearch extends HTMLElement {
   // Handle search action
   _handleSearch = async () => {
     console.log("_handleSearch called, selectedOption:", this.selectedOption, "block:", this._block);
-    
+
     // Make sure we have a valid selection and we're not already processing
     if (this._block) {
       console.log("Search blocked because _block is true");
       return;
     }
-    
+
     if (!this.selectedOption) {
       console.log("Search blocked because selectedOption is empty");
       return;
@@ -237,7 +218,7 @@ export default class CacheSearch extends HTMLElement {
     try {
       console.log("Fetching data from:", `${this.url}?pattern=${this.selectedOption}`);
       const response = await this.api.get(`${this.url}?pattern=${this.selectedOption}`, { content: "json" });
-      
+
       // Check for 401 Unauthorized response
       if (
         response.status_code === 401 ||
@@ -263,13 +244,13 @@ export default class CacheSearch extends HTMLElement {
       this._loading = false;
       this._block = false;
       this._empty = false;
-      
+
       this.searchData = response;
       console.log("Search completed successfully, got data:", response);
-      
+
       // Render with the new data
       this.render();
-      
+
       // Set up event listeners for the newly rendered content
       setTimeout(() => {
         console.log("Setting up event listeners for new content");
@@ -298,10 +279,10 @@ export default class CacheSearch extends HTMLElement {
     try {
       // Get the data to export
       const dataToExport = this.searchData.data;
-      
+
       // Convert to JSON string
       const jsonString = JSON.stringify(dataToExport, null, 2);
-      
+
       // Create a blob and download link
       const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -339,27 +320,23 @@ export default class CacheSearch extends HTMLElement {
     return /* html */ `
     <div class="search-header">
       <h1 class="search-title">Cache Search</h1>
-      <form class="search-form" onsubmit="return false;">
-        <div class="search-input-group">
-          <div class="select-wrapper">
-            <select id="search-select" class="search-select">
-              ${this.searchOptions.map(option => 
-                `<option value="${option.value}" ${this.selectedOption === option.value ? 'selected' : ''}>${option.label}</option>`
-              ).join('')}
-            </select>
-            <svg class="select-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-          <button type="submit" class="search-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            Search
-          </button>
+      <p class="search-subtitle">Explore and analyze your application's cache data with powerful search and visualization tools</p>
+      
+      <div class="search-options">
+        <h3 class="options-title">Select Cache Type</h3>
+        <div class="option-buttons">
+          ${this.searchOptions.map(option => `
+            <button 
+              type="button" 
+              class="option-btn ${this.selectedOption === option.value ? 'active' : ''}" 
+              data-value="${option.value}"
+            >
+              <span class="option-label">${option.label}</span>
+              <span class="option-value">${option.value}</span>
+            </button>
+          `).join('')}
         </div>
-      </form>
+      </div>
     </div>
     `;
   };
@@ -367,12 +344,12 @@ export default class CacheSearch extends HTMLElement {
   _getEmptyStateHTML = () => {
     return /* html */ `
     <div class="empty-state">
-      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
       <h3>No results found</h3>
-      <p>No cache entries were found matching your search criteria.</p>
+      <p>No cache entries were found matching your search criteria. Try selecting a different cache pattern or check if the data exists.</p>
     </div>
     `;
   };
@@ -384,7 +361,7 @@ export default class CacheSearch extends HTMLElement {
 
     // Get the data from the response
     const data = this.searchData.data;
-    
+
     // Check which type of data was returned based on the selected option
     if (this.selectedOption.includes('pricing:catalog')) {
       return this._getPricingCatalogHTML(data[0]);
@@ -409,11 +386,11 @@ export default class CacheSearch extends HTMLElement {
   // Helper method to format durations from seconds
   _formatDuration = (seconds) => {
     if (typeof seconds !== 'number') return 'N/A';
-    
+
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const remainingSeconds = Math.floor(seconds % 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
@@ -427,33 +404,33 @@ export default class CacheSearch extends HTMLElement {
   _formatTabName = (name) => {
     return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
-  
+
   // Method for displaying maps cache counters data
   _getMapsCountersHTML = (data) => {
     if (!data || data.length === 0) {
       return this._getEmptyStateHTML();
     }
-    
+
     // Find hits and misses counters
     const hitsCounter = data.find(item => item.key === 'dash:cache:maps:hits');
     const missesCounter = data.find(item => item.key === 'dash:cache:maps:misses');
-    
+
     // Extract hits and misses values
     const hits = hitsCounter ? parseInt(hitsCounter.value_preview) : 0;
     const misses = missesCounter ? parseInt(missesCounter.value_preview) : 0;
     const total = hits + misses;
-    
+
     // Calculate hit rate percentage
     const hitRate = total > 0 ? ((hits / total) * 100).toFixed(1) : 0;
-    
+
     // Get formatted timestamp for the most recent counter
-    const lastUpdated = hitsCounter?.timestamp || missesCounter?.timestamp 
+    const lastUpdated = hitsCounter?.timestamp || missesCounter?.timestamp
       ? new Date(Math.max(
-          hitsCounter?.timestamp ? new Date(hitsCounter.timestamp).getTime() : 0, 
-          missesCounter?.timestamp ? new Date(missesCounter.timestamp).getTime() : 0
-        )).toLocaleString() 
+        hitsCounter?.timestamp ? new Date(hitsCounter.timestamp).getTime() : 0,
+        missesCounter?.timestamp ? new Date(missesCounter.timestamp).getTime() : 0
+      )).toLocaleString()
       : 'Unknown';
-    
+
     // Template with hit rate card and counter cards
     return /* html */ `
       <div class="results-container">
@@ -563,10 +540,10 @@ export default class CacheSearch extends HTMLElement {
       </div>
 
       <div class="tabs">
-        <button class="tab active" data-tab="products">Products</button>
-        <button class="tab" data-tab="generators">Generators</button>
-        <button class="tab" data-tab="delivery">Delivery</button>
-        <button class="tab" data-tab="seasonal">Seasonal</button>
+        <button class="tab active" data-tab="products"><span>Products</span></button>
+        <button class="tab" data-tab="generators"><span>Generators</span></button>
+        <button class="tab" data-tab="delivery"><span>Delivery</span></button>
+        <button class="tab" data-tab="seasonal"><span>Seasonal</span></button>
       </div>
 
       <div class="tab-content" id="products-tab">
@@ -634,16 +611,16 @@ export default class CacheSearch extends HTMLElement {
         <h4 class="subsection-title">Seasonal Tiers</h4>
         <div class="seasonal-tiers">
           ${valuePreview.seasonal_multipliers.tiers.map(tier => {
-            const startDate = new Date(tier.start_date).toLocaleDateString();
-            const endDate = new Date(tier.end_date).toLocaleDateString();
-            return `
+      const startDate = new Date(tier.start_date).toLocaleDateString();
+      const endDate = new Date(tier.end_date).toLocaleDateString();
+      return `
               <div class="tier-card">
                 <h5>${tier.name}</h5>
                 <p class="dates">${startDate} - ${endDate}</p>
                 <p class="multiplier">${tier.rate}x</p>
               </div>
             `;
-          }).join('')}
+    }).join('')}
         </div>
       </div>
     </div>
@@ -734,16 +711,16 @@ export default class CacheSearch extends HTMLElement {
     </div>
     `;
   };
-  
+
   // Method to display all pricing data (pricing:*)
   _getAllPricingDataHTML = (data) => {
     if (!data || data.length === 0) {
       return this._getEmptyStateHTML();
     }
-    
+
     // Find the catalog entry if it exists
     const catalogEntry = data.find(item => item.key === 'pricing:catalog');
-    
+
     // Special case: If we only have the catalog entry, extract products, generators, etc. from it
     if (data.length === 1 && catalogEntry) {
       // Parse the catalog data if needed
@@ -756,10 +733,10 @@ export default class CacheSearch extends HTMLElement {
           catalogData = {};
         }
       }
-      
+
       // Create synthetic entries from the catalog data for display
       const syntheticEntries = [];
-      
+
       // Add products
       if (catalogData.products) {
         Object.entries(catalogData.products).forEach(([id, product]) => {
@@ -771,7 +748,7 @@ export default class CacheSearch extends HTMLElement {
           });
         });
       }
-      
+
       // Add generators
       if (catalogData.generators) {
         Object.entries(catalogData.generators).forEach(([id, generator]) => {
@@ -783,7 +760,7 @@ export default class CacheSearch extends HTMLElement {
           });
         });
       }
-      
+
       // Add delivery info
       if (catalogData.delivery) {
         syntheticEntries.push({
@@ -793,7 +770,7 @@ export default class CacheSearch extends HTMLElement {
           timestamp: catalogEntry.timestamp
         });
       }
-      
+
       // Add seasonal info
       if (catalogData.seasonal_multipliers) {
         syntheticEntries.push({
@@ -803,25 +780,25 @@ export default class CacheSearch extends HTMLElement {
           timestamp: catalogEntry.timestamp
         });
       }
-      
+
       // Replace data with our synthetic entries plus the original catalog
       data = [catalogEntry, ...syntheticEntries];
     }
-    
+
     // Group pricing entries by type
     const productEntries = data.filter(item => item.key.includes('product:'));
     const generatorEntries = data.filter(item => item.key.includes('generator:'));
     const deliveryEntries = data.filter(item => item.key.includes('delivery:'));
-    const otherEntries = data.filter(item => 
-      !item.key.includes('product:') && 
-      !item.key.includes('generator:') && 
+    const otherEntries = data.filter(item =>
+      !item.key.includes('product:') &&
+      !item.key.includes('generator:') &&
       !item.key.includes('delivery:') &&
       item.key !== 'pricing:catalog'
     );
-    
+
     // Filter out the catalog entry from the data array
     const filteredData = data.filter(item => item.key !== 'pricing:catalog');
-    
+
     return /* html */ `
     <div class="results-container">
       <div class="results-header">
@@ -844,11 +821,11 @@ export default class CacheSearch extends HTMLElement {
         
         <div class="pricing-entries-section">
           <div class="pricing-tabs">
-            <button class="pricing-tab active" data-tab="all">All Entries (${filteredData.length})</button>
-            ${productEntries.length > 0 ? `<button class="pricing-tab" data-tab="products">Products (${productEntries.length})</button>` : ''}
-            ${generatorEntries.length > 0 ? `<button class="pricing-tab" data-tab="generators">Generators (${generatorEntries.length})</button>` : ''}
-            ${deliveryEntries.length > 0 ? `<button class="pricing-tab" data-tab="delivery">Delivery (${deliveryEntries.length})</button>` : ''}
-            ${otherEntries.length > 0 ? `<button class="pricing-tab" data-tab="other">Other (${otherEntries.length})</button>` : ''}
+            <button class="pricing-tab active" data-tab="all"><span>All Entries (${filteredData.length})</span></button>
+            ${productEntries.length > 0 ? `<button class="pricing-tab" data-tab="products"><span>Products (${productEntries.length})</span></button>` : ''}
+            ${generatorEntries.length > 0 ? `<button class="pricing-tab" data-tab="generators"><span>Generators (${generatorEntries.length})</span></button>` : ''}
+            ${deliveryEntries.length > 0 ? `<button class="pricing-tab" data-tab="delivery"><span>Delivery (${deliveryEntries.length})</span></button>` : ''}
+            ${otherEntries.length > 0 ? `<button class="pricing-tab" data-tab="other"><span>Other (${otherEntries.length})</span></button>` : ''}
           </div>
           
           <div class="pricing-tab-content active" data-tab="all">
@@ -893,22 +870,22 @@ export default class CacheSearch extends HTMLElement {
     </div>
     `;
   };
-  
+
   // Helper to render a pricing catalog preview
   _renderCatalogPreview = (catalogEntry) => {
     if (!catalogEntry || !catalogEntry.value_preview) return '';
-    
+
     try {
-      const catalog = typeof catalogEntry.value_preview === 'string' 
-        ? JSON.parse(catalogEntry.value_preview) 
+      const catalog = typeof catalogEntry.value_preview === 'string'
+        ? JSON.parse(catalogEntry.value_preview)
         : catalogEntry.value_preview;
-      
-      const lastUpdated = catalog.last_updated 
-        ? new Date(catalog.last_updated).toLocaleString() 
-        : (catalogEntry.timestamp 
-            ? new Date(catalogEntry.timestamp).toLocaleString() 
-            : 'Unknown');
-      
+
+      const lastUpdated = catalog.last_updated
+        ? new Date(catalog.last_updated).toLocaleString()
+        : (catalogEntry.timestamp
+          ? new Date(catalogEntry.timestamp).toLocaleString()
+          : 'Unknown');
+
       return /* html */ `
       <div class="catalog-preview">
         <h3 class="section-title">Pricing Catalog Overview</h3>
@@ -942,24 +919,24 @@ export default class CacheSearch extends HTMLElement {
       return '';
     }
   };
-  
+
   // Helper to get the current seasonal tier information
   _getCurrentSeasonalTier = (catalog) => {
     if (!catalog.seasonal_multipliers || !catalog.seasonal_multipliers.tiers) {
       return '<p>Standard Rate (1.0x)</p>';
     }
-    
+
     const now = new Date();
     const currentTier = catalog.seasonal_multipliers.tiers.find(tier => {
       const startDate = new Date(tier.start_date);
       const endDate = new Date(tier.end_date);
       return now >= startDate && now <= endDate;
     });
-    
+
     if (!currentTier) {
       return `<p>Standard Rate (${catalog.seasonal_multipliers.standard}x)</p>`;
     }
-    
+
     return `
     <div class="current-tier">
       <p class="tier-name">${currentTier.name}</p>
@@ -971,12 +948,12 @@ export default class CacheSearch extends HTMLElement {
     </div>
     `;
   };
-  
+
   // Helper to render a single pricing entry
   _renderPricingEntry = (item) => {
     // Format the timestamp if available
     const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleString() : 'N/A';
-    
+
     // Parse the value preview if it's a string
     let valuePreview = item.value_preview;
     if (typeof valuePreview === 'string') {
@@ -986,12 +963,12 @@ export default class CacheSearch extends HTMLElement {
         // Keep as is if not valid JSON
       }
     }
-    
+
     // Determine the entry type
     let entryType = 'Unknown';
     let entryIcon = '';
     let displayKey = item.key;
-    
+
     if (item.key === 'pricing:catalog') {
       entryType = 'Complete Catalog';
       entryIcon = `
@@ -1050,10 +1027,10 @@ export default class CacheSearch extends HTMLElement {
       // For other keys, try to remove the pricing: prefix if it exists
       displayKey = item.key.replace('pricing:', '');
     }
-    
+
     // Create a formatted preview of the data
     let formattedPreview = '';
-    
+
     if (typeof valuePreview === 'object' && valuePreview !== null) {
       if (entryType === 'Product' && valuePreview.name) {
         formattedPreview = `
@@ -1131,7 +1108,7 @@ export default class CacheSearch extends HTMLElement {
           const endDate = new Date(tier.end_date);
           return now >= startDate && now <= endDate;
         });
-        
+
         formattedPreview = `
           <div class="quick-info">
             <div class="info-row"><strong>Standard Rate:</strong> ${valuePreview.standard}x</div>
@@ -1142,17 +1119,17 @@ export default class CacheSearch extends HTMLElement {
             <h4>Seasonal Pricing Tiers</h4>
             <div class="tiers-grid">
               ${valuePreview.tiers.map(tier => {
-                const startDate = new Date(tier.start_date).toLocaleDateString();
-                const endDate = new Date(tier.end_date).toLocaleDateString();
-                const isActive = now >= new Date(tier.start_date) && now <= new Date(tier.end_date);
-                return `
+          const startDate = new Date(tier.start_date).toLocaleDateString();
+          const endDate = new Date(tier.end_date).toLocaleDateString();
+          const isActive = now >= new Date(tier.start_date) && now <= new Date(tier.end_date);
+          return `
                   <div class="tier-card ${isActive ? 'active-tier' : ''}">
                     <h5>${tier.name}</h5>
                     <div class="tier-dates">${startDate} - ${endDate}</div>
                     <div class="tier-rate">${tier.rate}x</div>
                   </div>
                 `;
-              }).join('')}
+        }).join('')}
             </div>
           </div>
         `;
@@ -1163,7 +1140,7 @@ export default class CacheSearch extends HTMLElement {
     } else {
       formattedPreview = `<pre class="json-preview">${String(valuePreview)}</pre>`;
     }
-    
+
     return `
       <div class="pricing-entry expanded">
         <div class="entry-header">
@@ -1189,26 +1166,26 @@ export default class CacheSearch extends HTMLElement {
     if (!data || data.length === 0) {
       return this._getEmptyStateHTML();
     }
-    
+
     // Log the first item to see the actual data structure
     console.log("Maps data structure:", data.length > 0 ? data[0] : null);
-    
+
     // Sort data by distance - show closest first, then furthest
     const sortedData = [...data].sort((a, b) => {
       // First try to sort by distance if available
-      const distanceA = a.value_preview && a.value_preview.distance_miles ? parseFloat(a.value_preview.distance_miles) : 
-                       (a.value_preview && a.value_preview.distance_meters ? parseFloat(a.value_preview.distance_meters) / 1609.34 : Number.MAX_VALUE);
-      const distanceB = b.value_preview && b.value_preview.distance_miles ? parseFloat(b.value_preview.distance_miles) : 
-                       (b.value_preview && b.value_preview.distance_meters ? parseFloat(b.value_preview.distance_meters) / 1609.34 : Number.MAX_VALUE);
-      
+      const distanceA = a.value_preview && a.value_preview.distance_miles ? parseFloat(a.value_preview.distance_miles) :
+        (a.value_preview && a.value_preview.distance_meters ? parseFloat(a.value_preview.distance_meters) / 1609.34 : Number.MAX_VALUE);
+      const distanceB = b.value_preview && b.value_preview.distance_miles ? parseFloat(b.value_preview.distance_miles) :
+        (b.value_preview && b.value_preview.distance_meters ? parseFloat(b.value_preview.distance_meters) / 1609.34 : Number.MAX_VALUE);
+
       if (distanceA !== Number.MAX_VALUE || distanceB !== Number.MAX_VALUE) return distanceA - distanceB;
-      
+
       // If no distance available, fall back to timestamp
       const timeA = a.value_preview && a.value_preview.timestamp ? new Date(a.value_preview.timestamp) : 0;
       const timeB = b.value_preview && b.value_preview.timestamp ? new Date(b.value_preview.timestamp) : 0;
-      
+
       if (timeA !== 0 || timeB !== 0) return timeB - timeA;
-      
+
       // Otherwise sort by key
       return String(a.key).localeCompare(String(b.key));
     });
@@ -1242,78 +1219,78 @@ export default class CacheSearch extends HTMLElement {
           </thead>
           <tbody>
             ${sortedData.map(item => {
-              // Try to parse the value_preview if it's a string
-              let preview = item.value_preview;
-              if (typeof preview === 'string') {
-                try {
-                  preview = JSON.parse(preview);
-                } catch (e) {
-                  // If parsing fails, keep it as is
-                  preview = { raw: preview };
-                }
-              }
-              
-              // If preview is not an object at this point, create an empty one
-              preview = preview || {};
-              
-              // Extract route info from the key if possible
-              const keyParts = item.key.split(':');
-              const keyInfo = keyParts.length > 2 ? keyParts[2] : '';
-              const routeInfo = keyInfo.replace(/_/g, ' ');
-              
-              // Get branch information (this is the "From" location)
-              const nearestBranch = preview.nearest_branch || {};
-              const branchName = nearestBranch.name || 'N/A';
-              const branchAddress = nearestBranch.address || 'N/A';
-              
-              // Get delivery location (this is the "To" location)
-              const deliveryLocation = preview.delivery_location || 'N/A';
-              
-              // Set origin (From) and destination (To) using the branch address and delivery location
-              let origin = branchAddress !== 'N/A' ? branchAddress : 'Unknown';
-              let destination = deliveryLocation !== 'N/A' ? deliveryLocation : 'Unknown';
-              
-              // If both are still unknown, try to extract from key
-              if (origin === 'Unknown' && destination === 'Unknown' && routeInfo) {
-                const routeParts = routeInfo.split('_to_');
-                if (routeParts.length === 2) {
-                  origin = routeParts[0].replace(/_/g, ' ');
-                  destination = routeParts[1].replace(/_/g, ' ');
-                }
-              }
-              
-              // Format the distance if available, otherwise N/A
-              const distance = preview.distance_miles 
-                ? preview.distance_miles.toFixed(1) 
-                : (preview.distance_meters 
-                  ? (preview.distance_meters / 1609.34).toFixed(1)
-                  : 'N/A');
-              
-              // Format the duration
-              const duration = preview.duration 
-                ? this._formatDuration(preview.duration) 
-                : (preview.duration_seconds 
-                  ? this._formatDuration(preview.duration_seconds)
-                  : 'N/A');
-              
-              // Get updated timestamp (not used in UI)
-              /* const updated = preview.timestamp 
-                ? new Date(preview.timestamp).toLocaleString() 
-                : (preview.updated_at 
-                  ? new Date(preview.updated_at).toLocaleString()
-                  : 'N/A'); */
-              
-              // Format TTL
-              const ttl = item.ttl === -1 ? 'No Expiration' : `${item.ttl}s`;
-              
-              // Check if we have any additional data to show
-              const hasAdditionalData = 
-                preview.travel_mode || 
-                preview.status || 
-                (preview.legs && preview.legs.length > 0) ||
-                (preview.polyline && preview.polyline.length > 0);
-              
-              return `
+      // Try to parse the value_preview if it's a string
+      let preview = item.value_preview;
+      if (typeof preview === 'string') {
+        try {
+          preview = JSON.parse(preview);
+        } catch (e) {
+          // If parsing fails, keep it as is
+          preview = { raw: preview };
+        }
+      }
+
+      // If preview is not an object at this point, create an empty one
+      preview = preview || {};
+
+      // Extract route info from the key if possible
+      const keyParts = item.key.split(':');
+      const keyInfo = keyParts.length > 2 ? keyParts[2] : '';
+      const routeInfo = keyInfo.replace(/_/g, ' ');
+
+      // Get branch information (this is the "From" location)
+      const nearestBranch = preview.nearest_branch || {};
+      const branchName = nearestBranch.name || 'N/A';
+      const branchAddress = nearestBranch.address || 'N/A';
+
+      // Get delivery location (this is the "To" location)
+      const deliveryLocation = preview.delivery_location || 'N/A';
+
+      // Set origin (From) and destination (To) using the branch address and delivery location
+      let origin = branchAddress !== 'N/A' ? branchAddress : 'Unknown';
+      let destination = deliveryLocation !== 'N/A' ? deliveryLocation : 'Unknown';
+
+      // If both are still unknown, try to extract from key
+      if (origin === 'Unknown' && destination === 'Unknown' && routeInfo) {
+        const routeParts = routeInfo.split('_to_');
+        if (routeParts.length === 2) {
+          origin = routeParts[0].replace(/_/g, ' ');
+          destination = routeParts[1].replace(/_/g, ' ');
+        }
+      }
+
+      // Format the distance if available, otherwise N/A
+      const distance = preview.distance_miles
+        ? preview.distance_miles.toFixed(1)
+        : (preview.distance_meters
+          ? (preview.distance_meters / 1609.34).toFixed(1)
+          : 'N/A');
+
+      // Format the duration
+      const duration = preview.duration
+        ? this._formatDuration(preview.duration)
+        : (preview.duration_seconds
+          ? this._formatDuration(preview.duration_seconds)
+          : 'N/A');
+
+      // Get updated timestamp (not used in UI)
+      /* const updated = preview.timestamp 
+        ? new Date(preview.timestamp).toLocaleString() 
+        : (preview.updated_at 
+          ? new Date(preview.updated_at).toLocaleString()
+          : 'N/A'); */
+
+      // Format TTL
+      const ttl = item.ttl === -1 ? 'No Expiration' : `${item.ttl}s`;
+
+      // Check if we have any additional data to show
+      const hasAdditionalData =
+        preview.travel_mode ||
+        preview.status ||
+        (preview.legs && preview.legs.length > 0) ||
+        (preview.polyline && preview.polyline.length > 0);
+
+      return `
                 <tr>
                   <td>
                     <div class="route-info">
@@ -1387,7 +1364,7 @@ export default class CacheSearch extends HTMLElement {
                 </tr>
                 ` : ''}
               `;
-            }).join('')}
+    }).join('')}
           </tbody>
         </table>
       </div>
@@ -1405,11 +1382,11 @@ export default class CacheSearch extends HTMLElement {
     const counterGroups = data.reduce((acc, item) => {
       const parts = item.key.split(':');
       const group = parts.length > 2 ? parts[2] : 'other';
-      
+
       if (!acc[group]) {
         acc[group] = [];
       }
-      
+
       acc[group].push(item);
       return acc;
     }, {});
@@ -1448,21 +1425,21 @@ export default class CacheSearch extends HTMLElement {
             <h3 class="section-title">${this._formatTabName(group)} Counters</h3>
             <div class="counter-cards">
               ${items.map(item => {
-                const value = typeof item.value_preview === 'number' 
-                  ? item.value_preview.toLocaleString() 
-                  : (item.value_preview?.count || '0').toLocaleString();
-                
-                const keyParts = item.key.split(':');
-                const name = keyParts[keyParts.length - 1].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                
-                return `
+      const value = typeof item.value_preview === 'number'
+        ? item.value_preview.toLocaleString()
+        : (item.value_preview?.count || '0').toLocaleString();
+
+      const keyParts = item.key.split(':');
+      const name = keyParts[keyParts.length - 1].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+      return `
                   <div class="counter-card">
                     <h4 class="counter-name">${name}</h4>
                     <p class="counter-value">${value}</p>
                     <p class="counter-key">${item.key}</p>
                   </div>
                 `;
-              }).join('')}
+    }).join('')}
             </div>
           </div>
         `).join('')}
@@ -1496,34 +1473,34 @@ export default class CacheSearch extends HTMLElement {
 
       <div class="sync-cards">
         ${data.map(item => {
-          const key = item.key;
-          //  remove three dots from the end of the value_preview if present
-          const cleanedValuePreview = item.value_preview.replace(/\.\.\.$/, '');
-          const timestamp = new Date(cleanedValuePreview).toLocaleString();
-          console.log("Sync timestamp:", timestamp);
-          const now = new Date();
-          const syncTime = cleanedValuePreview ? new Date(cleanedValuePreview) : null;
+      const key = item.key;
+      //  remove three dots from the end of the value_preview if present
+      const cleanedValuePreview = item.value_preview.replace(/\.\.\.$/, '');
+      const timestamp = new Date(cleanedValuePreview).toLocaleString();
+      console.log("Sync timestamp:", timestamp);
+      const now = new Date();
+      const syncTime = cleanedValuePreview ? new Date(cleanedValuePreview) : null;
 
-          let status = 'unknown';
-          let timeSinceSync = 'N/A';
-          
-          if (syncTime) {
-            const diffMs = now - syncTime;
-            const diffHrs = diffMs / (1000 * 60 * 60);
-            
-            if (diffHrs < 1) {
-              status = 'success';
-              timeSinceSync = `${Math.round(diffMs / (1000 * 60))} minutes ago`;
-            } else if (diffHrs < 24) {
-              status = 'warning';
-              timeSinceSync = `${Math.round(diffHrs)} hours ago`;
-            } else {
-              status = 'error';
-              timeSinceSync = `${Math.round(diffHrs / 24)} days ago`;
-            }
-          }
-          
-          return `
+      let status = 'unknown';
+      let timeSinceSync = 'N/A';
+
+      if (syncTime) {
+        const diffMs = now - syncTime;
+        const diffHrs = diffMs / (1000 * 60 * 60);
+
+        if (diffHrs < 1) {
+          status = 'success';
+          timeSinceSync = `${Math.round(diffMs / (1000 * 60))} minutes ago`;
+        } else if (diffHrs < 24) {
+          status = 'warning';
+          timeSinceSync = `${Math.round(diffHrs)} hours ago`;
+        } else {
+          status = 'error';
+          timeSinceSync = `${Math.round(diffHrs / 24)} days ago`;
+        }
+      }
+
+      return `
             <div class="sync-card ${status}">
               <div class="sync-header">
                 <h4>${key.replace(/sync:|_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
@@ -1550,7 +1527,7 @@ export default class CacheSearch extends HTMLElement {
               </div>
             </div>
           `;
-        }).join('')}
+    }).join('')}
       </div>
     </div>
     `;
@@ -1581,11 +1558,11 @@ export default class CacheSearch extends HTMLElement {
 
       <div class="generic-cards">
         ${data.map(item => {
-          const valuePreview = typeof item.value_preview === 'object' 
-            ? JSON.stringify(item.value_preview, null, 2).substring(0, 200) + (JSON.stringify(item.value_preview, null, 2).length > 200 ? '...' : '')
-            : String(item.value_preview).substring(0, 200) + (String(item.value_preview).length > 200 ? '...' : '');
-          
-          return `
+      const valuePreview = typeof item.value_preview === 'object'
+        ? JSON.stringify(item.value_preview, null, 2).substring(0, 200) + (JSON.stringify(item.value_preview, null, 2).length > 200 ? '...' : '')
+        : String(item.value_preview).substring(0, 200) + (String(item.value_preview).length > 200 ? '...' : '');
+
+      return `
             <div class="generic-card">
               <div class="generic-card-header">
                 <h4 class="generic-key">${item.key}</h4>
@@ -1596,7 +1573,7 @@ export default class CacheSearch extends HTMLElement {
               </div>
             </div>
           `;
-        }).join('')}
+    }).join('')}
       </div>
     </div>
     `;
@@ -1605,11 +1582,11 @@ export default class CacheSearch extends HTMLElement {
   // Helper method to format durations from seconds
   _formatDuration = (seconds) => {
     if (typeof seconds !== 'number') return 'N/A';
-    
+
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const remainingSeconds = Math.floor(seconds % 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
@@ -1636,6 +1613,7 @@ export default class CacheSearch extends HTMLElement {
           width: 100%;
           font-family: var(--font-main), -apple-system, BlinkMacSystemFont, sans-serif;
           color: var(--text-color);
+          background: var(--background);
         }
 
         * {
@@ -1644,90 +1622,180 @@ export default class CacheSearch extends HTMLElement {
 
         .container {
           width: 100%;
-          padding: 1.5rem;
-          background-color: var(--background);
+          max-width: 100%;
+          margin: 0 auto;
+          padding: 2rem;
+          background: var(--background);
           min-height: 100vh;
         }
 
+        /* Modern Header Design */
         .search-header {
-          margin-bottom: 2rem;
+          padding: 1rem 0;
+          position: relative;
+          overflow: hidden;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(180deg); }
         }
 
         .search-title {
-          font-size: 1.75rem;
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin: 0 0 0.5rem 0;
+          color: var(--title-color);
+          background: var(--accent-linear);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          position: relative;
+          z-index: 1;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-subtitle {
+          font-size: 1.1rem;
+          color: var(--gray-color);
+          margin: 0 0 2rem 0;
+          position: relative;
+          z-index: 1;
+        }
+
+        .search-form {
+          position: relative;
+          z-index: 1;
+        }
+
+        /* Search Options - Button Layout */
+        .search-options {
+          position: relative;
+          z-index: 1;
+          margin-bottom: 2rem;
+        }
+
+        .options-title {
+          font-size: 1.3rem;
           font-weight: 600;
           margin: 0 0 1.5rem 0;
           color: var(--title-color);
         }
 
-        .search-form {
-          margin-bottom: 2rem;
-        }
-
-        .search-input-group {
-          display: flex;
+        .option-buttons {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
           gap: 1rem;
-          max-width: 500px;
         }
 
-        .select-wrapper {
-          position: relative;
-          flex: 1;
-        }
-
-        .search-select {
-          width: 100%;
-          padding: 8px 15px;
-          font-size: 1rem;
-          background-color: var(--background);
-          border: var(--border);
-          border-radius: 12px;
-          color: var(--text-color);
-          appearance: none;
-          cursor: pointer;
-        }
-
-        .select-arrow {
-          position: absolute;
-          right: 1rem;
-          top: 50%;
-          transform: translateY(-50%);
-          pointer-events: none;
-          color: var(--text-color);
-        }
-
-        .search-btn {
+        .option-btn {
           display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 8px 15px;
-          background: var(--action-linear);
-          color: var(--white-color);
-          border: var(--action-border);
-          border-radius: 12px;
-          font-weight: 500;
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 1.25rem 1.5rem;
+          background: var(--background);
+          border: var(--border);
+          border-radius: 16px;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s ease;
+          text-align: left;
+          box-shadow: var(--card-box-shadow-alt);
+          position: relative;
+          overflow: hidden;
         }
 
-        .search-btn:hover {
+        .option-btn::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 3px;
           background: var(--accent-linear);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.3s ease;
         }
 
+        .option-btn:hover::before {
+          transform: scaleX(1);
+        }
+
+        .option-btn:hover {
+          transform: translateY(-3px);
+          box-shadow: var(--card-box-shadow);
+          border-color: var(--accent-color);
+        }
+
+        .option-btn.active {
+          background: var(--create-background);
+          border-color: var(--accent-color);
+          box-shadow: 0 8px 25px rgba(0, 96, 223, 0.15);
+        }
+
+        .option-btn.active::before {
+          transform: scaleX(1);
+        }
+
+        .option-label {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: var(--title-color);
+          margin-bottom: 0.5rem;
+        }
+
+        .option-btn.active .option-label {
+          color: var(--accent-color);
+        }
+
+        .option-value {
+          font-size: 0.85rem;
+          color: var(--gray-color);
+          font-family: var(--font-mono);
+          background: var(--stat-background);
+          padding: 0.25rem 0.5rem;
+          border-radius: 6px;
+          border: var(--border);
+        }
+
+        .option-btn.active .option-value {
+          background: var(--accent-color);
+          color: var(--white-color);
+          border-color: var(--accent-color);
+        }
+
+        /* Modern Loader */
         .loader-container {
           display: flex;
           justify-content: center;
           align-items: center;
-          height: 200px;
+          height: 300px;
+          background: var(--background);
+          border-radius: 24px;
+          margin: 2rem 0;
         }
 
         .loader {
-          border: 4px solid rgba(0, 0, 0, 0.1);
-          border-left-color: var(--accent-color);
+          width: 60px;
+          height: 60px;
+          border: 4px solid transparent;
+          border-top: 4px solid var(--accent-color);
           border-radius: 50%;
-          width: 40px;
-          height: 40px;
           animation: spin 1s linear infinite;
+          position: relative;
+        }
+
+        .loader::after {
+          content: '';
+          position: absolute;
+          top: -4px;
+          left: -4px;
+          right: -4px;
+          bottom: -4px;
+          border: 4px solid transparent;
+          border-bottom: 4px solid var(--accent-alt);
+          border-radius: 50%;
+          animation: spin 1.5s linear infinite reverse;
         }
 
         @keyframes spin {
@@ -1735,116 +1803,225 @@ export default class CacheSearch extends HTMLElement {
           100% { transform: rotate(360deg); }
         }
 
+        @keyframes pulse {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; }
+        }
+
+        /* Modern Empty State */
         .empty-state {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 4rem 1rem;
+          padding: 4rem 2rem;
           text-align: center;
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
+          background: var(--background);
+          border-radius: 24px;
+          box-shadow: var(--card-box-shadow);
+          border: var(--border);
+          margin: 2rem 0;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .empty-state::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: conic-gradient(from 0deg, transparent, var(--accent-color), transparent);
+          opacity: 0.05;
+          animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
 
         .empty-state svg {
-          color: var(--gray-color);
-          margin-bottom: 1rem;
-          opacity: 0.5;
+          color: var(--accent-color);
+          margin-bottom: 1.5rem;
+          opacity: 0.7;
+          animation: pulse 2s ease-in-out infinite;
+          position: relative;
+          z-index: 1;
         }
 
         .empty-state h3 {
-          font-size: 1.125rem;
-          margin: 0 0 0.5rem 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin: 0 0 1rem 0;
           color: var(--title-color);
+          position: relative;
+          z-index: 1;
         }
 
         .empty-state p {
           color: var(--gray-color);
           margin: 0;
-          max-width: 300px;
+          max-width: 400px;
+          font-size: 1.1rem;
+          line-height: 1.6;
+          position: relative;
+          z-index: 1;
         }
 
-        /* Results Styles */
+        /* Modern Results Container */
         .results-container {
-          margin-top: 1rem;
+          border-radius: 24px;
+          padding: 2rem 0;
+          position: relative;
+          overflow: hidden;
         }
 
         .results-header {
           display: flex;
           flex-direction: column;
-          margin-bottom: 1.5rem;
+          gap: 1rem;
+          margin-bottom: 2rem;
+          padding-bottom: 1.5rem;
+          border-bottom: 2px solid var(--stat-background);
+          position: relative;
         }
 
         .results-title {
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin: 0 0 1rem 0;
+          font-size: 2rem;
+          font-weight: 700;
+          margin: 0;
           color: var(--title-color);
+          background: var(--accent-linear);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .results-meta {
           display: flex;
           flex-wrap: wrap;
-          gap: 1rem;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
-          color: var(--gray-color);
+          gap: 1.5rem;
+          margin: 0;
+        }
+
+        .results-meta span {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          background: var(--stat-background);
+          border-radius: 12px;
+          font-size: 0.9rem;
+          color: var(--text-color);
+          border: var(--border);
+        }
+
+        .results-meta strong {
+          color: var(--accent-color);
+          font-weight: 600;
         }
 
         .export-btn {
           align-self: flex-start;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
-          background: var(--action-linear);
+          gap: 0.75rem;
+          padding: 0.75rem 1.5rem;
+          background: var(--second-linear);
           color: var(--white-color);
-          border: var(--action-border);
-          border-radius: 0.375rem;
-          font-size: 0.875rem;
-          font-weight: 500;
+          border: none;
+          border-radius: 16px;
+          font-size: 0.9rem;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(223, 121, 26, 0.3);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .export-btn::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          transition: left 0.5s ease;
         }
 
         .export-btn:hover {
-          background: var(--accent-linear);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(223, 121, 26, 0.4);
         }
 
-        /* Tabs styling */
-        .tabs {
+        .export-btn:hover::before {
+          left: 100%;
+        }
+
+        /* Modern Tabs */
+        .tabs, .pricing-tabs {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 1.5rem;
-          border-bottom: var(--border);
-          padding-bottom: 0.5rem;
+          gap: 0.75rem;
+          margin-bottom: 2rem;
+          padding: 1rem;
+          background: var(--stat-background);
+          border-radius: 20px;
+          border: var(--border);
         }
 
-        .tab {
-          padding: 0.5rem 1rem;
-          border-radius: 0.375rem;
-          background: transparent;
-          border: 1px solid var(--border-color);
+        .tab, .pricing-tab {
+          padding: 0.75rem 1.5rem;
+          border-radius: 14px;
+          background: var(--background);
+          border: var(--border);
           color: var(--text-color);
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
         }
 
-        .tab:hover {
-          background: var(--stat-background);
+        .tab span, .pricing-tab span {
+          position: relative;
+          z-index: 1;
         }
 
-        .tab.active {
+        .tab:hover, .pricing-tab:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--card-box-shadow-alt);
+          color: var(--white-color);
+        }
+
+        .tab:hover::before, .pricing-tab:hover::before {
+          left: 0;
+        }
+
+        .tab.active, .pricing-tab.active {
           background: var(--action-linear);
           color: var(--white-color);
           border-color: var(--accent-color);
+          box-shadow: 0 4px 15px rgba(0, 96, 223, 0.3);
         }
 
-        .tab-content {
+        .tab.active::before, .pricing-tab.active::before {
+          left: 0;
+        }
+
+        .tab-content, .pricing-tab-content {
           margin-bottom: 2rem;
+          animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         .hidden {
@@ -1852,236 +2029,204 @@ export default class CacheSearch extends HTMLElement {
         }
 
         .section-title {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin: 0 0 1.25rem 0;
+          font-size: 1.75rem;
+          font-weight: 700;
+          margin: 0 0 1.5rem 0;
           color: var(--title-color);
+          position: relative;
+          padding-left: 1rem;
+        }
+
+        .section-title::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background: var(--accent-linear);
+          border-radius: 2px;
         }
 
         .subsection-title {
-          font-size: 1.125rem;
-          font-weight: 500;
-          margin: 1.5rem 0 1rem 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin: 2rem 0 1rem 0;
           color: var(--title-color);
         }
-
-        /* Product cards */
+        /* Modern Product Cards */
         .product-cards {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 1.5rem;
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+          gap: 2rem;
+          margin-top: 2rem;
         }
 
         .product-card {
-          padding: 1.25rem;
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          transition: transform 0.2s, box-shadow 0.2s;
-          border-top: 4px solid var(--accent-color);
+          padding: 2rem;
+          background: var(--background);
+          border-radius: 20px;
+          box-shadow: var(--card-box-shadow);
+          transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+          border: var(--border);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .product-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: var(--accent-linear);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.3s ease;
+        }
+
+        .product-card:hover::before {
+          transform: scaleX(1);
         }
 
         .product-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--hover-box-shadow);
+          transform: translateY(-12px) scale(1.02);
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
         }
 
         .product-name {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin: 0 0 1rem 0;
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 0 0 1.5rem 0;
           color: var(--title-color);
-          border-bottom: var(--border);
-          padding-bottom: 0.75rem;
+          border-bottom: 2px solid var(--stat-background);
+          padding-bottom: 1rem;
         }
 
         .product-rates {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 1.5rem;
-          margin-bottom: 1.25rem;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 2rem;
+          margin-bottom: 2rem;
         }
 
         .rate-group {
-          flex: 1;
-          min-width: 120px;
+          background: var(--stat-background);
+          border-radius: 16px;
+          padding: 1.5rem;
+          border: var(--border);
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .rate-group::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 3px;
+          height: 100%;
+          background: var(--accent-linear);
+          transform: scaleY(0);
+          transform-origin: top;
+          transition: transform 0.3s ease;
+        }
+
+        .rate-group:hover::before {
+          transform: scaleY(1);
+        }
+
+        .rate-group:hover {
+          transform: translateX(5px);
+          box-shadow: var(--card-box-shadow-alt);
         }
 
         .rate-group h5 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          margin: 0 0 0.75rem 0;
-          color: var(--gray-color);
+          font-size: 0.9rem;
+          font-weight: 700;
+          margin: 0 0 1rem 0;
+          color: var(--accent-color);
           text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .rate-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 0.5rem;
-          font-size: 0.875rem;
+          margin-bottom: 0.75rem;
+          padding: 0.5rem;
+          border-radius: 8px;
+          transition: background 0.2s ease;
+        }
+
+        .rate-item:hover {
+          background: var(--background);
+        }
+
+        .rate-item:last-child {
+          margin-bottom: 0;
         }
 
         .rate {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--accent-color);
+          font-size: 1.1rem;
+        }
+
+        .extras {
+          background: var(--stat-background);
+          border-radius: 16px;
+          padding: 1.5rem;
+          border: var(--border);
         }
 
         .extras h5 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          margin: 0 0 0.75rem 0;
-          color: var(--gray-color);
+          font-size: 0.9rem;
+          font-weight: 700;
+          margin: 0 0 1rem 0;
+          color: var(--accent-color);
           text-transform: uppercase;
-          border-top: var(--border);
-          padding-top: 0.75rem;
+          letter-spacing: 0.5px;
         }
 
         .extras-items {
-                   display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-          gap: 0.5rem;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 1rem;
         }
 
         .extra-item {
           display: flex;
           flex-direction: column;
-          font-size: 0.8125rem;
+          background: var(--background);
+          padding: 1rem;
+          border-radius: 12px;
+          border: var(--border);
+          transition: all 0.2s ease;
+        }
+
+        .extra-item:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--card-box-shadow-alt);
         }
 
         .price {
-          font-weight: 600;
-          color: var(--text-color);
-        }
-
-        /* Maps styles */
-        .route-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .route-info div {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.875rem;
-        }
-
-        .route-info svg {
-          opacity: 0.7;
-          flex-shrink: 0;
-        }
-        
-        .route-info strong {
-          display: inline-block;
-          min-width: 3.5rem;
-        }
-
-        .route-key {
-          margin-top: 0.5rem;
-          padding-top: 0.5rem;
-          border-top: var(--border);
-          opacity: 0.7;
-          font-size: 0.75rem !important;
-          word-break: break-all;
-        }
-
-        .branch-info, .delivery-location {
-          color: var(--gray-color);
-          font-size: 0.8125rem !important;
-          margin-top: 0.3rem;
-        }
-
-        .branch-address {
-          font-style: italic;
-          font-size: 0.75rem;
-          margin-left: 0.25rem;
-        }
-
-        .distance-info, .duration-info {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .distance-value, .duration-value {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--accent-color);
+          font-size: 1.1rem;
+          margin-top: 0.5rem;
         }
 
-        .distance-unit, .traffic-model {
-          font-size: 0.75rem;
-          color: var(--gray-color);
-        }
-
-        .maps-distance-table {
+        /* Modern Table Styles */
+        .maps-distance-table, .generators-table {
           overflow-x: auto;
-        }
-
-        .ttl-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 1rem;
-          font-size: 0.75rem;
-          background-color: var(--accent-color);
-          color: white;
-        }
-
-        .ttl-badge.no-expiry {
-          background-color: var(--gray-color);
-        }
-
-        .details-row {
-          background-color: var(--stat-background);
-        }
-        
-        /* Additional styles for distance table cells */
-        .distance-info, .duration-info {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.25rem;
-        }
-        
-        .duration-info {
-          flex-direction: column;
-          align-items: center;
-        }
-        
-        .distance-value, .duration-value {
-          font-weight: 600;
-        }
-        
-        .distance-unit, .traffic-model {
-          color: var(--gray-color);
-          font-size: 0.8rem;
-        }
-
-        .route-details {
-          padding: 0.75rem 1rem;
-          font-size: 0.8125rem;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .detail-item {
-          flex: 1;
-          min-width: 200px;
-        }
-
-        .leg-detail {
-          padding-left: 1rem;
-          margin-top: 0.25rem;
-          font-size: 0.75rem;
-          color: var(--gray-color);
-        }
-
-        /* Generators table */
-        .generators-table {
-          overflow-x: auto;
+          background: var(--background);
+          border-radius: 20px;
+          box-shadow: var(--card-box-shadow);
+          border: var(--border);
         }
 
         table {
@@ -2090,21 +2235,23 @@ export default class CacheSearch extends HTMLElement {
         }
 
         th {
-          background-color: var(--stat-background);
+          background: var(--create-background);
           color: var(--title-color);
-          font-weight: 600;
+          font-weight: 700;
           text-align: left;
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
+          padding: 1.5rem;
+          font-size: 0.95rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          border-bottom: 2px solid var(--stat-background);
         }
-        
-        /* Center alignment for specific columns in maps distance table */
+
         .maps-distance-table th:nth-child(2),
         .maps-distance-table th:nth-child(3),
         .maps-distance-table th:nth-child(4) {
           text-align: center;
         }
-        
+
         .maps-distance-table td:nth-child(2),
         .maps-distance-table td:nth-child(3),
         .maps-distance-table td:nth-child(4) {
@@ -2112,8 +2259,13 @@ export default class CacheSearch extends HTMLElement {
         }
 
         td {
-          padding: 0.75rem 1rem;
-          border-bottom: var(--border);
+          padding: 1.5rem;
+          border-bottom: 1px solid var(--stat-background);
+          transition: background 0.2s ease;
+        }
+
+        tr:hover td {
+          background: var(--stat-background);
         }
 
         tr:last-child td {
@@ -2125,714 +2277,953 @@ export default class CacheSearch extends HTMLElement {
           font-style: italic;
         }
 
-        /* Delivery styles */
-        .delivery-info {
+        /* Route Information */
+        .route-info {
           display: flex;
-          flex-wrap: wrap;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
+          flex-direction: column;
+          gap: 0.75rem;
         }
 
-        .info-card {
-          flex: 1;
-          min-width: 200px;
-          padding: 1.25rem;
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          text-align: center;
-        }
-
-        .info-card h4 {
-          font-size: 1rem;
-          font-weight: 500;
-          margin: 0 0 0.5rem 0;
-          color: var(--text-color);
-        }
-
-        .info-card .price,
-        .info-card .highlight {
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin: 0;
-          color: var(--accent-color);
-        }
-
-        .delivery-rates {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 1rem;
-        }
-
-        .rate-card {
-          padding: 1rem;
-          background-color: var(--stat-background);
-          border-radius: 0.5rem;
-          text-align: center;
-        }
-
-        .rate-card .region {
-          font-size: 0.875rem;
-          font-weight: 500;
-          margin: 0 0 0.375rem 0;
-          color: var(--text-color);
-        }
-
-        .rate-card .rate {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin: 0;
-          color: var(--accent-color);
-        }
-
-        /* Generic card styles */
-        .generic-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 1.25rem;
-          margin-top: 1.5rem;
-        }
-
-        .generic-card {
-          background-color: var(--stat-background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          overflow: hidden;
-          transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-
-        .generic-card:hover {
-          transform: translateY(-3px);
-          box-shadow: var(--box-shadow-hover);
-        }
-
-        .generic-card-header {
-          padding: 1rem;
-          background-color: var(--background);
-          border-bottom: var(--border);
+        .route-info div {
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          gap: 0.75rem;
+          font-size: 0.9rem;
+          padding: 0.5rem;
+          border-radius: 8px;
+          transition: background 0.2s ease;
         }
 
-        .generic-key {
-          margin: 0;
-          font-size: 0.95rem;
-          font-weight: 600;
-          color: var(--title-color);
-          word-break: break-all;
+        .route-info div:hover {
+          background: var(--stat-background);
+        }
+
+        .route-info svg {
+          opacity: 0.8;
+          flex-shrink: 0;
+          color: var(--accent-color);
+        }
+
+        .route-info strong {
+          display: inline-block;
+          min-width: 4rem;
+          color: var(--accent-color);
+        }
+
+        .branch-info {
+          background: var(--stat-background);
+          border-radius: 8px;
+          padding: 0.5rem;
+          margin-top: 0.5rem;
+        }
+
+        .distance-info, .duration-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .distance-value, .duration-value {
+          font-weight: 700;
+          color: var(--accent-color);
+          font-size: 1.2rem;
+        }
+
+        .distance-unit, .traffic-model {
+          font-size: 0.8rem;
+          color: var(--gray-color);
         }
 
         .ttl-badge {
-          font-size: 0.75rem;
-          padding: 0.25rem 0.5rem;
-          border-radius: 2rem;
-          background-color: var(--accent-color);
-          color: var(--background);
-          font-weight: 500;
+          display: inline-block;
+          padding: 0.5rem 1rem;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          background: var(--accent-linear);
+          color: var(--white-color);
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(0, 96, 223, 0.3);
         }
 
         .ttl-badge.no-expiry {
-          background-color: var(--gray-color);
+          background: var(--gray-color);
+          color: var(--white-color);
+          box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
         }
 
-        .generic-card-body {
-          padding: 1rem;
+        .details-row {
+          background: var(--stat-background);
         }
 
-        .value-preview {
-          margin: 0;
-          font-size: 0.85rem;
-          color: var(--text-color);
-          white-space: pre-wrap;
-          word-break: break-all;
-          max-height: 200px;
-          overflow-y: auto;
-          background-color: #f7f8fa;
-          padding: 0.75rem;
-          border-radius: 0.375rem;
-        }
-        
-        /* All Pricing Data styles */
-        .pricing-data-container {
-          margin-top: 1.5rem;
-        }
-        
-        .catalog-preview {
-          background-color: var(--stat-background);
-          border-radius: 0.5rem;
+        .route-details {
           padding: 1.5rem;
-          margin-bottom: 2rem;
-          box-shadow: var(--box-shadow);
-        }
-        
-        .catalog-info {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-top: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        
-        /* Pricing Tabs Navigation */
-        .pricing-tabs {
+          font-size: 0.9rem;
           display: flex;
           flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 1.5rem;
-          border-bottom: 1px solid var(--border-color);
-          padding-bottom: 0.5rem;
+          gap: 1.5rem;
+          background: var(--background);
+          border-radius: 12px;
+          margin: 0.5rem;
         }
-        
-        .pricing-tab {
-          background-color: var(--background);
-          border: 1px solid var(--border-color);
-          border-radius: 0.375rem;
-          padding: 0.5rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--text-color);
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        
-        .pricing-tab:hover {
-          background-color: var(--stat-background);
-        }
-        
-        .pricing-tab.active {
-          background-color: var(--accent-color);
-          color: white;
-          border-color: var(--accent-color);
-        }
-        
-        .pricing-tab-content {
-          display: none;
-        }
-        
-        .pricing-tab-content.active {
-          display: block;
-        }
-        
-        .info-box {
-          background-color: var(--background);
-          border-radius: 0.5rem;
+
+        .detail-item {
+          flex: 1;
+          min-width: 200px;
           padding: 1rem;
-          text-align: center;
+          background: var(--stat-background);
+          border-radius: 8px;
           border: var(--border);
-          transition: transform 0.2s;
         }
-        
-        .info-box:hover {
-          transform: translateY(-3px);
-        }
-        
-        .info-box h4 {
-          margin: 0 0 0.5rem 0;
-          font-size: 0.9rem;
+
+        .leg-detail {
+          padding-left: 1rem;
+          margin-top: 0.5rem;
+          font-size: 0.8rem;
           color: var(--gray-color);
         }
-        
-        .info-box p {
-          margin: 0;
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: var(--title-color);
+
+        /* Modern Info Cards */
+        .delivery-info, .catalog-info {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 1.5rem;
+          margin: 2rem 0;
         }
-        
-        .current-seasonal-info {
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          padding: 1rem;
+
+        .info-card, .info-box {
+          background: var(--background);
+          border-radius: 20px;
+          padding: 2rem;
+          text-align: center;
+          box-shadow: var(--card-box-shadow);
+          border: var(--border);
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .info-card::before, .info-box::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: var(--accent-linear);
+        }
+
+        .info-card:hover, .info-box:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-card h4, .info-box h4 {
+          font-size: 1rem;
+          font-weight: 600;
+          margin: 0 0 1rem 0;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .info-card .price,
+        .info-card .highlight,
+        .info-box p {
+          font-size: 2rem;
+          font-weight: 800;
+          margin: 0;
+          color: var(--accent-color);
+        }
+
+        /* Delivery Rates */
+        .delivery-rates {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 1.5rem;
+          margin-top: 1.5rem;
+        }
+
+        .rate-card {
+          padding: 1.5rem;
+          background: var(--background);
+          border-radius: 16px;
+          text-align: center;
+          box-shadow: var(--card-box-shadow-alt);
+          border: var(--border);
+          transition: all 0.3s ease;
+        }
+
+        .rate-card:hover {
+          transform: translateY(-3px);
+          box-shadow: var(--card-box-shadow);
+        }
+
+        .rate-card .region {
+          font-size: 0.9rem;
+          font-weight: 600;
+          margin: 0 0 0.75rem 0;
+          color: var(--text-color);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .rate-card .rate {
+          font-size: 1.5rem;
+          font-weight: 800;
+          margin: 0;
+          color: var(--accent-color);
+        }
+        /* Modern Maps Cache Overview */
+        .maps-cache-overview {
+          display: grid;
+          grid-template-columns: 1fr 2fr;
+          gap: 2rem;
+          margin-bottom: 3rem;
+        }
+
+        .hit-rate-card {
+          background: var(--background);
+          border-radius: 24px;
+          padding: 2.5rem;
+          box-shadow: var(--card-box-shadow);
+          text-align: center;
+          border: var(--border);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .hit-rate-card::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -50%;
+          width: 200%;
+          height: 200%;
+          background: conic-gradient(from 0deg, transparent, var(--success-color), transparent);
+          opacity: 0.1;
+          animation: rotate 15s linear infinite;
+        }
+
+        .hit-rate-title {
+          margin: 0 0 1.5rem 0;
+          font-size: 1.2rem;
+          color: var(--title-color);
+          font-weight: 600;
+          position: relative;
+          z-index: 1;
+        }
+
+        .hit-rate-value {
+          font-size: 4rem;
+          font-weight: 900;
+          margin-bottom: 1rem;
+          position: relative;
+          z-index: 1;
+          text-align: center;
+          background: var(--accent-linear);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          transition: all 0.3s ease;
+        }
+
+        .hit-rate-value::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+          z-index: -1;
+          transition: left 0.6s ease;
+          border-radius: 12px;
+        }
+
+        .hit-rate-value:hover::before {
+          left: 100%;
+        }
+
+        .hit-rate-value.high {
+          color: var(--success-color);
+          text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .hit-rate-value.medium {
+          color: #f6b93b;
+          text-shadow: 0 0 20px rgba(246, 185, 59, 0.3);
+        }
+
+        .hit-rate-value.low {
+          color: var(--error-color);
+          text-shadow: 0 0 20px rgba(236, 75, 25, 0.3);
+        }
+
+        .hit-rate-detail {
+          font-size: 1rem;
+          color: var(--gray-color);
+          position: relative;
+          z-index: 1;
+          font-weight: 500;
+          opacity: 0.9;
+          transition: opacity 0.3s ease;
+        }
+
+        .hit-rate-detail:hover {
+          opacity: 1;
+        }
+
+        .maps-counters {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1.5rem;
+        }
+
+        /* Maps Counter Cards - Larger Design */
+        .maps-counters .counter-card {
+          flex: none;
+          min-width: auto;
+          max-width: none;
+          background: var(--create-background);
+          border-radius: 20px;
+          box-shadow: var(--card-box-shadow);
+          padding: 2rem;
+          text-align: center;
+          border: var(--border);
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          position: relative;
+          overflow: hidden;
+          backdrop-filter: blur(10px);
+        }
+
+        .maps-counters .counter-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 2px;
+          background: var(--accent-linear);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.4s ease;
+        }
+
+        .maps-counters .counter-card:hover::after {
+          transform: scaleX(1);
+        }
+
+        .maps-counters .counter-card:hover {
+          transform: translateY(-10px) scale(1.02);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Counter Cards Layout - Row Design */
+        .counter-cards {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+
+        .counter-card {
+          flex: 1;
+          min-width: 200px;
+          max-width: 300px;
+          background: var(--create-background);
+          border-radius: 16px;
+          box-shadow: var(--card-box-shadow);
+          padding: 1.5rem;
+          text-align: center;
+          border: var(--border);
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .counter-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 2px;
+          background: var(--accent-linear);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.4s ease;
+        }
+
+        .counter-card:hover::after {
+          transform: scaleX(1);
+        }
+
+        .counter-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .counter-card.hits {
+          border-left: 4px solid var(--success-color);
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), var(--create-background));
+        }
+
+        .counter-card.hits::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--success-color), transparent);
+        }
+
+        .counter-card.hits:hover {
+          box-shadow: 0 20px 40px rgba(16, 185, 129, 0.2);
+        }
+
+        .counter-card.misses {
+          border-left: 4px solid var(--error-color);
+          background: linear-gradient(135deg, rgba(236, 75, 25, 0.05), var(--create-background));
+        }
+
+        .counter-card.misses::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--error-color), transparent);
+        }
+
+        .counter-card.misses:hover {
+          box-shadow: 0 20px 40px rgba(236, 75, 25, 0.2);
+        }
+
+        .counter-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .counter-name {
+          font-weight: 700;
+          font-size: 1.1rem;
+          margin: 0 0 1rem 0;
+          color: var(--text-color);
+          opacity: 0.9;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        /* Maps Counter Names - More Prominent */
+        .maps-counters .counter-name {
+          font-size: 1.3rem;
+          font-weight: 800;
+          margin: 0 0 1.5rem 0;
+          color: var(--title-color);
+          opacity: 1;
+        }
+
+        .counter-value {
+          font-size: 2.5rem;
+          font-weight: 900;
+          margin: 1rem 0;
+          background: var(--accent-linear);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          position: relative;
+        }
+
+        /* Maps Counter Values - Larger and More Prominent */
+        .maps-counters .counter-value {
+          font-size: 3.5rem;
+          font-weight: 900;
+          margin: 1.5rem 0;
+          line-height: 1;
+          text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .counter-value::after {
+          content: attr(data-value);
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: inherit;
+          -webkit-background-clip: text;
+          background-clip: text;
+          filter: blur(3px);
+          opacity: 0.3;
+          z-index: -1;
+        }
+
+        .counter-card.hits .counter-value {
+          color: var(--success-color);
+        }
+
+        .counter-card.misses .counter-value {
+          color: var(--error-color);
+        }
+
+        .counter-percentage {
+          font-size: 1.1rem;
+          font-weight: 600;
+          margin: 0 0 1rem 0;
+          color: var(--text-color);
+          opacity: 0.8;
+        }
+
+        /* Maps Counter Percentages - Enhanced */
+        .maps-counters .counter-percentage {
+          font-size: 1.4rem;
+          font-weight: 700;
+          margin: 0 0 1.5rem 0;
+          opacity: 1;
+          background: var(--second-linear);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .counter-key {
+          font-size: 0.8rem;
+          color: var(--gray-color);
+          margin: 0.5rem 0 0 0;
+          font-family: var(--font-mono);
+          background: var(--stat-background);
+          padding: 0.5rem;
+          border-radius: 8px;
+          border: var(--border);
+          word-break: break-all;
+          opacity: 0.8;
+        }
+
+        .counter-bar {
+          width: 100%;
+          height: 12px;
+          background: var(--stat-background);
+          border-radius: 8px;
+          overflow: hidden;
+          margin-top: 1rem;
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+          position: relative;
+        }
+
+        .counter-bar::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(45deg, transparent 25%, rgba(255, 255, 255, 0.1) 25%, rgba(255, 255, 255, 0.1) 50%, transparent 50%, transparent 75%, rgba(255, 255, 255, 0.1) 75%);
+          background-size: 20px 20px;
+          animation: slide 2s linear infinite;
+        }
+
+        @keyframes slide {
+          0% { transform: translateX(-20px); }
+          100% { transform: translateX(20px); }
+        }
+
+        .counter-bar-fill {
+          height: 100%;
+          border-radius: 8px;
+          transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .counter-bar-fill::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+          animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+
+        .hits .counter-bar-fill {
+          background: linear-gradient(90deg, var(--success-color), #34d399);
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .misses .counter-bar-fill {
+          background: linear-gradient(90deg, var(--error-color), #f87171);
+          box-shadow: 0 2px 8px rgba(236, 75, 25, 0.3);
+        }
+
+        /* Modern Explainer Section */
+        .maps-counters-explainer {
+          background: var(--create-background);
+          border-radius: 20px;
+          padding: 2.5rem;
+          margin-top: 2rem;
+          box-shadow: var(--card-box-shadow);
+          border: var(--border);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .maps-counters-explainer::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 3px;
+          background: var(--accent-linear);
+        }
+
+        .maps-counters-explainer:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .maps-counters-explainer h3 {
+          margin: 0 0 1.5rem 0;
+          font-size: 1.5rem;
+          color: var(--text-color);
+          font-weight: 700;
+          background: var(--accent-linear);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .maps-counters-explainer p {
+          margin: 0 0 2rem 0;
+          font-size: 1.1rem;
+          color: var(--text-color);
+          line-height: 1.7;
+        }
+
+        .optimization-tips {
+          background: var(--stat-background);
+          border-radius: 16px;
+          padding: 2rem;
           border: var(--border);
         }
-        
-        .current-seasonal-info h4 {
+
+        .optimization-tips h4 {
           margin: 0 0 1rem 0;
-          font-size: 1rem;
-          color: var(--title-color);
-          text-align: center;
+          font-size: 1.2rem;
+          color: var(--accent-color);
+          font-weight: 700;
         }
-        
+
+        .optimization-tips ul {
+          margin: 0;
+          padding-left: 2rem;
+        }
+
+        .optimization-tips li {
+          margin-bottom: 0.75rem;
+          font-size: 1rem;
+          line-height: 1.6;
+          color: var(--text-color);
+        }
+
+        /* Modern Pricing Entries */
+        .pricing-data-container {
+          margin-top: 2rem;
+        }
+
+        .catalog-preview {
+          background: var(--background);
+          border-radius: 24px;
+          padding: 2.5rem;
+          margin-bottom: 3rem;
+          box-shadow: var(--card-box-shadow);
+          border: var(--border);
+        }
+
+        .current-seasonal-info {
+          background: var(--stat-background);
+          border-radius: 16px;
+          padding: 2rem;
+          border: var(--border);
+          text-align: center;
+          margin-top: 2rem;
+        }
+
+        .current-seasonal-info h4 {
+          margin: 0 0 1.5rem 0;
+          font-size: 1.2rem;
+          color: var(--title-color);
+          font-weight: 700;
+        }
+
         .current-tier {
           display: flex;
           flex-direction: column;
           align-items: center;
-          text-align: center;
         }
-        
+
         .tier-name {
-          margin: 0 0 0.25rem 0;
-          font-size: 1.25rem;
-          font-weight: 600;
+          margin: 0 0 0.5rem 0;
+          font-size: 1.5rem;
+          font-weight: 800;
           color: var(--accent-color);
         }
-        
+
         .tier-rate {
-          margin: 0 0 0.25rem 0;
-          font-size: 1.1rem;
-          font-weight: 500;
+          margin: 0 0 0.5rem 0;
+          font-size: 1.3rem;
+          font-weight: 700;
+          color: var(--text-color);
         }
-        
+
         .tier-dates {
           margin: 0;
-          font-size: 0.9rem;
+          font-size: 1rem;
           color: var(--gray-color);
         }
-        
-        .pricing-entries-section {
-          margin-top: 2rem;
-        }
-        
+
         .pricing-entries {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 2rem;
         }
-        
+
         .pricing-entry {
-          background-color: var(--stat-background);
-          border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
+          background: var(--background);
+          border-radius: 20px;
+          box-shadow: var(--card-box-shadow);
           overflow: hidden;
-          transition: all 0.3s;
-          border: 1px solid var(--border-color);
+          transition: all 0.3s ease;
+          border: var(--border);
           position: relative;
         }
-        
+
         .pricing-entry:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          transform: translateY(-5px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
         }
-        
+
         .entry-header {
-          padding: 1rem 1.25rem;
-          background-color: var(--background);
-          border-bottom: var(--border);
+          padding: 2rem;
+          background: var(--stat-background);
+          border-bottom: 2px solid var(--background);
           display: flex;
           flex-wrap: wrap;
           justify-content: space-between;
-          align-items: center;
-          gap: 0.75rem;
+          align-items: flex-start;
+          gap: 1rem;
         }
-        
+
         .entry-type {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.5rem;
-          background-color: rgba(var(--accent-color-rgb), 0.1);
-          padding: 0.3rem 0.6rem;
-          border-radius: 1rem;
-          align-self: flex-start;
-        }
-        
-        .entry-type svg {
-          color: var(--accent-color);
-        }
-        
-        .entry-type span {
-          font-size: 0.75rem;
+          gap: 0.75rem;
+          background: var(--accent-color);
+          color: var(--white-color);
+          padding: 0.5rem 1rem;
+          border-radius: 12px;
           font-weight: 600;
-          color: var(--accent-color);
+          box-shadow: 0 2px 8px rgba(0, 96, 223, 0.3);
+        }
+
+        .entry-type svg {
+          color: var(--white-color);
+        }
+
+        .entry-type span {
+          font-size: 0.8rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
-        
+
         .entry-key {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
+          margin: 0.5rem 0 0 0;
+          font-size: 1.3rem;
+          font-weight: 700;
           color: var(--title-color);
-          word-break: break-all;
+          word-break: break-word;
           flex: 1;
         }
-        
+
         .entry-meta {
           display: flex;
           flex-wrap: wrap;
           gap: 1rem;
-          font-size: 0.8rem;
+          font-size: 0.9rem;
+          margin-top: 1rem;
         }
-        
+
         .entry-ttl {
-          background-color: var(--accent-color);
-          color: white;
-          padding: 0.25rem 0.5rem;
-          border-radius: 2rem;
+          background: var(--accent-linear);
+          color: var(--white-color);
+          padding: 0.5rem 1rem;
+          border-radius: 12px;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(0, 96, 223, 0.3);
         }
-        
+
         .entry-ttl.no-expiry {
-          background-color: var(--gray-color);
+          background: var(--gray-color);
+          color: var(--white-color);
+          box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
         }
-        
+
         .entry-timestamp {
           color: var(--gray-color);
+          background: var(--background);
+          padding: 0.5rem 1rem;
+          border-radius: 12px;
+          border: var(--border);
         }
-        
+
         .entry-content {
-          padding: 1.5rem;
+          padding: 2rem;
           max-height: 800px;
           overflow-y: auto;
-          border-top: 1px solid var(--border-color);
-          opacity: 1;
         }
-        
+
         .quick-info {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
-          background-color: var(--background);
-          padding: 1rem;
-          border-radius: 0.375rem;
-          border: 1px solid var(--border-color);
+          gap: 1rem;
+          background: var(--stat-background);
+          padding: 1.5rem;
+          border-radius: 16px;
+          border: var(--border);
+          margin-bottom: 2rem;
         }
-        
+
         .info-row {
           display: flex;
           flex-wrap: wrap;
           justify-content: space-between;
-          font-size: 0.9rem;
-          padding-bottom: 0.5rem;
-          border-bottom: 1px dashed rgba(var(--border-color-rgb), 0.5);
+          font-size: 1rem;
+          padding: 1rem;
+          background: var(--background);
+          border-radius: 12px;
+          border: var(--border);
+          transition: all 0.2s ease;
         }
-        
-        .info-row:last-child {
-          border-bottom: none;
-          padding-bottom: 0;
+
+        .info-row:hover {
+          transform: translateX(5px);
+          box-shadow: var(--card-box-shadow-alt);
         }
-        
+
         .info-row strong {
-          font-weight: 600;
-          color: var(--text-color);
-          min-width: 120px;
+          font-weight: 700;
+          color: var(--accent-color);
+          min-width: 140px;
         }
-        
+
         .json-preview {
           margin: 0;
-          font-size: 0.85rem;
-          font-family: monospace;
+          font-size: 0.9rem;
+          font-family: var(--font-mono);
           white-space: pre-wrap;
           word-break: break-all;
-          background-color: #f7f8fa;
-          padding: 1rem;
-          border-radius: 0.375rem;
+          background: var(--stat-background);
+          padding: 1.5rem;
+          border-radius: 16px;
           overflow-x: auto;
+          border: var(--border);
         }
-        
-        /* Product price styling */
-        .full-product-info {
-          margin-top: 1.5rem;
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+          .maps-cache-overview {
+            grid-template-columns: 1fr;
+          }
+          
+          .maps-counters {
+            grid-template-columns: 1fr;
+          }
         }
-        
-        .rates-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1.5rem;
-          margin: 1rem 0;
+
+        @media (max-width: 768px) {
+          .container {
+            padding: 1rem;
+          }
+
+          .search-title {
+            font-size: 2rem;
+          }
+
+          .option-buttons {
+            grid-template-columns: 1fr;
+          }
+
+          .search-input-group {
+            flex-direction: column;
+            max-width: 100%;
+          }
+
+          .product-cards {
+            grid-template-columns: 1fr;
+          }
+
+          .counter-cards {
+            flex-direction: column;
+          }
+
+          .counter-card {
+            min-width: auto;
+            max-width: none;
+          }
+
+          .delivery-info, .catalog-info {
+            grid-template-columns: 1fr;
+          }
+
+          .hit-rate-value {
+            font-size: 3rem;
+          }
+
+          .maps-counters .counter-value {
+            font-size: 2.8rem;
+          }
+
+          .maps-counters .counter-name {
+            font-size: 1.1rem;
+          }
+
+          .maps-counters .counter-percentage {
+            font-size: 1.2rem;
+          }
+
+          .entry-header {
+            padding: 1.5rem;
+          }
+
+          .entry-content {
+            padding: 1.5rem;
+          }
         }
-        
-        .rate-section {
-          background-color: var(--background);
-          border: 1px solid var(--border-color);
-          border-radius: 0.375rem;
-          padding: 1rem;
-        }
-        
-        .rate-section h5 {
-          margin: 0 0 1rem 0;
-          font-size: 0.95rem;
-          color: var(--accent-color);
-          padding-bottom: 0.5rem;
-          border-bottom: 1px solid var(--border-color);
-        }
-        
-        .rate-item {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.5rem 0;
-          font-size: 0.9rem;
-          border-bottom: 1px dashed rgba(var(--border-color-rgb), 0.3);
-        }
-        
-        .rate-item:last-child {
-          border-bottom: none;
-        }
-        
-        .extras-section {
-          margin-top: 1.5rem;
-        }
-        
-        .extras-section h5 {
-          margin: 0 0 1rem 0;
-          font-size: 0.95rem;
-          color: var(--accent-color);
-        }
-        
-        .extras-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 1rem;
-        }
-        
-        .extra-item {
-          background-color: var(--background);
-          border: 1px solid var(--border-color);
-          border-radius: 0.375rem;
-          padding: 0.75rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 0.85rem;
-        }
-        
-        .extra-item .price {
-          font-weight: 600;
-          color: var(--accent-color);
-        }
-        
-        /* Maps Cache Counters styles */
-        .maps-cache-overview {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 1.5rem;
-          margin-bottom: 2rem;
-        }
-        
-        .hit-rate-card {
-          flex: 1;
-          min-width: 250px;
-          background-color: var(--background);
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          box-shadow: var(--box-shadow);
-          text-align: center;
-          border: 1px solid var(--border-color);
-        }
-        
-        .hit-rate-title {
-          margin: 0 0 1rem 0;
-          font-size: 1.1rem;
-          color: var(--title-color);
-        }
-        
-        .hit-rate-value {
-          font-size: 3rem;
-          font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-        
-        .hit-rate-value.high {
-          color: var(--success-color);
-        }
-        
-        .hit-rate-value.medium {
-          color: var(--warning-color, #f6b93b);
-        }
-        
-        .hit-rate-value.low {
-          color: var(--error-color);
-        }
-        
-        .hit-rate-detail {
-          font-size: 0.9rem;
-          color: var(--gray-color);
-        }
-        
-        .maps-counters {
-          flex: 2;
-          min-width: 300px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-        
-        .maps-counters .counter-card {
-          flex: 1;
-          min-width: 150px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-        
-        .maps-counters .counter-card .counter-name {
-          font-weight: 600;
-          font-size: 1rem;
-          margin: 0 0 0.5rem 0;
-          color: var(--title-color);
-        }
-        
-        .counter-percentage {
-          font-size: 1rem;
-          font-weight: 500;
-          margin: 0 0 0.75rem 0;
-        }
-        
-        .counter-bar {
-          width: 100%;
-          height: 8px;
-          background-color: rgba(0, 0, 0, 0.1);
-          border-radius: 4px;
-          overflow: hidden;
-          margin-top: 0.5rem;
-        }
-        
-        .counter-bar-fill {
-          height: 100%;
-          border-radius: 4px;
-        }
-        
-        .hits .counter-bar-fill {
-          background-color: var(--success-color);
-        }
-        
-        .misses .counter-bar-fill {
-          background-color: var(--error-color);
-        }
-        
-        .maps-counters-explainer {
-          background-color: var(--stat-background);
-          border-radius: 0.5rem;
-          padding: 1.5rem;
-          margin-top: 1rem;
-        }
-        
-        .maps-counters-explainer h3 {
-          margin: 0 0 0.75rem 0;
-          font-size: 1.1rem;
-          color: var(--title-color);
-        }
-        
-        .maps-counters-explainer p {
-          margin: 0 0 1rem 0;
-          font-size: 0.95rem;
-          color: var(--text-color);
-          line-height: 1.5;
-        }
-        
-        .optimization-tips h4 {
-          margin: 0 0 0.5rem 0;
-          font-size: 0.95rem;
-          color: var(--accent-color);
-        }
-        
-        .optimization-tips ul {
-          margin: 0;
-          padding-left: 1.5rem;
-        }
-        
-        .optimization-tips li {
-          margin-bottom: 0.3rem;
-          font-size: 0.9rem;
-        }
-        
-        .stats-card {
-          background-color: var(--background);
-          border-radius: 0.75rem;
-          padding: 1.5rem;
-          box-shadow: var(--box-shadow);
-          text-align: center;
-          max-width: 300px;
-          margin: 0 auto;
-          border: 1px solid var(--border-color);
-        }
-        
-        .stats-card h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1.1rem;
-          color: var(--title-color);
-        }
-        
-        .stat-value {
-          font-size: 2.5rem;
-          font-weight: 700;
-          color: var(--accent-color);
-          margin-bottom: 0.5rem;
-        }
-        
-        .stat-desc {
-          font-size: 0.9rem;
-          color: var(--gray-color);
-        }
-        
-        .stats-card.hit-rate {
-          background: linear-gradient(145deg, var(--background), var(--stat-background));
-        }
-        
-        .counter-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1.5rem;
-          margin-top: 1.5rem;
-        }
-        
-        .counter-card {
-          background-color: var(--background);
-          border-radius: 0.5rem;
-          border: 1px solid var(--border-color);
-          box-shadow: var(--box-shadow);
-          padding: 1.25rem;
-          text-align: center;
-          transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-          position: relative;
-          overflow: hidden;
-        }
-        
-        .counter-card.hits {
-          border-color: rgba(var(--success-color-rgb), 0.5);
-        }
-        
-        .counter-card.misses {
-          border-color: rgba(var(--error-color-rgb), 0.5);
-        }
-        
-        .counter-card:hover {
-          transform: translateY(-3px);
-          box-shadow: var(--box-shadow-hover);
-        }
-        
-        .counter-icon {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          opacity: 0.2;
-        }
-        
-        .counter-icon.hit {
-          color: var(--success-color);
-        }
-        
-        .counter-icon.miss {
-          color: var(--error-color);
-        }
-        
-        .counter-name {
-          font-weight: 600;
-          font-size: 1rem;
-          margin: 0 0 0.5rem 0;
-          color: var(--title-color);
-        }
-        
-        .counter-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          margin: 0.5rem 0;
-          color: var(--accent-color);
-        }
-        
-        .counter-card.hits .counter-value {
-          color: var(--success-color);
-        }
-        
-        .counter-card.misses .counter-value {
-          color: var(--error-color);
-        }
-        
-        .counter-key {
-          font-size: 0.75rem;
-          color: var(--gray-color);
-          margin: 0.5rem 0 0 0;
-          opacity: 0.7;
+
+        @media (max-width: 480px) {
+          .tabs, .pricing-tabs {
+            flex-direction: column;
+          }
+
+          .results-meta {
+            flex-direction: column;
+          }
+
+          .maps-distance-table {
+            font-size: 0.8rem;
+          }
+
+          th, td {
+            padding: 0.75rem 0.5rem;
+          }
         }
       </style>
     `;

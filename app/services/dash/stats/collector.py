@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from app.services.redis.service import RedisService
 from app.services.mongo import MongoService
 from app.models.dash.dashboard import CacheStats, CacheHitMissRatio
-from app.core.cachekeys import (
+from app.core.keys import (
     PRICING_CATALOG_CACHE_KEY,
     TOTAL_QUOTE_REQUESTS_KEY,
     SUCCESS_QUOTE_REQUESTS_KEY,

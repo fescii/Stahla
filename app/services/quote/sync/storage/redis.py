@@ -11,7 +11,7 @@ import logfire
 
 from app.services.redis.service import RedisService
 from app.services.quote.background.tasks.processor import log_error_to_db, BackgroundTaskHelper
-from app.core.cachekeys import (
+from app.core.keys import (
     PRICING_CATALOG_CACHE_KEY,
     BRANCH_LIST_CACHE_KEY,
     STATES_LIST_CACHE_KEY,

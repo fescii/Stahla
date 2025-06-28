@@ -6,7 +6,7 @@ export default class AddUser extends HTMLElement {
     this.app = window.app;
     this.api = this.app.api;
     this.url = this.getAttribute("api") || "/auth/users";
-    
+
     // Form state
     this._formData = {
       name: '',
@@ -15,21 +15,21 @@ export default class AddUser extends HTMLElement {
       is_active: true,
       is_admin: false
     };
-    
+
     // Component state
     this._loading = false;
     this._error = false;
     this._success = false;
     this._errorMessage = null;
     this._passwordVisible = false;
-    
+
     this.render();
   }
 
   render() {
     console.log("Rendering AddUser component");
     this.shadowObj.innerHTML = this.getTemplate();
-    
+
     // Set up event listeners after each render
     setTimeout(() => {
       this._setupEventListeners();
@@ -49,7 +49,7 @@ export default class AddUser extends HTMLElement {
         this._handleSubmit();
       });
     }
-    
+
     // Input fields
     const nameInput = this.shadowObj.querySelector('#name');
     if (nameInput) {
@@ -57,21 +57,21 @@ export default class AddUser extends HTMLElement {
         this._formData.name = e.target.value;
       });
     }
-    
+
     const emailInput = this.shadowObj.querySelector('#email');
     if (emailInput) {
       emailInput.addEventListener('input', (e) => {
         this._formData.email = e.target.value;
       });
     }
-    
+
     const passwordInput = this.shadowObj.querySelector('#password');
     if (passwordInput) {
       passwordInput.addEventListener('input', (e) => {
         this._formData.password = e.target.value;
       });
     }
-    
+
     // Toggle password visibility
     const togglePassword = this.shadowObj.querySelector('.toggle-password');
     if (togglePassword) {
@@ -82,7 +82,7 @@ export default class AddUser extends HTMLElement {
         this.render();
       });
     }
-    
+
     // Toggle switches
     const isActiveSwitch = this.shadowObj.querySelector('#is_active');
     if (isActiveSwitch) {
@@ -90,14 +90,14 @@ export default class AddUser extends HTMLElement {
         this._formData.is_active = e.target.checked;
       });
     }
-    
+
     const isAdminSwitch = this.shadowObj.querySelector('#is_admin');
     if (isAdminSwitch) {
       isAdminSwitch.addEventListener('change', (e) => {
         this._formData.is_admin = e.target.checked;
       });
     }
-    
+
     // Cancel button
     const cancelButton = this.shadowObj.querySelector('.cancel-btn');
     if (cancelButton) {
@@ -105,7 +105,7 @@ export default class AddUser extends HTMLElement {
         this._handleCancel();
       });
     }
-    
+
     // Back to list after success
     const backButton = this.shadowObj.querySelector('.back-to-list');
     if (backButton) {
@@ -113,7 +113,7 @@ export default class AddUser extends HTMLElement {
         this._navigateToUsersList();
       });
     }
-    
+
     // Add another user button
     const addAnotherButton = this.shadowObj.querySelector('.add-another-btn');
     if (addAnotherButton) {
@@ -128,13 +128,13 @@ export default class AddUser extends HTMLElement {
     if (!this._validateForm()) {
       return;
     }
-    
+
     // Set loading state
     this._loading = true;
     this._error = false;
     this._success = false;
     this.render();
-    
+
     try {
       // Prepare data in the correct format
       const userData = {
@@ -144,13 +144,13 @@ export default class AddUser extends HTMLElement {
         is_active: this._formData.is_active,
         is_admin: this._formData.is_admin
       };
-      
+
       // Make API request with proper content type and body
-      const response = await this.api.post(this.url, { 
+      const response = await this.api.post(this.url, {
         content: "json",
         body: userData
       });
-      
+
       // Handle response
       if (!response.success) {
         this._error = true;
@@ -159,7 +159,7 @@ export default class AddUser extends HTMLElement {
         this.render();
         return;
       }
-      
+
       // Success
       this._loading = false;
       this._success = true;
@@ -171,7 +171,7 @@ export default class AddUser extends HTMLElement {
         is_admin: false
       };
       this.render();
-      
+
     } catch (error) {
       console.error("Error creating user:", error);
       this._loading = false;
@@ -180,12 +180,12 @@ export default class AddUser extends HTMLElement {
       this.render();
     }
   };
-  
+
   _validateForm = () => {
     // Reset error
     this._error = false;
     this._errorMessage = null;
-    
+
     // Validate email
     if (!this._formData.email || !this._validateEmail(this._formData.email)) {
       this._error = true;
@@ -193,7 +193,7 @@ export default class AddUser extends HTMLElement {
       this.render();
       return false;
     }
-    
+
     // Validate password
     if (!this._formData.password || this._formData.password.length < 8) {
       this._error = true;
@@ -201,7 +201,7 @@ export default class AddUser extends HTMLElement {
       this.render();
       return false;
     }
-    
+
     // Validate name (optional)
     if (this._formData.name && this._formData.name.length < 2) {
       this._error = true;
@@ -209,10 +209,10 @@ export default class AddUser extends HTMLElement {
       this.render();
       return false;
     }
-    
+
     return true;
   };
-  
+
   _validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(String(email).toLowerCase());
@@ -222,7 +222,7 @@ export default class AddUser extends HTMLElement {
     // Navigate back to the users list
     this._navigateToUsersList();
   };
-  
+
   _navigateToUsersList = () => {
     // This method will depend on your app's routing mechanism
     // Here's a simple example that assumes the app has a navigation method
@@ -260,7 +260,7 @@ export default class AddUser extends HTMLElement {
     if (this._success) {
       return this._getSuccessHTML();
     }
-    
+
     return /* html */ `
       <div class="container">
         <div class="add-user-container">
@@ -371,7 +371,7 @@ export default class AddUser extends HTMLElement {
       </div>
     `;
   };
-  
+
   _getShowPasswordIcon = () => {
     return /* html */ `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -380,7 +380,7 @@ export default class AddUser extends HTMLElement {
       </svg>
     `;
   };
-  
+
   _getHidePasswordIcon = () => {
     return /* html */ `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -389,7 +389,7 @@ export default class AddUser extends HTMLElement {
       </svg>
     `;
   };
-  
+
   _getLoadingSpinner = () => {
     return /* html */ `
       <svg class="spinner" viewBox="0 0 50 50">
@@ -567,6 +567,14 @@ export default class AddUser extends HTMLElement {
         bottom: 3px;
         background-color: var(--background);
         transition: .4s;
+      }
+
+      /* style input prefill color */
+      input[type="text"]:-webkit-autofill,
+      input[type="email"]:-webkit-autofill,
+      input[type="password"]:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 30px var(--background) inset !important;
+        -webkit-text-fill-color: var(--text-color) !important;
       }
       
       input:checked + .slider {

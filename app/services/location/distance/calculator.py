@@ -6,7 +6,7 @@ from app.models.location import BranchLocation, DistanceResult
 from app.services.location.cache import LocationCacheOperations
 from app.services.location.google import GoogleMapsOperations
 from app.services.location.areas import ServiceAreaChecker
-from app.core.cachekeys import MAPS_CACHE_HITS_KEY, MAPS_CACHE_MISSES_KEY
+from app.core.keys import MAPS_CACHE_HITS_KEY, MAPS_CACHE_MISSES_KEY
 from app.services.background import increment_request_counter_bg
 from app.services.background.util import add_task_safely
 
