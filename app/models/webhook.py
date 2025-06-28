@@ -184,6 +184,9 @@ class HubSpotContactDataPayload(BaseModel):
   what_service_do_you_need_: Optional[str] = None
   how_many_portable_toilet_stalls_: Optional[int] = None
 
+  # Consent
+  by_submitting_this_form_you_consent_to_receive_texts: Optional[bool] = None
+
   class Config:
     extra = 'allow'  # Allow fields not explicitly defined
     populate_by_name = True  # Allow using aliases
