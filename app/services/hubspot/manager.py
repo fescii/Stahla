@@ -70,6 +70,7 @@ from .owner.operations import OwnerOperations
 from .pipeline.operations import PipelineOperations
 from .association.operations import AssociationOperations
 from .property.operations import PropertyOperations
+from .properties import PropertySyncManager
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,7 @@ class HubSpotManager:
     self.pipeline = PipelineOperations(self)
     self.association = AssociationOperations(self)
     self.property = PropertyOperations(self)
+    self.property_sync = PropertySyncManager(self)
 
   def _convert_date_to_timestamp_ms(self, date_str: Optional[str]) -> Optional[int]:
     """

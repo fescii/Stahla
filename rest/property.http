@@ -1,0 +1,76 @@
+# Property Sync API Tests
+# Test the HubSpot property synchronization endpoints
+
+### Sync all properties from both contact.json and lead.json
+POST http://localhost:8000/api/v1/hubspot/properties/sync/all
+Accept: application/json
+Content-Type: application/json
+
+###
+
+### Sync only contact properties
+POST http://localhost:8000/api/v1/hubspot/properties/sync/contacts
+Accept: application/json
+Content-Type: application/json
+
+###
+
+### Sync only lead properties
+POST http://localhost:8000/api/v1/hubspot/properties/sync/leads
+Accept: application/json
+Content-Type: application/json
+
+###
+
+### Check status of all contact properties
+GET http://localhost:8000/api/v1/hubspot/properties/status/contacts
+Accept: application/json
+
+###
+
+### Check status of all lead properties
+GET http://localhost:8000/api/v1/hubspot/properties/status/leads
+Accept: application/json
+
+###
+
+### Check status of specific contact properties
+GET http://localhost:8000/api/v1/hubspot/properties/status/contacts?property_names=firstname,lastname,email,phone
+Accept: application/json
+
+###
+
+### Check status of specific lead properties
+GET http://localhost:8000/api/v1/hubspot/properties/status/leads?property_names=project_category,units_needed,expected_attendance
+Accept: application/json
+
+###
+
+### Check status of multi-select properties specifically
+GET http://localhost:8000/api/v1/hubspot/properties/status/contacts?property_names=what_service_do_you_need_,ada,ai_call_sentiment
+Accept: application/json
+
+###
+
+### Test sync with detailed logging (for debugging multi-select issues)
+POST http://localhost:8000/api/v1/hubspot/properties/sync/contacts
+Accept: application/json
+Content-Type: application/json
+
+###
+
+### Test specific multi-select properties after sync
+GET http://localhost:8000/api/v1/hubspot/properties/status/contacts?property_names=what_service_do_you_need_
+Accept: application/json
+
+###
+
+### Test boolean checkbox properties 
+GET http://localhost:8000/api/v1/hubspot/properties/status/contacts?property_names=ada,by_submitting_this_form_you_consent_to_receive_texts
+Accept: application/json
+
+###
+
+### Test enumeration select properties
+GET http://localhost:8000/api/v1/hubspot/properties/status/contacts?property_names=ai_call_sentiment,company_size
+Accept: application/json

@@ -60,10 +60,40 @@ class PropertyOperations:
   ) -> Optional[Dict[str, Any]]:
     """Create a custom property with full property data."""
     try:
-      # Map group names for different object types
-      group_name = property_data["groupName"]
-      if object_type == "contacts" and group_name == "leadinformation":
-        group_name = "contactinformation"
+      # For leads, we need to discover valid property groups first
+      if object_type == "leads":
+        # Get existing properties to see what groups are available
+        existing_props = await self.get_all_properties(object_type)
+        if existing_props:
+          # Extract unique group names from existing properties
+          valid_groups = set()
+          for prop in existing_props:
+            if prop.get("groupName"):
+              valid_groups.add(prop["groupName"])
+
+          logfire.info(
+              f"Found valid property groups for leads: {list(valid_groups)}")
+
+          # Use the first available group or a common one
+          if valid_groups:
+            group_name = list(valid_groups)[0]  # Use first available group
+            logfire.info(
+                f"Using property group '{group_name}' for leads property '{property_data['name']}'")
+          else:
+            # If no existing properties have groups, omit groupName entirely
+            group_name = None
+            logfire.info(
+                f"No property groups found for leads, creating property '{property_data['name']}' without group")
+        else:
+          # If we can't get existing properties, try without group
+          group_name = None
+          logfire.info(
+              f"Cannot determine valid groups for leads, creating property '{property_data['name']}' without group")
+      else:
+        # For other object types, use the provided group name with mapping
+        group_name = property_data.get("groupName")
+        if object_type == "contacts" and group_name == "leadinformation":
+          group_name = "contactinformation"
 
       # Handle field type mappings
       field_type = property_data["fieldType"]
@@ -78,13 +108,21 @@ class PropertyOperations:
           )
           return None
 
-      # Field type validations
+      # Field type validations and mappings
       if property_type == "bool":
         if field_type not in ["booleancheckbox", "checkbox"]:
           field_type = "booleancheckbox"
       elif property_type == "string":
         if field_type not in ["text", "textarea", "email", "phonenumber"]:
           field_type = "text"
+      elif property_type == "enumeration":
+        # Handle multi-select/multi-choice enumeration fields
+        if field_type == "checkbox":
+          # For multi-select checkboxes, ensure proper handling
+          field_type = "checkbox"
+        elif field_type not in ["select", "radio", "checkbox"]:
+          # Default to select for single choice
+          field_type = "select"
 
       # Map to HubSpot format
       hubspot_property = {
@@ -92,13 +130,19 @@ class PropertyOperations:
           "label": property_data["label"],
           "type": property_type,
           "fieldType": field_type,
-          "groupName": group_name,
           "description": property_data.get("description", ""),
       }
+
+      # Only include groupName if we have a valid one
+      if group_name is not None:
+        hubspot_property["groupName"] = group_name
 
       # Add options for enumeration properties
       if property_type == "enumeration" and "options" in property_data:
         hubspot_property["options"] = property_data["options"]
+        logfire.info(
+            f"Creating enumeration property '{property_data['name']}' with {len(property_data['options'])} options and fieldType '{field_type}'"
+        )
 
       # Make API request
       response = await self.manager._http_client.post(
