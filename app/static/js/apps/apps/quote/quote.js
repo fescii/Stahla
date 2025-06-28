@@ -1253,34 +1253,6 @@ export default class Quote extends HTMLElement {
     }
   }
 
-  _scrollToResults() {
-    // Use setTimeout to ensure DOM is updated after render
-    setTimeout(() => {
-      const resultsSection = this.shadowObj.querySelector(".results-section");
-      if (resultsSection && this.state.result) {
-        // Scroll the results section into view with some offset to show the title
-        resultsSection.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-          inline: "nearest",
-        });
-
-        // Add a small delay and adjust scroll position to ensure title is visible
-        setTimeout(() => {
-          const rect = resultsSection.getBoundingClientRect();
-          const offset = 80; // Offset to ensure title is fully visible
-
-          if (rect.top < offset) {
-            window.scrollBy({
-              top: rect.top - offset,
-              behavior: "smooth",
-            });
-          }
-        }, 300);
-      }
-    }, 100);
-  }
-
   async _processCustomQuoteDirectly(quoteBody) {
     try {
       // Update loading state in results section only
@@ -1328,7 +1300,6 @@ export default class Quote extends HTMLElement {
 
       this.state.result = firstResponse;
       this._updateResultsSection(this._renderQuoteResult());
-      this._scrollToResults();
 
       // After a short delay, make a second request to demonstrate Redis caching
       setTimeout(async () => {
