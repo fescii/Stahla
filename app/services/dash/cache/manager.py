@@ -24,17 +24,71 @@ class CacheManager:
     if not keys:
       return results
 
+    # Limit to 100 keys for performance and filter to ensure they match the pattern
+    # Filter out any None/empty keys
+    keys_to_process = [key for key in keys[:100] if key]
+
+    if not keys_to_process:
+      return results
+
     pipeline_results_list = []
     redis_client = None
     try:
       redis_client = await self.redis.get_client()
-      async with redis_client.pipeline(transaction=False) as pipe:
-        for key_to_fetch in keys[:100]:
-          pipe.get(key_to_fetch)
-          pipe.ttl(key_to_fetch)
-        executed_pipe_results = await pipe.execute()
-        if executed_pipe_results is not None:
-          pipeline_results_list = executed_pipe_results
+
+      # Process in smaller batches to avoid pipeline issues
+      batch_size = 20
+      for i in range(0, len(keys_to_process), batch_size):
+        batch_keys = keys_to_process[i:i + batch_size]
+
+        try:
+          async with redis_client.pipeline(transaction=False) as pipe:
+            for key_to_fetch in batch_keys:
+              pipe.get(key_to_fetch)
+              pipe.ttl(key_to_fetch)
+            batch_results = await pipe.execute()
+            if batch_results is not None:
+              pipeline_results_list.extend(batch_results)
+        except Exception as batch_error:
+          logger.warning(
+              f"Batch pipeline failed for keys {batch_keys}: {batch_error}")
+          # Fallback: process each key individually for this batch
+          for key_to_fetch in batch_keys:
+            try:
+              # First check the key type to handle different Redis data types
+              key_type = await redis_client.type(key_to_fetch)
+              ttl = await redis_client.ttl(key_to_fetch)
+
+              if key_type == 'string':
+                value = await redis_client.get(key_to_fetch)
+              elif key_type == 'list':
+                # For lists, get the length as a preview
+                length = redis_client.llen(key_to_fetch)
+                value = f"List with {length} items"
+              elif key_type == 'hash':
+                # For hashes, get the field count as a preview
+                length = redis_client.hlen(key_to_fetch)
+                value = f"Hash with {length} fields"
+              elif key_type == 'set':
+                # For sets, get the member count as a preview
+                length = redis_client.scard(key_to_fetch)
+                value = f"Set with {length} members"
+              elif key_type == 'zset':
+                # For sorted sets, get the member count as a preview
+                length = redis_client.zcard(key_to_fetch)
+                value = f"Sorted set with {length} members"
+              elif key_type == 'none':
+                value = None
+              else:
+                value = f"Redis type: {key_type}"
+
+              pipeline_results_list.extend([value, ttl])
+            except Exception as individual_error:
+              logger.warning(
+                  f"Failed to fetch key '{key_to_fetch}': {individual_error}")
+              # Add None values to maintain alignment
+              pipeline_results_list.extend([None, -1])
+
     except Exception as e:
       logger.error(
           f"Error during Redis pipeline operation in search_cache_keys: {e}",
@@ -44,8 +98,9 @@ class CacheManager:
       if redis_client:
         await redis_client.close()
 
+    # Process results
     idx = 0
-    for key_in_loop in keys[:100]:
+    for key_in_loop in keys_to_process:
       if idx + 1 < len(pipeline_results_list):
         value_raw = pipeline_results_list[idx]
         ttl = pipeline_results_list[idx + 1]
@@ -58,18 +113,20 @@ class CacheManager:
             json_val = json.loads(value_raw)
             preview = json_val
           except json.JSONDecodeError:
-            # If not JSON, fall back to truncated string
-            preview = str(value_raw)[:200] + "..."
+            # If not JSON, return the full string value
+            preview = str(value_raw)
+
         results.append(
             CacheSearchResult(key=key_in_loop, value_preview=preview, ttl=ttl)
         )
       else:
-        current_key_for_log = key_in_loop if keys and idx < len(
-            keys) else "N/A"
         logger.warning(
-            f"Pipeline results for search_cache_keys are shorter than expected. Expected at least {idx+2} items for key '{current_key_for_log}', got {len(pipeline_results_list)} total pipeline results."
+            f"Pipeline results for search_cache_keys are shorter than expected. "
+            f"Expected at least {idx+2} items for key '{key_in_loop}', "
+            f"got {len(pipeline_results_list)} total pipeline results."
         )
         break
+
     return results
 
   async def get_cache_item(self, key: str) -> Optional[CacheItem]:
