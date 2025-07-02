@@ -3,6 +3,7 @@
 import logfire
 import re
 from typing import Dict, Any
+from datetime import datetime
 
 # Import models
 from app.models.bland import BlandCallbackRequest
@@ -22,6 +23,18 @@ def is_contact_complete(contact_properties: dict) -> bool:
   to potentially create a complete Lead after classification/qualification.
   """
   return is_hubspot_contact_complete(contact_properties)
+
+
+def convert_hubspot_timestamp(timestamp: str) -> str:
+  """
+  Convert HubSpot timestamp to a human-readable format.
+  This is a placeholder function; implement as needed.
+  """
+  # timestamp input is usually: 1748131200000
+  # Convert milliseconds to seconds
+  timestamp_in_seconds = int(timestamp) / 1000
+  # Format as a human-readable string
+  return datetime.fromtimestamp(timestamp_in_seconds).strftime('%Y-%m-%d %H:%M:%S')
 
 
 async def trigger_bland_call_for_contact(contact_id: str, contact_properties: dict):
@@ -69,6 +82,8 @@ async def trigger_bland_call_for_contact(contact_id: str, contact_properties: di
 
   # Data for the AI agent from HubSpot contact properties
   agent_request_data = {
+      "source": "hubspot_incomplete_contact",
+      "hubspot_contact_id": contact_id,
       "firstname": contact_properties.get("firstname"),
       "lastname": contact_properties.get("lastname"),
       "email": contact_properties.get("email"),
@@ -76,8 +91,8 @@ async def trigger_bland_call_for_contact(contact_id: str, contact_properties: di
       "formatted_phone_to_dial": formatted_phone_number,  # Actual number dialed
       "service_needed": contact_properties.get("what_service_do_you_need_"),
       "event_address": contact_properties.get("event_or_job_address"),
-      "event_start_date": contact_properties.get("event_start_date"),
-      "event_end_date": contact_properties.get("event_end_date"),
+      "event_start_date": convert_hubspot_timestamp(contact_properties["event_start_date"]) if contact_properties.get("event_start_date") is not None else None,
+      "event_end_date": convert_hubspot_timestamp(contact_properties["event_end_date"]) if contact_properties.get("event_end_date") is not None else None,
       "company": contact_properties.get("company"),
       # Add other relevant HubSpot properties for the agent
   }

@@ -61,10 +61,9 @@ logfire.configure(**_logfire_config)
 logfire.instrument_pydantic()
 # --- End Logfire Configuration ---
 
-# --- Project Structure Imports (Now that Logfire is configured) ---
-
-
 # --- Lifespan Management ---
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
   # Startup: Initialize connections, load models, etc.

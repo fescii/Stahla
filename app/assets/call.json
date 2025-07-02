@@ -51,10 +51,10 @@
       "type": "Knowledge Base",
       "data": {
         "name": "Global: Answer User Question from KB",
-        "isGlobal": false,
+        "isGlobal": true,
         "globalLabel": "User has a general question or needs help or asks something off-script",
         "knowledgeBase": "Stahla Services (Stahla Rentals) - Knowledge Base\nSummary\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\nCompany Overview\nLegal Name: Stahla Services, LLC\nFounded: 2014\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\nServices Offered\nRestroom Trailer Rentals: Options range from 2-stall to 10-stall configurations. Examples: '2 Stall Restroom Trailer (Luxury)', '4 Stall Restroom Trailer (Standard)', '8 Stall Restroom Trailer (ADA Combo)'.\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors.\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Examples: '3 Stall Shower Trailer', '8 Stall Shower/Restroom Combo Trailer'.\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers.\nPorta Potty Rentals: Standard, budget-friendly option. Available in basic, deluxe, or hand washing-equipped models. Includes ADA Porta Potty options.\nGenerator Rentals: Various sizes available, e.g., '3kW Generator', '7kW Generator'.\nOther Services: Holding tanks, fresh water delivery, regular servicing/pump-outs, cleaning.\nService Area\nServes 17 U.S. states: Arkansas (AR), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), Wyoming (WY)\nHeadquarters and Locations\nPrimary HQ: Omaha, Nebraska\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\nOther Office Locations:\nLincoln, NE – 420 W A St, Suite 200\nGretna, NE – 21824 Williams Circle\nSmithville, MO – 17609 HH Lake Road\nDenver, CO – 1340 Umatilla St\nContact Information\nPhone: (844) 900-3190\nEmail: [email protected]\nBusiness Hours:\nMon–Fri: 8 AM–5 PM\nSat: 8 AM–5 PM\nSun: Closed\nWebsite: https://stahla.com/\nProduct List (Examples - refer to full product sheet for all models):\n2 Stall Restroom Trailer (Luxury), 2 Stall Restroom Trailer (Standard), 3 Stall Restroom Trailer (Luxury), 4 Stall Restroom Trailer (Standard), 4 Stall Restroom Trailer (ADA Compliant), 5 Stall Restroom Trailer, 6 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, ADA Porta Potty, Standard Porta Potty, Deluxe Porta Potty, Hand wash Station (Porta Potty Addon), 3 Stall Shower Trailer, 8 Stall Shower Trailer, Laundry Trailer (8 Washer/Dryer), 3kW Generator, 7kW Generator.\nUsage Types for Quotes: event, commercial, construction, disaster_relief, other.",
-        "prompt": "The user asked: {{lastUserMessage}} Only if the {{lastUserMessage}} was a question otherwise resume node pathway. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, state that you'll need to gather more details or that it will be covered in the quote.",
+        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, state that you'll need to gather more details or that it will be covered in the quote. After answering, return to the conversation where you left off.",
         "modelOptions": {
           "temperature": 0.6,
           "interruptionThreshold": 0.8
@@ -66,12 +66,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm Contact Name",
-        "prompt": "Great! Just to confirm, I have {{request_data.firstname}} {{request_data.lastname}} as your first and last name? If not, please tell me your full name.",
+        "prompt": "Great! Just to confirm, I have {{request_data.firstname}} {{request_data.lastname}} as your name? If not, please tell me your full name.",
         "extractVars": [
           [
             "contact_name",
             "string",
-            "The confirmed or corrected full name of the contact person. If they confirm {{request_data.firstname}} {{request_data.lastname}}, use that. Otherwise, capture the name they provide."
+            "The confirmed or corrected full name of the contact person. If they confirm the existing name from {{request_data.firstname}} {{request_data.lastname}}, concatenate those values. Otherwise, capture the name they provide."
           ]
         ],
         "modelOptions": {
@@ -89,7 +89,7 @@
           [
             "contact_email",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', or similar, extract from {{request_data.email}}. If they provide a new email, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', or similar, extract the value from {{request_data.email}}. If they provide a new email, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -107,7 +107,7 @@
           [
             "phone_number",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', or similar, extract from {{request_data.phone}}. If they provide a new number, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', or similar, extract the value from {{request_data.phone}}. If they provide a new number, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -120,7 +120,7 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Company Name",
-        "prompt": "And what is this order related to any company? If you not, just say 'none'. If you have a company name, please provide it.",
+        "prompt": "And is this order related to any company? If not, just say 'none'. If you have a company name, please provide it.",
         "extractVars": [
           [
             "company_name",
@@ -143,7 +143,7 @@
           [
             "delivery_location",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that one is correct', or similar, extract from {{request_data.event_address}}. If they provide a new address, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that one is correct', or similar, extract the value from {{request_data.event_address}}. If they provide a new address, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -182,6 +182,8 @@
           "Authorization": "Bearer 7%FRtf@34hi"
         },
         "body": "{\"delivery_location\": \"{{delivery_location}}\"}",
+        "timeout": 15,
+        "retries": 2,
         "response_data": [
           {
             "name": "location_api_success",
@@ -212,7 +214,25 @@
           "enabled": true,
           "text": "One moment while I verify your location and check our service area coverage."
         },
-        "afterWebhookPrompt": "Perfect! I've verified your location: {{api_delivery_location}}."
+        "afterWebhookPrompt": "Perfect! I've verified your location: {{api_delivery_location}}.",
+        "pathwayRouting": [
+          {
+            "condition": "{{location_api_success}} is true and {{is_in_service_area}} is true",
+            "nextNode": "determine_order_category"
+          },
+          {
+            "condition": "{{location_api_success}} is true and {{is_in_service_area}} is false",
+            "nextNode": "handle_out_of_service_area"
+          },
+          {
+            "condition": "{{location_api_success}} is false",
+            "nextNode": "api_error_location_tool"
+          },
+          {
+            "condition": "API Request Completion (Default)",
+            "nextNode": "determine_order_category"
+          }
+        ]
       }
     },
     {
@@ -232,7 +252,7 @@
     },
     {
       "id": "wants_referral_node",
-      "type": "Default",
+      "type": "End Call",
       "data": {
         "name": "Closing - Out of Service with Referral",
         "prompt": "Okay, I've noted that. We'll check for potential partners and reach out if we find a suitable referral. Thank you for contacting Stahla Services. Have a great day!"
@@ -240,7 +260,7 @@
     },
     {
       "id": "no_referral_node",
-      "type": "Default",
+      "type": "End Call",
       "data": {
         "name": "Closing - Out of Service No Referral",
         "prompt": "Understood. Sorry we couldn't assist directly this time. Thank you for considering Stahla Services. Have a great day!"
@@ -442,21 +462,34 @@
       }
     },
     {
-      "id": "sa_ask_ada_event",
+      "id": "sa_ask_ada_required_event",
       "type": "Default",
       "data": {
-        "name": "Ask ADA (Event)",
-        "prompt": "Will you have anyone there in a wheelchair or a walker? Do you need ADA (handicap accessible) facilities? We have options like the 1 Stall ADA Combo Trailer or the 3 Stall ADA Restroom Trailer, or an ADA Porta Potty.",
+        "name": "Ask if ADA Required (Event)",
+        "prompt": "Will you have anyone there in a wheelchair or a walker? Do you need ADA (handicap accessible) facilities?",
         "extractVars": [
           [
             "ada_required",
             "boolean",
             "Whether ADA-compliant units are required for the event. (true/false)"
-          ],
+          ]
+        ],
+        "modelOptions": {
+          "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "sa_ask_ada_product_selection_event",
+      "type": "Default",
+      "data": {
+        "name": "Ask ADA Product Selection (Event)",
+        "prompt": "Great! We have several ADA-compliant options available. Which would work best for your event: the 1 Stall ADA Combo Trailer, the 3 Stall ADA Restroom Trailer, or an ADA Porta Potty?",
+        "extractVars": [
           [
             "preferred_ada_products",
             "string",
-            "If ADA is required, list the preferred ADA products, e.g., '1 Stall ADA Combo Trailer', '3 Stall ADA Restroom Trailer', 'ADA Porta Potty'."
+            "The preferred ADA products selected, e.g., '1 Stall ADA Combo Trailer', '3 Stall ADA Restroom Trailer', 'ADA Porta Potty'."
           ]
         ],
         "modelOptions": {
@@ -697,7 +730,7 @@
           "Content-Type": "application/json",
           "Authorization": "Bearer 7%FRtf@34hi"
         },
-        "body": "{\"delivery_location\": \"{{delivery_location}}\", \"trailer_type\": \"{{trailer_type}}\", \"rental_start_date\": \"{{rental_start_date}}\", \"rental_days\": \"{{rental_days}}\", \"usage_type\": \"{{usage_type}}\", \"extras\": \"{{extras_list}}\", \"customer_details\": {\"name\": \"{{contact_name}}\", \"email\": \"{{contact_email | request_data.email}}\", \"phone\": \"{{phone_number | request_data.phone}}\", \"company\": \"{{company_name}}\"}}",
+        "body": "{\"delivery_location\": \"{{delivery_location}}\", \"trailer_type\": \"{{trailer_type}}\", \"rental_start_date\": \"{{rental_start_date}}\", \"rental_days\": \"{{rental_days}}\", \"usage_type\": \"{{usage_type}}\", \"extras\": \"{{extras_list}}\", \"customer_details\": {\"name\": \"{{contact_name}}\", \"email\": \"{{contact_email}}\", \"phone\": \"{{phone_number}}\", \"company\": \"{{company_name}}\"}}",
         "timeout": 15,
         "retries": 2,
         "response_data": [
@@ -734,7 +767,21 @@
           "enabled": true,
           "text": "I'm calculating your personalized quote based on your requirements. This may take just a moment."
         },
-        "afterWebhookPrompt": "Perfect! I've successfully generated your quote."
+        "afterWebhookPrompt": "Perfect! I've successfully generated your quote.",
+        "pathwayRouting": [
+          {
+            "condition": "{{quote_api_success}} is true",
+            "nextNode": "convey_quote_and_followup_offer_node"
+          },
+          {
+            "condition": "{{quote_api_success}} is false",
+            "nextNode": "api_error_quote_tool"
+          },
+          {
+            "condition": "API Request Completion (Default)",
+            "nextNode": "convey_quote_and_followup_offer_node"
+          }
+        ]
       }
     },
     {
@@ -826,7 +873,7 @@
     },
     {
       "id": "closing_with_followup_node",
-      "type": "Default",
+      "type": "End Call",
       "data": {
         "name": "Closing with Follow-up Scheduled/Offered",
         "prompt": "Thank you for your time, {{contact_name}}! One of our representatives will be in touch with you soon. The quote information will be sent to {{contact_email}}. Have a great day! Goodbye."
@@ -846,13 +893,13 @@
       "id": "edge_start_to_confirm_name",
       "source": "start_call",
       "target": "confirm_name",
-      "label": "{{is_now_good_time}} == true"
+      "label": "{{is_now_good_time}} is true"
     },
     {
       "id": "edge_start_to_ask_best_time",
       "source": "start_call",
       "target": "ask_best_time_to_call",
-      "label": "{{is_now_good_time}} == false"
+      "label": "{{is_now_good_time}} is false"
     },
     {
       "id": "edge_ask_best_time_to_end_reschedule",
@@ -897,28 +944,22 @@
       "label": "Delivery address type collected"
     },
     {
-      "id": "edge_trigger_location_tool_to_error",
-      "source": "trigger_background_location_processing_node",
-      "target": "api_error_location_tool",
-      "label": "{{location_api_success}} is false"
-    },
-    {
-      "id": "edge_trigger_location_tool_to_determine_order_cat",
-      "source": "trigger_background_location_processing_node",
-      "target": "determine_order_category",
-      "label": "{{location_api_success}} is true and {{is_in_service_area}} is true"
-    },
-    {
-      "id": "edge_trigger_location_tool_to_oos",
-      "source": "trigger_background_location_processing_node",
-      "target": "handle_out_of_service_area",
-      "label": "{{location_api_success}} is true and {{is_in_service_area}} is false"
+      "id": "edge_location_error_to_retry",
+      "source": "api_error_location_tool",
+      "target": "trigger_background_location_processing_node",
+      "label": "User provides corrected address"
     },
     {
       "id": "edge_location_error_to_continue",
       "source": "api_error_location_tool",
       "target": "location_final_error_continue",
-      "label": "Address collected - continue without location verification"
+      "label": "Continue without location verification"
+    },
+    {
+      "id": "edge_location_retry_error_to_continue",
+      "source": "trigger_background_location_processing_node",
+      "target": "location_final_error_continue",
+      "label": "{{location_api_success}} is false and retry_attempt"
     },
     {
       "id": "edge_location_final_error_to_continue",
@@ -930,25 +971,13 @@
       "id": "edge_handle_oos_to_wants_referral",
       "source": "handle_out_of_service_area",
       "target": "wants_referral_node",
-      "label": "{{offer_referral_consent}} == true"
+      "label": "{{offer_referral_consent}} is true"
     },
     {
       "id": "edge_handle_oos_to_no_referral",
       "source": "handle_out_of_service_area",
       "target": "no_referral_node",
-      "label": "{{offer_referral_consent}} == false"
-    },
-    {
-      "id": "edge_wants_referral_to_end_call",
-      "source": "wants_referral_node",
-      "target": "end_call_speak_final",
-      "label": "Referral accepted, end call"
-    },
-    {
-      "id": "edge_no_referral_to_end_call",
-      "source": "no_referral_node",
-      "target": "end_call_speak_final",
-      "label": "Referral declined, end call"
+      "label": "{{offer_referral_consent}} is false"
     },
     {
       "id": "edge_determine_order_cat_to_determine_prod_type",
@@ -960,19 +989,19 @@
       "id": "edge_determine_prod_type_to_event_flow_start",
       "source": "determine_product_type",
       "target": "sa_ask_event_duration_days",
-      "label": "{{project_category}} contains 'event'"
+      "label": "{{project_category}} contains Event"
     },
     {
       "id": "edge_determine_prod_type_to_construction_flow_start",
       "source": "determine_product_type",
       "target": "ask_site_conditions_trailer",
-      "label": "{{project_category}} contains 'construction' or {{project_category}} contains 'facility'"
+      "label": "{{project_category}} contains Construction or {{project_category}} contains Facility"
     },
     {
       "id": "edge_determine_prod_type_to_disaster_flow_start",
       "source": "determine_product_type",
       "target": "ask_site_conditions_trailer",
-      "label": "{{project_category}} contains 'disaster'"
+      "label": "{{project_category}} contains Disaster"
     },
     {
       "id": "edge_determine_prod_type_to_default_flow",
@@ -984,37 +1013,37 @@
       "id": "edge_sa_duration_to_total_hours",
       "source": "sa_ask_event_duration_days",
       "target": "sa_ask_total_hours",
-      "label": "{{event_duration_days}} >= 2"
+      "label": "{{event_duration_days}} is 2 or more"
     },
     {
       "id": "edge_sa_duration_to_attendees_short_event",
       "source": "sa_ask_event_duration_days",
       "target": "sa_ask_attendees",
-      "label": "{{event_duration_days}} < 2"
+      "label": "{{event_duration_days}} is less than 2"
     },
     {
       "id": "edge_sa_total_hours_to_extra_services",
       "source": "sa_ask_total_hours",
       "target": "sa_discuss_extra_services_multi_day_long_hours",
-      "label": "{{event_total_hours_a_day}} >= 8"
+      "label": "{{event_total_hours_a_day}} is 8 or more"
     },
     {
       "id": "edge_sa_total_hours_to_attendees_short_hours",
       "source": "sa_ask_total_hours",
       "target": "sa_ask_attendees",
-      "label": "{{event_total_hours_a_day}} < 8"
+      "label": "{{event_total_hours_a_day}} is less than 8"
     },
     {
       "id": "edge_sa_discuss_extra_services_to_ask_gaps",
       "source": "sa_discuss_extra_services_multi_day_long_hours",
       "target": "sa_ask_for_servicing_gaps",
-      "label": "{{sa_accepts_discussion_extra_services}} == true"
+      "label": "{{sa_accepts_discussion_extra_services}} is true"
     },
     {
       "id": "edge_sa_discuss_extra_services_skip_gaps_to_attendees",
       "source": "sa_discuss_extra_services_multi_day_long_hours",
       "target": "sa_ask_attendees",
-      "label": "{{sa_accepts_discussion_extra_services}} == false"
+      "label": "{{sa_accepts_discussion_extra_services}} is false"
     },
     {
       "id": "edge_sa_ask_gaps_to_attendees",
@@ -1037,26 +1066,38 @@
     {
       "id": "edge_sa_ask_stalls_to_ada_event",
       "source": "sa_ask_number_of_stalls",
-      "target": "sa_ask_ada_event",
-      "label": "{{stalls_exists}} == true"
+      "target": "sa_ask_ada_required_event",
+      "label": "{{stalls_exists}} is true"
     },
     {
       "id": "edge_sa_ask_stalls_to_stalls_not_exist",
       "source": "sa_ask_number_of_stalls",
       "target": "sa_trailer_with_stalls_does_not_exist",
-      "label": "{{stalls_exists}} == false"
+      "label": "{{stalls_exists}} is false"
     },
     {
       "id": "edge_sa_stalls_not_exist_to_ada_event",
       "source": "sa_trailer_with_stalls_does_not_exist",
-      "target": "sa_ask_ada_event",
+      "target": "sa_ask_ada_required_event",
       "label": "Alternative stall chosen"
     },
     {
-      "id": "edge_sa_ada_event_to_ask_site_conditions",
-      "source": "sa_ask_ada_event",
+      "id": "edge_sa_ada_required_yes_to_product_selection",
+      "source": "sa_ask_ada_required_event",
+      "target": "sa_ask_ada_product_selection_event",
+      "label": "{{ada_required}} is true"
+    },
+    {
+      "id": "edge_sa_ada_required_no_to_site_conditions",
+      "source": "sa_ask_ada_required_event",
       "target": "ask_site_conditions_trailer",
-      "label": "Event ADA info collected"
+      "label": "{{ada_required}} is false"
+    },
+    {
+      "id": "edge_sa_ada_product_selection_to_site_conditions",
+      "source": "sa_ask_ada_product_selection_event",
+      "target": "ask_site_conditions_trailer",
+      "label": "ADA product selected"
     },
     {
       "id": "edge_ask_site_conditions_to_ask_duration_trailer",
@@ -1080,13 +1121,13 @@
       "id": "edge_ask_power_trailer_yes_to_details",
       "source": "ask_power_trailer",
       "target": "power_available_ask_power_details",
-      "label": "{{trailer_power_available}} == true"
+      "label": "{{trailer_power_available}} is true"
     },
     {
       "id": "edge_ask_power_trailer_no_to_generator",
       "source": "ask_power_trailer",
       "target": "power_not_available_ask_generator",
-      "label": "{{trailer_power_available}} == false"
+      "label": "{{trailer_power_available}} is false"
     },
     {
       "id": "edge_power_details_to_ask_water",
@@ -1104,13 +1145,13 @@
       "id": "edge_ask_water_trailer_yes_to_details",
       "source": "ask_water_trailer",
       "target": "water_available_ask_water_details",
-      "label": "{{trailer_water_available}} == true"
+      "label": "{{trailer_water_available}} is true"
     },
     {
       "id": "edge_ask_water_trailer_no_to_service",
       "source": "ask_water_trailer",
       "target": "water_not_available_ask_water_service",
-      "label": "{{trailer_water_available}} == false"
+      "label": "{{trailer_water_available}} is false"
     },
     {
       "id": "edge_water_details_to_prepare_extras",
@@ -1131,18 +1172,6 @@
       "label": "Extras prepared"
     },
     {
-      "id": "edge_get_quote_success_to_convey",
-      "source": "get_quote_webhook_node",
-      "target": "convey_quote_and_followup_offer_node",
-      "label": "{{quote_api_success}} == true && {{estimated_total}} != null"
-    },
-    {
-      "id": "edge_get_quote_failure_to_api_error",
-      "source": "get_quote_webhook_node",
-      "target": "api_error_quote_tool",
-      "label": "{{quote_api_success}} is false"
-    },
-    {
       "id": "edge_convey_quote_to_final_questions",
       "source": "convey_quote_and_followup_offer_node",
       "target": "ask_final_questions",
@@ -1158,7 +1187,7 @@
       "id": "edge_ask_final_q_yes",
       "source": "ask_final_questions",
       "target": "answer_final_question_kb",
-      "label": "{{has_final_questions}} == true && {{final_questions_text}} != null && {{final_questions_text}} != ''"
+      "label": "{{has_final_questions}} is true"
     },
     {
       "id": "edge_ask_final_q_no_to_closing",
@@ -1171,12 +1200,6 @@
       "source": "answer_final_question_kb",
       "target": "closing_with_followup_node",
       "label": "Final question answered"
-    },
-    {
-      "id": "edge_closing_with_followup_to_end",
-      "source": "closing_with_followup_node",
-      "target": "end_call_speak_final",
-      "label": "End call"
     }
   ]
 }
