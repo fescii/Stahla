@@ -54,7 +54,8 @@ def load_pathway_definition() -> Dict[str, Any]:
                   path = old_url.split(
                       "/api/")[1] if "/api/" in old_url else ""
                   # Use the base URL from settings with the extracted path
-                  base_url = settings.BASE_URL.rstrip("/")  # type: ignore
+                  base_url = settings.APP_BASE_URL.rstrip(
+                      "/")  # Fixed attribute name
                   new_url = f"{base_url}/api/{path}"
                   node["data"]["url"] = new_url
                   logfire.info(

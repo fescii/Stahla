@@ -89,6 +89,12 @@ class BlandAIManager:
       self.sync_manager.background_tasks = self.background_tasks
       self.call_manager.background_tasks = self.background_tasks
 
+    # Update the call manager's logging service with the new dependencies
+    self.call_manager.update_services(
+        mongo_service=self.mongo_service,
+        background_tasks=self.background_tasks
+    )
+
     await self.sync_manager.sync_all()
 
   # Call management operations

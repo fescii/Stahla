@@ -58,7 +58,7 @@ class BlandCallLog(BaseModel):
       default=None, description="Timestamp of the last retry attempt")
 
   class Config:
-    schema_extra = {
+    json_schema_extra = {
         "examples": {
             "create": {
                 "id": "123",

@@ -9,6 +9,7 @@ from app.models.bland import BlandApiResult, BlandCallbackRequest
 from app.models.blandlog import BlandCallStatus
 from app.services.mongo import MongoService
 from ..api import BlandApiClient
+from ..logging import BlandLogService
 
 
 class BlandCallManager:
@@ -25,6 +26,29 @@ class BlandCallManager:
     self.pathway_id = pathway_id
     self.mongo_service = mongo_service
     self.background_tasks = background_tasks
+
+    # Initialize logging service
+    self.log_service = BlandLogService(
+        mongo_service=mongo_service,
+        background_tasks=background_tasks
+    )
+
+  def update_services(
+      self,
+      mongo_service: Optional[MongoService] = None,
+      background_tasks: Optional[BackgroundTasks] = None
+  ):
+    """Update service dependencies and refresh the log service."""
+    if mongo_service is not None:
+      self.mongo_service = mongo_service
+    if background_tasks is not None:
+      self.background_tasks = background_tasks
+
+    # Update the log service with new dependencies
+    self.log_service.update_services(
+        mongo_service=self.mongo_service,
+        background_tasks=self.background_tasks
+    )
 
   async def initiate_callback(
       self,
@@ -87,28 +111,18 @@ class BlandCallManager:
       payload["webhook"] = str(payload["webhook"])
 
     # Log call attempt (pre-API call)
-    # Use the passed background_tasks and self.mongo_service
-    if self.mongo_service and self.background_tasks:
-      self.background_tasks.add_task(
-          self.mongo_service.log_bland_call_attempt,
-          contact_id=contact_id,
-          phone_number=request_data.phone_number,
-          task=task_sent_to_bland,
-          pathway_id_used=pathway_id_used_for_call,
-          initial_status=BlandCallStatus.PENDING,
-          call_id_bland=None,
-          retry_of_call_id=log_retry_of_call_id,
-          retry_reason=log_retry_reason,
-          voice_id=payload.get("voice") or payload.get("voice_id"),
-          webhook_url=str(
-              request_data.webhook) if request_data.webhook else None
-      )
-    elif not self.mongo_service:
-      logfire.warn("MongoService not available for pre-call logging.",
-                   method="initiate_callback", contact_id=contact_id)
-    elif not self.background_tasks:
-      logfire.warn("BackgroundTasks not available for pre-call logging (will log synchronously if errors occur in make_request).",
-                   method="initiate_callback", contact_id=contact_id)
+    self.log_service.log_call_attempt(
+        contact_id=contact_id,
+        phone_number=request_data.phone_number,
+        task=task_sent_to_bland,
+        pathway_id_used=pathway_id_used_for_call,
+        initial_status=BlandCallStatus.PENDING,
+        call_id_bland=None,
+        retry_of_call_id=log_retry_of_call_id,
+        retry_reason=log_retry_reason,
+        voice_id=payload.get("voice") or payload.get("voice_id"),
+        webhook_url=str(request_data.webhook) if request_data.webhook else None
+    )
 
     logfire.info(
         f"Initiating Bland callback for contact_id: {contact_id}",
@@ -125,70 +139,25 @@ class BlandCallManager:
     )
 
     # Log call result (post-API call)
-    current_time = datetime.now(timezone.utc)
     if api_result.status == "error":
       logfire.error(
           f"Bland API call initiation failed for contact_id: {contact_id}. Error: {api_result.message}",
           details=api_result.details,
       )
-      failure_update_data = {
-          "$set": {
-              "status": BlandCallStatus.FAILED.value,
-              "error_message": api_result.message,
-              "updated_at": current_time,
-              "bland_error_details": api_result.details,
-          }
-      }
-      if self.background_tasks and self.mongo_service:
-        self.background_tasks.add_task(
-            self.mongo_service.update_bland_call_log_internal,
-            contact_id=contact_id,
-            update_data=failure_update_data,
-        )
-      elif not self.mongo_service:
-        logfire.warn("MongoService not available for logging call failure.",
-                     method="initiate_callback", contact_id=contact_id)
-      elif not self.background_tasks:
-        logfire.warn("BackgroundTasks not available for logging call failure (attempting synchronous log if possible).",
-                     method="initiate_callback", contact_id=contact_id)
-        if self.mongo_service:  # Attempt synchronous log if background tasks missing but mongo is there
-          try:
-            await self.mongo_service.update_bland_call_log_internal(contact_id=contact_id, update_data=failure_update_data)
-          except Exception as e_sync_log:
-            logfire.error(
-                f"Synchronous logging failed for call failure of contact_id {contact_id}", exc_info=e_sync_log)
+      self.log_service.log_call_failure(
+          contact_id=contact_id,
+          error_message=api_result.message or "Unknown error",
+          error_details=api_result.details
+      )
 
     elif api_result.call_id:
       logfire.info(
           f"Bland call initiated successfully for contact_id: {contact_id}. Bland Call ID: {api_result.call_id}"
       )
-      success_init_update_data = {
-          "$set": {
-              "call_id_bland": api_result.call_id,
-              "status": BlandCallStatus.PENDING.value,
-              "updated_at": current_time,
-              "error_message": None,
-          },
-          "$unset": {"bland_error_details": ""},
-      }
-      if self.background_tasks and self.mongo_service:
-        self.background_tasks.add_task(
-            self.mongo_service.update_bland_call_log_internal,
-            contact_id=contact_id,
-            update_data=success_init_update_data,
-        )
-      elif not self.mongo_service:
-        logfire.warn("MongoService not available for logging call success.",
-                     method="initiate_callback", contact_id=contact_id)
-      elif not self.background_tasks:
-        logfire.warn("BackgroundTasks not available for logging call success (attempting synchronous log if possible).",
-                     method="initiate_callback", contact_id=contact_id)
-        if self.mongo_service:  # Attempt synchronous log
-          try:
-            await self.mongo_service.update_bland_call_log_internal(contact_id=contact_id, update_data=success_init_update_data)
-          except Exception as e_sync_log:
-            logfire.error(
-                f"Synchronous logging failed for call success of contact_id {contact_id}", exc_info=e_sync_log)
+      self.log_service.log_call_success(
+          contact_id=contact_id,
+          call_id_bland=api_result.call_id
+      )
     else:
       logfire.warn(
           f"Bland API call for contact_id: {contact_id} returned status '{api_result.status}' but no call_id. This may indicate an issue.",

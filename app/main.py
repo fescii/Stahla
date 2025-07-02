@@ -17,7 +17,6 @@ from app.services.mongo import (
 from app.services.quote.sync import lifespan_shutdown as sheet_sync_shutdown
 from app.services.quote.sync import lifespan_startup as sheet_sync_startup
 from app.services.hubspot import HubSpotManager
-from app.services.bland import bland_manager
 from app.api.v1.api import api_router_v1
 from app.api.v1.endpoints import home  # Import home router
 from app.core.config import settings
@@ -85,6 +84,14 @@ async def lifespan(app: FastAPI):
     # Get MongoService instance for other services that need it during startup
     mongo_service_instance = await get_mongo_service()
 
+    if not mongo_service_instance:
+      logfire.error(
+          "MongoDB service failed to initialize. Cannot start application.")
+      raise RuntimeError(
+          "MongoDB service is required but failed to initialize. Application cannot start.")
+
+    logfire.info("MongoDB service initialized successfully.")
+
     # Initialize Auth Service (creates initial user if needed)
     # startup_auth_service will get the mongo_service instance itself
     await startup_auth_service()  # Removed mongo_service argument
@@ -94,40 +101,43 @@ async def lifespan(app: FastAPI):
     await sheet_sync_startup()  # Removed mongo_service argument
     logfire.info("Sheet Sync service startup initiated.")
 
-    # Initialize Bland AI Manager with MongoService before adding to app state
-    if mongo_service_instance:
-      # Set mongo_service on bland_manager before adding to app state
-      bland_manager.mongo_service = mongo_service_instance
-      bland_manager.background_tasks = BackgroundTasks()
-      logfire.info("Bland manager initialized with MongoService.")
-    else:
+    # Initialize Bland AI Manager with MongoService (REQUIRED)
+    # Bland AI service requires MongoService for call logging
+    try:
+      # Create a new BlandAIManager instance with the required services
+      from app.services.bland.manager import BlandAIManager
+
+      bland_manager_instance = BlandAIManager(
+          api_key=settings.BLAND_API_KEY,
+          base_url=settings.BLAND_API_URL,
+          pathway_id_setting=settings.BLAND_PATHWAY_ID,
+          mongo_service=mongo_service_instance,
+          background_tasks=BackgroundTasks()
+      )
+
+      # Trigger initial Bland pathway sync to ensure everything is properly initialized
+      await bland_manager_instance.sync_bland()
+
+      logfire.info(
+          "Bland AI service initialized with MongoService and synced successfully.")
+    except Exception as bland_init_error:
       logfire.error(
-          "Mongo service not available, Bland manager will not have MongoService.")
+          f"Failed to initialize Bland AI service: {bland_init_error}", exc_info=True)
+      raise RuntimeError(
+          f"Bland AI service initialization failed: {bland_init_error}. Application cannot start.")
 
     # Initialize other managers/services if needed
     # Now properly initialized with mongo_service
-    app.state.bland_manager = bland_manager
+    app.state.bland_manager = bland_manager_instance
     app.state.hubspot_manager = HubSpotManager(settings.HUBSPOT_API_KEY)
     logfire.info("HubSpotManager initialized.")
 
-    # Trigger initial Bland pathway sync (non-blocking)
-    if app.state.bland_manager and mongo_service_instance:
-      # The manager is already initialized with mongo_service above
-      asyncio.create_task(
-          app.state.bland_manager.sync_bland()  # Call without arguments
-      )
-      logfire.info("Bland pathway sync task scheduled.")
-    elif not mongo_service_instance:
-      logfire.error(
-          "Mongo service not available, skipping Bland pathway sync.")
-    else:
-      logfire.warning(
-          "Bland manager not initialized, skipping pathway sync task."
-      )
+    # Bland pathway sync is already completed above during initialization
+    logfire.info("Bland pathway sync completed during initialization.")
 
     # Initialize Service Status Monitor
     # redis_service is already available from above
-    if mongo_service_instance and redis_service and app.state.bland_manager:
+    if redis_service and app.state.bland_manager:
       # Get the instance of the sheet sync service
       from app.services.quote.sync import _sheet_sync_service_instance
 

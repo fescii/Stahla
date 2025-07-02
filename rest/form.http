@@ -12,10 +12,10 @@ Content-Type: application/json
   "city": "New York",
   "event_start_date": "2025-05-25",
   "event_end_date": "2025-05-25",
-  "firstname": "Steven",
-  "lastname": "Mkapa",
-  "phone": "796753098",
-  "email": "steven.mkapa@gmail.com",
+  "firstname": "Fred",
+  "lastname": "Femar",
+  "phone": "713253018",
+  "email": "fred@gmail.com",
   "message": "I need a porta potty for my wedding on May 25th, 2025.",
   "by_submitting_this_form_you_consent_to_receive_texts": true
 }
