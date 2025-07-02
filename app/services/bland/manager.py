@@ -73,14 +73,16 @@ class BlandAIManager:
   # Sync operations
   async def sync_bland(self) -> None:
     """Synchronizes all Bland.ai definitions: pathway, location tool, and quote tool."""
-    # Set up mongo service and background_tasks if not provided
+    # Ensure mongo service is available
     if not self.mongo_service:
-      self.mongo_service = Depends(get_mongo_service)
-      self.sync_manager.mongo_service = self.mongo_service
-      self.call_manager.mongo_service = self.mongo_service
-      if self.sync_manager.mongo_service:
-        self.transcript_processor = BlandTranscriptProcessor(
-            self.mongo_service)
+      raise RuntimeError(
+          "MongoService is required for sync operations but not provided. Ensure startup_mongo_service() is called before using BlandAIManager.")
+
+    # Set up components with mongo service
+    self.sync_manager.mongo_service = self.mongo_service
+    self.call_manager.mongo_service = self.mongo_service
+    if not self.transcript_processor:
+      self.transcript_processor = BlandTranscriptProcessor(self.mongo_service)
 
     if not self.background_tasks:
       self.background_tasks = BackgroundTasks()

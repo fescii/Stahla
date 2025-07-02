@@ -54,7 +54,7 @@
         "isGlobal": true,
         "globalLabel": "User has a general question or needs help or asks something off-script",
         "knowledgeBase": "Stahla Services (Stahla Rentals) - Knowledge Base\nSummary\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\nCompany Overview\nLegal Name: Stahla Services, LLC\nFounded: 2014\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\nServices Offered\nRestroom Trailer Rentals: Options range from 2-stall to 10-stall configurations. Examples: '2 Stall Restroom Trailer (Luxury)', '4 Stall Restroom Trailer (Standard)', '8 Stall Restroom Trailer (ADA Combo)'.\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors.\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Examples: '3 Stall Shower Trailer', '8 Stall Shower/Restroom Combo Trailer'.\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers.\nPorta Potty Rentals: Standard, budget-friendly option. Available in basic, deluxe, or hand washing-equipped models. Includes ADA Porta Potty options.\nGenerator Rentals: Various sizes available, e.g., '3kW Generator', '7kW Generator'.\nOther Services: Holding tanks, fresh water delivery, regular servicing/pump-outs, cleaning.\nService Area\nServes 17 U.S. states: Arkansas (AR), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), Wyoming (WY)\nHeadquarters and Locations\nPrimary HQ: Omaha, Nebraska\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\nOther Office Locations:\nLincoln, NE – 420 W A St, Suite 200\nGretna, NE – 21824 Williams Circle\nSmithville, MO – 17609 HH Lake Road\nDenver, CO – 1340 Umatilla St\nContact Information\nPhone: (844) 900-3190\nEmail: [email protected]\nBusiness Hours:\nMon–Fri: 8 AM–5 PM\nSat: 8 AM–5 PM\nSun: Closed\nWebsite: https://stahla.com/\nProduct List (Examples - refer to full product sheet for all models):\n2 Stall Restroom Trailer (Luxury), 2 Stall Restroom Trailer (Standard), 3 Stall Restroom Trailer (Luxury), 4 Stall Restroom Trailer (Standard), 4 Stall Restroom Trailer (ADA Compliant), 5 Stall Restroom Trailer, 6 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, ADA Porta Potty, Standard Porta Potty, Deluxe Porta Potty, Hand wash Station (Porta Potty Addon), 3 Stall Shower Trailer, 8 Stall Shower Trailer, Laundry Trailer (8 Washer/Dryer), 3kW Generator, 7kW Generator.\nUsage Types for Quotes: event, commercial, construction, disaster_relief, other.",
-        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, state that you'll need to gather more details or that it will be covered in the quote. After answering, return to the conversation where you left off.",
+        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, let them know that will be covered in their personalized quote. After answering, I'll continue with gathering the rental details.",
         "modelOptions": {
           "temperature": 0.6,
           "interruptionThreshold": 0.8
@@ -190,20 +190,20 @@
             "data": "$.success"
           },
           {
-            "name": "lookup_success",
-            "data": "$.success"
-          },
-          {
-            "name": "lookup_message",
-            "data": "$.data.message"
-          },
-          {
             "name": "api_delivery_location",
             "data": "$.data.distance_result.delivery_location"
           },
           {
             "name": "is_in_service_area",
             "data": "$.data.distance_result.within_service_area"
+          },
+          {
+            "name": "nearest_branch_name",
+            "data": "$.data.distance_result.nearest_branch.name"
+          },
+          {
+            "name": "distance_miles",
+            "data": "$.data.distance_result.distance_miles"
           },
           {
             "name": "api_error_message",
@@ -214,7 +214,7 @@
           "enabled": true,
           "text": "One moment while I verify your location and check our service area coverage."
         },
-        "afterWebhookPrompt": "Perfect! I've verified your location: {{api_delivery_location}}.",
+        "afterWebhookPrompt": "Perfect! I've verified your location: {{api_delivery_location}}. Your nearest branch is {{nearest_branch_name}}, approximately {{distance_miles}} miles away.",
         "pathwayRouting": [
           {
             "condition": "{{location_api_success}} is true and {{is_in_service_area}} is true",
@@ -227,10 +227,6 @@
           {
             "condition": "{{location_api_success}} is false",
             "nextNode": "api_error_location_tool"
-          },
-          {
-            "condition": "API Request Completion (Default)",
-            "nextNode": "determine_order_category"
           }
         ]
       }
@@ -240,7 +236,7 @@
       "type": "Default",
       "data": {
         "name": "Handle Out of Service Area",
-        "prompt": "I understand this may be disappointing, but your location at {{api_delivery_location}} is outside our current service coverage area. However, we're always expanding our services and sometimes work with trusted partner providers. Would you like me to see if we can connect you with a qualified partner in your area who might be able to help?",
+        "prompt": "I understand this may be disappointing, but your location at {{api_delivery_location}} is outside our current service coverage area. The nearest branch is {{nearest_branch_name}}, which is {{distance_miles}} miles away - beyond our standard delivery range. However, we're always expanding our services and sometimes work with trusted partner providers. Would you like me to see if we can connect you with a qualified partner in your area who might be able to help?",
         "extractVars": [
           [
             "offer_referral_consent",
@@ -553,7 +549,7 @@
           [
             "rental_days",
             "number",
-            "Number of rental days requested, convert the estimate to days, i.e 1 week = 7 days, 2 weeks = 14 days, 1 month = 30 days, etc."
+            "Number of rental days requested. Convert estimates to days: 1 week = 7 days, 2 weeks = 14 days, 1 month = 30 days, etc."
           ],
           [
             "event_end_date",
@@ -704,12 +700,12 @@
       "type": "Default",
       "data": {
         "name": "Prepare Extras List for API",
-        "prompt": "Okay, I'm noting down the extras. Generator: {{generator_type_requested | default: 'N/A'}}. Other event services: {{other_products_needed_event | default: 'N/A'}}. Other construction services: {{other_products_needed_construction | default: 'N/A'}}. Water fill service: {{wants_water_fill_service | default: 'N/A'}}. This information will be used to form the extras list for the quote API.",
+        "prompt": "Okay, I'm noting down the extras and preparing your quote information. Generator: {{generator_type_requested | default: 'N/A'}}. Water fill service: {{wants_water_fill_service | default: 'N/A'}}. This information will be used to form the extras list for the quote API.",
         "extractVars": [
           [
             "extras_list",
             "string",
-            "Construct a JSON string representing an array for the 'extras' field for the quote API. Example: If generator_type_requested is '3kW Generator', include '{\"extra_id\": \"3kW Generator\", \"qty\": 1}'. If other_products_needed includes 'pump_out', add {'extra_id': 'pump_out', 'qty': 1}. If wants_water_fill_service is true, add {'extra_id': 'water_fill_service', 'qty': 1}. If no extras, use '[]'. Available generators for extra_id: 3kW Generator, 7kW Generator, 20kW Generator, 30kW Generator. Other common extra_ids: 'pump_out', 'cleaning', 'water_fill_service'. Format as JSON array string: e.g., '[{\"extra_id\": \"3kW Generator\", \"qty\": 1}]' or '[]' if no extras."
+            "Create a JSON array string for the extras field. If generator_type_requested exists, include {\"extra_id\": \"[generator_type]\", \"qty\": 1}. If wants_water_fill_service is true, include {\"extra_id\": \"water_fill_service\", \"qty\": 1}. If no extras, return '[]'. Examples: '[{\"extra_id\": \"3kW Generator\", \"qty\": 1}]' or '[{\"extra_id\": \"3kW Generator\", \"qty\": 1}, {\"extra_id\": \"water_fill_service\", \"qty\": 1}]' or '[]'."
           ]
         ],
         "modelOptions": {
@@ -730,7 +726,7 @@
           "Content-Type": "application/json",
           "Authorization": "Bearer 7%FRtf@34hi"
         },
-        "body": "{\"delivery_location\": \"{{delivery_location}}\", \"trailer_type\": \"{{trailer_type}}\", \"rental_start_date\": \"{{rental_start_date}}\", \"rental_days\": \"{{rental_days}}\", \"usage_type\": \"{{usage_type}}\", \"extras\": \"{{extras_list}}\", \"customer_details\": {\"name\": \"{{contact_name}}\", \"email\": \"{{contact_email}}\", \"phone\": \"{{phone_number}}\", \"company\": \"{{company_name}}\"}}",
+        "body": "{\"delivery_location\": \"{{delivery_location}}\", \"trailer_type\": \"{{trailer_type}}\", \"rental_start_date\": \"{{rental_start_date}}\", \"rental_days\": {{rental_days}}, \"usage_type\": \"{{usage_type}}\", \"extras\": {{extras_list}}, \"customer_details\": {\"name\": \"{{contact_name}}\", \"email\": \"{{contact_email}}\", \"phone\": \"{{phone_number}}\", \"company\": \"{{company_name}}\"}}",
         "timeout": 15,
         "retries": 2,
         "response_data": [
@@ -747,16 +743,8 @@
             "data": "$.data.quote.budget_details.estimated_total"
           },
           {
-            "name": "line_items_summary",
-            "data": "$.data.quote.line_items"
-          },
-          {
             "name": "quote_notes",
             "data": "$.data.quote.notes"
-          },
-          {
-            "name": "delivery_cost",
-            "data": "$.data.quote.delivery_details.total_delivery_cost"
           },
           {
             "name": "api_error_message",
@@ -776,10 +764,6 @@
           {
             "condition": "{{quote_api_success}} is false",
             "nextNode": "api_error_quote_tool"
-          },
-          {
-            "condition": "API Request Completion (Default)",
-            "nextNode": "convey_quote_and_followup_offer_node"
           }
         ]
       }
@@ -800,7 +784,7 @@
       "type": "Default",
       "data": {
         "name": "API Error Quote Tool",
-        "prompt": "I'm sorry, there was an issue generating your quote right now. No worries though - our team has been notified and a representative will follow up with you shortly with the quote details.",
+        "prompt": "I'm sorry, there was an issue generating your quote right now: {{api_error_message | default: 'technical issue'}}. No worries though - our team has been notified and a representative will follow up with you shortly with the quote details.",
         "modelOptions": {
           "interruptionThreshold": 100
         }
@@ -876,7 +860,7 @@
       "type": "End Call",
       "data": {
         "name": "Closing with Follow-up Scheduled/Offered",
-        "prompt": "Thank you for your time, {{contact_name}}! One of our representatives will be in touch with you soon. The quote information will be sent to {{contact_email}}. Have a great day! Goodbye."
+        "prompt": "Thank you for your time, {{contact_name}}! One of our representatives will be in touch with you soon to discuss your {{trailer_type | default: 'rental'}} needs. {{#if quote_id}}Your quote information ({{quote_id}}) will be sent to {{contact_email}}.{{/if}} Have a great day!"
       }
     },
     {
@@ -884,7 +868,7 @@
       "type": "End Call",
       "data": {
         "name": "End Call Final",
-        "prompt": "Thank you for calling Stahla Services. Goodbye!"
+        "prompt": "Thank you for calling Stahla Services. Have a great day!"
       }
     }
   ],
@@ -944,6 +928,24 @@
       "label": "Delivery address type collected"
     },
     {
+      "id": "edge_location_webhook_to_determine_order",
+      "source": "trigger_background_location_processing_node",
+      "target": "determine_order_category",
+      "label": "{{location_api_success}} is true and {{is_in_service_area}} is true"
+    },
+    {
+      "id": "edge_location_webhook_to_out_of_service",
+      "source": "trigger_background_location_processing_node",
+      "target": "handle_out_of_service_area",
+      "label": "{{location_api_success}} is true and {{is_in_service_area}} is false"
+    },
+    {
+      "id": "edge_location_webhook_to_api_error",
+      "source": "trigger_background_location_processing_node",
+      "target": "api_error_location_tool",
+      "label": "{{location_api_success}} is false"
+    },
+    {
       "id": "edge_location_error_to_retry",
       "source": "api_error_location_tool",
       "target": "trigger_background_location_processing_node",
@@ -957,9 +959,9 @@
     },
     {
       "id": "edge_location_retry_error_to_continue",
-      "source": "trigger_background_location_processing_node",
+      "source": "api_error_location_tool",
       "target": "location_final_error_continue",
-      "label": "{{location_api_success}} is false and retry_attempt"
+      "label": "Continue without location verification after error"
     },
     {
       "id": "edge_location_final_error_to_continue",
@@ -1170,6 +1172,18 @@
       "source": "prepare_extras_for_api_node",
       "target": "get_quote_webhook_node",
       "label": "Extras prepared"
+    },
+    {
+      "id": "edge_quote_webhook_to_convey_quote",
+      "source": "get_quote_webhook_node",
+      "target": "convey_quote_and_followup_offer_node",
+      "label": "{{quote_api_success}} is true"
+    },
+    {
+      "id": "edge_quote_webhook_to_api_error",
+      "source": "get_quote_webhook_node",
+      "target": "api_error_quote_tool",
+      "label": "{{quote_api_success}} is false"
     },
     {
       "id": "edge_convey_quote_to_final_questions",

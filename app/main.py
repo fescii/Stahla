@@ -23,7 +23,7 @@ from app.api.v1.endpoints import home  # Import home router
 from app.core.config import settings
 import logfire
 import os
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -94,20 +94,25 @@ async def lifespan(app: FastAPI):
     await sheet_sync_startup()  # Removed mongo_service argument
     logfire.info("Sheet Sync service startup initiated.")
 
+    # Initialize Bland AI Manager with MongoService before adding to app state
+    if mongo_service_instance:
+      # Set mongo_service on bland_manager before adding to app state
+      bland_manager.mongo_service = mongo_service_instance
+      bland_manager.background_tasks = BackgroundTasks()
+      logfire.info("Bland manager initialized with MongoService.")
+    else:
+      logfire.error(
+          "Mongo service not available, Bland manager will not have MongoService.")
+
     # Initialize other managers/services if needed
-    app.state.bland_manager = (
-        bland_manager  # bland_manager is already initialized globally
-    )
+    # Now properly initialized with mongo_service
+    app.state.bland_manager = bland_manager
     app.state.hubspot_manager = HubSpotManager(settings.HUBSPOT_API_KEY)
     logfire.info("HubSpotManager initialized.")
 
     # Trigger initial Bland pathway sync (non-blocking)
     if app.state.bland_manager and mongo_service_instance:
-      # Pass mongo_service_instance and None for background_tasks
-      # Update attributes on the manager instance first
-      app.state.bland_manager.mongo_service = mongo_service_instance
-      # Startup tasks can log synchronously
-      app.state.bland_manager.background_tasks = None
+      # The manager is already initialized with mongo_service above
       asyncio.create_task(
           app.state.bland_manager.sync_bland()  # Call without arguments
       )
