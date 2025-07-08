@@ -78,7 +78,10 @@ class AuthService:
         created_user_doc = await collection.find_one({"_id": result.inserted_id})
         if created_user_doc:
           created_user_doc['id'] = created_user_doc.get('_id')
-          return User(**created_user_doc)
+          # Create User object excluding hashed_password
+          user_data = {k: v for k, v in created_user_doc.items()
+                       if k != 'hashed_password'}
+          return User(**user_data)
       logfire.error(
           "Failed to insert user into DB after successful insert command.")
       return None

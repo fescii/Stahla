@@ -98,7 +98,6 @@ export default class Overview extends HTMLElement {
 
       // After data is loaded and rendered, initialize components
       this._formatErrorTimestamps();
-      this._updateCacheTimer();
       this._addServiceItemListeners();
       this._addCachePillListeners();
     } catch (error) {
@@ -168,22 +167,10 @@ export default class Overview extends HTMLElement {
           <p class="subtitle">Stats and status overview of SDR AI & Pricing Platform</p>
         </div>
         ${this._getDashboardOverviewHTML()}
-        
-        <!-- Latency Overview Section -->
-        <div class="latency-section">
-          <latency-overview api="/latency/overview/"></latency-overview>
-        </div>
-        
         <div class="dashboard-grid">
-          <div class="main-content">
-            ${this._getExternalServicesPanelHTML()}
-            ${this._getCacheHitMissPanelHTML()}
-          </div>
-              
-          <div class="sidebar">
-            ${this._getCacheStatisticsPanelHTML()}
-            ${this._getCacheLastUpdatedPanelHTML()}
-          </div>
+          ${this._getExternalServicesPanelHTML()}
+          ${this._getCacheStatisticsPanelHTML()}
+          ${this._getCacheHitMissPanelHTML()}
         </div>
       </div>
     `;
@@ -231,10 +218,10 @@ export default class Overview extends HTMLElement {
                     </svg>
                 </div>
             </div>
-            <div class="stat-value">${(reportSummary.total_reports || 0).toLocaleString()}</div>
+            <div class="stat-value">${this.formatNumber(reportSummary.total_reports || 0)}</div>
             <div class="stat-details">
-                <span class="stat-success">${(reportSummary.successful_reports || 0).toLocaleString()} Success</span> &bull;
-                <span class="stat-error">${(reportSummary.failed_reports || 0).toLocaleString()} Failed</span>
+                <span class="stat-success">${this.formatNumber(reportSummary.successful_reports || 0)} Success</span> &bull;
+                <span class="stat-error">${this.formatNumber(reportSummary.failed_reports || 0)} Failed</span>
             </div>
         </div>
         
@@ -247,10 +234,10 @@ export default class Overview extends HTMLElement {
                     </svg>
                 </div>
             </div>
-            <div class="stat-value">${quoteRequestsTotal.toLocaleString()}</div>
+            <div class="stat-value">${this.formatNumber(quoteRequestsTotal)}</div>
             <div class="stat-details">
-                <span class="stat-success">${quoteRequestsSuccess.toLocaleString()} Success</span> &bull;
-                <span class="stat-error">${quoteRequestsFailed.toLocaleString()} Failed</span>
+                <span class="stat-success">${this.formatNumber(quoteRequestsSuccess)} Success</span> &bull;
+                <span class="stat-error">${this.formatNumber(quoteRequestsFailed)} Failed</span>
             </div>
         </div>
         
@@ -263,11 +250,11 @@ export default class Overview extends HTMLElement {
                     </svg>
                 </div>
             </div>
-            <div class="stat-value">${locationLookupsTotal.toLocaleString()}</div>
+            <div class="stat-value">${this.formatNumber(locationLookupsTotal)}</div>
             <div class="stat-details">
                 ${locationLookupsSuccess || locationLookupsFailed ?
-        `<span class="stat-success">${locationLookupsSuccess.toLocaleString()} Success</span> &bull;
-                   <span class="stat-error">${locationLookupsFailed.toLocaleString()} Failed</span>` :
+        `<span class="stat-success">${this.formatNumber(locationLookupsSuccess)} Success</span> &bull;
+                   <span class="stat-error">${this.formatNumber(locationLookupsFailed)} Failed</span>` :
         `<span>Total lookups</span>`}
             </div>
         </div>
@@ -281,10 +268,10 @@ export default class Overview extends HTMLElement {
                     </svg>
                 </div>
             </div>
-            <div class="stat-value">${gmapsApiStats.calls.toLocaleString()}</div>
+            <div class="stat-value">${this.formatNumber(gmapsApiStats.calls)}</div>
             <div class="stat-details">
                 ${gmapsApiStats.errors > 0
-        ? `<span class="stat-error">${gmapsApiStats.errors.toLocaleString()} Errors</span>`
+        ? `<span class="stat-error">${this.formatNumber(gmapsApiStats.errors)} Errors</span>`
         : "<span>No errors</span>"
       }
             </div>
@@ -369,7 +356,7 @@ export default class Overview extends HTMLElement {
       this._formatDate(cacheStats.pricing_cache_last_updated) : 'N/A';
 
     return /* html */ `
-    <div class="panel">
+    <div class="panel hit-miss-panel">
         <div class="panel-header">
             <h2 class="panel-title">Cache Hit/Miss</h2>
             <div class="panel-actions">
@@ -394,12 +381,12 @@ export default class Overview extends HTMLElement {
                         <div>
                             <span class="hit-count-dot"></span>
                             <span class="hit-count-label">Hits</span>
-                            <span class="hit-count-value">${cacheStats.hit_miss_ratio_pricing.hits.toLocaleString()}</span>
+                            <span class="hit-count-value">${this.formatNumber(cacheStats.hit_miss_ratio_pricing.hits)}</span>
                         </div>
                         <div>
                             <span class="miss-count-dot"></span>
                             <span class="miss-count-label">Misses</span>
-                            <span class="miss-count-value">${cacheStats.hit_miss_ratio_pricing.misses.toLocaleString()}</span>
+                            <span class="miss-count-value">${this.formatNumber(cacheStats.hit_miss_ratio_pricing.misses)}</span>
                         </div>
                     </div>
                     <!--<div class="service-pill-date">Last updated: ${lastUpdated}</div>-->
@@ -421,12 +408,12 @@ export default class Overview extends HTMLElement {
                         <div>
                             <span class="hit-count-dot"></span>
                             <span class="hit-count-label">Hits</span>
-                            <span class="hit-count-value">${cacheStats.hit_miss_ratio_maps.hits.toLocaleString()}</span>
+                            <span class="hit-count-value">${this.formatNumber(cacheStats.hit_miss_ratio_maps.hits)}</span>
                         </div>
                         <div>
                             <span class="miss-count-dot"></span>
                             <span class="miss-count-label">Misses</span>
-                            <span class="miss-count-value">${cacheStats.hit_miss_ratio_maps.misses.toLocaleString()}</span>
+                            <span class="miss-count-value">${this.formatNumber(cacheStats.hit_miss_ratio_maps.misses)}</span>
                         </div>
                     </div>
                     <!--<div class="service-pill-date">Last updated: ${lastUpdated}</div>-->
@@ -460,7 +447,7 @@ export default class Overview extends HTMLElement {
                 <div class="service-pill cache-pill" tabindex="0">
                     <div class="service-pill-header">
                         <div class="service-pill-name">Total Keys</div>
-                        <div class="cache-pill-value">${cacheStats.total_redis_keys.toLocaleString()}</div>
+                        <div class="cache-pill-value">${this.formatNumber(cacheStats.total_redis_keys)}</div>
                     </div>
                     <div class="service-pill-date">Last updated: ${lastUpdated}</div>
                 </div>
@@ -484,7 +471,7 @@ export default class Overview extends HTMLElement {
                 <div class="service-pill cache-pill" tabindex="0">
                     <div class="service-pill-header">
                         <div class="service-pill-name">Maps Cache</div>
-                        <div class="cache-pill-value">${cacheStats.maps_cache_key_count.toLocaleString()}</div>
+                        <div class="cache-pill-value">${this.formatNumber(cacheStats.maps_cache_key_count)}</div>
                     </div>
                     <div class="service-pill-date">Last updated: ${lastUpdated}</div>
                 </div>
@@ -545,25 +532,6 @@ export default class Overview extends HTMLElement {
       }
         </div>
     </div>
-    `;
-  };
-
-  _getCacheLastUpdatedPanelHTML = () => {
-    // The timer itself is handled by _updateCacheTimer
-    // This just provides the static structure
-    return /* html */ `
-      <div class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Cache Last Updated</h2>
-          <div class="panel-actions">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </div>
-        </div>
-        <div class="panel-body update-time">
-          <div id="cacheUpdateTimer" class="stat-value">--:--:--</div>
-          <p id="cacheUpdateDate" style="color:var(--gray-color); margin-top:0.5rem;">Loading date...</p>
-        </div>
-      </div>
     `;
   };
 
@@ -641,52 +609,59 @@ export default class Overview extends HTMLElement {
     return 1 - Math.pow(1 - x, 4);
   };
 
-  _updateCacheTimer = () => {
-    if (!this.dashboardData || !this.dashboardData.data) return;
+  // Format numbers according to specified rules
+  formatNumber = (value) => {
+    const num = parseFloat(value);
 
-    const timerElement = this.shadowObj.getElementById("cacheUpdateTimer");
-    const lastUpdateString =
-      this.dashboardData.data.cache_stats.pricing_cache_last_updated;
+    // Handle invalid numbers
+    if (isNaN(num)) return '0';
 
-    if (!timerElement || !lastUpdateString) return;
-
-    const lastUpdate = new Date(lastUpdateString);
-
-    const updateTimerDisplay = () => {
-      const now = new Date();
-      const diff = now - lastUpdate;
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      timerElement.textContent =
-        String(hours).padStart(2, "0") +
-        ":" +
-        String(minutes).padStart(2, "0") +
-        ":" +
-        String(seconds).padStart(2, "0");
-
-      if (hours >= 1) {
-        timerElement.style.color = "var(--error-color)";
-      } else {
-        timerElement.style.color = "var(--title-color)"; // Reset if less than an hour
-      }
-    };
-
-    updateTimerDisplay(); // Initial call
-    if (this.cacheUpdateInterval) clearInterval(this.cacheUpdateInterval); // Clear existing interval
-    this.cacheUpdateInterval = setInterval(updateTimerDisplay, 1000);
-
-    // Also update the date display below the timer
-    const dateDisplayElement = this.shadowObj.getElementById("cacheUpdateDate");
-    if (dateDisplayElement) {
-      dateDisplayElement.textContent = this._formatDate(lastUpdate, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+    // 0-999: Remains as is
+    if (num < 1000) {
+      return num.toString();
     }
+
+    // 1,000 - 9,999: Add comma (e.g., 5,475)
+    if (num < 10000) {
+      return num.toLocaleString();
+    }
+
+    // 10,000 - 99,999: Format as X.Xk (e.g., 45.6k)
+    if (num < 100000) {
+      return (num / 1000).toFixed(1) + 'k';
+    }
+
+    // 100,000 - 999,999: Format as XXXk (e.g., 546k)
+    if (num < 1000000) {
+      return Math.round(num / 1000) + 'k';
+    }
+
+    // 1,000,000 - 9,999,999: Format as X.XXm (e.g., 5.47m)
+    if (num < 10000000) {
+      return (num / 1000000).toFixed(2) + 'm';
+    }
+
+    // 10,000,000 - 99,999,999: Format as XX.Xm (e.g., 46.3m)
+    if (num < 100000000) {
+      return (num / 1000000).toFixed(1) + 'm';
+    }
+
+    // 100,000,000 - 999,999,999: Format as XXXm (e.g., 546m)
+    if (num < 1000000000) {
+      return Math.round(num / 1000000) + 'm';
+    }
+
+    // 1,000,000,000 and above: Format as X.XXb, XX.Xb, XXXb, etc.
+    if (num < 10000000000) {
+      return (num / 1000000000).toFixed(2) + 'b';
+    }
+
+    if (num < 100000000000) {
+      return (num / 1000000000).toFixed(1) + 'b';
+    }
+
+    // 100b and above: No decimal
+    return Math.round(num / 1000000000) + 'b';
   };
 
   _addServiceItemListeners = () => {
@@ -849,7 +824,6 @@ export default class Overview extends HTMLElement {
         .header {
           display: flex;
           flex-direction: column;
-          margin-bottom: 1.5rem;
           position: relative;
         }
 
@@ -970,7 +944,6 @@ export default class Overview extends HTMLElement {
           background-color: var(--stat-background);
           border-radius: 12px;
           padding: 1.25rem;
-          box-shadow: var(--card-box-shadow-alt);
           transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           position: relative;
           overflow: hidden;
@@ -1087,32 +1060,17 @@ export default class Overview extends HTMLElement {
 
         @media (min-width: 1024px) {
           .dashboard-grid {
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto;
-        align-items: start;
-        gap: 2rem;
-        }
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
+            align-items: start;
+            gap: 2rem;
+          }
 
-        .main-content {
-        display: grid;
-        grid-template-rows: 1fr 1fr;
-        gap: 1.5rem;
-        height: fit-content;
-        }
-
-        .sidebar {
-        display: grid;
-        grid-template-rows: 1fr 1fr;
-        gap: 1.5rem;
-        height: fit-content;
-        align-content: start;
-        }
-
-        .hit-rate-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1.5rem;
-        }
+          .hit-rate-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+          }
         }
 
         @media (min-width: 768px) and (max-width: 1023px) {
@@ -1121,12 +1079,6 @@ export default class Overview extends HTMLElement {
             grid-template-columns: repeat(2, 1fr);
             gap: 1.25rem;
           }
-        }
-
-        .main-content {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
         }
 
         .sidebar {
@@ -1138,36 +1090,20 @@ export default class Overview extends HTMLElement {
         }
 
         .panel {
-          background-color: var(--hover-background);
-          border-radius: 8px;
           padding: 0;
-          box-shadow: var(--card-box-shadow-alt);
-          transition: box-shadow 0.2s ease;
           overflow: hidden;
         }
 
-        .panel:hover {
-          box-shadow: var(--card-box-shadow);
+        .panel.hit-miss-panel {
+          grid-column: span 2;
         }
 
         .panel-header {
-          padding: 12px 1.25rem;
+          padding: 7px 0;
           display: flex;
           justify-content: space-between;
           align-items: center;
           position: relative;
-          box-shadow: 0 1px 0 rgba(107, 114, 128, 0.1);
-        }
-
-        .panel-header:after {
-          content: "";
-          position: absolute;
-          left: 0;
-          top: 0;
-          height: 100%;
-          width: 4px;
-          background: var(--accent-linear);
-          opacity: 0.7;
         }
 
         .panel-title {
@@ -1181,18 +1117,18 @@ export default class Overview extends HTMLElement {
         }
 
         .panel-actions {
-          display: flex;
+          display: none;
           gap: 0.5rem;
           color: var(--gray-color);
         }
 
         .panel-body {
-          padding: 1.25rem;
+          padding: 10px 0;
           width: 100%;
         }
 
         .sidebar .panel-body {
-          padding: 10px 10px 1.2rem;
+          padding: 10px 0;
           width: 100%;
         }
 
@@ -1248,12 +1184,6 @@ export default class Overview extends HTMLElement {
           transform: scale(0);
           transition: transform 0.5s ease, opacity 0.5s ease;
           z-index: 0;
-        }
-
-        .service-item:hover {
-          transform: translateX(5px);
-          box-shadow: var(--card-box-shadow);
-          background-color: var(--background);
         }
 
         .service-item:hover:after {
@@ -1466,7 +1396,6 @@ export default class Overview extends HTMLElement {
           color: var(--text-color);
           line-height: 1.5;
           padding: 0.5rem;
-          background: rgba(0, 0, 0, 0.05);
           border-radius: 4px;
           overflow-x: auto;
         }
@@ -1837,14 +1766,12 @@ export default class Overview extends HTMLElement {
           border-radius: 8px;
           transition: all 0.2s ease;
           cursor: pointer;
-          box-shadow: var(--card-box-shadow-alt);
           position: relative;
           overflow: hidden;
         }
         
         .service-pill:hover {
           transform: translateY(-2px);
-          box-shadow: var(--card-box-shadow);
           background-color: var(--hover-background);
         }
         

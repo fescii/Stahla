@@ -9,7 +9,7 @@ from pydantic import ValidationError, EmailStr, BaseModel  # Import BaseModel
 import logfire
 
 from app.core.config import settings
-from app.models.user import TokenData, UserInDB  # Import user models
+from app.models.user import TokenData, UserInDB, User  # Import user models
 from app.services.auth.auth import AuthService, get_auth_service  # Import auth service
 
 # --- API Key Security (Header: Authorization: Bearer <key>) ---
@@ -88,57 +88,6 @@ async def verify_hubspot_webhook_signature(request: Request, x_hubspot_signature
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         detail="Error verifying HubSpot signature")
 
-# --- Bland Webhook Security (Placeholder - X-Bland-Signature?) ---
-# Bland documentation doesn't explicitly mention webhook signatures as of late 2023.
-# Assuming a hypothetical signature mechanism similar to HubSpot or a simple secret header.
-# Option 1: Simple Secret Header (e.g., X-Bland-Secret)
-
-
-async def verify_bland_webhook_secret(x_bland_secret: Optional[str] = Header(None)):
-  """Verifies a simple secret passed in the X-Bland-Secret header."""
-  if not settings.BLAND_WEBHOOK_SECRET:
-    # logger.warning("Bland webhook validation skipped: BLAND_WEBHOOK_SECRET not set.")
-    # return # Bypass if secret not set
-    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail="Bland webhook secret not configured.")
-
-  if not x_bland_secret:
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Missing X-Bland-Secret header")
-
-  if x_bland_secret != settings.BLAND_WEBHOOK_SECRET:
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Invalid Bland webhook secret")
-
-  return True
-
-# Option 2: Hypothetical Signature Verification (Adapt if Bland implements this)
-# async def verify_bland_webhook_signature(request: Request, x_bland_signature: Optional[str] = Header(None)):
-#     if not settings.BLAND_WEBHOOK_SECRET:
-#         # ... handle missing secret ...
-#     if not x_bland_signature:
-#         # ... handle missing header ...
-#
-#     # --- Replace with Bland's actual signature calculation method ---
-#     body = await request.body()
-#     # Example: timestamp = request.headers.get('X-Bland-Timestamp')
-#     # source_string = f"{timestamp}.{body.decode('utf-8')}".encode('utf-8')
-#     # expected_signature = hmac.new(settings.BLAND_WEBHOOK_SECRET.encode('utf-8'), source_string, hashlib.sha256).hexdigest()
-#     # --- End Replace ---
-#
-#     # if not hmac.compare_digest(expected_signature, x_bland_signature):
-#     #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Bland signature")
-#     return True
-
-# --- Placeholder Dashboard Authentication ---
-# Replace this with your actual user model and authentication logic
-
-
-class User(BaseModel):
-  username: str
-  is_admin: bool = False
-  # Add other relevant user fields (email, roles, etc.)
-
 
 async def get_dashboard_user() -> User:
   """Placeholder dependency for dashboard user authentication."""
@@ -150,7 +99,8 @@ async def get_dashboard_user() -> User:
   # 5. Raise HTTPException(401/403) if invalid or unauthorized.
   # For now, return a dummy admin user for testing.
   # logger.warning("Using placeholder authentication for dashboard.")
-  return User(username="admin", is_admin=True)
+  import uuid
+  return User(id=uuid.uuid4(), email="admin@example.com", name="Admin User", role="admin", is_active=True)
 
 # --- End Placeholder ---
 
@@ -221,6 +171,10 @@ async def get_current_user(
     raise credentials_exception
   except ValidationError as e:
     logfire.warning(f"JWT payload validation error: {e}")
+    raise credentials_exception
+
+  if token_data.email is None:
+    logfire.warning("Token data email is None")
     raise credentials_exception
 
   user = await auth_service.get_user_by_email(email=token_data.email)

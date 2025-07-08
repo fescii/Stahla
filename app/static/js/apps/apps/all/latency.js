@@ -124,249 +124,109 @@ export default class LatencyOverview extends HTMLElement {
     return /* html */`
       ${this.getCSS()}
       <div class="latency-overview">
-        <div class="metrics-grid">
-          ${this.getPercentileSection()}
-          ${this.getAverageSection()}
-          ${this.getTrendSection()}
-          ${this.getSpikeSection()}
-          <!--${this.getAlertsSection()}-->
-        </div>
-
-        <div class="summary">
-          <div class="summary-item">
-            <span class="label">Total Samples:</span>
-            <span class="value">${this.latencyData.percentiles.total_samples}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Services Active:</span>
-            <span class="value">${this.latencyData.percentiles.services_with_data}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Overall Status:</span>
-            <span class="value status-${this.latencyData.overall_status}">${this.latencyData.overall_status}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Health Score:</span>
-            <span class="value">${this.latencyData.system_health_score}%</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Total Spikes:</span>
-            <span class="value">${this.latencyData.spikes.total_spikes}</span>
-          </div>
-          <div class="summary-item">
-            <span class="label">Last Updated:</span>
-            <span class="value">${new Date(this.latencyData.generated_at).toLocaleTimeString()}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  getPercentileSection() {
-    const services = ['quote', 'location', 'gmaps', 'redis'];
-
-    return /* html */`
-      <div class="metric-section">
-        <h3>Response Time Percentiles</h3>
-        <div class="service-cards">
-          ${services.map(service => {
-      const data = this.latencyData.percentiles[service];
-      if (!data) return '';
-
-      return /* html */`
-              <div class="service-card">
-                <div class="service-header">
-                  <span class="service-name">${this.getServiceDisplayName(service)}</span>
-                  <span class="status-badge status-${data.status}">
-                    ${this.getStatusIcon(data.status)} ${data.status}
-                  </span>
-                </div>
-                <div class="metrics">
-                  <div class="metric">
-                    <span class="metric-label">P50</span>
-                    <span class="metric-value">${this.formatLatency(data.p50)}</span>
-                  </div>
-                  <div class="metric">
-                    <span class="metric-label">P90</span>
-                    <span class="metric-value">${this.formatLatency(data.p90)}</span>
-                  </div>
-                  <div class="metric">
-                    <span class="metric-label">P95</span>
-                    <span class="metric-value">${this.formatLatency(data.p95)}</span>
-                  </div>
-                  <div class="metric">
-                    <span class="metric-label">P99</span>
-                    <span class="metric-value">${this.formatLatency(data.p99)}</span>
-                  </div>
-                </div>
-                <div class="sample-count">
-                  ${data.sample_count} samples
-                </div>
-              </div>
-            `;
-    }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  getAverageSection() {
-    const services = ['quote', 'location', 'gmaps', 'redis'];
-
-    return /* html */`
-      <div class="metric-section">
-        <h3>Average Response Times</h3>
-        <div class="service-cards">
-          ${services.map(service => {
-      const data = this.latencyData.averages[service];
-      if (!data) return '';
-
-      return /* html */`
-              <div class="service-card average-card">
-                <div class="service-header">
-                  <span class="service-name">${this.getServiceDisplayName(service)}</span>
-                  <span class="status-badge status-${data.status}">
-                    ${this.getStatusIcon(data.status)} ${data.status}
-                  </span>
-                </div>
-                <div class="average-display">
-                  <span class="average-value">${this.formatLatency(data.average_ms)}</span>
-                  <div class="average-meta">
-                    <span class="average-label">Average</span>
-                    <span class="sample-count-inline">${data.sample_count} samples</span>
-                  </div>
-                </div>
-              </div>
-            `;
-    }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  getTrendSection() {
-    const services = ['quote', 'location', 'gmaps', 'redis'];
-
-    return /* html */`
-      <div class="metric-section">
-        <h3>Performance Trends</h3>
-        <div class="service-cards">
-          ${services.map(service => {
-      const data = this.latencyData.trends[service];
-      if (!data) return '';
-
-      return /* html */`
-              <div class="service-card">
-                <div class="service-header">
-                  <span class="service-name">${this.getServiceDisplayName(service)}</span>
-                  <span class="trend-badge trend-${data.trend}">
-                    ${this.formatTrend(data.trend)}
-                  </span>
-                </div>
-                <div class="trend-stats">
-                  <div class="stat">
-                    <span class="stat-label">Min</span>
-                    <span class="stat-value">${this.formatLatency(data.statistics.min_ms)}</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat-label">Avg</span>
-                    <span class="stat-value">${this.formatLatency(data.statistics.average_ms)}</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat-label">Max</span>
-                    <span class="stat-value">${this.formatLatency(data.statistics.max_ms)}</span>
-                  </div>
-                </div>
-                <div class="sample-count">
-                  ${data.sample_count} samples
-                </div>
-              </div>
-            `;
-    }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  getSpikeSection() {
-    const services = ['quote', 'location', 'gmaps', 'redis'];
-
-    return /* html */`
-      <div class="metric-section">
-        <h3>Latency Spikes</h3>
-        <div class="service-cards">
-          ${services.map(service => {
-      const data = this.latencyData.spikes[service];
-      if (!data) return '';
-
-      return /* html */`
-              <div class="service-card">
-                <div class="service-header">
-                  <span class="service-name">${this.getServiceDisplayName(service)}</span>
-                  <span class="spike-count ${data.spike_count > 0 ? 'has-spikes' : 'no-spikes'}">
-                    ${data.spike_count} spikes
-                  </span>
-                </div>
-                <div class="spike-stats">
-                  <div class="stat">
-                    <span class="stat-label">Max Factor</span>
-                    <span class="stat-value">${data.max_spike_factor ? `${data.max_spike_factor}x` : 'N/A'}</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat-label">Affected Endpoint</span>
-                    <span class="stat-value endpoint">${data.most_affected_endpoint || 'None'}</span>
-                  </div>
-                </div>
-              </div>
-            `;
-    }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  getAlertsSection() {
-    const alertsData = this.latencyData.alerts || {};
-    const activeAlerts = alertsData.active_alerts || [];
-
-    return /* html */`
-      <div class="metric-section">
-        <h3>Active Alerts</h3>
-        <div class="alerts-summary">
-          <div class="alert-counts">
-            <div class="alert-count critical">
-              <span class="count">${alertsData.critical_count || 0}</span>
-              <span class="label">Critical</span>
+        <div class="system-summary">
+          <div class="system-stats">
+            <div class="stat-item">
+              <span class="stat-value">${this.latencyData.system_health_score}%</span>
+              <span class="stat-label">Health</span>
             </div>
-            <div class="alert-count warning">
-              <span class="count">${alertsData.warning_count || 0}</span>
-              <span class="label">Warning</span>
+            <div class="stat-item">
+              <span class="stat-value">${this.latencyData.percentiles.total_samples}</span>
+              <span class="stat-label">Samples</span>
             </div>
-            <div class="alert-count info">
-              <span class="count">${alertsData.info_count || 0}</span>
-              <span class="label">Info</span>
+            <div class="stat-item">
+              <span class="stat-value">${this.latencyData.spikes.total_spikes}</span>
+              <span class="stat-label">Spikes</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">${new Date(this.latencyData.generated_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</span>
+              <span class="stat-label">Updated</span>
             </div>
           </div>
-          <div class="overall-severity">
-            <span class="severity-badge severity-${alertsData.overall_severity}">
-              ${alertsData.overall_severity || 'info'}
-            </span>
-          </div>
         </div>
-        ${activeAlerts.length > 0 ? `
-          <div class="active-alerts-list">
-            ${activeAlerts.map(alert => `
-              <div class="alert-item severity-${alert.severity}">
-                <span class="alert-service">${alert.service}</span>
-                <span class="alert-message">${alert.message}</span>
+
+        <div class="services-overview">
+          ${this.getCompactServicesSection()}
+        </div>
+      </div>
+    `;
+  }
+
+  getCompactServicesSection() {
+    const services = ['quote', 'location', 'gmaps', 'redis'];
+
+    return /* html */`
+      <div class="services-list">
+        ${services.map(service => {
+      const percentileData = this.latencyData.percentiles[service];
+      const averageData = this.latencyData.averages[service];
+      const trendData = this.latencyData.trends[service];
+      const spikeData = this.latencyData.spikes[service];
+
+      if (!percentileData || !averageData) return '';
+
+      return /* html */`
+            <div class="service-compact">
+              <div class="service-header-compact">
+                <div class="service-info">
+                  <h3 class="service-name">${this.getServiceDisplayName(service)}</h3>
+                  <!--<span class="status-badge status-${percentileData.status}">
+                    ${this.getStatusIcon(percentileData.status)} ${percentileData.status}
+                  </span>-->
+                </div>
+                <div class="service-primary-metric">
+                  <span class="primary-value">${this.formatLatency(averageData.average_ms)}</span>
+                  <span class="primary-label">Avg Response</span>
+                </div>
               </div>
-            `).join('')}
-          </div>
-        ` : `
-          <div class="no-alerts">
-            <span>No active alerts</span>
-          </div>
-        `}
+              
+              <div class="service-details">
+                <div class="metric-group">
+                  <div class="metric-row">
+                    <span class="metric-label">Percentiles</span>
+                    <div class="metric-values">
+                      <span class="metric-item">P50: ${this.formatLatency(percentileData.p50)}</span>
+                      <span class="metric-item">P95: ${this.formatLatency(percentileData.p95)}</span>
+                      <span class="metric-item">P99: ${this.formatLatency(percentileData.p99)}</span>
+                    </div>
+                  </div>
+                  
+                  ${trendData ? `
+                    <div class="metric-row">
+                      <span class="metric-label">Trend</span>
+                      <div class="metric-values">
+                        <span class="trend-badge trend-${trendData.trend}">${this.formatTrend(trendData.trend)}</span>
+                        <span class="metric-item">Min: ${this.formatLatency(trendData.statistics.min_ms)}</span>
+                        <span class="metric-item">Max: ${this.formatLatency(trendData.statistics.max_ms)}</span>
+                      </div>
+                    </div>
+                  ` : ''}
+                  
+                  ${spikeData ? `
+                    <div class="metric-row">
+                      <span class="metric-label">Spikes</span>
+                      <div class="metric-values">
+                        <span class="spike-count ${spikeData.spike_count > 0 ? 'has-spikes' : 'no-spikes'}">
+                          ${spikeData.spike_count} spikes
+                        </span>
+                        ${spikeData.max_spike_factor ? `
+                          <span class="metric-item">Max: ${spikeData.max_spike_factor}x</span>
+                        ` : ''}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+                
+                <div class="service-footer">
+                  <span class="sample-count">${percentileData.sample_count} samples</span>
+                  ${spikeData && spikeData.most_affected_endpoint ? `
+                    <span class="affected-endpoint">${spikeData.most_affected_endpoint}</span>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+    }).join('')}
       </div>
     `;
   }
@@ -409,18 +269,210 @@ export default class LatencyOverview extends HTMLElement {
         }
 
         .latency-overview {
-          border-top: var(--border);
-          border-bottom: var(--border);
           padding: 1rem 0 2rem 0;
           margin: 0 0 3rem 0;
           color: var(--text-color);
           background: var(--background);
+          max-width: 100%;
         }
 
-        .metrics-grid {
-          display: grid;
-          gap: 2rem;
+        /* System Summary Styles */
+        .system-summary {
+          padding: 0;
           margin-bottom: 2rem;
+        }
+
+        .system-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .system-header h2 {
+          margin: 0;
+          color: var(--title-color);
+          font-size: 1.3rem;
+          font-weight: 600;
+        }
+
+        .overall-status {
+          padding: 7px 1rem;
+          border-radius: 10px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .system-stats {
+          display: flex;
+          flex-flow: row;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 1rem;
+        }
+
+        .system-stats > .stat-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 10px;
+          min-width: 80px;
+          width: max-content;
+          background: var(--gray-background);
+          border-radius: 12px;
+          border: 1px solid color-mix(in srgb, var(--gray-color) 20%, transparent);
+        }
+
+        .system-stats > .stat-item > .stat-value {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: var(--accent-color);
+          font-family: var(--font-main);
+          margin-bottom: 0.25rem;
+        }
+
+        .system-stats > .stat-item > .stat-label {
+          font-size: 0.8rem;
+          color: var(--gray-color);
+          text-align: center;
+          font-weight: 500;
+        }
+
+        /* Services Overview Styles */
+        .services-overview {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .services-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .service-compact {
+          overflow: hidden;
+          padding: 0 5px;
+          transition: all 0.2s ease;
+        }
+
+        .service-header-compact {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 7px 0;
+          border-bottom: 1px solid color-mix(in srgb, var(--gray-color) 15%, transparent);
+        }
+
+        .service-info {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .service-info h3 {
+          margin: 0;
+          color: var(--title-color);
+          font-size: 1rem;
+          font-weight: 600;
+        }
+
+        .service-primary-metric {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          text-align: right;
+        }
+
+        .primary-value {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--accent-color);
+          font-family: var(--font-mono);
+          margin-bottom: 0.2rem;
+        }
+
+        .primary-label {
+          font-size: 0.7rem;
+          color: var(--gray-color);
+          font-weight: 500;
+          font-family: var(--font-read);
+          text-transform: uppercase;
+        }
+
+        .metric-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .metric-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.5rem 0;
+          border-bottom: 1px solid color-mix(in srgb, var(--gray-color) 10%, transparent);
+        }
+
+        .metric-row:last-child {
+          border-bottom: none;
+        }
+
+        .metric-label {
+          font-size: 0.85rem;
+          color: var(--gray-color);
+          font-weight: 600;
+          min-width: 80px;
+        }
+
+        .metric-values {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .metric-item {
+          font-size: 0.8rem;
+          color: var(--text-color);
+          font-family: var(--font-mono);
+          background: color-mix(in srgb, var(--gray-color) 8%, transparent);
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-weight: 500;
+        }
+
+        .service-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid color-mix(in srgb, var(--gray-color) 15%, transparent);
+        }
+
+        .sample-count {
+          font-size: 0.8rem;
+          color: var(--gray-color);
+          background: color-mix(in srgb, var(--gray-color) 10%, transparent);
+          padding: 7px 10px;
+          border-radius: 12px;
+          font-weight: 500;
+        }
+
+        .affected-endpoint {
+          font-size: 0.75rem;
+          color: var(--text-color);
+          font-family: var(--font-mono);
+          background: color-mix(in srgb, var(--alt-color) 10%, transparent);
+          padding: 0.25rem 0.6rem;
+          border-radius: 4px;
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .overall-status.status-good {
@@ -441,10 +493,50 @@ export default class LatencyOverview extends HTMLElement {
           border: 1px solid color-mix(in srgb, var(--error-color) 30%, transparent);
         }
 
-        .metrics-grid {
-          display: grid;
-          gap: 2rem;
-          margin-bottom: 2rem;
+        .status-badge, .trend-badge, .spike-count {
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .status-badge.status-good, .spike-count.no-spikes {
+          background: color-mix(in srgb, var(--success-color) 15%, transparent);
+          color: var(--success-color);
+        }
+
+        .status-badge.status-warning {
+          background: color-mix(in srgb, var(--alt-color) 15%, transparent);
+          color: var(--alt-color);
+        }
+
+        .status-badge.status-critical, .spike-count.has-spikes {
+          background: color-mix(in srgb, var(--error-color) 15%, transparent);
+          color: var(--error-color);
+        }
+
+        .trend-badge {
+          font-size: 0.8rem;
+          padding: 0.3rem 0.6rem;
+          border-radius: 4px;
+          font-weight: 600;
+          text-transform: none;
+        }
+
+        .trend-badge.trend-stable, .trend-badge.trend-improving {
+          background: color-mix(in srgb, var(--success-color) 15%, transparent);
+          color: var(--success-color);
+        }
+
+        .trend-badge.trend-degrading, .trend-badge.trend-increasing {
+          background: color-mix(in srgb, var(--alt-color) 15%, transparent);
+          color: var(--alt-color);
+        }
+
+        .trend-badge.trend-decreasing {
+          background: color-mix(in srgb, var(--success-color) 15%, transparent);
+          color: var(--success-color);
         }
 
         .metric-section h3 {
@@ -461,9 +553,7 @@ export default class LatencyOverview extends HTMLElement {
         }
 
         .service-card {
-          background: var(--stat-background);
           border: none;
-          border-radius: 6px;
           padding: 1rem;
           transition: all 0.2s ease;
         }
@@ -474,7 +564,6 @@ export default class LatencyOverview extends HTMLElement {
         }
 
         .service-card.average-card {
-          background: var(--stat-background);
           border: none;
           padding: 0.75rem;
           box-shadow: none;
@@ -604,7 +693,7 @@ export default class LatencyOverview extends HTMLElement {
           font-size: 0.75rem;
           color: var(--gray-color);
           background: color-mix(in srgb, var(--gray-color) 10%, transparent);
-          padding: 0.2rem 0.5rem;
+          padding: 7px 10px;
           border-radius: 12px;
           font-weight: 500;
         }
@@ -616,38 +705,11 @@ export default class LatencyOverview extends HTMLElement {
 
         .sample-count {
           margin-top: 0.75rem;
-          padding-top: 0.75rem;
+          padding: 7px 10px;
           border-top: 1px solid color-mix(in srgb, var(--gray-color) 20%, transparent);
           font-size: 0.8rem;
           color: var(--gray-color);
           text-align: center;
-        }
-
-        .summary {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          padding: 1rem;
-          background: var(--gray-background);
-          border-radius: 6px;
-          border: var(--border);
-        }
-
-        .summary-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .summary-item .label {
-          font-size: 0.9rem;
-          color: var(--gray-color);
-        }
-
-        .summary-item .value {
-          font-weight: 600;
-          color: var(--text-color);
-          font-family: var(--font-mono);
         }
 
         /* Loading and Error States */
@@ -704,133 +766,32 @@ export default class LatencyOverview extends HTMLElement {
           opacity: 0.9;
         }
 
-        /* Alerts Section Styles */
-        .alerts-summary {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-        }
-
-        .alert-counts {
-          display: flex;
-          gap: 1rem;
-        }
-
-        .alert-count {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 0.5rem;
-          border-radius: 6px;
-          min-width: 60px;
-        }
-
-        .alert-count.critical {
-          background: color-mix(in srgb, var(--error-color) 10%, transparent);
-        }
-
-        .alert-count.warning {
-          background: color-mix(in srgb, var(--alt-color) 10%, transparent);
-        }
-
-        .alert-count.info {
-          background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-        }
-
-        .alert-count .count {
-          font-size: 1.2rem;
-          font-weight: 700;
-          font-family: var(--font-mono);
-        }
-
-        .alert-count.critical .count {
-          color: var(--error-color);
-        }
-
-        .alert-count.warning .count {
-          color: var(--alt-color);
-        }
-
-        .alert-count.info .count {
-          color: var(--accent-color);
-        }
-
-        .alert-count .label {
-          font-size: 0.7rem;
-          color: var(--gray-color);
-          text-transform: uppercase;
-          font-weight: 500;
-        }
-
-        .severity-badge {
-          padding: 0.25rem 0.75rem;
-          border-radius: 4px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          text-transform: capitalize;
-        }
-
-        .severity-badge.severity-critical {
-          background: var(--error-color);
-          color: white;
-        }
-
-        .severity-badge.severity-warning {
-          background: var(--alt-color);
-          color: white;
-        }
-
-        .severity-badge.severity-info {
-          background: var(--accent-color);
-          color: white;
-        }
-
-        .active-alerts-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .alert-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.5rem;
-          border-radius: 4px;
-          border-left: 3px solid;
-        }
-
-        .alert-item.severity-critical {
-          background: color-mix(in srgb, var(--error-color) 5%, transparent);
-          border-left-color: var(--error-color);
-        }
-
-        .alert-item.severity-warning {
-          background: color-mix(in srgb, var(--alt-color) 5%, transparent);
-          border-left-color: var(--alt-color);
-        }
-
-        .alert-item.severity-info {
-          background: color-mix(in srgb, var(--accent-color) 5%, transparent);
-          border-left-color: var(--accent-color);
-        }
-
-        .alert-service {
-          font-weight: 600;
-          color: var(--title-color);
-        }
-
-        .alert-message {
-          font-size: 0.9rem;
-          color: var(--text-color);
-        }
-
-        .no-alerts {
-          text-align: center;
-          padding: 2rem;
-          color: var(--gray-color);
-          font-style: italic;
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .system-stats {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          
+          .service-header-compact {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+          }
+          
+          .service-primary-metric {
+            align-items: center;
+          }
+          
+          .metric-values {
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+          
+          .service-footer {
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: center;
+          }
         }
       </style>
     `;

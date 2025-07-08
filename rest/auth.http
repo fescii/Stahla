@@ -31,9 +31,31 @@ Authorization: Bearer {{authToken}}
     "email": "john@doe.com",
     "password": "StrongPassword123!",
     "name": "John Doe",
-    "is_active": true,
-    "is_admin": false
+    "role": "member",
+    "is_active": true
 }
+
+### Upload User Picture (Method 1 - Auto boundary)
+POST {{baseUrl}}/auth/users/e2564c11-ce72-454b-acd4-5ecda760450d/picture
+Authorization: Bearer {{authToken}}
+
+< ./femar.jpg
+
+### Upload User Picture (Method 2 - Manual multipart)
+POST {{baseUrl}}/auth/users/e2564c11-ce72-454b-acd4-5ecda760450d/picture
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryExample
+
+------WebKitFormBoundaryExample
+Content-Disposition: form-data; name="file"; filename="femar.jpg"
+Content-Type: image/jpeg
+
+< ./femar.jpg
+------WebKitFormBoundaryExample--
+
+### Delete User Picture
+DELETE {{baseUrl}}/auth/users/e2564c11-ce72-454b-acd4-5ecda760450d/picture
+Authorization: Bearer {{authToken}}
 
 ### List All Users (Admin Only)
 GET {{baseUrl}}/auth/users/
@@ -51,9 +73,9 @@ Content-Type: {{contentType}}
 Authorization: Bearer {{authToken}}
 
 {
-    "full_name": "Updated User Name",
+    "name": "Updated User Name",
     "is_active": true,
-    "is_admin": false
+    "role": "member"
 }
 
 ### Delete User (Admin Only)

@@ -14,11 +14,11 @@ Author URL: https://femar.co.ke
 
 */
 
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap");
 
 /*
 
@@ -28,7 +28,7 @@ Author URL: https://femar.co.ke
 */
 
 :root {
-  --tab-background:  #0060df21;
+  --tab-background: #0060df21;
   --hubspot-background: linear-gradient(0deg, #df791a38 0%, #f09c4e67 100%);
   --stat-background: #f1f1f1;
   --attachement-background: var(var(--tab-background));
@@ -40,7 +40,8 @@ Author URL: https://femar.co.ke
   --card-box-shadow: 0 12px 28px 0 rgba(70, 53, 53, 0.2);
   --image-shadow: 0 -1px 10px 0 #0202020a;
   --card-box-shadow-alt: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
-  --box-shadow: 0 0 0 1px #ffffff25, 0 2px 2px #0000000a, 0 8px 16px -4px #0000000a;
+  --box-shadow: 0 0 0 1px #ffffff25, 0 2px 2px #0000000a,
+    0 8px 16px -4px #0000000a;
 
   --scroll-bar-background: #ddddd7;
   --scroll-bar-linear: linear-gradient(#003eaa, #0060df);
@@ -178,7 +179,7 @@ Author URL: https://femar.co.ke
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #121418;
-    --tab-background: #0060df40;  /* Increased opacity for better visibility */
+    --tab-background: #0060df40; /* Increased opacity for better visibility */
     --hubspot-background: linear-gradient(0deg, #ee770810 0%, #f7963b7e 100%);
     --stat-background: #1d1f26;
     --vh-height: 100dvh;
@@ -187,7 +188,8 @@ Author URL: https://femar.co.ke
     --card-box-shadow: 0 12px 28px 0 rgba(255, 255, 255, 0.15);
     --image-shadow: 0 -1px 10px 0 #ffffff15;
     --card-box-shadow-alt: 0 2px 4px 0 rgba(255, 255, 255, 0.15);
-    --box-shadow: 0 0 0 1px #ffffff25, 0 2px 2px #ffffff10, 0 8px 16px -4px #ffffff10;
+    --box-shadow: 0 0 0 1px #ffffff25, 0 2px 2px #ffffff10,
+      0 8px 16px -4px #ffffff10;
 
     --scroll-bar-background: #2a2e36;
     --scroll-bar-linear: linear-gradient(#1a7dff, #479dff);
@@ -196,7 +198,7 @@ Author URL: https://femar.co.ke
     --input-border-focus: thin solid #1a7dffee;
     --input-border-error: thin solid #ff5a3cdd;
     --action-border: thin solid #4d5364;
-    --border: thin solid #4d5364;
+    --border: thin solid #4d5364b2;
     --border-button: thin solid #4d5364;
     --action-border: thin solid #1a7dff;
     --topic-border: thin solid rgba(77, 83, 100, 0.7);
@@ -256,7 +258,11 @@ Author URL: https://femar.co.ke
     --error-linear: linear-gradient(103.53deg, #ff5a3c -6.72%, #ff3c1a 109.77%);
     --second-linear: linear-gradient(0deg, #e07b0a 0%, #ff9d45 100%);
     --poll-linear: linear-gradient(0deg, #e07b0aee, #ff9d45ee);
-    --accent-linear: linear-gradient(103.53deg, #0052cc -6.72%, #1a7dff 109.77%);
+    --accent-linear: linear-gradient(
+      103.53deg,
+      #0052cc -6.72%,
+      #1a7dff 109.77%
+    );
     --alt-linear: linear-gradient(
       78deg,
       rgb(40, 0, 92) -50%,
@@ -345,3 +351,121 @@ Author URL: https://femar.co.ke
   background: var(--scroll-bar-linear);
   border-radius: 50px;
 }
+
+/* ======= Typography ========== */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+ul,
+ol {
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+a {
+  text-decoration: none;
+  line-height: inherit;
+}
+
+h6,
+h5,
+h4,
+h3,
+h1 {
+  padding: 0;
+  font-size: 1.3rem !important;
+  color: var(--title-color);
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+p {
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+a {
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--anchor-color) !important;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+blockquote {
+  margin: 10px 0;
+  padding: 5px 15px;
+  font-style: italic;
+  border-left: 2px solid var(--gray-color);
+  background: var(--background);
+  color: var(--text-color);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+blockquote:before {
+  content: open-quote;
+  color: var(--gray-color);
+  font-size: 1.5rem;
+  line-height: 1;
+  margin: 0 0 0 -5px;
+}
+
+blockquote:after {
+  content: close-quote;
+  color: var(--gray-color);
+  font-size: 1.5rem;
+  line-height: 1;
+  margin: 0 0 0 -5px;
+}
+
+hr {
+  border: none;
+  background-color: var(--text-color);
+  height: 1px;
+  margin: 10px 0;
+  line-height: 1.4;
+}
+
+b,
+strong {
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+ul,
+ol {
+  margin: 5px 0 15px 20px;
+  padding: 0 0 0 15px;
+  color: inherit;
+  line-height: 1.4;
+}
+
+ul li,
+ol li {
+  margin: 6px 0;
+  padding: 0;
+  color: inherit;
+}
+
+code {
+  background: var(--gray-background);
+  padding: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  border-radius: 5px;
+}
+
+/* ========= Typography End ============== */

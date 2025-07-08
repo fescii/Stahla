@@ -1,30 +1,13 @@
 import APIManager from "./api.js";
 import uis from "./apps/apps.js"
-import ThemeManager from "./themes.js";
 
 export default class AppMain extends HTMLElement {
   constructor() {
     super();
     this.content = this.getContent();
     this.shadowObj = this.attachShadow({ mode: "open" });
-    this.initThemeSystem();
     this.registerComponents();
-    this.preferences();
-
-    // Clear any HTTP caches immediately if we're on HTTPS
-    this.clearLegacyHttpCaches();
-
-    // Force HTTPS for production - simple and bulletproof approach
-    let baseURL;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // Development - use current protocol
-      baseURL = window.location.protocol + '//' + window.location.host + '/api/v1';
-    } else {
-      // Production - always use HTTPS
-      baseURL = 'https://' + window.location.host + '/api/v1';
-    }
-    console.log('Initializing API with base URL:', baseURL); // Debug logging
-    this.api = new APIManager(baseURL, 9500, 'v1');
+    this.api = new APIManager('/api/v1', 9500, 'v1');
     window.app = this;
     this.mql = window.matchMedia('(max-width: 660px)');
     this.render();
@@ -39,9 +22,15 @@ export default class AppMain extends HTMLElement {
   }
 
   render() {
-    this.shadowObj.innerHTML = this.getTemplate();
+    this.shadowObj.innerHTML = this.getTemplate(this.isAuthenticated());
     // watch for media query changes
     this.watchMeta();
+  }
+
+  isAuthenticated() {
+    // Check if a cookie named: x-account-token exists
+    const token = document.cookie.split('; ').find(row => row.startsWith('x-account-token='));
+    return !!token;
   }
 
   connectedCallback() {
@@ -266,24 +255,11 @@ export default class AppMain extends HTMLElement {
     // replace the current history entry
     this.replace(url, state, url);
   }
-
-  /**
-   * Navigate to a new URL and add it to history
-   * @param {string} url - The URL to navigate to
-   * @param {Object} state - State object to store with history entry
-   * @param {string} title - Title for the new history entry
-   */
   push(url, state = {}, title = '') {
     window.history.pushState(state, title, url);
     this.currentUrl = url;
   }
 
-  /**
-   * Replace current history entry with new URL
-   * @param {string} url - The URL to navigate to
-   * @param {Object} state - State object to store with history entry
-   * @param {string} title - Title for the new history entry
-   */
   replace(url, state = {}, title = '') {
     window.history.replaceState(state, title, url);
     this.currentUrl = url;
@@ -325,126 +301,6 @@ export default class AppMain extends HTMLElement {
   registerComponents = () => {
     // Register all components here
     uis('Apps registered');
-  }
-
-  initThemeSystem = () => {
-    // Initialize theme manager if not already available
-    if (!window.themeManager) {
-      window.themeManager = new ThemeManager();
-      // Make ThemeManager class available globally for other components
-      window.ThemeManager = ThemeManager;
-    }
-    this.setupThemeIntegration();
-  }
-
-  setupThemeIntegration = () => {
-    // Listen for theme changes and update meta theme color
-    window.addEventListener('themeChanged', (e) => {
-      const metaThemeColor = document.querySelector("meta[name=theme-color]");
-      if (metaThemeColor) {
-        // Determine if we should use dark or light meta theme color based on system preference
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        metaThemeColor.setAttribute("content", isDark ? '#000000' : '#ffffff');
-      }
-    });
-
-    // Update legacy localStorage key to work with new theme system
-    const oldTheme = localStorage.getItem('theme');
-    const newTheme = localStorage.getItem('stahla_theme');
-
-    if (oldTheme && !newTheme && ['light', 'dark', 'system'].includes(oldTheme)) {
-      // Migrate old theme setting to new default theme
-      localStorage.setItem('stahla_theme', 'default');
-      localStorage.removeItem('theme');
-    }
-  }
-
-  // set hash if user is logged
-  setHash = name => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-
-    const cookie = parts.length === 2 ? parts.pop().split(';').shift() : null;
-
-    // add cookie to the window
-    window.hash = cookie;
-  }
-
-  setTheme = currentTheme => {
-    // If new theme manager is available, use it
-    if (window.themeManager) {
-      // Map legacy theme names to new system
-      if (currentTheme === 'light' || currentTheme === 'dark' || currentTheme === 'system') {
-        window.themeManager.applyTheme('default');
-      } else if (window.themeManager.getAllThemes()[currentTheme]) {
-        window.themeManager.applyTheme(currentTheme);
-      } else {
-        window.themeManager.applyTheme('default');
-      }
-      return;
-    }
-
-    // Fallback to legacy theme system
-    const htmlElement = document.documentElement;
-    const metaThemeColor = document.querySelector("meta[name=theme-color]");
-
-    // Check if the current theme is: system
-    if (currentTheme === 'system') {
-      // Update the data-theme attribute
-      htmlElement.setAttribute('data-theme', currentTheme);
-
-      // Store the preference in local storage
-      localStorage.setItem('theme', 'system');
-
-      // Update the theme-color meta tag
-      metaThemeColor.setAttribute("content", currentTheme === 'dark' ? '#000000' : '#ffffff');
-      return;
-    }
-
-    // Update the data-theme attribute
-    htmlElement.setAttribute('data-theme', currentTheme);
-
-    // Store the preference in local storage
-    localStorage.setItem('theme', currentTheme);
-
-    // Update the theme-color meta tag
-    metaThemeColor.setAttribute("content", currentTheme === 'dark' ? '#000000' : '#ffffff');
-  }
-
-  preferences() {
-    const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
-
-    // listen for theme change
-    prefersDarkScheme.addEventListener('change', (event) => {
-      // If new theme manager is available, let it handle system theme changes
-      if (window.themeManager) {
-        window.themeManager.watchSystemTheme();
-        return;
-      }
-
-      // Fallback to legacy system
-      const currentTheme = localStorage.getItem('theme') || 'light';
-
-      // if the theme is system
-      if (currentTheme === 'system') {
-        // set the theme
-        this.setTheme('system');
-        return;
-      }
-    })
-
-    // Initialize theme system
-    if (window.themeManager) {
-      // Theme manager will handle theme loading
-      window.themeManager.watchSystemTheme();
-    } else {
-      // Fallback to legacy theme system
-      const currentTheme = localStorage.getItem('theme') || 'light';
-      this.setTheme(currentTheme);
-    }
-
-    // set hash
-    this.setHash('hash');
   }
 
   _setupSpecialNavs() {
@@ -506,6 +362,35 @@ export default class AppMain extends HTMLElement {
     });
   }
 
+  _expandDropdown(parentLi) {
+    if (!parentLi) return;
+
+    // Remove collapsed class and add active class to show vertical line
+    parentLi.classList.remove('collapsed');
+    parentLi.classList.add('active');
+
+    // Get the dropdown and expand it
+    const dropdown = parentLi.querySelector('ul.dropdown');
+    if (dropdown) {
+      // Set max height to scrollHeight to show the dropdown
+      dropdown.style.maxHeight = (dropdown.scrollHeight + 7) + 'px';
+    }
+
+    // Close other dropdowns
+    const specialNavUls = this.shadowRoot.querySelectorAll('section.nav > ul.nav.special');
+    specialNavUls.forEach(ul => {
+      const item = ul.querySelector('li');
+      if (item && item !== parentLi) {
+        item.classList.add('collapsed');
+        item.classList.remove('active');
+        const otherDropdown = item.querySelector('ul.dropdown');
+        if (otherDropdown) {
+          otherDropdown.style.maxHeight = '0px';
+        }
+      }
+    });
+  }
+
   getNavContents = {
     "/": /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
     "/status": /* HTML */`<services-status api="/dashboard/services/status"></services-status>`,
@@ -535,12 +420,11 @@ export default class AppMain extends HTMLElement {
     "/sheet/branches": /* HTML */`<sheet-branches api="/dashboard/sheet/branches"></sheet-branches>`,
     "/sheet/states": /* HTML */`<sheet-states api="/dashboard/sheet/states"></sheet-states>`,
     "/updates": /* HTML */`<soon-page url="/soon"></soon-page>`,
-    "/themes": /* HTML */`<sheet-themes api="/themes"></sheet-themes>`,
     default: /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
   }
 
-  getTemplate = () => {
-    // Show HTML Here
+  getTemplate = (authenticated = false) => {
+    if (!authenticated) return `${this.getAccess()}`
     return `
       ${this.getBody()}
       ${this.getStyles()}
@@ -554,43 +438,38 @@ export default class AppMain extends HTMLElement {
         <section class="mobile">
           <h1 class="mobile-title">Stahla SDR AI & Pricing</h1>
           <p class="mobile-description">Stahla is a service that provides a wide range of features and functionalities to help you manage your SDR AI & Pricing application.</p>
-          <p class="mobile-warning">Mobile version is not available yet. Please use the desktop or tablet version for the best experience.</p>
+          <p class="mobile-warning">The mobile version is not available yet. Please use the desktop or tablet version for the best experience.</p>
           ${this.getFooter()}
         </section>
       `;
     }
     else {
+      // Only show navigation if authenticated
       return /* html */`
-        <section class="nav">
-          ${this.getMainNav()}
-        </section>
+        ${this.getMainNav()}
         <section class="flow">
           <div id="content-container" class="content-container">
             ${this.getLoader()}
           </div>
           ${this.getFooter()}
         </section>
+        ${this.getLatency()}
       `;
     }
   }
 
-  setContent = container => {
-    setTimeout(() => {
-      // set the content
-      container.innerHTML = this.content;
-    }, 1000);
-  }
-
   getMainNav = () => {
     return /* html */`
-      ${this.getLogoNav()}
-      ${this.getMainLinksNav()}
-      ${this.getDocsNav()}
-      ${this.getUserNav()}
-      ${this.getBlandNav()}
-      ${this.getSheetsNav()}
-      ${this.getPricingNav()}
-      ${this.getTweakNav()}
+      <section class="nav">
+        ${this.getLogoNav()}
+        ${this.getMainLinksNav()}
+        ${this.getDocsNav()}
+        ${this.getUserNav()}
+        ${this.getBlandNav()}
+        ${this.getSheetsNav()}
+        ${this.getPricingNav()}
+        ${this.getTweakNav()}
+      </section>
     `;
   }
 
@@ -874,10 +753,49 @@ export default class AppMain extends HTMLElement {
     `;
   }
 
-  getOverview = () => {
+  getLatency = () => {
     return /* html */`
-      <app-home api="/shots/fyp" name="For You" type="fyp"></app-home>
+      <section class="latency">
+        ${this.getHeader()}
+        <!-- Latency Overview Section -->
+        <latency-overview api="/latency/overview/"></latency-overview>
+      </section>
     `;
+  }
+
+  getHeader = () => {
+    return /* html */`
+      <header class="header">
+        <div class="header-title">
+          <h1 class="title">Latency Overview</h1>
+          <span class="subtitle">Monitoring performance and response times</span>
+        </div>
+        <ul class="links">
+          <li class="link profile">
+            <div class="image">
+              <img src="https://randomuser.me/api/portraits/men/1.jpg" alt="Profile Image" />
+            </div>
+            <span class="text">Profile</span>
+          </li>
+          <li class="link updates">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" color="currentColor" fill="none">
+              <path id="animate" d="M22 5.5C22 7.433 20.433 9 18.5 9C16.567 9 15 7.433 15 5.5C15 3.567 16.567 2 18.5 2C20.433 2 22 3.567 22 5.5Z" stroke="currentColor" stroke-width="1.8" />
+              <path d="M21.9506 11C21.9833 11.3289 22 11.6625 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.3375 2 12.6711 2.01672 13 2.04938" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <path d="M8 10H12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M8 15H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span class="text">Updates</span>
+          </li>
+          <li class="link more">
+            <span class="icon">
+              <span class="sp"></span>
+              <span class="sp"></span>
+            </span>
+            <span class="text">More</span>
+          </li>
+        </ul>
+      </header>
+    `
   }
 
   getFooter = () => {
@@ -925,6 +843,7 @@ export default class AppMain extends HTMLElement {
     `;
   }
 
+
   getLoader = () => {
     return /* html */`
       <div class="loader-container">
@@ -944,6 +863,7 @@ export default class AppMain extends HTMLElement {
       <delete-popup url="${url}">${items}</delete-popup>
     `
   }
+
 
   getStyles() {
     return /* css */`
@@ -989,6 +909,9 @@ export default class AppMain extends HTMLElement {
 
 	      :host {
           font-size: 16px;
+          width: 100%;
+          min-width: 100%;
+          max-width: 100%;
           padding: 0;
           margin: 0;
           display: flex;
@@ -1050,7 +973,7 @@ export default class AppMain extends HTMLElement {
           display: flex;
           flex-flow: column;
           gap: 5px;
-          padding: 10px 0 0 0;
+          padding: 0;
           height: 100dvh;
           max-height: 100dvh;
           overflow-y: scroll;
@@ -1139,7 +1062,7 @@ export default class AppMain extends HTMLElement {
 
         section.nav > ul.nav > li.logo {
           gap: 10px;
-          margin: 5px 0 0 0;
+          margin: 5px 0;
         }
 
         section.nav > ul.nav > li.logo > a {
@@ -1216,6 +1139,12 @@ export default class AppMain extends HTMLElement {
         section.nav > ul.nav.special > li > div.link-section > span.left > svg {
           width: 22px;
           height: 22px;
+          color: inherit;
+        }
+
+        section.nav > ul.nav.special > li > div.link-section > span.left > svg#other {
+          width: 24px;
+          height: 24px;
           color: inherit;
         }
 
@@ -1316,26 +1245,268 @@ export default class AppMain extends HTMLElement {
           color: var(--gray-color);
           transition: color 0.2s ease;
         }
-        
 
         section.flow {
-          width: calc(100% - 220px);
+          width: calc(100% - (220px + 500px + 20px));
           display: flex;
           flex-flow: column;
+          max-height: max-content;
           gap: 0;
           padding: 0;
         }
+
+        /* Latency Panel Styles */
+        section.latency {
+          width: 500px;
+          height: 100dvh;
+          padding: 0 10px;
+          background: var(--background);
+          /* border-left: var(--border); */
+          display: flex;
+          flex-flow: column;
+          max-height: 100dvh;
+          gap: 0;
+          z-index: 10;
+          overflow-y: auto;
+          scrollbar-width: none;
+        }
+
+        section.latency::-webkit-scrollbar {
+          visibility: hidden;
+          display: none;
+        }
+
+        /* Header Styles */
+        header.header {
+          height: 70px;
+          max-height: 70px;
+          width: 100%;
+          padding: 25px 0;
+          background: var(--background);
+          border-bottom: var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          backdrop-filter: blur(10px);
+        }
+
+        header.header > div.header-title {
+          flex: 1;
+          width: calc(100% - 170px);
+          display: flex;
+          flex-direction: column;
+          padding: 2px;
+          transition: all 0.3s ease;
+        }
+
+        header.header > div.header-title > h1.title {
+          font-family: var(--font-main), sans-serif;
+          font-size: 1.35rem;
+          font-weight: 700;
+          line-height: 1.4;
+          color: var(--text-color);
+          margin: 0;
+          padding: 0;
+          text-transform: capitalize;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        header.header > div.header-title > span.subtitle {
+          font-family: var(--font-text), sans-serif;
+          font-size: 0.8rem;
+          font-weight: 400;
+          line-height: 1.4;
+          color: var(--gray-color);
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        header.header > ul.links {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+
+        header.header > ul.links > li.link {
+          background: var(--gray-background);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 36px;
+          height: 36px;
+          max-width: 36px;
+          max-height: 36px;
+          padding: 0;
+          border-radius: 50%;
+          display: flex;
+          justify-content: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          color: var(--text-color);
+          position: relative;
+        }
+
+        header.header > ul.links > li.link:hover {
+          background: var(--tab-background);
+          color: var(--accent-color);
+        }
+
+        header.header > ul.links > li.link.profile > div.image {
+          width: 36px;
+          height: 36px;
+          max-height: 36px;
+          max-width: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        header.header > ul.links > li.link.profile > div.image > img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        header.header > ul.links > li.link > span.text {
+          display: none;
+          position: absolute;
+          bottom: -38px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: var(--background);
+          color: var(--text-color);
+          padding: 6px 10px;
+          border-radius: 12px;
+          font-family: var(--font-text), sans-serif;
+          font-size: 0.85rem;
+          font-weight: 500;
+          white-space: nowrap;
+          z-index: 1000;
+          border: var(--border);
+          box-shadow: var(--card-box-shadow);
+          pointer-events: none;
+        }
+
+        header.header > ul.links > li.link > span.text::before {
+          content: '';
+          position: absolute;
+          top: -2px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 10px;
+          height: 10px;
+          rotate: 45deg;
+          background: var(--background);
+          border-top: var(--border);
+          border-left: var(--border);
+        }
+
+        header.header > ul.links > li.link:hover > span.text {
+          display: block;
+          animation: fadeInTooltip 0.2s ease-in-out;
+        }
+
+        @keyframes fadeInTooltip {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+
+        header.header > ul.links > li.link.updates {
+          position: relative;
+        }
+
+        /* Animate the updates notification circle */
+        header.header > ul.links > li.link.updates svg path#animate {
+          animation: updatesPulse 2s ease-in-out infinite;
+          transform-origin: center;
+          z-index: 1;
+          color: var(--error-color);
+        }
+
+        @keyframes updatesPulse {
+          0%, 100% {
+            transform: scale(0.9);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.05);
+            opacity: 0.7;
+          }
+        }
+
+        /* Alternative breathing animation for the updates icon */
+        header.header > ul.links > li.link.updates:hover svg path#animate {
+          animation: updatesBreath 1.8s ease-in-out infinite;
+          z-index: 1;
+          background: var(--error-background);
+        }
+
+        @keyframes updatesBreath {
+          0%, 100% {
+            transform: scale(0.8);
+            opacity: 0.8;
+          }
+          50% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        header.header > ul.links > li.link > svg {
+          width: 24px;
+          height: 24px;
+          color: inherit;
+        }
+
+        header.header > ul.links > li.link.more > span.icon {
+          display: flex;
+          gap: 5px;
+          align-items: center;
+          justify-content: center;
+        }
+
+        header.header > ul.links > li.link.more > span.icon > span.sp {
+          display: inline-block;
+          width: 6px;
+          height: 6px;
+          background: var(--text-color);
+          color: inherit;
+          border-radius: 50%;
+        }
+
 
         section.flow > div#content-container {
           width: 100%;
-          min-height: calc(100dvh - 70px);
+          min-height: calc(100dvh - 140px);
+          max-height: max-content;
           display: flex;
           flex-flow: column;
           gap: 0;
           padding: 0;
         }
 
-        /* Mobie section unavailable */
+        /* Mobile section unavailable */
         section.mobile {
           width: 100%;
           height: 100dvh;
@@ -1382,6 +1553,8 @@ export default class AppMain extends HTMLElement {
         }
 
         footer.footer {
+          height: 70px;
+          max-height: 70px;
           border-top: var(--border);
           padding: 13px 0;
           margin: 0;
@@ -1405,7 +1578,7 @@ export default class AppMain extends HTMLElement {
           font-size: 1rem;
           font-family: var(--font-read), sans-serif;
         }
-        
+
         footer.footer > p > span.company {
           font-size: 0.9rem;
           display: inline-block;
@@ -1460,108 +1633,5 @@ export default class AppMain extends HTMLElement {
         }
 	    </style>
     `;
-  }
-
-  _expandDropdown(parentLi) {
-    if (!parentLi) return;
-
-    // Remove collapsed class and add active class to show vertical line
-    parentLi.classList.remove('collapsed');
-    parentLi.classList.add('active');
-
-    // Get the dropdown and expand it
-    const dropdown = parentLi.querySelector('ul.dropdown');
-    if (dropdown) {
-      // Set max height to scrollHeight to show the dropdown
-      dropdown.style.maxHeight = (dropdown.scrollHeight + 7) + 'px';
-    }
-
-    // Close other dropdowns
-    const specialNavUls = this.shadowRoot.querySelectorAll('section.nav > ul.nav.special');
-    specialNavUls.forEach(ul => {
-      const item = ul.querySelector('li');
-      if (item && item !== parentLi) {
-        item.classList.add('collapsed');
-        item.classList.remove('active');
-        const otherDropdown = item.querySelector('ul.dropdown');
-        if (otherDropdown) {
-          otherDropdown.style.maxHeight = '0px';
-        }
-      }
-    });
-  }
-
-  clearLegacyHttpCaches() {
-    // Only proceed if we're on HTTPS
-    if (window.location.protocol !== 'https:') return;
-
-    // Clear the cache for all registered service workers
-    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(registration => {
-          registration.unregister();
-        });
-      });
-    }
-
-    // Delete all caches
-    if (caches && caches.keys) {
-      caches.keys().then(cacheNames => {
-        cacheNames.forEach(cacheName => {
-          caches.delete(cacheName);
-        });
-      });
-    }
-
-    // Optionally, you can also clear specific storage if needed
-    // localStorage.clear();
-    // sessionStorage.clear();
-  }
-
-  async clearLegacyHttpCaches() {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return; // Skip in development
-    }
-
-    try {
-      // Clear Cache Storage
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        for (const cacheName of cacheNames) {
-          const cache = await caches.open(cacheName);
-          const requests = await cache.keys();
-          for (const request of requests) {
-            if (request.url.includes('http://')) {
-              console.log('Clearing legacy HTTP cache:', request.url);
-              await cache.delete(request);
-            }
-          }
-        }
-      }
-
-      // Clear localStorage API cache metadata
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('api-cache') && key.includes('http://')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => {
-        console.log('Clearing legacy localStorage cache:', key);
-        localStorage.removeItem(key);
-      });
-
-      // Force a hard reload if we detected any HTTP caches
-      if (keysToRemove.length > 0) {
-        console.log('Legacy HTTP caches found and cleared. Forcing page reload...');
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 1000);
-        return;
-      }
-    } catch (error) {
-      console.warn('Failed to clear legacy HTTP caches:', error);
-    }
   }
 }
