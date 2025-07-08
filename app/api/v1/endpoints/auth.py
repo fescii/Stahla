@@ -12,6 +12,7 @@ from datetime import datetime
 # Import User models
 from app.models.user import Token, User, UserCreate, UserUpdate, UserInDB
 from app.models.common import GenericResponse  # Import GenericResponse
+from app.utils.image import ImageProcessor  # Import image processing helper
 
 # Import the service class and its injector
 from app.services.auth.auth import AuthService, get_auth_service
@@ -319,9 +320,7 @@ async def upload_user_picture(
       return GenericResponse.error(
           message=f"File type not allowed. Supported types: {', '.join(allowed_extensions)}",
           status_code=status.HTTP_400_BAD_REQUEST
-      )
-
-    # Validate file size (5MB limit)
+      )    # Validate file size (5MB limit for original file)
     max_file_size = 5 * 1024 * 1024  # 5MB in bytes
     try:
       file_content = await file.read()
@@ -338,29 +337,39 @@ async def upload_user_picture(
           status_code=status.HTTP_400_BAD_REQUEST
       )
 
+    # Process the image using the ImageProcessor
+    try:
+      timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+      processed_image_bytes, final_filename = ImageProcessor.process_user_picture(
+          file_content=file_content,
+          original_filename=file.filename,
+          user_id=str(user_id),
+          timestamp=timestamp
+      )
+    except ValueError as e:
+      return GenericResponse.error(
+          message="Invalid image file",
+          details=str(e),
+          status_code=status.HTTP_400_BAD_REQUEST
+      )
+
     # Check if user exists
     collection = await auth_service.get_users_collection()
     user_doc = await collection.find_one({"_id": user_id})
     if not user_doc:
       return GenericResponse.error(message="User not found", status_code=404)
 
-    # Generate unique filename using original filename with timestamp
-    # Get filename without extension
-    original_filename = Path(file.filename).stem
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_filename = f"{original_filename}_{timestamp}{file_extension}"
-
     # Create static/users directory if it doesn't exist
     static_users_dir = Path("app/static/users")
     static_users_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save file
-    file_path = static_users_dir / unique_filename
+    # Save the processed (thumbnail) image
+    file_path = static_users_dir / final_filename
     with open(file_path, "wb") as buffer:
-      buffer.write(file_content)
+      buffer.write(processed_image_bytes)
 
     # Update user document with picture path
-    picture_url = f"/static/users/{unique_filename}"
+    picture_url = f"/static/users/{final_filename}"
 
     # Remove old picture file if it exists
     if user_doc.get("picture"):

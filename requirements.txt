@@ -57,6 +57,7 @@ pandas>=2.0.0
 python-jose[cryptography]>=3.3.0
 bcrypt>=3.2  # Add bcrypt explicitly
 motor>=3.0  # Add async MongoDB driver
+Pillow>=10.0.0  # For image processing and resizing
 
 pymongo~=4.12.1
 starlette~=0.46.2

@@ -35,12 +35,6 @@ Authorization: Bearer {{authToken}}
     "is_active": true
 }
 
-### Upload User Picture (Method 1 - Auto boundary)
-POST {{baseUrl}}/auth/users/e2564c11-ce72-454b-acd4-5ecda760450d/picture
-Authorization: Bearer {{authToken}}
-
-< ./femar.jpg
-
 ### Upload User Picture (Method 2 - Manual multipart)
 POST {{baseUrl}}/auth/users/e2564c11-ce72-454b-acd4-5ecda760450d/picture
 Authorization: Bearer {{authToken}}
