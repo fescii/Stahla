@@ -15,6 +15,8 @@ from .endpoints.dash import dashboard as dashboard_router
 from .endpoints import latency as latency_router
 # Import auth router - Correctly import 'router' and alias it
 from .endpoints.auth import router as auth_endpoints
+# Import mongo router
+from .endpoints.mongo import mongo_router
 
 
 # Create the main router for API v1
@@ -48,3 +50,7 @@ api_router_v1.include_router(
 # Include auth router
 api_router_v1.include_router(
     auth_endpoints, prefix="/auth", tags=["Authentication"])
+
+# Include mongo router
+api_router_v1.include_router(
+    mongo_router, prefix="/mongo", tags=["MongoDB Collections"])

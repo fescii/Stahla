@@ -23,6 +23,14 @@ from .helpers import (
     prepare_classification_input
 )
 
+# Import background tasks
+from app.services.background.mongo.tasks import (
+    log_call_bg,
+    log_classify_bg,
+    log_location_bg,
+    log_email_bg
+)
+
 router = APIRouter()
 
 # Define a response model for the data part of GenericResponse
@@ -73,7 +81,8 @@ async def webhook_voice(
   logfire.info("Bland transcript processed, proceeding to classification.",
                call_id=payload.call_id)
 
-  extracted_data = processing_result.details.get("extracted_data", {})
+  extracted_data = processing_result.details.get(
+      "extracted_data", {}) if processing_result.details else {}
   raw_data = payload.model_dump(mode='json')
 
   # Check for HubSpot IDs in Metadata
@@ -222,8 +231,7 @@ async def webhook_voice(
         _update_hubspot_lead_after_classification,
         classification_result,
         classification_input,  # Pass updated input
-        hubspot_contact_id,
-        hubspot_lead_id
+        hubspot_contact_id
     )
     final_contact_id = hubspot_contact_id
     final_lead_id = hubspot_lead_id
@@ -244,6 +252,41 @@ async def webhook_voice(
     # IDs will be None in the immediate response
     final_contact_id = None
     final_lead_id = None
+
+  # Log call data to MongoDB in background
+  call_data = {
+      "id": f"call_{payload.call_id or 'unknown'}",
+      "call_id_bland": payload.call_id,
+      "phone_number": payload.to or payload.from_ or "unknown",
+      "contact_id": hubspot_contact_id,
+      "status": "COMPLETED" if payload.completed else "FAILED",
+      "call_duration": payload.call_length,
+      "transcript": payload.concatenated_transcript,
+      "summary": payload.summary,
+      "recording_url": str(payload.recording_url) if payload.recording_url else None,
+      "answered_by": payload.answered_by,
+      "disposition": payload.disposition_tag,
+      "variables": payload.variables or {},
+      "metadata": payload.metadata or {}
+  }
+  background_tasks.add_task(log_call_bg, mongo_service, call_data)
+
+  # Log classification to MongoDB in background
+  if classification_result.classification:
+    classify_data = {
+        "id": f"classify_{payload.call_id or 'voice'}_{payload.call_id or 'unknown'}",
+        "contact_id": hubspot_contact_id,
+        "source": "voice",
+        "status": "COMPLETED" if classification_result.status == "success" else "FAILED",
+        "lead_type": classification_result.classification.lead_type,
+        "routing_suggestion": classification_result.classification.routing_suggestion,
+        "confidence": classification_result.classification.confidence,
+        "reasoning": classification_result.classification.reasoning,
+        "requires_human_review": classification_result.classification.requires_human_review,
+        "classification_results": classification_result.classification.model_dump(),
+        "input_data": classification_input.model_dump()
+    }
+    background_tasks.add_task(log_classify_bg, mongo_service, classify_data)
 
   # Return response
   return GenericResponse(

@@ -12,11 +12,13 @@ from app.models.location import LocationLookupRequest, LocationLookupResponse
 from app.models.common import GenericResponse
 from app.services.location import LocationService
 from app.services.redis.service import RedisService
+from app.services.mongo import MongoService, get_mongo_service  # Added import
 from app.core.dependencies import get_location_service_dep
 from app.services.redis.factory import get_redis_service
 from app.core.security import get_api_key
 from app.services.background.util import attach_background_tasks
 from app.services.dash.background import increment_request_counter_bg, record_location_latency_bg
+from app.services.background.mongo.tasks import log_location_bg  # Added import
 from app.core.keys import TOTAL_LOCATION_LOOKUPS_KEY
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,8 @@ async def location_lookup_sync_webhook(
     background_tasks: BackgroundTasks,
     location_service: LocationService = Depends(get_location_service_dep),
     redis_service: RedisService = Depends(get_redis_service),
+    mongo_service: MongoService = Depends(
+        get_mongo_service),  # Added dependency
     api_key: str = Depends(get_api_key),
 ) -> GenericResponse[LocationLookupResponse]:
   """
@@ -56,6 +60,25 @@ async def location_lookup_sync_webhook(
     if distance_result:
       logger.info(
           f"Successfully calculated distance for {payload.delivery_location} in {processing_time_ms}ms.")
+
+      # Log location lookup to MongoDB in background
+      location_data = {
+          "id": f"location_sync_{payload.delivery_location}",
+          "delivery_location": payload.delivery_location,
+          "source": "sync_webhook",
+          "status": "COMPLETED",
+          "nearest_branch": distance_result.nearest_branch.model_dump(),
+          "distance_miles": distance_result.distance_miles,
+          "duration_seconds": distance_result.duration_seconds,
+          "within_service_area": distance_result.within_service_area,
+          "processing_time_ms": processing_time_ms,
+          "lookup_result": distance_result.model_dump()
+      }
+      background_tasks.add_task(
+          log_location_bg,
+          mongo_service=mongo_service,
+          location_data=location_data
+      )
 
       # Increment counter for successful sync lookups
       background_tasks.add_task(

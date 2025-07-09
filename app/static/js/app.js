@@ -1044,7 +1044,7 @@ export default class AppMain extends HTMLElement {
         }
 
         section.nav {
-          width: 200px;
+          width: 220px;
           display: flex;
           flex-flow: column;
           gap: 5px;
@@ -1347,7 +1347,7 @@ export default class AppMain extends HTMLElement {
         }
 
         section.flow {
-          width: calc(100% - (220px + 500px + 20px));
+          width: calc(100% - (240px + 500px + 20px));
           display: flex;
           flex-flow: column;
           max-height: max-content;

@@ -6,6 +6,14 @@ from app.services.mongo.reports import ReportsOperations
 from app.services.mongo.bland import BlandOperations, BlandUpdates
 from app.services.mongo.errors import ErrorOperations
 from app.services.mongo.sheets import SheetsOperations
+from app.services.mongo.quotes import QuotesOperations
+from app.services.mongo.calls import CallsOperations
+from app.services.mongo.classify import ClassifyOperations
+from app.services.mongo.location import LocationOperations
+from app.services.mongo.emails import EmailsOperations
+from app.models.mongo.classify import ClassifyDocument, ClassifyStatus
+from app.models.mongo.location import LocationDocument
+from app.models.mongo.emails import EmailDocument
 from typing import Optional, Dict, Any, List, Union, Tuple
 from datetime import datetime, timezone
 from app.models.blandlog import BlandCallStatus
@@ -23,6 +31,11 @@ class MongoService:
     self.bland_updates: Optional[BlandUpdates] = None
     self.error_ops: Optional[ErrorOperations] = None
     self.sheets_ops: Optional[SheetsOperations] = None
+    self.quotes_ops: Optional[QuotesOperations] = None
+    self.calls_ops: Optional[CallsOperations] = None
+    self.classify_ops: Optional[ClassifyOperations] = None
+    self.location_ops: Optional[LocationOperations] = None
+    self.emails_ops: Optional[EmailsOperations] = None
     self.index_manager: Optional[IndexManager] = None
 
   async def connect_and_initialize(self):
@@ -37,6 +50,11 @@ class MongoService:
     self.bland_updates = BlandUpdates(db)
     self.error_ops = ErrorOperations(db)
     self.sheets_ops = SheetsOperations(db)
+    self.quotes_ops = QuotesOperations(db)
+    self.calls_ops = CallsOperations(db)
+    self.classify_ops = ClassifyOperations(db)
+    self.location_ops = LocationOperations(db)
+    self.emails_ops = EmailsOperations(db)
     self.index_manager = IndexManager(db)
 
     # Create indexes
@@ -212,3 +230,576 @@ class MongoService:
     if self.sheets_ops:
       return await self.sheets_ops.upsert_sheet_config_document(document_id, config_data, config_type)
     return {"success": False, "error": "Sheets operations not initialized"}
+
+  # === Quotes Operations ===
+  async def create_quote(self, quote_data: Dict[str, Any]) -> Optional[str]:
+    """Creates a new quote document."""
+    if self.quotes_ops:
+      return await self.quotes_ops.create_quote(quote_data)
+    return None
+
+  async def update_quote(self, quote_id: str, update_data: Dict[str, Any]) -> bool:
+    """Updates an existing quote document."""
+    if self.quotes_ops:
+      return await self.quotes_ops.update_quote(quote_id, update_data)
+    return False
+
+  async def get_quote(self, quote_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves a quote by ID."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quote(quote_id)
+    return None
+
+  async def get_quotes_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Retrieves quotes for a specific contact."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quotes_by_contact(contact_id, limit)
+    return []
+
+  async def get_quote_stats(self) -> Dict[str, int]:
+    """Retrieves statistics about quotes."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quote_stats()
+    return {"total_quotes": 0}
+
+  # === Quote Pagination Methods ===
+  async def get_recent_quotes(self, limit: int = 10, offset: int = 0):
+    """Get recent quotes ordered by creation date (newest first)."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_recent_quotes(limit, offset)
+    return []
+
+  async def get_oldest_quotes(self, limit: int = 10, offset: int = 0):
+    """Get oldest quotes ordered by creation date (oldest first)."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_oldest_quotes(limit, offset)
+    return []
+
+  async def get_quotes_by_value(self, limit: int = 10, offset: int = 0, ascending: bool = True):
+    """Get quotes ordered by total amount."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quotes_by_value(limit, offset, ascending)
+    return []
+
+  async def get_quotes_by_status(self, status, limit: int = 10, offset: int = 0):
+    """Get quotes filtered by status."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quotes_by_status(status, limit, offset)
+    return []
+
+  async def get_quotes_by_product_type(self, product_type: str, limit: int = 10, offset: int = 0):
+    """Get quotes filtered by product type."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quotes_by_product_type(product_type, limit, offset)
+    return []
+
+  async def get_quote_by_id(self, quote_id: str):
+    """Get a single quote by ID."""
+    if self.quotes_ops:
+      return await self.quotes_ops.get_quote_by_id(quote_id)
+    return None
+
+  async def count_quotes(self) -> int:
+    """Count total quotes."""
+    if self.quotes_ops:
+      return await self.quotes_ops.count_quotes()
+    return 0
+
+  async def count_quotes_by_status(self, status) -> int:
+    """Count quotes by status."""
+    if self.quotes_ops:
+      return await self.quotes_ops.count_quotes_by_status(status)
+    return 0
+
+  async def count_quotes_by_product_type(self, product_type: str) -> int:
+    """Count quotes by product type."""
+    if self.quotes_ops:
+      return await self.quotes_ops.count_quotes_by_product_type(product_type)
+    return 0
+
+  # === Calls Operations ===
+  async def create_call(self, call_data: Dict[str, Any]) -> Optional[str]:
+    """Creates a new call document."""
+    if self.calls_ops:
+      return await self.calls_ops.create_call(call_data)
+    return None
+
+  async def update_call(self, call_id: str, update_data: Dict[str, Any]) -> bool:
+    """Updates an existing call document."""
+    if self.calls_ops:
+      return await self.calls_ops.update_call(call_id, update_data)
+    return False
+
+  async def get_call(self, call_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves a call by ID."""
+    if self.calls_ops:
+      return await self.calls_ops.get_call(call_id)
+    return None
+
+  async def get_call_by_contact(self, contact_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves the most recent call for a contact."""
+    if self.calls_ops:
+      return await self.calls_ops.get_call_by_contact(contact_id)
+    return None
+
+  async def get_calls_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Retrieves calls for a specific contact."""
+    if self.calls_ops:
+      return await self.calls_ops.get_calls_by_contact(contact_id, limit)
+    return []
+
+  async def get_call_stats(self) -> Dict[str, int]:
+    """Retrieves statistics about calls."""
+    if self.calls_ops:
+      return await self.calls_ops.get_call_stats()
+    return {"total_calls": 0}
+
+  # === Calls Pagination Methods ===
+  async def get_recent_calls(self, limit: int = 10, offset: int = 0):
+    """Get recent calls ordered by creation date (newest first)."""
+    if self.calls_ops:
+      return await self.calls_ops.get_recent_calls(limit, offset)
+    return []
+
+  async def get_oldest_calls(self, limit: int = 10, offset: int = 0):
+    """Get oldest calls ordered by creation date (oldest first)."""
+    if self.calls_ops:
+      return await self.calls_ops.get_oldest_calls(limit, offset)
+    return []
+
+  async def get_calls_by_status(self, status, limit: int = 10, offset: int = 0):
+    """Get calls filtered by status."""
+    if self.calls_ops:
+      return await self.calls_ops.get_calls_by_status(status, limit, offset)
+    return []
+
+  async def get_calls_by_duration(self, limit: int = 10, offset: int = 0, ascending: bool = True):
+    """Get calls ordered by duration."""
+    if self.calls_ops:
+      return await self.calls_ops.get_calls_by_duration(limit, offset, ascending)
+    return []
+
+  async def get_calls_by_source(self, source: str, limit: int = 10, offset: int = 0):
+    """Get calls filtered by source."""
+    if self.calls_ops:
+      return await self.calls_ops.get_calls_by_source(source, limit, offset)
+    return []
+
+  async def get_call_by_id(self, call_id: str):
+    """Get a single call by ID."""
+    if self.calls_ops:
+      return await self.calls_ops.get_call_by_id(call_id)
+    return None
+
+  async def count_calls(self) -> int:
+    """Count total calls."""
+    if self.calls_ops:
+      return await self.calls_ops.count_calls()
+    return 0
+
+  async def count_calls_by_status(self, status) -> int:
+    """Count calls by status."""
+    if self.calls_ops:
+      return await self.calls_ops.count_calls_by_status(status)
+    return 0
+
+  async def count_calls_by_source(self, source: str) -> int:
+    """Count calls by source."""
+    if self.calls_ops:
+      return await self.calls_ops.count_calls_by_source(source)
+    return 0
+
+  # === Classify Operations ===
+  async def create_classify(self, classify_data: Dict[str, Any]) -> Optional[str]:
+    """Creates a new classification document."""
+    if self.classify_ops:
+      return await self.classify_ops.create_classify(classify_data)
+    return None
+
+  async def update_classify(self, classify_id: str, update_data: Dict[str, Any]) -> bool:
+    """Updates an existing classification document."""
+    if self.classify_ops:
+      return await self.classify_ops.update_classify(classify_id, update_data)
+    return False
+
+  async def get_classify(self, classify_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves a classification by ID."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classify(classify_id)
+    return None
+
+  async def get_classify_by_contact(self, contact_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves the most recent classification for a contact."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classify_by_contact(contact_id)
+    return None
+
+  async def get_classifications_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Retrieves classifications for a specific contact."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classifications_by_contact(contact_id, limit)
+    return []
+
+  async def get_classifications_requiring_review(self, limit: int = 100) -> List[Dict[str, Any]]:
+    """Retrieves classifications that require human review."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classifications_requiring_review(limit)
+    return []
+
+  async def get_classify_stats(self) -> Dict[str, int]:
+    """Retrieves statistics about classifications."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classify_stats()
+    return {"total_classifications": 0}
+
+  # === Classify Pagination Operations ===
+  async def get_recent_classifications(self, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves recent classifications with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_recent_classifications(offset)
+    return []
+
+  async def get_oldest_classifications(self, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves oldest classifications with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_oldest_classifications(offset)
+    return []
+
+  async def get_successful_classifications(self, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves successful classifications with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_successful_classifications(offset)
+    return []
+
+  async def get_failed_classifications(self, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves failed classifications with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_failed_classifications(offset)
+    return []
+
+  async def get_disqualified_classifications(self, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves disqualified classifications with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_disqualified_classifications(offset)
+    return []
+
+  async def get_classifications_by_lead_type(self, lead_type: str, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves classifications by lead type with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classifications_by_lead_type(lead_type, offset)
+    return []
+
+  async def get_classifications_by_confidence(self, min_confidence: float, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves classifications by confidence level with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classifications_by_confidence(min_confidence, offset)
+    return []
+
+  async def get_classifications_by_source(self, source: str, offset: int = 0) -> List[ClassifyDocument]:
+    """Retrieves classifications by source with pagination."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classifications_by_source(source, offset)
+    return []
+
+  async def get_classification_by_id(self, classification_id: str) -> Optional[ClassifyDocument]:
+    """Retrieves a single classification by ID."""
+    if self.classify_ops:
+      return await self.classify_ops.get_classification_by_id(classification_id)
+    return None
+
+  async def count_all_classifications(self) -> int:
+    """Counts all classifications."""
+    if self.classify_ops:
+      return await self.classify_ops.count_all_classifications()
+    return 0
+
+  async def count_classifications_by_status(self, status: str) -> int:
+    """Counts classifications by status."""
+    if self.classify_ops:
+      # Convert string to ClassifyStatus enum
+      try:
+        status_enum = ClassifyStatus(status)
+        return await self.classify_ops.count_classifications_by_status(status_enum)
+      except ValueError:
+        return 0
+    return 0
+
+  async def count_classifications_by_lead_type(self, lead_type: str) -> int:
+    """Counts classifications by lead type."""
+    if self.classify_ops:
+      return await self.classify_ops.count_classifications_by_lead_type(lead_type)
+    return 0
+
+  async def count_classifications_by_confidence(self, min_confidence: float) -> int:
+    """Counts classifications by confidence level."""
+    if self.classify_ops:
+      return await self.classify_ops.count_classifications_by_confidence(min_confidence)
+    return 0
+
+  async def count_classifications_by_source(self, source: str) -> int:
+    """Counts classifications by source."""
+    if self.classify_ops:
+      return await self.classify_ops.count_classifications_by_source(source)
+    return 0
+
+  # === Location Operations ===
+  async def create_location(self, location_data: Dict[str, Any]) -> Optional[str]:
+    """Creates a new location document."""
+    if self.location_ops:
+      return await self.location_ops.create_location(location_data)
+    return None
+
+  async def update_location(self, location_id: str, update_data: Dict[str, Any]) -> bool:
+    """Updates an existing location document."""
+    if self.location_ops:
+      return await self.location_ops.update_location(location_id, update_data)
+    return False
+
+  async def get_location(self, location_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves a location by ID."""
+    if self.location_ops:
+      return await self.location_ops.get_location(location_id)
+    return None
+
+  async def get_location_by_address(self, delivery_location: str) -> Optional[Dict[str, Any]]:
+    """Retrieves a location by delivery address."""
+    if self.location_ops:
+      return await self.location_ops.get_location_by_address(delivery_location)
+    return None
+
+  async def get_locations_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Retrieves locations for a specific contact."""
+    if self.location_ops:
+      return await self.location_ops.get_locations_by_contact(contact_id, limit)
+    return []
+
+  async def get_location_stats(self) -> Dict[str, int]:
+    """Retrieves statistics about locations."""
+    if self.location_ops:
+      return await self.location_ops.get_location_stats()
+    return {"total_locations": 0}
+
+  # === Location Pagination Operations ===
+  async def get_recent_locations(self, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves recent locations with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_recent_locations(offset)
+    return []
+
+  async def get_oldest_locations(self, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves oldest locations with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_oldest_locations(offset)
+    return []
+
+  async def get_successful_locations(self, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves successful locations with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_successful_locations(offset)
+    return []
+
+  async def get_failed_locations(self, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves failed locations with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_failed_locations(offset)
+    return []
+
+  async def get_pending_locations(self, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves pending locations with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_pending_locations(offset)
+    return []
+
+  async def get_locations_by_distance(self, ascending: bool = True, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves locations sorted by distance with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_locations_by_distance(ascending, offset)
+    return []
+
+  async def get_locations_by_branch(self, branch: str, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves locations by branch with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_locations_by_branch(branch, offset)
+    return []
+
+  async def get_locations_with_fallback(self, offset: int = 0) -> List[LocationDocument]:
+    """Retrieves locations that used fallback method with pagination."""
+    if self.location_ops:
+      return await self.location_ops.get_locations_with_fallback(offset)
+    return []
+
+  async def get_location_by_id(self, location_id: str) -> Optional[LocationDocument]:
+    """Retrieves a single location by ID."""
+    if self.location_ops:
+      return await self.location_ops.get_location_by_id(location_id)
+    return None
+
+  async def count_all_locations(self) -> int:
+    """Counts all locations."""
+    if self.location_ops:
+      return await self.location_ops.count_all_locations()
+    return 0
+
+  async def count_locations_by_status(self, status: str) -> int:
+    """Counts locations by status."""
+    if self.location_ops:
+      return await self.location_ops.count_locations_by_status(status)
+    return 0
+
+  async def count_locations_by_branch(self, branch: str) -> int:
+    """Counts locations by branch."""
+    if self.location_ops:
+      return await self.location_ops.count_locations_by_branch(branch)
+    return 0
+
+  async def count_locations_with_fallback(self) -> int:
+    """Counts locations that used fallback method."""
+    if self.location_ops:
+      return await self.location_ops.count_locations_with_fallback()
+    return 0
+
+  # === Emails Operations ===
+  async def create_email(self, email_data: Dict[str, Any]) -> Optional[str]:
+    """Creates a new email document."""
+    if self.emails_ops:
+      return await self.emails_ops.create_email(email_data)
+    return None
+
+  async def update_email(self, email_id: str, update_data: Dict[str, Any]) -> bool:
+    """Updates an existing email document."""
+    if self.emails_ops:
+      return await self.emails_ops.update_email(email_id, update_data)
+    return False
+
+  async def get_email(self, email_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves an email by ID."""
+    if self.emails_ops:
+      return await self.emails_ops.get_email(email_id)
+    return None
+
+  async def get_email_by_message_id(self, message_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves an email by message ID."""
+    if self.emails_ops:
+      return await self.emails_ops.get_email_by_message_id(message_id)
+    return None
+
+  async def get_emails_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Retrieves emails for a specific contact."""
+    if self.emails_ops:
+      return await self.emails_ops.get_emails_by_contact(contact_id, limit)
+    return []
+
+  async def get_emails_by_thread(self, thread_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Retrieves emails in a specific thread."""
+    if self.emails_ops:
+      return await self.emails_ops.get_emails_by_thread(thread_id, limit)
+    return []
+
+  async def get_email_stats(self) -> Dict[str, int]:
+    """Retrieves statistics about emails."""
+    if self.emails_ops:
+      return await self.emails_ops.get_email_stats()
+    return {"total_emails": 0}
+
+  async def compose_email_for_n8n(self, email_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Composes an email document for n8n sending."""
+    if self.emails_ops:
+      return await self.emails_ops.compose_email_for_n8n(email_data)
+    return {}
+
+  # === Emails Pagination Operations ===
+  async def get_recent_emails(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves recent emails with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_recent_emails(offset)
+    return []
+
+  async def get_oldest_emails(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves oldest emails with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_oldest_emails(offset)
+    return []
+
+  async def get_successful_emails(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves successful emails with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_successful_emails(offset)
+    return []
+
+  async def get_failed_emails(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves failed emails with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_failed_emails(offset)
+    return []
+
+  async def get_pending_emails(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves pending emails with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_pending_emails(offset)
+    return []
+
+  async def get_emails_by_category(self, category: str, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves emails by category with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_emails_by_category(category, offset)
+    return []
+
+  async def get_emails_by_direction(self, direction: str, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves emails by direction with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_emails_by_direction(direction, offset)
+    return []
+
+  async def get_emails_with_attachments(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves emails with attachments with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_emails_with_attachments(offset)
+    return []
+
+  async def get_processed_emails(self, offset: int = 0) -> List[EmailDocument]:
+    """Retrieves processed emails with pagination."""
+    if self.emails_ops:
+      return await self.emails_ops.get_processed_emails(offset)
+    return []
+
+  async def get_email_by_id(self, email_id: str) -> Optional[EmailDocument]:
+    """Retrieves a single email by ID."""
+    if self.emails_ops:
+      return await self.emails_ops.get_email_by_id(email_id)
+    return None
+
+  async def count_all_emails(self) -> int:
+    """Counts all emails."""
+    if self.emails_ops:
+      return await self.emails_ops.count_all_emails()
+    return 0
+
+  async def count_emails_by_status(self, status: str) -> int:
+    """Counts emails by status."""
+    if self.emails_ops:
+      return await self.emails_ops.count_emails_by_status(status)
+    return 0
+
+  async def count_emails_by_category(self, category: str) -> int:
+    """Counts emails by category."""
+    if self.emails_ops:
+      return await self.emails_ops.count_emails_by_category(category)
+    return 0
+
+  async def count_emails_by_direction(self, direction: str) -> int:
+    """Counts emails by direction."""
+    if self.emails_ops:
+      return await self.emails_ops.count_emails_by_direction(direction)
+    return 0
+
+  async def count_emails_with_attachments(self) -> int:
+    """Counts emails with attachments."""
+    if self.emails_ops:
+      return await self.emails_ops.count_emails_with_attachments()
+    return 0
+
+  async def count_processed_emails(self) -> int:
+    """Counts processed emails."""
+    if self.emails_ops:
+      return await self.emails_ops.count_processed_emails()
+    return 0

@@ -1,6 +1,6 @@
 # app/api/v1/endpoints/webhooks/hubspot.py
 
-from fastapi import APIRouter, BackgroundTasks, Body, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, Depends
 import logfire
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
@@ -15,6 +15,7 @@ from app.models.common import GenericResponse
 # Import services
 from app.services.hubspot import hubspot_manager
 from app.services.classify.classification import classification_manager
+from app.services.mongo import MongoService, get_mongo_service  # Added import
 
 # Import helpers
 from .helpers import (
@@ -22,6 +23,12 @@ from .helpers import (
     _trigger_bland_call_for_hubspot,
     _update_hubspot_lead_after_classification,
     prepare_classification_input
+)
+
+# Import background tasks
+from app.services.background.mongo.tasks import (
+    log_classify_bg,
+    log_email_bg
 )
 
 router = APIRouter()
@@ -49,7 +56,8 @@ def _extract_simple_properties(properties: Dict[str, Optional[HubSpotPropertyDet
 async def webhook_hubspot(
     # Use the updated payload model
     payload: HubSpotContactDataPayload = Body(...),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    mongo_service: MongoService = Depends(get_mongo_service)
 ) -> GenericResponse[HubSpotWebhookResponseData]:
   """
   Receives direct contact data payload from HubSpot (e.g., via Workflow).
@@ -108,6 +116,28 @@ async def webhook_hubspot(
     logfire.info("Classification result received for HubSpot contact.",
                  contact_id=contact_id,
                  classification=classification_result.model_dump(exclude={"input_data"}))
+
+    # Log classification to MongoDB in background
+    if classification_result.classification:
+      classify_data = {
+          "id": f"classify_hubspot_{contact_id}",
+          "contact_id": contact_id,
+          "source": "hubspot",
+          "status": "COMPLETED" if classification_result.status == "success" else "FAILED",
+          "lead_type": classification_result.classification.lead_type,
+          "routing_suggestion": classification_result.classification.routing_suggestion,
+          "confidence": classification_result.classification.confidence,
+          "reasoning": classification_result.classification.reasoning,
+          "requires_human_review": classification_result.classification.requires_human_review,
+          "classification_results": classification_result.classification.model_dump(),
+          "input_data": classification_input.model_dump(),
+          "processing_time": 0
+      }
+      background_tasks.add_task(
+          log_classify_bg,
+          mongo_service=mongo_service,
+          classify_data=classify_data
+      )
 
     # Create Lead, Update Lead, and Notify n8n (background)
     background_tasks.add_task(

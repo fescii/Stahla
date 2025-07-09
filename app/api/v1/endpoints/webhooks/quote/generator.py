@@ -27,6 +27,8 @@ from app.core.keys import (
     SUCCESS_QUOTE_REQUESTS_KEY,
     ERROR_QUOTE_REQUESTS_KEY,
 )
+from app.services.background.mongo.tasks import log_quote_bg
+from app.services.mongo import MongoService, get_mongo_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,6 +40,7 @@ async def quote_webhook(
     background_tasks: BackgroundTasks,
     quote_service: QuoteService = Depends(get_quote_service_dep),
     redis_service: RedisService = Depends(get_redis_service),
+    mongo_service: MongoService = Depends(get_mongo_service),
     api_key: str = Depends(get_api_key),
 ) -> GenericResponse[QuoteResponse]:
   """
@@ -89,6 +92,25 @@ async def quote_webhook(
         payload.delivery_location if hasattr(
             payload, 'delivery_location') else None
     )
+
+    # Log quote to MongoDB in background
+    quote_data = {
+        "id": f"quote_{request_id}",
+        "request_id": request_id,
+        "contact_id": getattr(payload, 'contact_id', None),
+        "delivery_location": payload.delivery_location,
+        "trailer_type": payload.trailer_type,
+        "usage_type": payload.usage_type,
+        "rental_days": payload.rental_days,
+        "rental_start_date": str(payload.rental_start_date) if payload.rental_start_date else None,
+        "total_amount": quote_response_data.quote.subtotal if quote_response_data else 0,
+        "status": "COMPLETED",
+        "processing_time_ms": processing_time_ms,
+        "quote_details": quote_response_data.model_dump() if quote_response_data else {},
+        "extras": [{"extra_id": extra.extra_id, "qty": extra.qty} for extra in payload.extras] if payload.extras else []
+    }
+    background_tasks.add_task(
+        log_quote_bg, mongo_service, quote_data, request_id)
 
     return GenericResponse(data=quote_response_data)
 

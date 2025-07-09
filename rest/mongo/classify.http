@@ -1,0 +1,75 @@
+### MongoDB Classify Endpoints
+# These endpoints provide paginated access to classifications with various filters
+
+# --- Variables ---
+@host = http://localhost:8000
+@api_key = your_api_key_here
+@auth_token = Bearer {{api_key}}
+
+### Get Recent Classifications (Page 1)
+GET {{host}}/api/v1/mongo/classify/recent?page=1
+Authorization: {{auth_token}}
+
+### Get Recent Classifications (Page 2)
+GET {{host}}/api/v1/mongo/classify/recent?page=2
+Authorization: {{auth_token}}
+
+### Get Oldest Classifications (Page 1)
+GET {{host}}/api/v1/mongo/classify/oldest?page=1
+Authorization: {{auth_token}}
+
+### Get Successful Classifications (Page 1)
+GET {{host}}/api/v1/mongo/classify/successful?page=1
+Authorization: {{auth_token}}
+
+### Get Failed Classifications (Page 1)
+GET {{host}}/api/v1/mongo/classify/failed?page=1
+Authorization: {{auth_token}}
+
+### Get Disqualified Classifications (Page 1)
+GET {{host}}/api/v1/mongo/classify/disqualified?page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Lead Type - Services (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-lead-type?lead_type=Services&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Lead Type - Logistics (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-lead-type?lead_type=Logistics&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Lead Type - Leads (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-lead-type?lead_type=Leads&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Confidence Level - High (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-confidence?min_confidence=0.8&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Confidence Level - Medium (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-confidence?min_confidence=0.5&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Confidence Level - Low (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-confidence?min_confidence=0.1&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Source - WebForm (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-source?source=webform&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Source - Voice (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-source?source=voice&page=1
+Authorization: {{auth_token}}
+
+### Get Classifications by Source - Email (Page 1)
+GET {{host}}/api/v1/mongo/classify/by-source?source=email&page=1
+Authorization: {{auth_token}}
+
+### Get Classification by ID
+GET {{host}}/api/v1/mongo/classify/classification_id_here
+Authorization: {{auth_token}}
+
+### Sample Classification ID lookup
+GET {{host}}/api/v1/mongo/classify/67890abcdef1234567890abc
+Authorization: {{auth_token}}

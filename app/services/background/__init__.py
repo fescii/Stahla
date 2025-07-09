@@ -13,6 +13,18 @@ from .latency import (
     record_external_api_latency_bg
 )
 from .util import attach_background_tasks
+from .mongo import (
+    log_quote_bg,
+    log_call_bg,
+    log_classify_bg,
+    log_location_bg,
+    log_email_bg,
+    update_quote_status_bg,
+    update_call_status_bg,
+    update_classify_status_bg,
+    update_location_status_bg,
+    update_email_status_bg
+)
 
 __all__ = [
     "log_request_response_bg",
@@ -23,5 +35,15 @@ __all__ = [
     "record_quote_latency_bg",
     "record_location_latency_bg",
     "record_external_api_latency_bg",
-    "attach_background_tasks"
+    "attach_background_tasks",
+    "log_quote_bg",
+    "log_call_bg",
+    "log_classify_bg",
+    "log_location_bg",
+    "log_email_bg",
+    "update_quote_status_bg",
+    "update_call_status_bg",
+    "update_classify_status_bg",
+    "update_location_status_bg",
+    "update_email_status_bg"
 ]

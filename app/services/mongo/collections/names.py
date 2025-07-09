@@ -13,3 +13,10 @@ BLAND_CALL_LOGS_COLLECTION = "bland_call_logs"
 ERROR_LOGS_COLLECTION = "error_logs"
 STATS_COLLECTION = "dashboard_stats"
 SERVICE_STATUS_COLLECTION = "service_status"
+
+# New collections for core business data
+QUOTES_COLLECTION = "quotes"
+CALLS_COLLECTION = "calls"
+CLASSIFY_COLLECTION = "classify"
+LOCATION_COLLECTION = "location"
+EMAILS_COLLECTION = "emails"

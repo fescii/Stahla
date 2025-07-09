@@ -1,0 +1,138 @@
+### MongoDB Pagination Endpoints Overview
+# This file provides an overview of all MongoDB pagination endpoints
+
+# --- Variables ---
+@host = http://localhost:8000
+@api_key = your_api_key_here
+@auth_token = Bearer {{api_key}}
+
+# ===========================================
+# PAGINATION PATTERN
+# ===========================================
+# All endpoints follow the same pagination pattern:
+# - page: Page number starting from 1
+# - limit: Hardcoded to 10 items per page
+# - offset: Calculated as (page - 1) * 10
+# 
+# Response format:
+# {
+#   "items": [...],
+#   "page": 1,
+#   "limit": 10,
+#   "total": 100,
+#   "has_more": true
+# }
+
+# ===========================================
+# QUOTES ENDPOINTS
+# ===========================================
+# Base URL: /api/v1/mongo/quotes/
+
+### Recent Quotes
+GET {{host}}/api/v1/mongo/quotes/recent?page=1
+Authorization: {{auth_token}}
+
+### Oldest Quotes
+GET {{host}}/api/v1/mongo/quotes/oldest?page=1
+Authorization: {{auth_token}}
+
+### Highest Value Quotes
+GET {{host}}/api/v1/mongo/quotes/highest?page=1
+Authorization: {{auth_token}}
+
+### Lowest Value Quotes
+GET {{host}}/api/v1/mongo/quotes/lowest?page=1
+Authorization: {{auth_token}}
+
+# ===========================================
+# CALLS ENDPOINTS
+# ===========================================
+# Base URL: /api/v1/mongo/calls/
+
+### Recent Calls
+GET {{host}}/api/v1/mongo/calls/recent?page=1
+Authorization: {{auth_token}}
+
+### Successful Calls
+GET {{host}}/api/v1/mongo/calls/successful?page=1
+Authorization: {{auth_token}}
+
+### Failed Calls
+GET {{host}}/api/v1/mongo/calls/failed?page=1
+Authorization: {{auth_token}}
+
+# ===========================================
+# CLASSIFY ENDPOINTS
+# ===========================================
+# Base URL: /api/v1/mongo/classify/
+
+### Recent Classifications
+GET {{host}}/api/v1/mongo/classify/recent?page=1
+Authorization: {{auth_token}}
+
+### Successful Classifications
+GET {{host}}/api/v1/mongo/classify/successful?page=1
+Authorization: {{auth_token}}
+
+### Disqualified Classifications
+GET {{host}}/api/v1/mongo/classify/disqualified?page=1
+Authorization: {{auth_token}}
+
+# ===========================================
+# LOCATION ENDPOINTS
+# ===========================================
+# Base URL: /api/v1/mongo/location/
+
+### Recent Locations
+GET {{host}}/api/v1/mongo/location/recent?page=1
+Authorization: {{auth_token}}
+
+### Successful Locations
+GET {{host}}/api/v1/mongo/location/successful?page=1
+Authorization: {{auth_token}}
+
+### Locations by Distance
+GET {{host}}/api/v1/mongo/location/by-distance?ascending=true&page=1
+Authorization: {{auth_token}}
+
+# ===========================================
+# EMAILS ENDPOINTS
+# ===========================================
+# Base URL: /api/v1/mongo/emails/
+
+### Recent Emails
+GET {{host}}/api/v1/mongo/emails/recent?page=1
+Authorization: {{auth_token}}
+
+### Successful Emails
+GET {{host}}/api/v1/mongo/emails/successful?page=1
+Authorization: {{auth_token}}
+
+### Emails by Category
+GET {{host}}/api/v1/mongo/emails/by-category?category=sent&page=1
+Authorization: {{auth_token}}
+
+# ===========================================
+# INDIVIDUAL RECORD ENDPOINTS
+# ===========================================
+# Each collection has a /{id} endpoint for single record access
+
+### Get Quote by ID
+GET {{host}}/api/v1/mongo/quotes/67890abcdef1234567890abc
+Authorization: {{auth_token}}
+
+### Get Call by ID
+GET {{host}}/api/v1/mongo/calls/67890abcdef1234567890abc
+Authorization: {{auth_token}}
+
+### Get Classification by ID
+GET {{host}}/api/v1/mongo/classify/67890abcdef1234567890abc
+Authorization: {{auth_token}}
+
+### Get Location by ID
+GET {{host}}/api/v1/mongo/location/67890abcdef1234567890abc
+Authorization: {{auth_token}}
+
+### Get Email by ID
+GET {{host}}/api/v1/mongo/emails/67890abcdef1234567890abc
+Authorization: {{auth_token}}

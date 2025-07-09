@@ -11,11 +11,13 @@ from app.models.location import LocationLookupRequest
 from app.models.common import GenericResponse, MessageResponse
 from app.services.location import LocationService
 from app.services.redis.service import RedisService
+from app.services.mongo import MongoService, get_mongo_service  # Added import
 from app.core.dependencies import get_location_service_dep
 from app.services.redis.factory import get_redis_service
 from app.core.security import get_api_key
 from app.services.background.util import attach_background_tasks
 from app.services.dash.background import increment_request_counter_bg
+from app.services.background.mongo.tasks import log_location_bg  # Added import
 from app.core.keys import TOTAL_LOCATION_LOOKUPS_KEY
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,8 @@ async def location_lookup_webhook(
     background_tasks: BackgroundTasks,
     location_service: LocationService = Depends(get_location_service_dep),
     redis_service: RedisService = Depends(get_redis_service),
+    mongo_service: MongoService = Depends(
+        get_mongo_service),  # Added dependency
     api_key: str = Depends(get_api_key),
 ):
   """
@@ -50,6 +54,21 @@ async def location_lookup_webhook(
   )
   background_tasks.add_task(
       increment_request_counter_bg, redis_service, TOTAL_LOCATION_LOOKUPS_KEY
+  )
+
+  # Log location lookup initiation to MongoDB in background
+  location_data = {
+      "id": f"location_async_{payload.delivery_location}",
+      "delivery_location": payload.delivery_location,
+      "source": "async_webhook",
+      "status": "INITIATED",
+      "processing_time_ms": 0,
+      "lookup_result": None  # Will be populated later by the prefetch task
+  }
+  background_tasks.add_task(
+      log_location_bg,
+      mongo_service=mongo_service,
+      location_data=location_data
   )
 
   logger.info(

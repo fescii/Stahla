@@ -1,6 +1,6 @@
 # app/api/v1/endpoints/webhooks/form.py
 
-from fastapi import APIRouter, BackgroundTasks, Body
+from fastapi import APIRouter, BackgroundTasks, Body, Depends
 import logfire
 from pydantic import BaseModel  # Added
 from typing import Optional, Any  # Added
@@ -12,9 +12,18 @@ from app.models.common import GenericResponse  # Added
 
 # Import services
 from app.services.classify.classification import classification_manager
+from app.services.mongo import MongoService, get_mongo_service  # Added import
 
 # Import helpers from the same directory
-from .helpers import _is_form_complete, _trigger_bland_call, _handle_hubspot_update
+from .helpers import _is_form_complete, _trigger_bland_call, _handle_hubspot_update, prepare_classification_input
+
+# Import background tasks
+from app.services.background.mongo.tasks import (
+    log_quote_bg,
+    log_classify_bg,
+    log_location_bg,
+    log_email_bg
+)
 
 router = APIRouter()
 
@@ -32,7 +41,8 @@ class FormWebhookResponseData(BaseModel):
 @router.post("/form", summary="Process Form Submissions", response_model=GenericResponse[FormWebhookResponseData])
 async def webhook_form(
     payload: FormPayload = Body(...),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    mongo_service: MongoService = Depends(get_mongo_service)
 ) -> GenericResponse[FormWebhookResponseData]:  # Updated return type hint
   """
   Receives form submission data, checks completeness, triggers classification,
@@ -64,44 +74,38 @@ async def webhook_form(
   # Convert FormPayload to ClassificationInput
   raw_data = payload.model_dump(mode='json')
 
-  # Map FormPayload fields to the updated ClassificationInput fields
-  classification_input = ClassificationInput(
+  # Map FormPayload fields using the helper function
+  classification_input = prepare_classification_input(
       source="webform",
       raw_data=raw_data,
-      extracted_data=payload.model_dump(),  # Pass form data as extracted
-      # Map fields directly using updated names
-      firstname=payload.firstname,
-      lastname=payload.lastname,
-      email=payload.email,
-      phone=payload.phone,
-      company=payload.company,
-      message=payload.comments,  # Use comments from FormPayload
-      # Use correct field
-      text_consent=getattr(
-          payload, 'by_submitting_this_form_you_consent_to_receive_texts', None),
-      product_interest=[
-          payload.product_interest] if payload.product_interest else [],
-      service_needed=payload.lead_type_guess,  # Use lead_type_guess from FormPayload
-      stall_count=payload.required_stalls,  # Use required_stalls from FormPayload
-      ada_required=payload.ada_required,
-      event_type=payload.event_type,
-      # Use event_location_description from FormPayload
-      event_address=payload.event_location_description,
-      event_state=payload.event_state,
-      event_city=payload.event_city,
-      event_postal_code=payload.event_postal_code,
-      duration_days=payload.duration_days,
-      event_start_date=payload.start_date,  # Use start_date from FormPayload
-      event_end_date=payload.end_date,  # Use end_date from FormPayload
-      guest_count=payload.guest_count,
-      # Add other relevant mappings if FormPayload has them
-      # ...
+      extracted_data=payload.model_dump()
   )
 
   # Trigger classification using the manager
   classification_result = await classification_manager.classify_lead_data(classification_input)
   logfire.info("Classification result received.",
                classification=classification_result.model_dump(exclude_none=True))
+
+  # Log classification to MongoDB in background
+  if classification_result.classification:
+    classify_data = {
+        "id": f"classify_form_{payload.email or 'unknown'}",
+        "source": "webform",
+        "status": "COMPLETED" if classification_result.status == "success" else "FAILED",
+        "lead_type": classification_result.classification.lead_type,
+        "routing_suggestion": classification_result.classification.routing_suggestion,
+        "confidence": classification_result.classification.confidence,
+        "reasoning": classification_result.classification.reasoning,
+        "requires_human_review": classification_result.classification.requires_human_review,
+        "classification_results": classification_result.classification.model_dump(),
+        "input_data": classification_input.model_dump(),
+        "processing_time": 0
+    }
+    background_tasks.add_task(
+        log_classify_bg,
+        mongo_service=mongo_service,
+        classify_data=classify_data
+    )
 
   # --- HubSpot Integration --- #
   classification_output = classification_result.classification

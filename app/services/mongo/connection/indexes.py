@@ -27,6 +27,12 @@ class IndexManager:
       await self._create_error_indexes()
       await self._create_service_status_indexes()
       await self._create_stats_indexes()
+      # New collections
+      await self._create_quotes_indexes()
+      await self._create_calls_indexes()
+      await self._create_classify_indexes()
+      await self._create_location_indexes()
+      await self._create_emails_indexes()
     except Exception as e:
       logfire.error(f"Error creating MongoDB indexes: {e}", exc_info=True)
 
@@ -163,3 +169,125 @@ class IndexManager:
     logfire.info(
         f"Index 'stats_id_idx' ensured for collection '{STATS_COLLECTION}'."
     )
+
+  async def _create_quotes_indexes(self):
+    """Creates indexes for quotes collection."""
+    quotes_collection = self.db[QUOTES_COLLECTION]
+
+    await quotes_collection.create_index(
+        [("contact_id", ASCENDING)], name="quotes_contact_id_idx", sparse=True
+    )
+    await quotes_collection.create_index(
+        [("status", ASCENDING)], name="quotes_status_idx"
+    )
+    await quotes_collection.create_index(
+        [("created_at", DESCENDING)], name="quotes_created_at_idx"
+    )
+    await quotes_collection.create_index(
+        [("total_amount", ASCENDING)], name="quotes_total_amount_idx", sparse=True
+    )
+    await quotes_collection.create_index(
+        [("valid_until", ASCENDING)], name="quotes_valid_until_idx", sparse=True
+    )
+
+    logfire.info(f"Indexes ensured for collection '{QUOTES_COLLECTION}'.")
+
+  async def _create_calls_indexes(self):
+    """Creates indexes for calls collection."""
+    calls_collection = self.db[CALLS_COLLECTION]
+
+    await calls_collection.create_index(
+        [("contact_id", ASCENDING)], name="calls_contact_id_idx", sparse=True
+    )
+    await calls_collection.create_index(
+        [("status", ASCENDING)], name="calls_status_idx"
+    )
+    await calls_collection.create_index(
+        [("created_at", DESCENDING)], name="calls_created_at_idx"
+    )
+    await calls_collection.create_index(
+        [("phone_number", ASCENDING)], name="calls_phone_number_idx"
+    )
+    await calls_collection.create_index(
+        [("call_id_bland", ASCENDING)], name="calls_bland_id_idx", sparse=True
+    )
+
+    logfire.info(f"Indexes ensured for collection '{CALLS_COLLECTION}'.")
+
+  async def _create_classify_indexes(self):
+    """Creates indexes for classify collection."""
+    classify_collection = self.db[CLASSIFY_COLLECTION]
+
+    await classify_collection.create_index(
+        [("contact_id", ASCENDING)], name="classify_contact_id_idx", sparse=True
+    )
+    await classify_collection.create_index(
+        [("status", ASCENDING)], name="classify_status_idx"
+    )
+    await classify_collection.create_index(
+        [("lead_type", ASCENDING)], name="classify_lead_type_idx", sparse=True
+    )
+    await classify_collection.create_index(
+        [("requires_human_review", ASCENDING)], name="classify_requires_review_idx"
+    )
+    await classify_collection.create_index(
+        [("created_at", DESCENDING)], name="classify_created_at_idx"
+    )
+    await classify_collection.create_index(
+        [("source", ASCENDING)], name="classify_source_idx"
+    )
+
+    logfire.info(f"Indexes ensured for collection '{CLASSIFY_COLLECTION}'.")
+
+  async def _create_location_indexes(self):
+    """Creates indexes for location collection."""
+    location_collection = self.db[LOCATION_COLLECTION]
+
+    await location_collection.create_index(
+        [("contact_id", ASCENDING)], name="location_contact_id_idx", sparse=True
+    )
+    await location_collection.create_index(
+        [("status", ASCENDING)], name="location_status_idx"
+    )
+    await location_collection.create_index(
+        [("delivery_location", ASCENDING)], name="location_delivery_location_idx"
+    )
+    await location_collection.create_index(
+        [("within_service_area", ASCENDING)], name="location_within_service_area_idx", sparse=True
+    )
+    await location_collection.create_index(
+        [("created_at", DESCENDING)], name="location_created_at_idx"
+    )
+
+    logfire.info(f"Indexes ensured for collection '{LOCATION_COLLECTION}'.")
+
+  async def _create_emails_indexes(self):
+    """Creates indexes for emails collection."""
+    emails_collection = self.db[EMAILS_COLLECTION]
+
+    await emails_collection.create_index(
+        [("contact_id", ASCENDING)], name="emails_contact_id_idx", sparse=True
+    )
+    await emails_collection.create_index(
+        [("category", ASCENDING)], name="emails_category_idx"
+    )
+    await emails_collection.create_index(
+        [("status", ASCENDING)], name="emails_status_idx"
+    )
+    await emails_collection.create_index(
+        [("direction", ASCENDING)], name="emails_direction_idx"
+    )
+    await emails_collection.create_index(
+        [("message_id", ASCENDING)], name="emails_message_id_idx", sparse=True
+    )
+    await emails_collection.create_index(
+        [("thread_id", ASCENDING)], name="emails_thread_id_idx", sparse=True
+    )
+    await emails_collection.create_index(
+        [("created_at", DESCENDING)], name="emails_created_at_idx"
+    )
+    await emails_collection.create_index(
+        [("from_email", ASCENDING)], name="emails_from_email_idx", sparse=True
+    )
+
+    logfire.info(f"Indexes ensured for collection '{EMAILS_COLLECTION}'.")
