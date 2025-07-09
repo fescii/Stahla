@@ -139,61 +139,9 @@ export default class AppMain extends HTMLElement {
     }
   }
 
-  getRenderedContent = contentContainer => {
-    return contentContainer.innerHTML;
-  }
-
   setUpEvents = () => {
     // set display to flex
-    this.style.setProperty('display', 'flex')
-    const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-    const currentPath = window.location.pathname;
-
-    // Only initialize default content if we're at the root or there's no specific content for this path
-    if (container && (currentPath === '/' || !this.getNavContents[currentPath])) {
-      this.initContent();
-    }
-
-    // request user to enable notifications
-    this.checkNotificationPermission();
-  }
-
-  hideNav = () => {
-    const nav = this.shadowObj.querySelector('section.nav.mobile');
-
-    if (nav) nav.style.setProperty('display', 'none');
-  }
-
-  showNav = () => {
-    const nav = this.shadowObj.querySelector('section.nav.mobile');
-
-    if (nav) nav.style.setProperty('display', 'flex');
-  }
-
-  initContent = () => {
-    // check if cookie named: x-access-token exists then show dashboard otherwise show access
-    const token = document.cookie.split('; ').find(row => row.startsWith('x-access-token='));
-    if (token) {
-      this.showDashboard();
-    } else {
-      this.showAccess();
-    }
-  }
-
-  showDashboard = () => {
-    const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-    if (container) container.innerHTML = this.getDashboard();
-  }
-
-  showAccess = () => {
-    const container = this.shadowObj.querySelector('section.flow > div#content-container.content-container');
-    if (container) container.innerHTML = this.getAccess();
-  }
-
-  checkNotificationPermission = async () => {
-    if (window.notify && !window.notify.permission) {
-      await window.notify.requestPermission();
-    }
+    this.style.setProperty('display', 'flex');
   }
 
   watchMeta = () => {
@@ -412,7 +360,7 @@ export default class AppMain extends HTMLElement {
     "/sheet/branches": /* HTML */`<sheet-branches api="/dashboard/sheet/branches"></sheet-branches>`,
     "/sheet/states": /* HTML */`<sheet-states api="/dashboard/sheet/states"></sheet-states>`,
     "/updates": /* HTML */`<soon-page url="/soon"></soon-page>`,
-    default: /* HTML */`<dash-overview api="/dashboard/overview"></dash-overview>`,
+    default: /* HTML */`<soon-page url="/soon"></soon-page>`,
   }
 
   getTemplate = (authenticated = false) => {
@@ -463,6 +411,8 @@ export default class AppMain extends HTMLElement {
         ${this.getCallsNav()}
         ${this.getClassifyNav()}
         ${this.getHubspotNav()}
+        ${this.getLocationNav()}
+        ${this.getEmailNav()}
         ${this.getTweakNav()}
       </section>
     `;
@@ -487,12 +437,10 @@ export default class AppMain extends HTMLElement {
         <li class="overview active">
           <a href="/">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
-              <path d="M13.6903 19.4567C13.5 18.9973 13.5 18.4149 13.5 17.25C13.5 16.0851 13.5 15.5027 13.6903 15.0433C13.944 14.4307 14.4307 13.944 15.0433 13.6903C15.5027 13.5 16.0851 13.5 17.25 13.5C18.4149 13.5 18.9973 13.5 19.4567 13.6903C20.0693 13.944 20.556 14.4307 20.8097 15.0433C21 15.5027 21 16.0851 21 17.25C21 18.4149 21 18.9973 20.8097 19.4567C20.556 20.0693 20.0693 20.556 19.4567 20.8097C18.9973 21 18.4149 21 17.25 21C16.0851 21 15.5027 21 15.0433 20.8097C14.4307 20.556 13.944 20.0693 13.6903 19.4567Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="round" />
-              <path d="M13.6903 8.95671C13.5 8.49728 13.5 7.91485 13.5 6.75C13.5 5.58515 13.5 5.00272 13.6903 4.54329C13.944 3.93072 14.4307 3.44404 15.0433 3.1903C15.5027 3 16.0851 3 17.25 3C18.4149 3 18.9973 3 19.4567 3.1903C20.0693 3.44404 20.556 3.93072 20.8097 4.54329C21 5.00272 21 5.58515 21 6.75C21 7.91485 21 8.49728 20.8097 8.95671C20.556 9.56928 20.0693 10.056 19.4567 10.3097C18.9973 10.5 18.4149 10.5 17.25 10.5C16.0851 10.5 15.5027 10.5 15.0433 10.3097C14.4307 10.056 13.944 9.56928 13.6903 8.95671Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="round" />
-              <path d="M3.1903 19.4567C3 18.9973 3 18.4149 3 17.25C3 16.0851 3 15.5027 3.1903 15.0433C3.44404 14.4307 3.93072 13.944 4.54329 13.6903C5.00272 13.5 5.58515 13.5 6.75 13.5C7.91485 13.5 8.49728 13.5 8.95671 13.6903C9.56928 13.944 10.056 14.4307 10.3097 15.0433C10.5 15.5027 10.5 16.0851 10.5 17.25C10.5 18.4149 10.5 18.9973 10.3097 19.4567C10.056 20.0693 9.56928 20.556 8.95671 20.8097C8.49728 21 7.91485 21 6.75 21C5.58515 21 5.00272 21 4.54329 20.8097C3.93072 20.556 3.44404 20.0693 3.1903 19.4567Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="round" />
-              <path d="M3.1903 8.95671C3 8.49728 3 7.91485 3 6.75C3 5.58515 3 5.00272 3.1903 4.54329C3.44404 3.93072 3.93072 3.44404 4.54329 3.1903C5.00272 3 5.58515 3 6.75 3C7.91485 3 8.49728 3 8.95671 3.1903C9.56928 3.44404 10.056 3.93072 10.3097 4.54329C10.5 5.00272 10.5 5.58515 10.5 6.75C10.5 7.91485 10.5 8.49728 10.3097 8.95671C10.056 9.56928 9.56928 10.056 8.95671 10.3097C8.49728 10.5 7.91485 10.5 6.75 10.5C5.58515 10.5 5.00272 10.5 4.54329 10.3097C3.93072 10.056 3.44404 9.56928 3.1903 8.95671Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="round" />
+              <path d="M3 11.9896V14.5C3 17.7998 3 19.4497 4.02513 20.4749C5.05025 21.5 6.70017 21.5 10 21.5H14C17.2998 21.5 18.9497 21.5 19.9749 20.4749C21 19.4497 21 17.7998 21 14.5V11.9896C21 10.3083 21 9.46773 20.6441 8.74005C20.2882 8.01237 19.6247 7.49628 18.2976 6.46411L16.2976 4.90855C14.2331 3.30285 13.2009 2.5 12 2.5C10.7991 2.5 9.76689 3.30285 7.70242 4.90855L5.70241 6.46411C4.37533 7.49628 3.71179 8.01237 3.3559 8.74005C3 9.46773 3 10.3083 3 11.9896Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M15.0002 17C14.2007 17.6224 13.1504 18 12.0002 18C10.8499 18 9.79971 17.6224 9.00018 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
-            <span class="text">Overview</span>
+            <span class="text">Home</span>
           </a>
         </li>
         <li class="status">
@@ -804,14 +752,85 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
-            <li class="success">
-              <a href="/hubspot/success"><span class="text">Leads</span></a>
+            <li class="leads">
+              <a href="/hubspot/leads"><span class="text">Leads</span></a>
             </li>
             <li class="contacts">
               <a href="/hubspot/contacts"><span class="text">Contacts</span></a>
             </li>
             <li class="properties">
               <a href="/hubspot/properties"><span class="text">Properties</span></a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    `;
+  }
+
+  getLocationNav = () => {
+    return /* html */`
+      <ul class="special nav">
+        <li class="location">
+          <div class="link-section">
+            <span class="left">
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M13.6177 21.367C13.1841 21.773 12.6044 22 12.0011 22C11.3978 22 10.8182 21.773 10.3845 21.367C6.41302 17.626 1.09076 13.4469 3.68627 7.37966C5.08963 4.09916 8.45834 2 12.0011 2C15.5439 2 18.9126 4.09916 20.316 7.37966C22.9082 13.4393 17.599 17.6389 13.6177 21.367Z" stroke="currentColor" stroke-width="1.8" />
+                <path d="M15.5 11C15.5 12.933 13.933 14.5 12 14.5C10.067 14.5 8.5 12.933 8.5 11C8.5 9.067 10.067 7.5 12 7.5C13.933 7.5 15.5 9.067 15.5 11Z" stroke="currentColor" stroke-width="1.8" />
+              </svg>
+              <span class="text">Location</span>
+            </span>
+            <span class="right">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </div>
+          <ul class="dropdown">
+            <li class="failed">
+              <a href="/location/failed"><span class="text">Failed</span></a>
+            </li>
+            <li class="recent">
+              <a href="/location/recent"><span class="text">Recent</span></a>
+            </li>
+            <li class="success">
+              <a href="/location/success"><span class="text">Success</span></a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    `;
+  }
+
+  getEmailNav = () => {
+    return /* html */`
+      <ul class="special nav">
+        <li class="email">
+          <div class="link-section">
+            <span class="left">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M7 8.5L9.94202 10.2394C11.6572 11.2535 12.3428 11.2535 14.058 10.2394L17 8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M2.01576 13.4756C2.08114 16.5411 2.11382 18.0739 3.24495 19.2093C4.37608 20.3448 5.95033 20.3843 9.09883 20.4634C11.0393 20.5122 12.9607 20.5122 14.9012 20.4634C18.0497 20.3843 19.6239 20.3448 20.755 19.2093C21.8862 18.0739 21.9189 16.5411 21.9842 13.4756C22.0053 12.4899 22.0053 11.51 21.9842 10.5244C21.9189 7.45883 21.8862 5.92606 20.755 4.79063C19.6239 3.6552 18.0497 3.61565 14.9012 3.53654C12.9607 3.48778 11.0393 3.48778 9.09882 3.53653C5.95033 3.61563 4.37608 3.65518 3.24495 4.79062C2.11382 5.92605 2.08113 7.45882 2.01576 10.5243C1.99474 11.51 1.99474 12.4899 2.01576 13.4756Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+              </svg>
+              <span class="text">Emails</span>
+            </span>
+            <span class="right">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </div>
+          <ul class="dropdown">
+            <li class="sent">
+              <a href="/email/sent"><span class="text">Sent</span></a>
+            </li>
+            <li class="properties">
+              <a href="/email/failed"><span class="text">Failed</span></a>
+            </li>
+            <li class="compose">
+              <a href="/email/compose"><span class="text">Compose</span></a>
+            </li>
+            <li class="received">
+              <a href="/email/received"><span class="text">Received</span></a>
             </li>
           </ul>
         </li>

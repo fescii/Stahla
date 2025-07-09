@@ -11,60 +11,7 @@ export default class Quote extends HTMLElement {
       isLoading: false,
       error: null,
       result: null,
-      secondResult: null,
-      showComparison: false,
       selectedQuote: null,
-
-      // Sample quotes for demonstration
-      sampleQuotes: [
-        {
-          id: "event-2-stall",
-          label: "Event, 2 Stall Trailer",
-          description: "Perfect for small events with limited attendance",
-          location: "Mountain View, CA",
-          body: {
-            delivery_location:
-              "1600 Amphitheatre Parkway, Mountain View, CA 94043",
-            trailer_type: "2 Stall Restroom Trailer",
-            rental_start_date: "2025-07-15",
-            rental_days: 3,
-            usage_type: "event",
-            extras: [{ extra_id: "3kW Generator", qty: 1 }],
-          },
-        },
-        {
-          id: "commercial-4-stall",
-          label: "Commercial, 4 Stall Trailer",
-          description:
-            "Ideal for medium-sized construction sites or commercial use",
-          location: "Cupertino, CA",
-          body: {
-            delivery_location: "1 Infinite Loop, Cupertino, CA 95014",
-            trailer_type: "4 Stall Restroom Trailer",
-            rental_start_date: "2025-08-01",
-            rental_days: 30,
-            usage_type: "commercial",
-            extras: [
-              { extra_id: "pump_out", qty: 2 },
-              { extra_id: "cleaning", qty: 1 },
-            ],
-          },
-        },
-        {
-          id: "event-8-stall",
-          label: "Event, 8 Stall Trailer",
-          description: "Premium solution for large events with high traffic",
-          location: "Omaha, NE",
-          body: {
-            delivery_location: "123 Main St, Omaha, NE 68102",
-            trailer_type: "8 Stall Restroom Trailer",
-            rental_start_date: "2025-09-05",
-            rental_days: 4,
-            usage_type: "event",
-            extras: [{ extra_id: "3kW Generator", qty: 1 }],
-          },
-        },
-      ],
     };
 
     this.render();
@@ -91,42 +38,6 @@ export default class Quote extends HTMLElement {
   }
 
   _setupEventListeners() {
-    // Select a sample quote card
-    const sampleCards = this.shadowObj.querySelectorAll(".sample-card");
-    if (sampleCards) {
-      sampleCards.forEach((card) => {
-        card.addEventListener("click", () => {
-          const quoteId = card.dataset.id;
-          this.state.selectedQuote = quoteId;
-
-          // Update UI to show selected card
-          sampleCards.forEach((c) => c.classList.remove("active"));
-          card.classList.add("active");
-        });
-      });
-    }
-
-    // Generate quote button
-    const generateButtons = this.shadowObj.querySelectorAll(
-      ".generate-quote-btn"
-    );
-    if (generateButtons) {
-      generateButtons.forEach((button) => {
-        button.addEventListener("click", (e) => {
-          e.stopPropagation(); // Prevent card click event
-          const quoteId = button.dataset.id;
-          this.state.selectedQuote = quoteId;
-
-          // Update UI to show selected card
-          sampleCards.forEach((c) => c.classList.remove("active"));
-          button.closest(".sample-card").classList.add("active");
-
-          // Generate the quote
-          this._getQuote(quoteId);
-        });
-      });
-    }
-
     // Reset form button
     const resetButton = this.shadowObj.querySelector("#reset-form-btn");
     if (resetButton) {
@@ -275,54 +186,97 @@ export default class Quote extends HTMLElement {
     }
   }
 
-  async _getQuote(quoteId) {
-    if (!quoteId) {
-      this.state.error = "Please select a sample quote first.";
-      console.error("Quote generation failed: No quote ID provided");
+  async _processQuote(quoteBody) {
+    if (!quoteBody || !this.url) {
+      this.state.error = 'Missing quote data or API endpoint';
       this.render();
       return;
     }
 
-    // Find the selected quote data
-    const selectedQuote = this.state.sampleQuotes.find((q) => q.id === quoteId);
-    if (!selectedQuote) {
-      this.state.error = "Selected quote not found.";
-      console.error(
-        "Quote generation failed: Quote not found for ID:",
-        quoteId
-      );
-      console.log(
-        "Available quotes:",
-        this.state.sampleQuotes.map((q) => q.id)
-      );
-      this.render();
-      return;
+    // Set initial loading state
+    this.state.isLoading = true;
+    this.state.error = null;
+    this._updateResultsSection(
+      '<div class="loading-container">' +
+      this._getLoadingSpinner() +
+      '<p class="loading-text">Generating your quote...</p>' +
+      '<p class="loading-subtitle">Please wait while we process your request...</p>' +
+      '</div>'
+    );
+
+    try {
+      console.log('Starting quote request...');
+      console.log('Sending quote request with body:', quoteBody);
+
+      const response = await this.api.post(this.url, {
+        content: 'json',
+        headers: {
+          Authorization: 'Bearer 7%FRtf@34hi',
+        },
+        body: quoteBody,
+        timeout: 0
+      });
+
+      console.log('Quote response received:', response);
+
+      if (!response.success) {
+        const errorMsg = response.error_message || 'Failed to generate quote';
+        this.state.error = errorMsg;
+        this.state.isLoading = false;
+        console.error('Quote generation failed:', errorMsg, response);
+        this._updateError(errorMsg);
+        return;
+      }
+
+      this.state.result = response;
+      this.state.isLoading = false;
+
+      console.log('Quote request completed successfully.');
+      this._updateResultsSection(this._renderQuoteResult());
+      this._setupResultsTabListeners();
+
+    } catch (error) {
+      console.error('Error generating quote:', error);
+      this.state.isLoading = false;
+      this.state.error = 'An unexpected error occurred while generating the quote. Please try again.';
+      this._updateError(this.state.error);
     }
-
-    console.log("Opening quote modal for:", quoteId, selectedQuote);
-
-    // Open the quote result modal
-    this._openQuoteModal(selectedQuote.body);
   }
 
-  _openQuoteModal(quoteBody) {
-    // Prevent multiple modals from opening
-    const existingModal = document.querySelector('quote-popup');
-    if (existingModal) {
-      existingModal.remove();
-    }
+  _copyResultToClipboard() {
+    if (!this.state.result) return;
 
-    // Create and insert the quote result modal
-    const quoteModal = document.createElement('quote-popup');
-    quoteModal.setAttribute('api', this.url);
-    quoteModal.setAttribute('quote-data', JSON.stringify(quoteBody));
+    const resultText = JSON.stringify(this.state.result, null, 2);
+    navigator.clipboard
+      .writeText(resultText)
+      .then(() => {
+        const copyButton = this.shadowObj.querySelector('.copy-result');
+        if (copyButton) {
+          const originalText = copyButton.innerHTML;
 
-    document.body.insertAdjacentElement('beforeend', quoteModal);
+          copyButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Copied!
+          `;
 
-    // Add cleanup when modal is closed
-    quoteModal.addEventListener('quote-closed', () => {
-      quoteModal.remove();
-    });
+          setTimeout(() => {
+            copyButton.innerHTML = originalText;
+          }, 2000);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to copy result: ', err);
+      });
+  }
+
+  _getLoadingSpinner() {
+    return /* html */ `
+      <svg class="spinner" viewBox="0 0 50 50">
+        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+      </svg>
+    `;
   }
 
   _formatCurrency(amount) {
@@ -337,10 +291,7 @@ export default class Quote extends HTMLElement {
       isLoading: false,
       error: null,
       result: null,
-      secondResult: null,
-      showComparison: false,
       selectedQuote: null,
-      sampleQuotes: [...this.state.sampleQuotes],
     };
 
     this.render();
@@ -478,26 +429,8 @@ export default class Quote extends HTMLElement {
               <span>Requests are sent with secure authorization. Two requests will be made to demonstrate Redis caching.</span>
             </div>
             
-            <div class="two-column-layout">
-              <div class="sample-quotes-column">
-                <div class="sample-quotes-container">
-                  <div class="header">
-                    <h3>Select Sample Quote</h3>
-                    <p class="subtitle">Choose a sample quote to generate pricing</p>
-                  </div>
-                  ${this._renderSampleQuotes()}
-                </div>
-              </div>
-              
-              <div class="custom-form-column">
-                <div class="custom-quote-container">
-                  <div class="header">
-                    <h3>Custom Quote Builder</h3>
-                    <p class="subtitle">Create your own quote with specific requirements</p>
-                  </div>
-                  ${this._renderCustomForm()}
-                </div>
-              </div>
+            <div class="custom-quote-container">
+              ${this._renderCustomForm()}
             </div>
           </div>
           
@@ -509,64 +442,34 @@ export default class Quote extends HTMLElement {
     `;
   }
 
-  _renderSampleQuotes() {
-    return /* html */ `
-      <div class="quick-options">
-        <div class="sample-quotes-grid">
-          ${this.state.sampleQuotes
-        .map(
-          (quote) => `
-            <div class="sample-card ${this.state.selectedQuote === quote.id ? "active" : ""
-            }" data-id="${quote.id}">
-              <div class="card-header">
-                <div>
-                  <h3 class="card-title">${quote.label}</h3>
-                  <p class="card-subtitle">${quote.description}</p>
-                </div>
-              </div>
-              
-              <div class="card-location">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-                  <circle cx="12" cy="10" r="3"></circle>
-                </svg>
-                ${quote.location}
-              </div>
-              
-              <div class="card-details">
-                <div class="detail-item">
-                  <span class="detail-label">Trailer Type</span>
-                  <span class="detail-value">${quote.body.trailer_type}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Rental Days</span>
-                  <span class="detail-value">${quote.body.rental_days}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Usage</span>
-                  <span class="detail-value">${quote.body.usage_type.charAt(0).toUpperCase() +
-            quote.body.usage_type.slice(1)
-            }</span>
-                </div>
-              </div>
-              
-              <button class="generate-quote-btn" data-id="${quote.id}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M5 12h14"></path>
-                  <path d="m12 5 7 7-7 7"></path>
-                </svg>
-                Generate Quote
-              </button>
-            </div>
-          `
-        )
-        .join("")}
-        </div>
-      </div>
-    `;
-  }
-
   _renderResultsSection() {
+    if (this.state.isLoading) {
+      return /* html */ `
+        <div class="loading-container">
+          ${this._getLoadingSpinner()}
+          <p class="loading-text">Generating quote...</p>
+          <p class="loading-subtitle">Please wait while we process your request...</p>
+        </div>
+      `;
+    }
+
+    if (this.state.error) {
+      return /* html */ `
+        <div class="error-container">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          ${this.state.error}
+        </div>
+      `;
+    }
+
+    if (this.state.result) {
+      return this._renderQuoteResult();
+    }
+
     return /* html */ `
       <div class="results-info">
         <div class="info-container">
@@ -577,7 +480,7 @@ export default class Quote extends HTMLElement {
           </svg>
           <div class="info-content">
             <h3>Quote Results</h3>
-            <p>When you generate a quote, the results will open in a modal popup window with detailed pricing information and performance metrics.</p>
+            <p>Fill out the form above and click "Generate Custom Quote" to get detailed pricing information for your restroom trailer rental.</p>
           </div>
         </div>
       </div>
@@ -598,10 +501,6 @@ export default class Quote extends HTMLElement {
     const locationDetails = responseData.location_details;
     const metadata = responseData.metadata;
 
-    const selectedQuoteInfo = this.state.sampleQuotes.find(
-      (q) => q.id === this.state.selectedQuote
-    );
-
     return /* html */ `
       <div class="quote-result">
         <div class="result-header">
@@ -611,10 +510,7 @@ export default class Quote extends HTMLElement {
         : "N/A"
       }</h3>
             <p style="color: var(--gray-color); font-size: 0.875rem; margin-top: 0.25rem;">
-              ${quote?.product_details?.product_name ||
-      selectedQuoteInfo?.body?.trailer_type ||
-      "N/A"
-      }
+              ${quote?.product_details?.product_name || "N/A"}
             </p>
           </div>
           <div class="result-actions">
@@ -1004,106 +900,6 @@ export default class Quote extends HTMLElement {
     `;
   }
 
-  _renderPerformanceComparison() {
-    if (!this.state.showComparison || !this.state.secondResult) {
-      return /* html */ `
-        <div class="no-results">
-          <p>Performance comparison will be available after a second request is made.</p>
-        </div>
-      `;
-    }
-
-    const firstRequest = this.state.result.data;
-    const secondRequest = this.state.secondResult.data;
-
-    const firstTime =
-      firstRequest.metadata?.calculation_time_ms ||
-      firstRequest.client_processing_time_ms ||
-      800;
-    const secondTime =
-      secondRequest.metadata?.calculation_time_ms ||
-      secondRequest.client_processing_time_ms ||
-      250;
-
-    const improvement = this._calculatePercentageImprovement(
-      firstTime,
-      secondTime
-    );
-    const firstScore = this._calculatePerformanceScore(firstTime);
-    const secondScore = this._calculatePerformanceScore(secondTime);
-
-    return /* html */ `
-      <div class="comparison-container">
-        <div class="comparison-card">
-          <h3>First Request</h3>
-          <p style="color: var(--gray-color); margin-bottom: 1rem;">Direct API call with full processing</p>
-          
-          <div class="performance-metrics">
-            <div class="metric-card">
-              <div class="metric-value" style="color: ${firstScore.color
-      }">${firstTime}ms</div>
-              <div class="metric-label">Processing Time</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value" style="color: ${firstScore.color}">${firstScore.score
-      }</div>
-              <div class="metric-label">Performance Score</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="comparison-card comparison-highlight cached">
-          <h3>Second Request (Redis Cached)</h3>
-          <p style="color: var(--gray-color); margin-bottom: 1rem;">Leveraging Redis cache for improved performance</p>
-          
-          <div class="performance-metrics">
-            <div class="metric-card comparison-highlight">
-              <div class="metric-value" style="color: ${secondScore.color
-      }">${secondTime}ms</div>
-              <div class="metric-label">Processing Time</div>
-            </div>
-            <div class="metric-card comparison-highlight">
-              <div class="metric-value" style="color: ${secondScore.color}">${secondScore.score
-      }</div>
-              <div class="metric-label">Performance Score</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="performance-dashboard">
-        <div class="dashboard-header">
-          <h3>Performance Comparison</h3>
-          <div class="performance-pill">${improvement}% Faster</div>
-        </div>
-        
-        ${this._createAnimatedBarChart(firstTime, secondTime)}
-      </div>
-      
-      <div class="improvement-card comparison-highlight">
-        <div class="improvement-value">${improvement}%</div>
-        <div class="improvement-label">Performance Improvement with Redis Caching</div>
-      </div>
-      
-      <div style="margin-top: 2rem;">
-        <h3 style="margin-bottom: 1rem;">How Redis Caching Improves Performance</h3>
-        <p style="margin-bottom: 1rem; line-height: 1.5;">
-          The first request processes the quote calculation from scratch, involving complex pricing rules, database queries, and business logic.
-          Redis saves this calculated result, allowing subsequent identical requests to retrieve the pre-computed data directly from memory.
-        </p>
-        <p style="margin-bottom: 1rem; line-height: 1.5;">
-          Benefits include:
-        </p>
-        <ul style="margin-left: 1.5rem; margin-bottom: 1.5rem; line-height: 1.5;">
-          <li>Significantly faster response times (${improvement}% improvement)</li>
-          <li>Reduced server load during peak traffic periods</li>
-          <li>Consistent performance even with complex pricing calculations</li>
-          <li>Better user experience with near-instant quote generation</li>
-        </ul>
-      </div>
-    `;
-  }
-
   async _generateCustomQuote() {
     try {
       const form = this.shadowObj.querySelector("#customQuoteForm");
@@ -1177,10 +973,10 @@ export default class Quote extends HTMLElement {
         extras: selectedExtras,
       };
 
-      console.log("Opening quote modal for custom quote:", customQuoteBody);
+      console.log("Processing quote directly for custom quote:", customQuoteBody);
 
-      // Open the quote result modal with custom quote data
-      this._openQuoteModal(customQuoteBody);
+      // Process the quote directly instead of opening popup
+      this._processQuote(customQuoteBody);
     } catch (error) {
       console.error("Error generating custom quote:", error);
       this._updateError(
@@ -1253,125 +1049,14 @@ export default class Quote extends HTMLElement {
     }
   }
 
-  async _processCustomQuoteDirectly(quoteBody) {
-    try {
-      // Update loading state in results section only
-      this._updateResultsSection(
-        '<div class="loading-container">' +
-        this._getLoadingSpinner() +
-        '<p class="loading-text">Generating custom quote...</p></div>'
-      );
-
-      console.log("Making API request for custom quote:", quoteBody);
-
-      // First API request
-      const firstStartTime = performance.now();
-
-      const firstResponse = await this.api.post(this.url, {
-        content: "json",
-        headers: {
-          Authorization: "Bearer 7%FRtf@34hi",
-        },
-        body: quoteBody,
-      });
-
-      const firstEndTime = performance.now();
-      const firstClientProcessingTime = Math.round(
-        firstEndTime - firstStartTime
-      );
-
-      if (!firstResponse.success) {
-        this._updateError(
-          firstResponse.error_message || "Failed to generate custom quote"
-        );
-        this._updateResultsSection(
-          '<div class="no-results"><p>Failed to generate quote. Please try again.</p></div>'
-        );
-        return;
-      }
-
-      // Add client-side processing time for comparison
-      if (firstResponse.data) {
-        firstResponse.data.client_processing_time_ms =
-          firstClientProcessingTime;
-        firstResponse.data.request_number = 1;
-        firstResponse.data.cached = false;
-      }
-
-      this.state.result = firstResponse;
-      this._updateResultsSection(this._renderQuoteResult());
-
-      // After a short delay, make a second request to demonstrate Redis caching
-      setTimeout(async () => {
-        this._updateResultsSection(
-          '<div class="loading-container">' +
-          this._getLoadingSpinner() +
-          '<p class="loading-text">Making cached request...</p></div>'
-        );
-
-        try {
-          const secondStartTime = performance.now();
-
-          const secondResponse = await this.api.post(this.url, {
-            content: "json",
-            headers: {
-              Authorization: "Bearer 7%FRtf@34hi",
-            },
-            body: quoteBody,
-          });
-
-          const secondEndTime = performance.now();
-          const secondClientProcessingTime = Math.round(
-            secondEndTime - secondStartTime
-          );
-
-          if (secondResponse.data) {
-            secondResponse.data.client_processing_time_ms =
-              secondClientProcessingTime;
-            secondResponse.data.request_number = 2;
-            secondResponse.data.cached = true;
-          }
-
-          this.state.secondResult = secondResponse;
-          this.state.showComparison = true;
-          this._updateResultsSection(this._renderResultsSection());
-
-          // Activate tabs after rendering results with comparison
-          this._setupResultsTabListeners();
-
-          // Animate the comparison metrics
-          setTimeout(() => {
-            const comparisonElements = this.shadowObj.querySelectorAll(
-              ".comparison-highlight"
-            );
-            comparisonElements.forEach((el) => {
-              el.classList.add("highlight-animation");
-            });
-          }, 500);
-        } catch (error) {
-          console.error("Error on second quote request:", error);
-          this._updateError("Error making cached request");
-        }
-      }, 1500);
-    } catch (error) {
-      console.error("Error processing custom quote:", error);
-      this._updateError(
-        "An unexpected error occurred while processing the quote."
-      );
-      this._updateResultsSection(
-        '<div class="error-container"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>An unexpected error occurred</div>'
-      );
-    }
-  }
-
   getStyles() {
-    return /* html */ `
+    return /* css */ `
       <style>
+        /* ===== BASE STYLES ===== */
         :host {
           display: block;
           width: 100%;
           font-family: var(--font-main), sans-serif;
-
         }
         
         * {
@@ -1380,11 +1065,12 @@ export default class Quote extends HTMLElement {
           padding: 0;
         }
         
+        /* ===== LAYOUT COMPONENTS ===== */
         .container {
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          padding: 0 15px;
+          padding: 15px 0;
           background: var(--background);
         }
         
@@ -1392,7 +1078,7 @@ export default class Quote extends HTMLElement {
           background: var(--background);
           width: 100%;
           max-width: 100%;
-          padding: 1.5rem 0;
+          padding: 0;
         }
         
         .header {
@@ -1400,698 +1086,25 @@ export default class Quote extends HTMLElement {
         }
         
         .header h1 {
-          font-size: 2rem;
+          font-size: 1.5rem;
           font-weight: 700;
+          margin: 0;
+          padding: 0;
           color: var(--title-color);
-          margin-bottom: 0.5rem;
+          line-height: 1.5;
         }
         
         .header .subtitle {
           font-size: 1rem;
           color: var(--gray-color);
-          margin-bottom: 1.5rem;
         }
         
         .form-container {
           margin-bottom: 2rem;
         }
         
-        .error-alert {
-          background: var(--error-background);
-          color: var(--error-color);
-          padding: 1rem;
-          border-radius: 0.375rem;
-          margin-bottom: 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        .error-alert svg {
-          flex-shrink: 0;
-          width: 1.25rem;
-          height: 1.25rem;
-          color: var(--error-color);
-        }
-        
-        .info-alert {
-          background: var(--label-focus-background);
-          color: var(--accent-color);
-          padding: 1rem;
-          border-radius: 0.375rem;
-          margin-bottom: 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        .info-alert svg {
-          flex-shrink: 0;
-          width: 1.25rem;
-          height: 1.25rem;
-          color: var(--accent-color);
-        }
-        
-        .sample-quotes-container {
+        .custom-quote-container {
           margin-bottom: 2rem;
-        }
-        
-        .sample-quotes-container h3 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: var(--title-color);
-          margin-bottom: 1rem;
-        }
-        
-        .sample-quotes-grid {
-          display: flex;
-          flex-flow: column;
-          gap: 25px;
-        }
-        
-        .sample-card {
-          padding: 20px 0 25px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          position: relative;
-          overflow: hidden;
-          border-bottom: var(--action-border);
-        }
-        
-        .sample-card:hover {
-          transform: translateY(-2px);
-        }
-        
-        .card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 1rem;
-        }
-        
-        .card-title {
-          font-size: 1.25rem;
-          margin-bottom: 0.25rem;
-        }
-        
-        .card-subtitle {
-          color: var(--gray-color);
-        }
-        
-        .card-location {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          color: var(--text-color);
-          font-size: 0.875rem;
-          margin-bottom: 1rem;
-        }
-        
-        .card-location svg {
-          flex-shrink: 0;
-          width: 1rem;
-          height: 1rem;
-        }
-        
-        .card-details {
-          margin-top: 1rem;
-          font-size: 0.875rem;
-        }
-        
-        .detail-item {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 0.5rem;
-          padding-bottom: 0.5rem;
-          border-bottom: var(--border);
-        }
-        
-        .detail-item:last-child {
-          border-bottom: none;
-          margin-bottom: 0;
-          padding-bottom: 0;
-        }
-        
-        .detail-label {
-          color: var(--gray-color);
-        }
-        
-        .detail-value {
-          color: var(--title-color);
-          font-weight: 500;
-        }
-        
-        .generate-quote-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-top: 1rem;
-          padding: 0.5rem 1rem;
-          border: none;
-          border-radius: 0.25rem;
-          background: var(--accent-color);
-          color: var(--white-color);
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.2s ease;
-        }
-        
-        .generate-quote-btn:hover {
-          background: var(--accent-alt);
-        }
-        
-        .generate-quote-btn svg {
-          width: 1rem;
-          height: 1rem;
-        }
-        
-        .results-section {
-          margin-top: 2rem;
-        }
-        
-        .no-results {
-          padding: 10px 15px;
-          text-align: center;
-          color: var(--gray-color);
-          background: var(--hover-background);
-          border-radius: 12px;
-        }
-        
-        .tabs-container {
-          display: flex;
-          border-bottom: var(--border);
-          margin-bottom: 1.5rem;
-        }
-        
-        .tab {
-          padding: 0.75rem 1.25rem;
-          cursor: pointer;
-          position: relative;
-          color: var(--gray-color);
-          transition: color 0.2s ease;
-        }
-        
-        .tab:not(.disabled):hover {
-          color: var(--accent-color);
-        }
-        
-        .tab.active {
-          color: var(--accent-color);
-          font-weight: 500;
-        }
-        
-        .tab.active::after {
-          content: "";
-          position: absolute;
-          bottom: -1px;
-          left: 0;
-          width: 100%;
-          height: 2px;
-          background: var(--accent-color);
-        }
-        
-        .tab.disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        .tab-content {
-          display: none;
-          color: var(--text-color);
-        }
-        
-        .tab-content.active {
-          display: block;
-        }
-        
-        .quote-result {
-          background: var(--background);
-          border: 0;
-          padding: 0;
-        }
-        
-        .result-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-          padding-bottom: 1rem;
-          border-bottom: var(--border);
-        }
-        
-        .result-title {
-          display: flex;
-          align-items: center;
-          color: var(--title-color);
-          gap: 0.5rem;
-        }
-        
-        .result-actions {
-          display: flex;
-          gap: 0.5rem;
-        }
-        
-        .copy-result {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.5rem 0.75rem;
-          border: var(--border-button);
-          border-radius: 0.25rem;
-          background: var(--background);
-          color: var(--text-color);
-          font-size: 0.75rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        
-        .copy-result:hover {
-          background: var(--hover-background);
-          border-color: var(--accent-color);
-        }
-        
-        .copy-result svg {
-          width: 0.875rem;
-          height: 0.875rem;
-        }
-        
-        .result-tabs {
-          margin-bottom: 1rem;
-        }
-        
-        .detail-section {
-          margin-bottom: 1.5rem;
-        }
-        
-        .detail-section h4 {
-          margin-bottom: 0.75rem;
-          color: var(--title-color);
-          font-size: 0.875rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 600;
-        }
-        
-        .detail-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 1rem;
-        }
-        
-        .detail-card {
-          background: var(--hover-background);
-          padding: 1rem;
-          border-radius: 12px;
-          transition: all 0.2s ease;
-        }
-        
-        .detail-card:hover {
-          transform: translateY(-1px);
-          box-shadow: var(--card-box-shadow-alt);
-        }
-        
-        .detail-card-label {
-          color: var(--gray-color);
-          font-size: 0.75rem;
-          margin-bottom: 0.25rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        
-        .detail-card-value {
-          font-size: 1rem;
-          font-weight: 600;
-          font-family: var(--font-read);
-          color: var(--title-color);
-          word-break: break-word;
-        }
-
-        .detail-card-value.quote-id {
-          font-family: var(--font-mono, 'SF Mono', Consolas, monospace);
-          font-size: 0.85rem;
-          letter-spacing: 0.025em;
-          text-transform: uppercase;
-        }
-        
-        /* Enhanced section headers */
-        .detail-section h5 {
-          margin: 1rem 0 0.5rem;
-          color: var(--title-color);
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 600;
-          border-top: var(--border);
-          padding-top: 1rem;
-        }
-        
-        .detail-section h5:first-of-type {
-          border-top: none;
-          padding-top: 0;
-        }
-        
-        /* Quote header styles */
-        .result-header .result-title h3 {
-          color: var(--title-color);
-          font-size: 1.5rem;
-          font-weight: 700;
-          margin: 0;
-        }
-        
-        .result-header .result-title p {
-          color: var(--gray-color);
-          font-size: 0.875rem;
-          margin-top: 0.25rem;
-          margin-bottom: 0;
-        }
-        
-        /* Enhanced grid layouts for different content types */
-        .detail-grid.compact {
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.75rem;
-        }
-        
-        .detail-grid.wide {
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        }
-        
-        /* Special styling for coordinate values */
-        .detail-card-value.coordinates {
-          font-family: var(--font-mono, 'SF Mono', Consolas, monospace);
-          font-size: 0.875rem;
-          letter-spacing: 0.025em;
-        }
-        
-        /* Warning and status indicators */
-        .detail-card.warning {
-          border-left: 4px solid var(--error-color);
-          background: var(--error-background);
-        }
-        
-        .detail-card.success {
-          border-left: 4px solid var(--success-color);
-          background: var(--hover-background);
-        }
-        
-        .detail-card.info {
-          border-left: 4px solid var(--accent-color);
-          background: var(--label-focus-background);
-        }
-        
-        /* Notes section styling */
-        .notes-container {
-          background: var(--hover-background);
-          padding: 1rem;
-          border-radius: 0.5rem;
-          color: var(--text-color);
-          line-height: 1.5;
-          border-left: 4px solid var(--accent-color);
-          margin-top: 0.5rem;
-        }
-        
-        .notes-container p {
-          margin: 0;
-        }
-        
-        /* Cost breakdown enhancements */
-        .cost-breakdown-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.75rem;
-          margin-top: 1rem;
-        }
-        
-        .cost-breakdown-item {
-          background: var(--background);
-          border: var(--border);
-          border-radius: 0.5rem;
-          padding: 0.75rem;
-          text-align: center;
-        }
-        
-        .cost-breakdown-label {
-          color: var(--gray-color);
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 0.25rem;
-        }
-        
-        .cost-breakdown-value {
-          color: var(--title-color);
-          font-size: 1.125rem;
-          font-weight: 600;
-          font-family: var(--font-read);
-        }
-        
-        /* Data sources grid */
-        .data-sources-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 0.5rem;
-          margin-top: 0.5rem;
-        }
-        
-        .data-source-item {
-          background: var(--background);
-          border: var(--border);
-          border-radius: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-        }
-        
-        .data-source-label {
-          color: var(--gray-color);
-          font-size: 0.75rem;
-          margin-bottom: 0.125rem;
-        }
-        
-        .data-source-value {
-          color: var(--text-color);
-          font-weight: 500;
-        }
-        
-        /* Warning messages styling */
-        .warnings-container {
-          margin-top: 1rem;
-        }
-        
-        .warning-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          background: var(--error-background);
-          color: var(--error-color);
-          border-left: 4px solid var(--error-color);
-          margin-bottom: 0.5rem;
-          border-radius: 0 0.5rem 0.5rem 0;
-        }
-        
-        .warning-item:last-child {
-          margin-bottom: 0;
-        }
-        
-        .warning-icon {
-          flex-shrink: 0;
-          margin-left: 0.5rem;
-        }
-        
-        /* Enhanced price item variations */
-        .price-item.subtotal {
-          background: var(--label-focus-background);
-          font-weight: 600;
-          border-top: 2px solid var(--accent-color);
-        }
-        
-        .price-item.delivery {
-          background: var(--tab-background);
-        }
-        
-        .price-item.generator {
-          background: var(--user-background);
-        }
-        
-        /* Metadata section enhancements */
-        .metadata-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.75rem;
-        }
-        
-        .metadata-card {
-          background: var(--background);
-          border: var(--border);
-          border-radius: 0.5rem;
-          padding: 0.75rem;
-        }
-        
-        .metadata-label {
-          color: var(--gray-color);
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 0.25rem;
-        }
-        
-        .metadata-value {
-          color: var(--title-color);
-          font-weight: 500;
-          font-size: 0.875rem;
-        }
-        
-        /* Processing time indicator */
-        .processing-time {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          background: var(--success-background, var(--hover-background));
-          color: var(--success-color);
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.5rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-        
-        .processing-time.slow {
-          background: var(--error-background);
-          color: var(--error-color);
-        }
-        
-        .processing-time.medium {
-          background: var(--hubspot-background);
-          color: var(--alt-color);
-        }
-        
-        .price-breakdown {
-          border: var(--border);
-          border-radius: 0.25rem;
-          overflow: hidden;
-        }
-        
-        .price-item {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          color: var(--text-color);
-          border-bottom: var(--border);
-        }
-        
-        .price-item:last-child {
-          border-bottom: none;
-        }
-        
-        .price-item.total {
-          background: var(--hover-background);
-          font-weight: 600;
-        }
-        
-        .comparison-container {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-          margin-bottom: 1.5rem;
-          justify-items: space-between;
-        }
-        
-        .comparison-card {
-          background: var(--background);
-          border-radius: 0;
-          padding: 0;
-          position: relative;
-        }
-
-        .comparison-card:first-child {
-          border-right: var(--border);
-          padding-right: 1.5rem;
-        }
-
-        .comparison-card > h3 {
-          margin-bottom: 0.5rem;
-          color: var(--title-color);
-          font-size: 1.125rem;
-          font-weight: 600;
-        }
-        
-        .comparison-card.cached::before {
-          content: "Redis Cached";
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          background: var(--success-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
-        }
-        
-        .performance-metrics {
-          display: flex;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 15px 0 0;
-        }
-        
-        .metric-card {
-          background: var(--hover-background);
-          padding: 10px 12px;
-          width: calc(50% - 30px);
-          border-radius: 12px;
-          text-align: center;
-        }
-        
-        .metric-value {
-          font-size: 2rem;
-          font-weight: 600;
-          margin-bottom: 0.5rem;
-        }
-        
-        .metric-label {
-          color: var(--gray-color);
-          font-size: 0.875rem;
-        }
-        
-        .comparison-highlight {
-          transition: all 0.3s ease;
-        }
-        
-        .highlight-animation {
-          /* animation: pulse 2s ease-in-out; */
-        }
-        
-        .improvement-card {
-          border-top: var(--border);
-          border-bottom: var(--border);
-          padding: 1.5rem;
-          text-align: center;
-          margin-top: 1.5rem;
-        }
-        
-        .improvement-value {
-          font-size: 2.5rem;
-          font-weight: 700;
-          color: var(--accent-color);
-          margin-bottom: 0.5rem;
-        }
-        
-        .improvement-label {
-          font-size: 1rem;
-          color: var(--text-color);
-        }
-        
-        .spinner {
-          animation: rotate 2s linear infinite;
-          width: 2rem;
-          height: 2rem;
-          margin: 2rem auto;
-          display: block;
-        }
-        
-        .spinner .path {
-          stroke: var(--accent-color);
-          stroke-linecap: round;
-          animation: dash 1.5s ease-in-out infinite;
         }
         
         .results-section {
@@ -2137,313 +1150,7 @@ export default class Quote extends HTMLElement {
           line-height: 1.5;
         }
 
-        .loading-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 2rem;
-          text-align: center;
-        }
-        
-        .loading-text {
-          margin-top: 1rem;
-          color: var(--gray-color);
-        }
-        
-        .error-container {
-          background: var(--error-background);
-          color: var(--error-color);
-          padding: 1rem;
-          border-radius: 0.25rem;
-          margin-bottom: 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        .error-container svg {
-          flex-shrink: 0;
-          width: 1.25rem;
-          height: 1.25rem;
-        }
-        
-        .quick-options {
-          margin-top: 1.5rem;
-          margin-bottom: 1.5rem;
-        }
-        
-        .quick-options h3 {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin-bottom: 1rem;
-          color: var(--title-color);
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        .quick-options h3::before {
-          content: "";
-          display: block;
-          width: 0.25rem;
-          height: 1.25rem;
-          background: var(--accent-color);
-          border-radius: 0.125rem;
-        }
-        
-        /* Comparison Bars from location.js */
-        .comparison-bars {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        
-        .comparison-bar-container {
-          display: flex;
-          align-items: start;
-          flex-flow: column;
-          gap: 1rem;
-        }
-        
-        .comparison-label {
-          width: 100%;
-          font-size: 0.875rem;
-          color: var(--text-color);
-          white-space: nowrap;
-        }
-        
-        .comparison-bar-wrapper {
-          flex: 1;
-          background: var(--hover-background);
-          height: 40px;
-          width: 100%;
-          border-radius: 0.75rem;
-          overflow: hidden;
-          border: var(--border);
-        }
-        
-        .comparison-bar {
-          height: 100%;
-          display: flex;
-          align-items: start;
-          justify-content: flex-end;
-          padding: 0 0.75rem;
-          color: var(--text-color);
-          font-weight: 600;
-          font-size: 0.875rem;
-          transition: width 1.5s ease-in-out;
-        }
-        
-        /* Performance Dashboard from location.js */
-        .performance-dashboard {
-          padding: 15px 0 0;
-          border-top: var(--border);
-        }
-        
-        .dashboard-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-               }
-        
-        .dashboard-header h3 {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin: 0;
-          color: var(--title-color);
-        }
-        
-        .performance-pill {
-          padding: 0.375rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--white-color);
-          border-radius: 2rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 100px;
-          background: var(--success-color);
-        }
-        
-        /* Form Actions */
-        .form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 1rem;
-        }
-        
-        .clear-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.25rem;
-          border: var(--border);
-          border-radius: 0.25rem;
-          background: var(--background);
-          color: var(--text-color);
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        
-        .clear-btn:hover {
-          background: var(--hover-background);
-          color: var(--error-color);
-        }
-        
-        .clear-btn svg {
-          width: 1rem;
-          height: 1rem;
-        }
-        
-        /* Enhanced sections styling */
-        .enhanced-section-header {
-          color: var(--title-color);
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin: 1rem 0 0.5rem;
-        }
-        
-        .enhanced-section-header.warning {
-          color: var(--error-color);
-        }
-        
-        .notes-container {
-          background: var(--hover-background);
-          padding: 1rem;
-          border-radius: 0.5rem;
-          color: var(--text-color);
-          line-height: 1.5;
-        }
-        
-        .warning-item-container {
-          color: var(--error-color);
-        }
-        
-        .warning-icon {
-          margin-left: 0.5rem;
-        }
-        
-        @keyframes pulse {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.05);
-            box-shadow: var(--card-box-shadow);
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
-        
-        @keyframes rotate {
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-        
-        @keyframes dash {
-          0% {
-            stroke-dasharray: 1, 150;
-            stroke-dashoffset: 0;
-          }
-          50% {
-            stroke-dasharray: 90, 150;
-            stroke-dashoffset: -35;
-          }
-          100% {
-            stroke-dasharray: 90, 150;
-            stroke-dashoffset: -124;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .sample-quotes-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .comparison-container {
-            grid-template-columns: 1fr;
-          }
-          
-          .quote-builder {
-            padding: 1rem;
-          }
-          
-          .performance-metrics {
-            grid-template-columns: 1fr;
-          }
-          
-          .detail-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .result-header {
-            flex-direction: column;
-            gap: 1rem;
-            align-items: flex-start;
-          }
-          
-          .result-title h3 {
-            font-size: 1.25rem;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .detail-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .quote-builder-container {
-            padding: 1rem 0;
-          }
-          
-          .header h1 {
-            font-size: 1.5rem;
-          }
-          
-          .sample-card {
-            padding: 1rem;
-          }
-        }
-
-        /* Custom Form Styles */
-        .custom-form-container {
-          background: var(--background);
-          border-radius: 0;
-          padding: 0 0 0 10px;
-          margin-top: 2rem;
-        }
-
-        .quote-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .form-section {
-          border-bottom: var(--border);
-          border-radius: 0;
-          padding: 0 0 15px;
-          background: var(--background);
-        }
-
-        .form-section-title {
-          color: var(--title-color);
-          font-size: 1.1rem;
-          font-weight: 600;
-          margin-bottom: 1rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-family: var(--font-main);
-        }
-
+        /* ===== FORM COMPONENTS ===== */
         .form-group {
           display: flex;
           flex-direction: column;
@@ -2451,31 +1158,20 @@ export default class Quote extends HTMLElement {
           margin-bottom: 1rem;
         }
 
-        .form-section.dates > .dates {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-        }
-
-        .form-section.dates > .dates > .form-group {
-          min-width: 40%;
-        }
-
         .form-group:last-child {
           margin-bottom: 0;
         }
 
         .form-group label {
+          font-weight: 600;
           color: var(--label-color);
-          font-weight: 500;
           font-size: 0.9rem;
-          font-family: var(--font-main);
+          margin-bottom: 0.25rem;
         }
 
+        .form-group input,
         .form-group select,
-        .form-group input {
+        .form-group textarea {
           padding: 0.75rem;
           border: var(--input-border);
           border-radius: 0.375rem;
@@ -2486,16 +1182,67 @@ export default class Quote extends HTMLElement {
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
+        /* Date input calendar icon styling */
+        .form-group input[type="date"] {
+          color: var(--text-color);
+          color-scheme: dark;
+        }
+
+        .form-group input[type="date"]::-webkit-calendar-picker-indicator {
+          background-color: var(--accent-color);
+          border-radius: 3px;
+          cursor: pointer;
+          filter: invert(0) sepia(1) saturate(5) hue-rotate(175deg);
+        }
+
+        .form-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+          background-color: var(--title-color);
+        }
+
+        /* Firefox date input styling */
+        .form-group input[type="date"]::-moz-calendar-picker-indicator {
+          background-color: var(--accent-color);
+          border-radius: 3px;
+          cursor: pointer;
+        }
+
+        .form-group input:focus,
         .form-group select:focus,
-        .form-group input:focus {
+        .form-group textarea:focus {
           outline: none;
           border: var(--input-border-focus);
           background: var(--label-focus-background);
+          color: var(--text-color);
         }
 
-        .form-group select:invalid,
         .form-group input:invalid {
           border: var(--input-border-error);
+        }
+
+        .form-group input:valid {
+          border: var(--input-border-focus);
+        }
+
+        .form-group select {
+          cursor: pointer;
+        }
+
+        .form-group select option {
+          color: var(--text-color);
+          background: var(--background);
+        }
+
+        .form-group input::placeholder {
+          color: var(--gray-color);
+        }
+
+        .form-group textarea {
+          resize: vertical;
+          min-height: 100px;
+        }
+
+        .form-group textarea::placeholder {
+          color: var(--gray-color);
         }
 
         .form-group input[readonly] {
@@ -2504,89 +1251,13 @@ export default class Quote extends HTMLElement {
           cursor: not-allowed;
         }
 
-        .form-group select[multiple] {
-          min-height: 100px;
-          padding: 0.5rem;
-        }
-
-        .form-group small {
-          margin-top: 0.25rem;
-          display: block;
-          color: var(--gray-color);
-          font-family: var(--font-main);
-        }
-
-        .generate-custom-quote-btn {
-          background: var(--action-linear);
-          color: var(--white-color);
-          border: none;
-          padding: 0.875rem 1.5rem;
-          border-radius: 0.375rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-size: 0.9rem;
-          font-family: var(--font-main);
-          box-shadow: var(--box-shadow);
-        }
-
-        .generate-custom-quote-btn:hover:not(:disabled) {
-          background: var(--accent-linear);
-          transform: translateY(-1px);
-          box-shadow: var(--card-box-shadow);
-        }
-
-        .generate-custom-quote-btn:disabled {
-          background: var(--gray-color);
-          cursor: not-allowed;
-          opacity: 0.6;
-          transform: none;
-          box-shadow: none;
-        }
-
-        /* Two Column Layout */
-        .two-column-layout {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0;
-          margin-bottom: 2rem;
-        }
-
-        .sample-quotes-column {
+        .form-actions {
           display: flex;
-          border-right: var(--border);
-          flex-direction: column;
-          padding: 0 25px 0 0;
+          justify-content: flex-end;
+          gap: 1rem;
+          margin-top: 1.5rem;
         }
 
-        .custom-form-column {
-          display: flex;
-          flex-direction: column;
-          padding: 0 0 0 20px;
-        }
-
-        .sample-quotes-container {
-          margin-bottom: 0;
-        }
-
-        .custom-quote-container {
-          margin-bottom: 0;
-        }
-
-        .custom-quote-container .header h3 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: var(--title-color);
-          margin-bottom: 0.5rem;
-        }
-
-        .custom-quote-container .header .subtitle {
-          font-size: 0.875rem;
-          color: var(--gray-color);
-          margin-bottom: 1rem;
-        }
-
-        /* Enhanced extras selection styling */
         .extras-container {
           display: flex;
           flex-wrap: wrap;
@@ -2622,7 +1293,7 @@ export default class Quote extends HTMLElement {
           cursor: pointer;
           font-size: 0.875rem;
           font-weight: 500;
-          color: var(--text-color);
+          color: var(--label-color);
         }
 
         .extra-item input[type="checkbox"]:checked + label {
@@ -2630,11 +1301,440 @@ export default class Quote extends HTMLElement {
           font-weight: 600;
         }
 
-        /* Mobile responsiveness for two-column layout */
-        @media (max-width: 968px) {
-          .two-column-layout {
+        /* ===== BUTTONS ===== */
+        .generate-custom-quote-btn {
+          background: var(--action-linear);
+          color: var(--white-color);
+          border: none;
+          padding: 0.875rem 1.5rem;
+          border-radius: 0.375rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 0.9rem;
+          font-family: var(--font-main);
+          box-shadow: var(--box-shadow);
+        }
+
+        .generate-custom-quote-btn:hover:not(:disabled) {
+          background: var(--accent-linear);
+          transform: translateY(-1px);
+          box-shadow: var(--card-box-shadow);
+        }
+
+        .generate-custom-quote-btn:disabled {
+          background: var(--gray-color);
+          cursor: not-allowed;
+          opacity: 0.6;
+          transform: none;
+          box-shadow: none;
+        }
+
+        /* ===== LOADING COMPONENTS ===== */
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 2rem;
+          gap: 1rem;
+        }
+
+        .spinner {
+          width: 40px;
+          height: 40px;
+          animation: spin 1s linear infinite;
+        }
+
+        .spinner .path {
+          stroke: var(--accent-color);
+          stroke-linecap: round;
+          stroke-dasharray: 90, 150;
+          stroke-dashoffset: 0;
+          animation: dash 1.5s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes dash {
+          0% {
+            stroke-dasharray: 1, 150;
+            stroke-dashoffset: 0;
+          }
+          50% {
+            stroke-dasharray: 90, 150;
+            stroke-dashoffset: -35;
+          }
+          100% {
+            stroke-dasharray: 90, 150;
+            stroke-dashoffset: -124;
+          }
+        }
+
+        .loading-text {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: var(--title-color);
+          margin: 0;
+        }
+
+        .loading-subtitle {
+          font-size: 0.9rem;
+          color: var(--gray-color);
+          margin: 0;
+        }
+
+        /* ===== ERROR COMPONENTS ===== */
+        .error-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+          padding: 2rem;
+          background: var(--error-background);
+          border-radius: 0.75rem;
+          border: 1px solid var(--error-color);
+          color: var(--error-color);
+          text-align: center;
+        }
+
+        .error-container svg {
+          width: 24px;
+          height: 24px;
+          color: var(--error-color);
+        }
+
+        /* ===== ALERTS ===== */
+        .error-alert {
+          background: var(--error-background);
+          color: var(--error-color);
+          padding: 1rem;
+          border-radius: 0.375rem;
+          margin-bottom: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        
+        .error-alert svg {
+          flex-shrink: 0;
+          width: 1.25rem;
+          height: 1.25rem;
+          color: var(--error-color);
+        }
+        
+        .info-alert {
+          background: var(--label-focus-background);
+          color: var(--accent-color);
+          padding: 1rem;
+          border-radius: 0.375rem;
+          margin-bottom: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        
+        .info-alert svg {
+          flex-shrink: 0;
+          width: 1.25rem;
+          height: 1.25rem;
+          color: var(--accent-color);
+        }
+
+        /* ===== RESULTS & TABS ===== */
+        .no-results {
+          padding: 10px 15px;
+          text-align: center;
+          color: var(--gray-color);
+          background: var(--hover-background);
+          border-radius: 12px;
+        }
+
+        /* ===== QUOTE RESULT COMPONENTS ===== */
+        .quote-result {
+          background: var(--background);
+          border: 0;
+          padding: 0;
+        }
+        
+        .result-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+          padding-bottom: 1rem;
+          border-bottom: var(--border);
+        }
+        
+        .result-title {
+          display: flex;
+          align-items: center;
+          color: var(--title-color);
+          gap: 0.5rem;
+        }
+        
+        .result-title h3 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 0;
+          color: var(--title-color);
+        }
+        
+        .result-title p {
+          color: var(--gray-color);
+          font-size: 0.875rem;
+          margin-top: 0.25rem;
+          margin-bottom: 0;
+        }
+        
+        .result-actions {
+          display: flex;
+          gap: 0.5rem;
+        }
+        
+        .copy-result {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.5rem 0.75rem;
+          border: var(--border-button);
+          border-radius: 0.25rem;
+          background: var(--background);
+          color: var(--text-color);
+          font-size: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .copy-result:hover {
+          background: var(--hover-background);
+          border-color: var(--accent-color);
+        }
+        
+        .copy-result svg {
+          width: 0.875rem;
+          height: 0.875rem;
+        }
+
+        /* ===== DETAIL COMPONENTS ===== */
+        .detail-section {
+          margin-bottom: 1.5rem;
+        }
+        
+        .detail-section h4 {
+          margin-bottom: 0.75rem;
+          color: var(--title-color);
+          font-size: 0.875rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 600;
+        }
+        
+        .detail-section h5 {
+          margin: 1rem 0 0.5rem;
+          color: var(--title-color);
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 600;
+          border-top: var(--border);
+          padding-top: 1rem;
+        }
+        
+        .detail-section h5:first-of-type {
+          border-top: none;
+          padding-top: 0;
+        }
+        
+        .detail-section h5.warning {
+          color: var(--error-color);
+        }
+        
+        .detail-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 1rem;
+        }
+        
+        .detail-card {
+          background: var(--hover-background);
+          padding: 1rem;
+          border-radius: 12px;
+          transition: all 0.2s ease;
+        }
+        
+        .detail-card:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--card-box-shadow-alt);
+        }
+        
+        .detail-card-label {
+          color: var(--gray-color);
+          font-size: 0.75rem;
+          margin-bottom: 0.25rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        
+        .detail-card-value {
+          font-size: 1rem;
+          font-weight: 600;
+          font-family: var(--font-read);
+          color: var(--title-color);
+          word-break: break-word;
+        }
+
+        .detail-card-value.quote-id {
+          font-family: var(--font-mono, 'SF Mono', Consolas, monospace);
+          font-size: 0.85rem;
+          letter-spacing: 0.025em;
+          text-transform: uppercase;
+        }
+
+        .price-breakdown {
+          border: var(--border);
+          border-radius: 0.25rem;
+          overflow: hidden;
+        }
+        
+        .price-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.75rem 1rem;
+          color: var(--text-color);
+          border-bottom: var(--border);
+        }
+        
+        .price-item:last-child {
+          border-bottom: none;
+        }
+        
+        .price-item.total {
+          background: var(--hover-background);
+          font-weight: 600;
+        }
+
+        .price-item.warning-item-container {
+          color: var(--error-color);
+        }
+        
+        .warning-icon {
+          margin-left: 0.5rem;
+        }
+
+        .notes-container {
+          background: var(--hover-background);
+          padding: 1rem;
+          border-radius: 0.5rem;
+          color: var(--text-color);
+          line-height: 1.5;
+          border-left: 4px solid var(--accent-color);
+          margin-top: 0.5rem;
+        }
+        
+        .notes-container p {
+          margin: 0;
+        }
+
+        /* ===== CUSTOM FORM STYLES ===== */
+        .custom-form-container {
+          background: var(--background);
+          border-radius: 0;
+          padding: 0;
+          margin-top: 2rem;
+        }
+
+        .quote-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .form-section {
+          border-bottom: var(--border);
+          border-radius: 0;
+          padding: 0 0 15px;
+          background: var(--background);
+        }
+
+        .form-section-title {
+          color: var(--label-color);
+          font-size: 1.1rem;
+          font-weight: 600;
+          margin-bottom: 1rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-family: var(--font-main);
+        }
+
+        .form-section.dates > .dates {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+        }
+
+        .form-section.dates > .dates > .form-group {
+          min-width: 40%;
+        }
+
+        .form-group small {
+          margin-top: 0.25rem;
+          display: block;
+          color: var(--gray-color);
+          font-family: var(--font-main);
+        }
+
+        /* Enhanced form styling for better theme integration */
+        .form-group select:hover,
+        .form-group input:hover {
+          border-color: var(--accent-color);
+        }
+
+        .form-group select:disabled,
+        .form-group input:disabled {
+          background: var(--gray-background);
+          color: var(--gray-color);
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        /* ===== RESPONSIVE STYLES ===== */
+        @media (max-width: 768px) {
+          .detail-grid {
             grid-template-columns: 1fr;
-            gap: 1.5rem;
+          }
+          
+          .result-header {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+          }
+          
+          .result-title h3 {
+            font-size: 1.25rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .quote-builder-container {
+            padding: 1rem 0;
+          }
+          
+          .header h1 {
+            font-size: 1.5rem;
+          }
+          
+          .form-actions {
+            flex-direction: column;
+          }
+          
+          .form-section.dates > .dates {
+            flex-direction: column;
+            gap: 1rem;
           }
         }
       </style>

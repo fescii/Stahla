@@ -11,9 +11,7 @@ export default class LocationLookup extends HTMLElement {
       isLoading: false,
       error: null,
       result: null,
-      secondResult: null,
       selectedLocation: "",
-      showComparison: false,
     };
 
     // Sample locations for quick testing
@@ -113,33 +111,6 @@ export default class LocationLookup extends HTMLElement {
         this._copyResultToClipboard();
       });
     }
-
-    // Tab switching
-    const tabs = this.shadowObj.querySelectorAll(".tab:not(.disabled)");
-    if (tabs) {
-      tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-          // Skip if tab is disabled
-          if (tab.classList.contains("disabled")) return;
-
-          // Deactivate all tabs and tab content
-          this.shadowObj
-            .querySelectorAll(".tab")
-            .forEach((t) => t.classList.remove("active"));
-          this.shadowObj
-            .querySelectorAll(".tab-content")
-            .forEach((c) => c.classList.remove("active"));
-
-          // Activate selected tab and content
-          tab.classList.add("active");
-          const tabName = tab.dataset.tab;
-          const content = this.shadowObj.querySelector(`.${tabName}-tab`);
-          if (content) {
-            content.classList.add("active");
-          }
-        });
-      });
-    }
   }
 
   _handleSubmit = async () => {
@@ -151,14 +122,10 @@ export default class LocationLookup extends HTMLElement {
 
     this.state.isLoading = true;
     this.state.error = null;
-    this.state.showComparison = false;
     this.render();
 
     try {
-      // First API request
-      const firstStartTime = performance.now();
-
-      const firstResponse = await this.api.post(this.url, {
+      const response = await this.api.post(this.url, {
         content: "json",
         headers: {
           Authorization: "Bearer 7%FRtf@34hi",
@@ -168,85 +135,17 @@ export default class LocationLookup extends HTMLElement {
         },
       });
 
-      const firstEndTime = performance.now();
-      const firstClientProcessingTime = Math.round(
-        firstEndTime - firstStartTime
-      );
-
-      if (!firstResponse.success) {
+      if (!response.success) {
         this.state.error =
-          firstResponse.error_message || "Failed to lookup location";
+          response.error_message || "Failed to lookup location";
         this.state.isLoading = false;
         this.render();
         return;
       }
 
-      // Add client-side processing time for comparison
-      if (firstResponse.data) {
-        firstResponse.data.client_processing_time_ms =
-          firstClientProcessingTime;
-        firstResponse.data.request_number = 1;
-        firstResponse.data.cached = false;
-      }
-
-      this.state.result = firstResponse;
+      this.state.result = response;
       this.state.isLoading = false;
       this.render();
-
-      // First request is now complete. Make a second request immediately to demonstrate Redis caching
-      // Only proceed if the first request was successful
-      if (!this.state.result?.success) {
-        console.log("First request was not successful, skipping second request");
-        return;
-      }
-
-      this.state.isLoading = true;
-      this.render();
-
-      try {
-        const secondStartTime = performance.now();
-
-        const secondResponse = await this.api.post(this.url, {
-          content: "json",
-          headers: {
-            Authorization: "Bearer 7%FRtf@34hi",
-          },
-          body: {
-            delivery_location: this.state.selectedLocation,
-          },
-        });
-
-        const secondEndTime = performance.now();
-        const secondClientProcessingTime = Math.round(
-          secondEndTime - secondStartTime
-        );
-
-        if (secondResponse.data) {
-          secondResponse.data.client_processing_time_ms =
-            secondClientProcessingTime;
-          secondResponse.data.request_number = 2;
-          secondResponse.data.cached = true;
-        }
-
-        this.state.secondResult = secondResponse;
-        this.state.showComparison = true;
-        this.state.isLoading = false;
-        this.render();
-
-        // Animate the comparison metrics to highlight the difference
-        setTimeout(() => {
-          const comparisonElements = this.shadowObj.querySelectorAll(
-            ".comparison-highlight"
-          );
-          comparisonElements.forEach((el) => {
-            el.classList.add("highlight-animation");
-          });
-        }, 500);
-      } catch (error) {
-        console.error("Error on second location lookup:", error);
-        this.state.isLoading = false;
-        this.render();
-      }
     } catch (error) {
       console.error("Error looking up location:", error);
       this.state.isLoading = false;
@@ -266,9 +165,7 @@ export default class LocationLookup extends HTMLElement {
       isLoading: false,
       error: null,
       result: null,
-      secondResult: null,
       selectedLocation: "",
-      showComparison: false,
     };
 
     this.render();
@@ -295,23 +192,6 @@ export default class LocationLookup extends HTMLElement {
       });
   }
 
-  _calculatePerformanceScore(processingTime) {
-    // Calculate score based on relation to 950ms benchmark
-    const benchmark = 950;
-    const percentage = Math.min(
-      100,
-      Math.max(0, 100 - (processingTime / benchmark) * 100)
-    );
-
-    if (percentage >= 80)
-      return { score: "Excellent", color: "var(--success-color)" };
-    if (percentage >= 60)
-      return { score: "Good", color: "var(--accent-color)" };
-    if (percentage >= 40)
-      return { score: "Average", color: "var(--alt-color)" };
-    return { score: "Slow", color: "var(--error-color)" };
-  }
-
   getTemplate() {
     return /* html */ `
       ${this.getStyles()}
@@ -333,15 +213,6 @@ export default class LocationLookup extends HTMLElement {
         ? `<div class="error-alert">${this.state.error}</div>`
         : ""
       }
-            
-            <div class="info-alert">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>
-              <span>Requests are sent with secure authorization. Two requests will be made to demonstrate Redis caching.</span>
-            </div>
             
             <form class="location-form">
               <div class="input-group">
@@ -393,10 +264,7 @@ export default class LocationLookup extends HTMLElement {
                 <button type="submit" class="lookup-btn" ${this.state.isLoading ? "disabled" : ""
       }>
                   ${this.state.isLoading
-        ? this._getLoadingSpinner() +
-        (this.state.result
-          ? "Processing Second Request..."
-          : "Looking up...")
+        ? this._getLoadingSpinner() + "Looking up..."
         : "Lookup Location"
       }
                 </button>
@@ -418,7 +286,6 @@ export default class LocationLookup extends HTMLElement {
 
     const distanceResult = result.data.distance_result;
     const processingTime = result.data.processing_time_ms;
-    const performance = this._calculatePerformanceScore(processingTime);
 
     // Calculate hours and minutes from seconds
     const durationHours = Math.floor(distanceResult.duration_seconds / 3600);
@@ -426,122 +293,17 @@ export default class LocationLookup extends HTMLElement {
       (distanceResult.duration_seconds % 3600) / 60
     );
 
-    const secondResult = this.state.secondResult;
-    const showComparison =
-      this.state.showComparison && secondResult && secondResult.data;
+    // Format duration display
+    const formatDuration = (totalSeconds) => {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
 
-    let performanceComparisonHtml = "";
-
-    if (showComparison) {
-      const firstTime = processingTime;
-      const secondTime = secondResult.data.processing_time_ms;
-      const timeDifference = firstTime - secondTime;
-      const percentImprovement = Math.round((timeDifference / firstTime) * 100);
-
-      performanceComparisonHtml = /* html */ `
-        <div class="performance-comparison">
-          <h3 class="comparison-title">Redis Cache Comparison</h3>
-          <div class="comparison-metrics">
-            <div class="comparison-metric">
-              <div class="metric-icon request-first-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-              </div>
-              <div class="metric-content">
-                <span class="comparison-label">First Request</span>
-                <span class="comparison-value">${firstTime}ms</span>
-                <span class="request-badge">Uncached</span>
-              </div>
-            </div>
-            <div class="comparison-metric">
-              <div class="metric-icon request-second-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                  <line x1="7" y1="2" x2="7" y2="22"></line>
-                  <line x1="17" y1="2" x2="17" y2="22"></line>
-                  <line x1="2" y1="12" x2="22" y2="12"></line>
-                  <line x1="2" y1="7" x2="7" y2="7"></line>
-                  <line x1="2" y1="17" x2="7" y2="17"></line>
-                  <line x1="17" y1="17" x2="22" y2="17"></line>
-                  <line x1="17" y1="7" x2="22" y2="7"></line>
-                </svg>
-              </div>
-              <div class="metric-content">
-                <span class="comparison-label">Second Request</span>
-                <span class="comparison-value comparison-highlight">${secondTime}ms</span>
-                <span class="request-badge cached">Cached</span>
-              </div>
-            </div>
-            <div class="comparison-metric improvement">
-              <div class="metric-icon improvement-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                  <polyline points="17 6 23 6 23 12"></polyline>
-                </svg>
-              </div>
-              <div class="metric-content">
-                <span class="comparison-label">Improvement</span>
-                <span class="comparison-value comparison-highlight">
-                  ${timeDifference}ms (${percentImprovement}%)
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="comparison-visual">
-            <h4 class="visual-title">Response Time Comparison</h4>
-            <div class="comparison-bar-container">
-              <div class="bar-label-container">
-                <div class="metric-icon request-first-icon mini-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                  </svg>
-                </div>
-                <div class="comparison-label">First Request</div>
-              </div>
-              <div class="comparison-bar first" style="width: 100%;">
-                <span class="bar-value">${firstTime}ms</span>
-              </div>
-            </div>
-            <div class="comparison-bar-container">
-              <div class="bar-label-container">
-                <div class="metric-icon request-second-icon mini-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                    <line x1="7" y1="2" x2="7" y2="22"></line>
-                    <line x1="17" y1="2" x2="17" y2="22"></line>
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                  </svg>
-                </div>
-                <div class="comparison-label">Second Request</div>
-              </div>
-              <div class="comparison-bar second" style="width: ${Math.max(
-        5,
-        (secondTime / firstTime) * 100
-      )}%;">
-                <span class="bar-value">${secondTime}ms</span>
-              </div>
-            </div>
-          </div>
-          <div class="comparison-explanation">
-            <div class="explanation-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                <line x1="15" y1="9" x2="15.01" y2="9"></line>
-              </svg>
-            </div>
-            <div class="explanation-content">
-              <h4>Redis Caching Performance</h4>
-              <p>The second request is faster because the result is cached in Redis, demonstrating the performance benefits of caching in our application. Redis provides in-memory data storage with high-speed access.</p>
-            </div>
-          </div>
-        </div>
-      `;
-    }
+      if (hours > 0) {
+        return `${hours} hours ${minutes} minutes`;
+      } else {
+        return `${minutes} minutes`;
+      }
+    };
 
     return /* html */ `
       <div class="result-container">
@@ -556,84 +318,7 @@ export default class LocationLookup extends HTMLElement {
           </button>
         </div>
         
-        <div class="result-tabs">
-          <div class="tab active" data-tab="details">Details</div>
-          <div class="tab ${showComparison ? "" : "disabled"
-      }" data-tab="comparison">${showComparison ? "Performance Comparison" : "Awaiting Second Request..."
-      }</div>
-        </div>
-        
-        <div class="tab-content details-tab active">
-          <div class="performance-dashboard">
-            <div class="dashboard-header">
-              <h3>Processing Performance</h3>
-              <div class="performance-pill" style="background-color: ${performance.color
-      }">
-                <span>${performance.score}</span>
-              </div>
-            </div>
-            
-            <div class="dashboard-content">
-              <div class="stats-column">
-                <div class="stat-tiles">
-                  <div class="stat-tile">
-                    <div class="stat-icon benchmark-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <div class="stat-value">950ms</div>
-                      <div class="stat-label">Benchmark Target</div>
-                    </div>
-                  </div>
-                  
-                  <div class="stat-tile">
-                    <div class="stat-icon client-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <div class="stat-value">${result.data.client_processing_time_ms
-      }ms</div>
-                      <div class="stat-label">Client Processing</div>
-                    </div>
-                  </div>
-                  
-                  <div class="stat-tile">
-                    <div class="stat-icon request-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
-                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <div class="stat-value">#${result.data.request_number || 1
-      }</div>
-                      <div class="stat-label">Request</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="performance-scale">
-                  <div class="scale-marker" style="background-color: var(--error-color)"></div>
-                  <div class="scale-marker" style="background-color: var(--warning-color)"></div>
-                  <div class="scale-marker" style="background-color: var(--accent-color)"></div>
-                  <div class="scale-marker" style="background-color: var(--success-color)"></div>
-                  <div class="scale-labels">
-                    <span>Slow</span>
-                    <span>Average</span>
-                    <span>Good</span>
-                    <span>Excellent</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div class="result-content">
           <div class="result-grid">
             <div class="detail-card address-card">
               <div class="card-header">
@@ -694,7 +379,7 @@ export default class LocationLookup extends HTMLElement {
               </div>
               <div class="metric-content">
                 <h4>Travel Time</h4>
-                <div class="metric-value">${durationHours} hours ${durationMinutes} minutes</div>
+                <div class="metric-value">${formatDuration(distanceResult.duration_seconds)}</div>
                 <div class="metric-secondary">${distanceResult.duration_seconds.toLocaleString()} seconds total</div>
               </div>
             </div>
@@ -720,6 +405,7 @@ export default class LocationLookup extends HTMLElement {
             </div>
           </div>
           
+          ${result.data.message ? `
           <div class="message-container">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"></circle>
@@ -728,25 +414,7 @@ export default class LocationLookup extends HTMLElement {
             </svg>
             <p class="message">${result.data.message}</p>
           </div>
-          
-          ${showComparison
-        ? ""
-        : `
-            <div class="awaiting-second-request">
-              <div class="loading-indicator">
-                <div class="dot"></div>
-                <div class="dot"></div>
-                <div class="dot"></div>
-              </div>
-              <p>Performing second request to demonstrate Redis caching...</p>
-            </div>
-          `
-      }
-        </div>
-        
-        <div class="tab-content comparison-tab ${showComparison ? "" : "hidden"
-      }">
-          ${performanceComparisonHtml}
+          ` : ''}
         </div>
       </div>
     `;
@@ -1093,259 +761,11 @@ export default class LocationLookup extends HTMLElement {
         
         .copy-result:active {
           transform: translateY(0);
-        }
-        
-        .copy-result svg {
+        }        .copy-result svg {
           width: 0.875rem;
           height: 0.875rem;
         }
-        
-        /* Tab Navigation */
-        .result-tabs {
-          display: flex;
-          border-bottom: 1px solid var(--border-color);
-          margin-bottom: 1.5rem;
-          overflow-x: auto;
-          scrollbar-width: none;
-        }
-        
-        .result-tabs::-webkit-scrollbar {
-          display: none;
-        }
-        
-        .tab {
-          padding: 0.875rem 1.25rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--gray-color);
-          border-bottom: 2px solid transparent;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          white-space: nowrap;
-        }
-        
-        .tab:hover:not(.disabled) {
-          color: var(--primary-color);
-        }
-        
-        .tab.active {
-          color: var(--primary-color);
-          border-bottom-color: var(--primary-color);
-        }
-        
-        .tab.disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        
-        .tab-content {
-          display: none;
-        }
-        
-        .tab-content.active {
-          display: block;
-        }
-        
-        .tab-content.hidden {
-          display: none;
-        }
-        
-        /* Performance Dashboard */
-        .performance-dashboard {
-          background: var(--background-color);
-          padding: 0 0 20px 0;
-          margin-bottom: 1.5rem;
-          border-bottom: var(--border);
-        }
-        
-        .dashboard-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-        }
-        
-        .dashboard-header h3 {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin: 0;
-          color: var(--title-color);
-        }
-        
-        .performance-pill {
-          padding: 0.375rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: white;
-          border-radius: 2rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 100px;
-          background: var(--primary-linear);
-        }
-        
-        .dashboard-content {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-          gap: 2rem;
-          align-items: center;
-        }
-        
-        .gauge-column {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .gauge-label {
-          margin-top: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        
-        .stats-column {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-        
-        .stat-tiles {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1rem;
-          width: 100%;
-        }
-        
-        .stat-tile {
-          background-color: var(--background-color);
-          border-radius: 0.75rem;
-          padding: 1rem;
-          display: flex;
-          width: max-content;
-          align-items: center;
-          gap: 0.75rem;
-          border: var(--border);
-          transition: transform 0.2s ease, border-bottom 0.2s ease;
-        }
-        
-        .stat-tile:hover {
-          transform: translateY(-3px);
-        }
-        
-        .stat-icon {
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: 0.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          flex-shrink: 0;
-        }
-        
-        .benchmark-icon {
-          background: linear-gradient(145deg, #3c82f6 0%, #1e40af 100%);
-        }
-        
-        .client-icon {
-          background: linear-gradient(145deg, #8b5cf6 0%, #6d28d9 100%);
-        }
-        
-        .request-icon {
-          background: linear-gradient(145deg, #ec4899 0%, #be185d 100%);
-        }
-        
-        .stat-content {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-        
-        .stat-value {
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: var(--title-color);
-        }
-        
-        .stat-label {
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: var(--gray-color);
-        }
-        
-        .performance-scale {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          margin-top: 0.5rem;
-        }
-        
-        .scale-marker {
-          display: flex;
-          gap: 0.25rem;
-          height: 0.375rem;
-          border-radius: 1rem;
-        }
-        
-        .scale-marker:nth-child(1) {
-          width: 25%;
-        }
-        
-        .scale-marker:nth-child(2) {
-          width: 50%;
-        }
-        
-        .scale-marker:nth-child(3) {
-          width: 75%;
-        }
-        
-        .scale-marker:nth-child(4) {
-          width: 100%;
-        }
-        
-        .scale-labels {
-          display: flex;
-          justify-content: space-between;
-          font-size: 0.75rem;
-          color: var(--gray-color);
-          margin-top: 0.25rem;
-        }
-        
-        .performance-gauge {
-          width: 160px;
-          height: 160px;
-          position: relative;
-        }
-        
-        .gauge {
-          transform: rotate(-90deg);
-        }
-        
-        .gauge-background {
-          fill: none;
-          stroke: var(--border-color);
-          stroke-width: 10;
-        }
-        
-        .gauge-value {
-          fill: none;
-          stroke-width: 10;
-          stroke-linecap: round;
-          transform-origin: center;
-          transform: rotate(0deg);
-          transition: stroke-dasharray 1s ease;
-        }
-        
-        .gauge-text {
-          font-size: 1.5rem;
-          font-weight: 700;
-          transform: rotate(90deg);
-        }
-        
+
         /* Result Grid */
         .result-grid {
           display: grid;
@@ -1419,22 +839,6 @@ export default class LocationLookup extends HTMLElement {
           color: var(--primary-color);
           flex-shrink: 0;
         }
-        
-        /* Icons for performance comparison */
-        .request-first-icon {
-          background: linear-gradient(145deg, #3b82f6 0%, #1e40af 100%);
-          color: white;
-        }
-        
-        .request-second-icon {
-          background: linear-gradient(145deg, #10b981 0%, #047857 100%);
-          color: white;
-        }
-        
-        .improvement-icon {
-          background: linear-gradient(145deg, #f59e0b 0%, #b45309 100%);
-          color: white;
-        }
 
         .metric-card .metric-content {
           flex: unset;
@@ -1505,229 +909,14 @@ export default class LocationLookup extends HTMLElement {
           flex-shrink: 0;
           margin-top: 0.125rem;
         }
-        
-        .message {
+         .message {
           margin: 0;
           font-size: 0.875rem;
           color: var(--primary-color);
           font-weight: 500;
           line-height: 1.5;
         }
-        
-        /* Comparison Tab */
-        .performance-comparison {
-          padding: 0;
-        }
-        
-        .comparison-title {
-          display: none;
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin: 0 0 1.25rem 0;
-          color: var(--title-color);
-          text-align: center;
-        }
-        
-        .comparison-metrics {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        
-        .comparison-metric {
-          padding: 1rem;
-          border-radius: 0.5rem;
-          border: var(--border);
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-        
-        .comparison-metric.improvement {
-          border: 1px solid var(--success-color);
-          background-color: var(--card-bg);
-          border-bottom: 2px solid var(--success-color);
-        }
-        
-        .comparison-metric .metric-content {
-          display: grid;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 0.25rem;
-        }
-        
-        .comparison-label {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--gray-color);
-        }
-        
-        .comparison-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--text-color);
-        }
-        
-        .comparison-highlight {
-          transition: color 0.3s ease;
-        }
-        
-        .highlight-animation {
-          animation: highlight-pulse 2s ease;
-        }
-        
-        .request-badge {
-          font-size: 0.75rem;
-          font-weight: 600;
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
-          background-color: var(--tab-background);
-          color: var(--gray-color);
-          align-self: center;
-        }
-        
-        .request-badge.cached {
-          background-color: rgba(16, 185, 129, 0.1);
-          color: var(--success-color);
-        }
-        
-        .comparison-visual {
-          background-color: var(--background-color);
-          padding: 1.25rem 0 0;
-        }
-        
-        .visual-title {
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 0 0 1rem 0;
-          color: var(--title-color);
-        }
-        
-        .comparison-bar-container {
-          display: flex;
-          align-items: center;
-          margin-bottom: 1rem;
-          gap: 1rem;
-        }
-        
-        .bar-label-container {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          width: 150px;
-          flex-shrink: 0;
-        }
-        
-        .mini-icon {
-          width: 1.75rem;
-          height: 1.75rem;
-        }
-        
-        .comparison-bar {
-          height: 2rem;
-          border-radius: 0.25rem;
-          display: flex;
-          align-items: center;
-          padding: 0 0.75rem;
-          position: relative;
-          min-width: 4rem;
-          transition: width 1s ease-out;
-          flex-grow: 1;
-        }
-        
-        .comparison-bar.first {
-          background-color: var(--tab-background);
-          color: var(--primary-color);
-        }
-        
-        .comparison-bar.second {
-          background-color: rgba(16, 185, 129, 0.2);
-          color: var(--success-color);
-        }
-        
-        .bar-value {
-          font-weight: 600;
-          font-size: 0.875rem;
-          white-space: nowrap;
-        }
-        
-        .comparison-explanation {
-          border-radius: 0.5rem;
-          padding: 1.25rem 0;
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-        }
-        
-        .explanation-icon {
-          background: var(--accent-linear);
-          color: white;
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: 50%;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        
-        .explanation-content {
-          flex: 1;
-        }
-        
-        .explanation-content h4 {
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 0 0 0.5rem 0;
-          color: var(--title-color);
-        }
-        
-        .explanation-content p {
-          margin: 0;
-          font-size: 0.875rem;
-          line-height: 1.5;
-          color: var(--text-color);
-        }
-        
-        /* Awaiting second request */
-        .awaiting-second-request {
-          background-color: var(--tab-background);
-          padding: 1.25rem;
-          border-radius: 0.5rem;
-          text-align: center;
-          margin-top: 1.5rem;
-        }
-        
-        .awaiting-second-request p {
-          color: var(--primary-color);
-          font-size: 0.875rem;
-          font-weight: 500;
-          margin: 0.75rem 0 0 0;
-        }
-        
-        .loading-indicator {
-          display: flex;
-          gap: 0.5rem;
-          justify-content: center;
-        }
-        
-        .dot {
-          width: 0.75rem;
-          height: 0.75rem;
-          background-color: var(--primary-color);
-          border-radius: 50%;
-          animation: pulse 1.5s infinite ease-in-out;
-        }
-        
-        .dot:nth-child(2) {
-          animation-delay: 0.2s;
-        }
-        
-        .dot:nth-child(3) {
-          animation-delay: 0.4s;
-        }
-        
+
         /* Loading Spinner */
         .spinner {
           animation: rotate 2s linear infinite;
@@ -1763,8 +952,7 @@ export default class LocationLookup extends HTMLElement {
             stroke-dashoffset: -124;
           }
         }
-        
-        @keyframes pulse {
+         @keyframes pulse {
           0%, 100% {
             transform: scale(0.75);
             opacity: 0.5;
@@ -1774,19 +962,7 @@ export default class LocationLookup extends HTMLElement {
             opacity: 1;
           }
         }
-        
-        @keyframes highlight-pulse {
-          0% {
-            color: var(--text-color);
-          }
-          30% {
-            color: var(--success-color);
-          }
-          100% {
-            color: var(--text-color);
-          }
-        }
-        
+
         /* Responsive Design */
         @media (max-width: 768px) {
           .sample-locations {
@@ -1796,30 +972,6 @@ export default class LocationLookup extends HTMLElement {
           .dashboard-content {
             grid-template-columns: 1fr;
             gap: 2rem;
-          }
-          
-          .gauge-column {
-            margin-bottom: 1rem;
-          }
-          
-          .stat-tiles {
-            grid-template-columns: 1fr;
-          }
-          
-          .comparison-metrics {
-            grid-template-columns: 1fr;
-          }
-          
-          .comparison-bar-container {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-          }
-          
-          .comparison-bar-container .comparison-label {
-            width: auto;
-            text-align: left;
-            padding-right: 0;
           }
           
           .form-actions {
