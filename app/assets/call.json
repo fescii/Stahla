@@ -30,7 +30,7 @@
           [
             "best_time_to_call_back",
             "string",
-            "Preferred callback time if now isn't good (e.g., 'tomorrow morning', 'around 3 PM')."
+            "Extract only the specific time they mention for the callback (e.g., 'tomorrow morning', 'around 3 PM', 'Thursday afternoon', '2:30 PM'). Do not extract phrases like 'a better time' or 'when it's convenient'."
           ]
         ],
         "modelOptions": {
@@ -71,7 +71,7 @@
           [
             "contact_name",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', extract the name by combining {{request_data.firstname}} {{request_data.lastname}}. If they provide a different name, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', extract the actual name by combining the first name and last name from the request data. If they provide a different name, extract only the actual name they speak (e.g., 'John Smith', 'Mary Johnson'), not phrases like 'that's correct' or 'yes'."
           ]
         ],
         "modelOptions": {
@@ -89,7 +89,7 @@
           [
             "contact_email",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', extract the value from {{request_data.email}}. If they provide a new email, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', extract the actual email address from the request data. If they provide a new email, extract only the email address they speak (e.g., 'john@example.com', 'mary.smith@company.com'), not confirmation words."
           ]
         ],
         "modelOptions": {
@@ -107,7 +107,7 @@
           [
             "phone_number",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', extract the value from {{request_data.phone}}. If they provide a new number, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', extract the actual phone number from the request data. If they provide a new number, extract only the phone number they speak (e.g., '555-123-4567', '(402) 555-1234'), not phrases like 'the number I called' or confirmation words."
           ]
         ],
         "modelOptions": {
@@ -125,7 +125,7 @@
           [
             "company_name",
             "string",
-            "The confirmed or provided company name. If they say 'none' or personal, set to 'none'. Otherwise, capture the company name they provide."
+            "Extract only the actual company name they provide (e.g., 'ABC Construction', 'Smith Enterprises'). If they say 'none', 'personal', 'no company', or similar, set to 'none'. Do not extract phrases like 'I don't have one' - convert these to 'none'."
           ]
         ],
         "modelOptions": {
@@ -143,7 +143,7 @@
           [
             "delivery_location",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', extract the value from {{request_data.event_address}}. If they provide a new address, extract exactly what they say and format it properly as a standard US address (e.g., '123 Main St, Omaha, NE 68102'). If they provide numbers in words like 'one two three main street', convert to proper format '123 Main St'. Always ensure the state is included in the address. Proper capitalization should be used for street names, city names, and state abbreviations."
+            "If they confirm with words like 'yes', 'correct', 'that's right', extract the actual address from the request data. If they provide a new address, extract only the physical address they speak and format it properly as a standard US address (e.g., '123 Main St, Omaha, NE 68102'). Convert spoken numbers like 'one two three' to digits '123'. Do not extract confirmation words like 'yes' or 'that's correct'. Always ensure the state is included in the address. Use proper capitalization for street names, city names, and state abbreviations."
           ]
         ],
         "modelOptions": {
@@ -161,7 +161,7 @@
           [
             "location_type",
             "string",
-            "Type of location (business, residence, other)."
+            "Extract only the type of location they specify (e.g., 'business', 'residence', 'commercial', 'industrial', 'school', 'park'). Do not extract descriptive phrases."
           ]
         ],
         "modelOptions": {
@@ -272,12 +272,12 @@
           [
             "project_category",
             "string",
-            "The user's confirmed primary project category (Event, Construction, Disaster Relief, Construction Company, Facility)."
+            "Extract only the specific category they confirm (e.g., 'Event', 'Construction', 'Disaster Relief', 'Construction Company', 'Facility'). Do not extract confirmation words."
           ],
           [
             "usage_type",
             "string",
-            "Extract the lowercase usage type: 'event' for Event, 'construction' for Construction/Construction Company, 'disaster relief' for Disaster Relief, 'facility' for Facility."
+            "Convert the project category to lowercase usage type: 'event' for Event, 'construction' for Construction/Construction Company, 'disaster_relief' for Disaster Relief, 'facility' for Facility."
           ]
         ],
         "modelOptions": {
@@ -295,7 +295,7 @@
           [
             "product_type",
             "string",
-            "If they confirm the service from {{request_data.service_needed}}, extract that value. Otherwise, capture their specified product type (e.g., 'Porta Potty', 'Restroom Trailer', 'Shower Trailer', 'Combo Trailer', 'Specialty Trailer')."
+            "If they confirm the service from the request data, extract that actual service type. If they specify a different product, extract only the product type they mention (e.g., 'Porta Potty', 'Restroom Trailer', 'Shower Trailer', 'Combo Trailer', 'Specialty Trailer'). Do not extract confirmation words like 'yes' or 'that's correct'."
           ]
         ],
         "modelOptions": {
@@ -531,7 +531,7 @@
           [
             "rental_start_date",
             "string",
-            "If they confirm the date from {{request_data.event_start_date}}, extract that value in YYYY-MM-DD format. If they provide a different date, extract the date they provide and convert to YYYY-MM-DD format."
+            "If they confirm the date from the request data, extract that actual date. If they provide a different date, extract only the date they mention (e.g., 'July 15, 2025', 'August 3rd', 'next Friday') and convert to YYYY-MM-DD format. Do not extract confirmation words like 'yes' or 'that's correct'."
           ]
         ],
         "modelOptions": {
@@ -554,7 +554,7 @@
           [
             "event_end_date",
             "string",
-            "If they confirm the end date from {{request_data.event_end_date}}, extract that value in YYYY-MM-DD format. Otherwise, calculate the pickup date based on rental start date and rental days provided."
+            "If they confirm the end date from the request data, extract that actual date. If they provide a different end date, extract only the date they mention and convert to YYYY-MM-DD format. If no specific end date is mentioned, calculate it by adding the rental days to the start date. Do not extract phrases like 'that's correct'."
           ]
         ],
         "modelOptions": {

@@ -11,6 +11,7 @@ from app.models.bland import BlandCallbackRequest
 from app.models.classification import ClassificationInput, ClassificationResult, LeadClassificationType
 from app.models.hubspot import (
     HubSpotContactProperties,
+    HubSpotContactInput,
     HubSpotLeadProperties,  # Changed from Deal
     HubSpotLeadInput,  # Added import for HubSpotLeadInput
     HubSpotContactResult,
@@ -20,7 +21,7 @@ from app.models.hubspot import (
 
 # Import services
 from app.services.classify.classification import classification_manager
-from app.services.bland import bland_manager
+from app.services.bland import get_bland_manager
 from app.services.hubspot import hubspot_manager
 from app.services.n8n import trigger_n8n_handoff_automation
 from app.core.config import settings
@@ -130,7 +131,7 @@ async def _trigger_bland_call(payload: FormPayload):
   try:
     # contact_id for logging purposes, can be email or a more stable ID if available
     call_contact_id = payload.email or payload.phone or "unknown_form_contact"
-    call_result = await bland_manager.initiate_callback(
+    call_result = await get_bland_manager().initiate_callback(
         request_data=callback_request,  # Pass the updated callback_request
         contact_id=call_contact_id,
         log_retry_of_call_id=None,
@@ -235,8 +236,10 @@ async def _handle_hubspot_update(
         call_summary=classification_output.metadata.get(
             "call_summary") if classification_output and classification_output.metadata else None
     )
+    # Create HubSpotContactInput object with the properties
+    contact_input = HubSpotContactInput(properties=contact_props)
     # Use the updated service function which returns HubSpotApiResult
-    contact_api_result = await hubspot_manager.create_or_update_contact(contact_props)
+    contact_api_result = await hubspot_manager.create_or_update_contact(contact_input)
 
     if contact_api_result.status != "success" or not contact_api_result.hubspot_id:
       logfire.error(
@@ -342,7 +345,7 @@ async def _handle_hubspot_update(
     )
 
     # Call create_lead service function
-    lead_result = await hubspot_manager.create_lead(lead_input.properties)
+    lead_result = await hubspot_manager.create_lead(lead_input)
 
     if lead_result.status != "success" or not lead_result.hubspot_id:
       logfire.error(
@@ -363,7 +366,17 @@ async def _handle_hubspot_update(
     final_owner_id = None
     if classification_output and classification_output.lead_type != "Disqualify":
       # Assign owner based on logic (e.g., round-robin, specific queue)
-      final_owner_id = await hubspot_manager.get_next_owner_id()  # type: ignore
+      # Get active owners and assign the first one (simple assignment logic)
+      try:
+        active_owners = await hubspot_manager.get_owners(limit=10)
+        if active_owners:
+          final_owner_id = active_owners[0].id
+        else:
+          logfire.warn("No active owners found for lead assignment")
+      except Exception as owner_err:
+        logfire.error(f"Error fetching owners: {owner_err}")
+        final_owner_id = None
+
       if final_owner_id:
         logfire.info(f"Assigning owner {final_owner_id} to new lead {lead_id}")
         # Update the lead with the owner ID
@@ -568,7 +581,7 @@ async def _trigger_bland_call_for_hubspot(contact_id: str, contact_properties: d
   try:
       # print request data for debugging
     logfire.debug("Bland callback request data", request_data=callback_request)
-    call_result = await bland_manager.initiate_callback(
+    call_result = await get_bland_manager().initiate_callback(
         request_data=callback_request,
         contact_id=contact_id,
         log_retry_of_call_id=None,
@@ -677,7 +690,7 @@ async def _update_hubspot_lead_after_classification(
     )
 
     # Call create_lead with the proper input object
-    lead_result = await hubspot_manager.create_lead(lead_input.properties)
+    lead_result = await hubspot_manager.create_lead(lead_input)
 
     if lead_result.status != "success" or not lead_result.hubspot_id:
       logfire.error(
@@ -700,7 +713,17 @@ async def _update_hubspot_lead_after_classification(
     # 3. Assign Owner (if applicable)
     final_owner_id = None
     if classification_output and classification_output.lead_type != "Disqualify":
-      final_owner_id = await hubspot_manager.get_next_owner_id()
+      # Get active owners and assign the first one (simple assignment logic)
+      try:
+        active_owners = await hubspot_manager.get_owners(limit=10)
+        if active_owners:
+          final_owner_id = active_owners[0].id
+        else:
+          logfire.warn("No active owners found for lead assignment")
+      except Exception as owner_err:
+        logfire.error(f"Error fetching owners: {owner_err}")
+        final_owner_id = None
+
       if final_owner_id:
         logfire.info(f"Assigning owner {final_owner_id} to new lead {lead_id}")
         # Update the newly created lead with the owner ID

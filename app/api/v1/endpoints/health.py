@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.models.common import HealthCheckResponse, GenericResponse  # Updated import
 # Import unified dependencies
 from app.core.dependencies import get_mongo_service_dep, get_redis_service_dep
-from app.services.bland import bland_manager, BlandAIManager
+from app.services.bland import get_bland_manager, BlandAIManager
 from app.services.mongo.dependency import MongoService
 from app.services.redis.service import RedisService
 # Added import for Redis specific errors
@@ -171,7 +171,7 @@ async def health_check(
   # Define tasks for concurrent execution
   service_check_tasks = [
       _perform_hubspot_check(),
-      _perform_blandai_check(bland_manager),
+      _perform_blandai_check(get_bland_manager()),
       _perform_mongo_check(mongo_db_service),
       _perform_redis_check(redis_service),
   ]

@@ -10,7 +10,7 @@ from app.models.bland import BlandCallbackRequest
 from app.models.classification import ClassificationInput, ClassificationResult
 
 # Import services
-from app.services.bland import bland_manager
+from app.services.bland import get_bland_manager
 from app.services.hubspot import hubspot_manager
 from app.services.n8n import trigger_n8n_handoff_automation
 from app.core.config import settings
@@ -110,7 +110,7 @@ async def trigger_bland_call(payload: FormPayload):
   try:
     # contact_id for logging purposes, can be email or a more stable ID if available
     call_contact_id = payload.email or payload.phone or "unknown_form_contact"
-    call_result = await bland_manager.initiate_callback(
+    call_result = await get_bland_manager().initiate_callback(
         request_data=callback_request,  # Pass the updated callback_request
         contact_id=call_contact_id,
         log_retry_of_call_id=None,

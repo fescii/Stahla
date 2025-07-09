@@ -105,22 +105,22 @@ async def lifespan(app: FastAPI):
     # Initialize Bland AI Manager with MongoService (REQUIRED)
     # Bland AI service requires MongoService for call logging
     try:
-      # Create a new BlandAIManager instance with the required services
-      from app.services.bland.manager import BlandAIManager
+      from app.services.bland.manager import initialize_bland_manager, set_bland_manager
 
-      bland_manager_instance = BlandAIManager(
-          api_key=settings.BLAND_API_KEY,
-          base_url=settings.BLAND_API_URL,
-          pathway_id_setting=settings.BLAND_PATHWAY_ID,
+      # Initialize with proper background tasks context
+      background_tasks = BackgroundTasks()
+      bland_manager_instance = await initialize_bland_manager(
           mongo_service=mongo_service_instance,
-          background_tasks=BackgroundTasks()
+          background_tasks=background_tasks
       )
 
-      # Trigger initial Bland pathway sync to ensure everything is properly initialized
-      await bland_manager_instance.sync_bland()
+      # Set the instance in application state for direct access
+      app.state.bland_manager = bland_manager_instance
 
-      logfire.info(
-          "Bland AI service initialized with MongoService and synced successfully.")
+      # Also register it with the singleton pattern for dependency injection
+      set_bland_manager(bland_manager_instance)
+
+      logfire.info("Bland AI service initialized and registered successfully.")
     except Exception as bland_init_error:
       logfire.error(
           f"Failed to initialize Bland AI service: {bland_init_error}", exc_info=True)
@@ -128,12 +128,11 @@ async def lifespan(app: FastAPI):
           f"Bland AI service initialization failed: {bland_init_error}. Application cannot start.")
 
     # Initialize other managers/services if needed
-    # Now properly initialized with mongo_service
-    app.state.bland_manager = bland_manager_instance
+    # BlandAI manager is already initialized above and set in app.state
     app.state.hubspot_manager = HubSpotManager(settings.HUBSPOT_API_KEY)
     logfire.info("HubSpotManager initialized.")
 
-    # Bland pathway sync is already completed above during initialization
+    # Bland pathway sync was already completed during initialization above
     logfire.info("Bland pathway sync completed during initialization.")
 
     # Initialize Service Status Monitor

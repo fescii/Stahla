@@ -23,9 +23,9 @@ class BlandAIManager:
       self,
       api_key: str,
       base_url: str,
+      mongo_service: MongoService,
+      background_tasks: BackgroundTasks,
       pathway_id_setting: Optional[str] = None,
-      mongo_service: Optional[MongoService] = None,
-      background_tasks: Optional[BackgroundTasks] = None,
   ):
     self.pathway_id = pathway_id_setting
     self.mongo_service = mongo_service
@@ -52,15 +52,13 @@ class BlandAIManager:
 
     self.call_manager = BlandCallManager(
         api_client=self.api_client,
-        pathway_id=self.pathway_id,
         mongo_service=self.mongo_service,
         background_tasks=self.background_tasks,
+        pathway_id=self.pathway_id,
     )
 
-    # Initialize transcript processor if mongo_service is available
-    self.transcript_processor = None
-    if self.mongo_service:
-      self.transcript_processor = BlandTranscriptProcessor(self.mongo_service)
+    # Initialize transcript processor with mongo_service
+    self.transcript_processor = BlandTranscriptProcessor(self.mongo_service)
 
   async def close(self):
     """Gracefully closes the HTTP client."""
@@ -73,28 +71,6 @@ class BlandAIManager:
   # Sync operations
   async def sync_bland(self) -> None:
     """Synchronizes all Bland.ai definitions: pathway, location tool, and quote tool."""
-    # Ensure mongo service is available
-    if not self.mongo_service:
-      raise RuntimeError(
-          "MongoService is required for sync operations but not provided. Ensure startup_mongo_service() is called before using BlandAIManager.")
-
-    # Set up components with mongo service
-    self.sync_manager.mongo_service = self.mongo_service
-    self.call_manager.mongo_service = self.mongo_service
-    if not self.transcript_processor:
-      self.transcript_processor = BlandTranscriptProcessor(self.mongo_service)
-
-    if not self.background_tasks:
-      self.background_tasks = BackgroundTasks()
-      self.sync_manager.background_tasks = self.background_tasks
-      self.call_manager.background_tasks = self.background_tasks
-
-    # Update the call manager's logging service with the new dependencies
-    self.call_manager.update_services(
-        mongo_service=self.mongo_service,
-        background_tasks=self.background_tasks
-    )
-
     await self.sync_manager.sync_all()
 
   # Call management operations
@@ -130,29 +106,54 @@ class BlandAIManager:
       payload: BlandWebhookPayload
   ) -> BlandProcessingResult:
     """Processes the incoming transcript from the Bland.ai webhook."""
-    if not self.transcript_processor:
-      if not self.mongo_service:
-        raise ValueError("MongoService is required for transcript processing")
-      self.transcript_processor = BlandTranscriptProcessor(self.mongo_service)
-
     return await self.transcript_processor.process_incoming_transcript(payload)
 
 
 # --- Singleton Instance and Startup Sync ---
 
-bland_manager = BlandAIManager(
-    api_key=settings.BLAND_API_KEY,
-    base_url=settings.BLAND_API_URL,
-    pathway_id_setting=settings.BLAND_PATHWAY_ID,
-    mongo_service=None,  # Will be set at startup by sync_bland_pathway_on_startup
-    background_tasks=BackgroundTasks()
-)
+# The manager will be initialized during startup with required dependencies
+_bland_manager: Optional[BlandAIManager] = None
+
+
+async def initialize_bland_manager(mongo_service: MongoService, background_tasks: BackgroundTasks) -> BlandAIManager:
+  """Initialize and sync the Bland AI manager with required dependencies."""
+  import logfire
+  global _bland_manager
+
+  if _bland_manager is not None:
+    logfire.info(
+        "BlandAIManager already initialized, returning existing instance.")
+    return _bland_manager
+
+  logfire.info("Initializing BlandAIManager and syncing Bland definitions...")
+
+  _bland_manager = BlandAIManager(
+      api_key=settings.BLAND_API_KEY,
+      base_url=settings.BLAND_API_URL,
+      mongo_service=mongo_service,
+      background_tasks=background_tasks,
+      pathway_id_setting=settings.BLAND_PATHWAY_ID,
+  )
+
+  await _bland_manager.sync_bland()
+  logfire.info("BlandAIManager initialized and synced successfully.")
+  return _bland_manager
+
+
+def set_bland_manager(manager: BlandAIManager) -> None:
+  """Set the bland manager instance (used by application context)."""
+  global _bland_manager
+  _bland_manager = manager
+
+
+def get_bland_manager() -> BlandAIManager:
+  """Get the initialized bland manager instance."""
+  if _bland_manager is None:
+    raise RuntimeError(
+        "BlandAIManager not initialized. Call initialize_bland_manager first.")
+  return _bland_manager
 
 
 async def sync_bland_pathway_on_startup(mongo_service: MongoService):
-  """Syncs Bland definitions on application startup."""
-  import logfire
-  logfire.info(
-      "Attempting to sync Bland definitions on application startup...")
-  bland_manager.mongo_service = mongo_service
-  await bland_manager.sync_bland()  # Call the sync method
+  """Legacy function for backward compatibility."""
+  await initialize_bland_manager(mongo_service, BackgroundTasks())

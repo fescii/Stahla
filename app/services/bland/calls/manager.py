@@ -18,16 +18,16 @@ class BlandCallManager:
   def __init__(
       self,
       api_client: BlandApiClient,
+      mongo_service: MongoService,
+      background_tasks: BackgroundTasks,
       pathway_id: Optional[str] = None,
-      mongo_service: Optional[MongoService] = None,
-      background_tasks: Optional[BackgroundTasks] = None,
   ):
     self.api_client = api_client
     self.pathway_id = pathway_id
     self.mongo_service = mongo_service
     self.background_tasks = background_tasks
 
-    # Initialize logging service
+    # Initialize logging service with required dependencies
     self.log_service = BlandLogService(
         mongo_service=mongo_service,
         background_tasks=background_tasks
@@ -35,19 +35,17 @@ class BlandCallManager:
 
   def update_services(
       self,
-      mongo_service: Optional[MongoService] = None,
-      background_tasks: Optional[BackgroundTasks] = None
+      mongo_service: MongoService,
+      background_tasks: BackgroundTasks
   ):
     """Update service dependencies and refresh the log service."""
-    if mongo_service is not None:
-      self.mongo_service = mongo_service
-    if background_tasks is not None:
-      self.background_tasks = background_tasks
+    self.mongo_service = mongo_service
+    self.background_tasks = background_tasks
 
     # Update the log service with new dependencies
     self.log_service.update_services(
-        mongo_service=self.mongo_service,
-        background_tasks=self.background_tasks
+        mongo_service=mongo_service,
+        background_tasks=background_tasks
     )
 
   async def initiate_callback(
@@ -62,7 +60,6 @@ class BlandCallManager:
     Logs the attempt and result to MongoDB.
     The contact_id is added to the call's metadata.
     Prioritizes pathway_id over task if self.pathway_id is configured.
-    Requires BackgroundTasks for logging.
     """
     endpoint = "/v1/calls"
 
@@ -134,8 +131,8 @@ class BlandCallManager:
         "POST",
         endpoint,
         json_data=payload,
-        mongo_service=self.mongo_service,  # Pass self.mongo_service
-        background_tasks=self.background_tasks,  # Pass received background_tasks
+        mongo_service=self.mongo_service,
+        background_tasks=self.background_tasks,
     )
 
     # Log call result (post-API call)
@@ -175,15 +172,11 @@ class BlandCallManager:
     """
     Retries a previously failed or problematic call.
     Fetches original call details from MongoDB using self.mongo_service.
-    Constructs a new call request and initiates it via self.initiate_callback, passing background_tasks.
+    Constructs a new call request and initiates it via self.initiate_callback.
     """
     logfire.info(
         f"Attempting to retry call for contact_id: {contact_id} with reason: '{retry_reason}'"
     )
-    if not self.mongo_service:
-      logfire.error(
-          "Retry call failed: MongoService not available on BlandCallManager instance.", contact_id=contact_id)
-      return BlandApiResult(status="error", message="Internal configuration error: MongoService not available for retry operation.")
 
     original_log_doc = await self.mongo_service.get_bland_call_log(contact_id)
 
@@ -191,22 +184,14 @@ class BlandCallManager:
       logfire.error(
           f"Retry failed: Original call log not found for contact_id: {contact_id}"
       )
-      # Log this specific error to general error logs using the passed background_tasks
-      if self.background_tasks:  # Check if background_tasks is provided
-        self.background_tasks.add_task(
-            self.mongo_service.log_error_to_db,
-            service_name="BlandCallManager.retry_call",
-            error_type="NotFoundError",
-            message="Original call log not found to retry.",
-            details={"contact_id": contact_id, "retry_reason": retry_reason},
-        )
-      else:  # Log synchronously
-        await self.mongo_service.log_error_to_db(
-            service_name="BlandCallManager.retry_call",
-            error_type="NotFoundError",
-            message="Original call log not found to retry.",
-            details={"contact_id": contact_id, "retry_reason": retry_reason},
-        )
+      # Log this specific error to general error logs using the background_tasks
+      self.background_tasks.add_task(
+          self.mongo_service.log_error_to_db,
+          service_name="BlandCallManager.retry_call",
+          error_type="NotFoundError",
+          message="Original call log not found to retry.",
+          details={"contact_id": contact_id, "retry_reason": retry_reason},
+      )
       return BlandApiResult(
           status="error",
           message="Original call log not found to retry.",
@@ -218,27 +203,16 @@ class BlandCallManager:
       logfire.error(
           f"Retry failed: Original call log for contact_id: {contact_id} is missing phone number."
       )
-      if self.background_tasks is not None:
-        self.background_tasks.add_task(
-            self.mongo_service.log_error_to_db,
-            service_name="BlandCallManager.retry_call",
-            error_type="DataValidationError",
-            message="Original call log missing phone number.",
-            details={
-                "contact_id": contact_id,
-                "original_log_doc_id": str(original_log_doc.get("_id")),
-            },
-        )
-      else:
-        await self.mongo_service.log_error_to_db(
-            service_name="BlandCallManager.retry_call",
-            error_type="DataValidationError",
-            message="Original call log missing phone number.",
-            details={
-                "contact_id": contact_id,
-                "original_log_doc_id": str(original_log_doc.get("_id")),
-            },
-        )
+      self.background_tasks.add_task(
+          self.mongo_service.log_error_to_db,
+          service_name="BlandCallManager.retry_call",
+          error_type="DataValidationError",
+          message="Original call log missing phone number.",
+          details={
+              "contact_id": contact_id,
+              "original_log_doc_id": str(original_log_doc.get("_id")),
+          },
+      )
       return BlandApiResult(
           status="error",
           message="Original call log missing phone number.",
@@ -258,59 +232,34 @@ class BlandCallManager:
         logfire.warn(
             f"Could not parse original webhook_url '{webhook_str}' for retry due to validation error: {e}. Proceeding without webhook for retry."
         )
-        if self.background_tasks is not None:
-          self.background_tasks.add_task(
-              self.mongo_service.log_error_to_db,
-              service_name="BlandCallManager.retry_call",
-              error_type="WebhookParsingError",
-              message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
-              details={
-                  "contact_id": contact_id,
-                  "webhook_url_string": webhook_str,
-                  "validation_error": str(e),
-              },
-          )
-        else:
-          await self.mongo_service.log_error_to_db(
-              service_name="BlandCallManager.retry_call",
-              error_type="WebhookParsingError",
-              message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
-              details={
-                  "contact_id": contact_id,
-                  "webhook_url_string": webhook_str,
-                  "validation_error": str(e),
-              },
-          )
+        self.background_tasks.add_task(
+            self.mongo_service.log_error_to_db,
+            service_name="BlandCallManager.retry_call",
+            error_type="WebhookParsingError",
+            message=f"Could not parse original webhook_url '{webhook_str}' for retry.",
+            details={
+                "contact_id": contact_id,
+                "webhook_url_string": webhook_str,
+                "validation_error": str(e),
+            },
+        )
       except Exception as e:
         logfire.warn(
             f"Could not parse original webhook_url '{webhook_str}' for retry due to unexpected error: {e}. Proceeding without webhook for retry."
         )
-        if self.background_tasks is not None:
-          self.background_tasks.add_task(
-              self.mongo_service.log_error_to_db,
-              service_name="BlandCallManager.retry_call",
-              # Or more specific UnexpectedWebhookParsingError
-              error_type="WebhookParsingError",
-              message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
-              details={
-                  "contact_id": contact_id,
-                  "webhook_url_string": webhook_str,
-                  "error_type_name": type(e).__name__,
-                  "error_args": e.args,
-              },
-          )
-        else:
-          await self.mongo_service.log_error_to_db(
-              service_name="BlandCallManager.retry_call",
-              error_type="WebhookParsingError",
-              message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
-              details={
-                  "contact_id": contact_id,
-                  "webhook_url_string": webhook_str,
-                  "error_type_name": type(e).__name__,
-                  "error_args": e.args,
-              },
-          )
+        self.background_tasks.add_task(
+            self.mongo_service.log_error_to_db,
+            service_name="BlandCallManager.retry_call",
+            # Or more specific UnexpectedWebhookParsingError
+            error_type="WebhookParsingError",
+            message=f"Unexpected error parsing original webhook_url '{webhook_str}' for retry.",
+            details={
+                "contact_id": contact_id,
+                "webhook_url_string": webhook_str,
+                "error_type_name": type(e).__name__,
+                "error_args": e.args,
+            },
+        )
 
     # Extract relevant fields from the original log for the new call request.
     # Ensure these keys exist in your BlandCallLog documents or handle their absence.

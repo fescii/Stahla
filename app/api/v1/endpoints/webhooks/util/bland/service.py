@@ -9,7 +9,7 @@ from app.models.webhook import FormPayload
 from app.models.bland import BlandCallbackRequest
 
 # Import services
-from app.services.bland import bland_manager
+from app.services.bland import get_bland_manager
 from app.core.config import settings
 
 
@@ -83,7 +83,7 @@ async def trigger_bland_call(payload: FormPayload):
   try:
     # contact_id for logging purposes, can be email or a more stable ID if available
     call_contact_id = payload.email or payload.phone or "unknown_form_contact"
-    call_result = await bland_manager.initiate_callback(
+    call_result = await get_bland_manager().initiate_callback(
         request_data=callback_request,
         contact_id=call_contact_id,
         log_retry_of_call_id=None,
@@ -189,7 +189,7 @@ async def trigger_bland_call_for_hubspot_contact(contact_id: str, contact_proper
   )
   try:
     logfire.debug("Bland callback request data", request_data=callback_request)
-    call_result = await bland_manager.initiate_callback(
+    call_result = await get_bland_manager().initiate_callback(
         request_data=callback_request,
         contact_id=contact_id,
         log_retry_of_call_id=None,

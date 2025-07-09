@@ -13,7 +13,7 @@ from app.models.mongo.calls import CallStatus  # Add this import
 from app.models.common import GenericResponse
 
 # Import services
-from app.services.bland import bland_manager
+from app.services.bland import get_bland_manager
 from app.services.classify.classification import classification_manager
 from app.services.hubspot import hubspot_manager
 from app.services.mongo import MongoService, get_mongo_service  # Added import
@@ -68,7 +68,7 @@ async def webhook_voice(
                call_id=payload.call_id)
 
   # Process transcript
-  processing_result = await bland_manager.process_incoming_transcript(
+  processing_result = await get_bland_manager().process_incoming_transcript(
       payload
   )
 

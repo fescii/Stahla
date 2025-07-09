@@ -10,7 +10,7 @@ from app.models.bland import BlandCallbackRequest
 from app.models.classification import ClassificationInput, ClassificationResult
 
 # Import services
-from app.services.bland import bland_manager
+from app.services.bland import get_bland_manager
 from app.core.config import settings
 
 # Import shared utilities
@@ -138,7 +138,7 @@ async def trigger_bland_call_for_contact(contact_id: str, contact_properties: di
   try:
     # print request data for debugging
     logfire.debug("Bland callback request data", request_data=callback_request)
-    call_result = await bland_manager.initiate_callback(
+    call_result = await get_bland_manager().initiate_callback(
         request_data=callback_request,
         contact_id=contact_id,
         log_retry_of_call_id=None,
