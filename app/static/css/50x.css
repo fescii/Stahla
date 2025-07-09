@@ -1,4 +1,4 @@
-/* 404 Error Page Styles */
+/* 50x Server Error Page Styles */
 
 .error-page {
   min-height: var(--vh-height);
@@ -33,9 +33,9 @@
 
 h1.error-code {
   font-family: var(--font-main);
-  font-size: 8rem !important;
+  font-size: 10rem !important;
   font-weight: 800;
-  color: #e74c3c;
+  color: #f39c12;
   margin: 0;
   line-height: 1;
 }
@@ -135,6 +135,22 @@ h1.error-code {
   margin: 0 0 1rem 0;
 }
 
+.help-text ul {
+  list-style: disc;
+  text-align: left;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.help-text li {
+  margin: 0.5rem 0;
+  color: var(--text-color);
+  font-size: 0.95rem;
+}
+
 .help-links {
   display: flex;
   flex-wrap: wrap;
@@ -197,7 +213,16 @@ h1.error-code {
   color: var(--title-color);
 }
 
-/* Remove the error-icon class and dark mode box shadows */
+.btn-refresh {
+  background: #f39c12;
+  color: var(--white-color);
+  border: 1px solid #e67e22;
+}
+
+.btn-refresh:hover {
+  background: #e67e22;
+  filter: brightness(1.1);
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -212,7 +237,7 @@ h1.error-code {
 
   .error-code,
   h1.error-code {
-    font-size: 8rem !important;
+    font-size: 7rem !important;
   }
 
   .error-message {
@@ -258,7 +283,7 @@ h1.error-code {
 @media (max-width: 480px) {
   .error-code,
   h1.error-code {
-    font-size: 6rem !important;
+    font-size: 5rem !important;
   }
 
   .error-message {
@@ -273,7 +298,7 @@ h1.error-code {
 /* Dark mode specific adjustments */
 @media (prefers-color-scheme: dark) {
   .error-code {
-    color: var(--accent-color);
+    color: #f39c12;
   }
 }
 

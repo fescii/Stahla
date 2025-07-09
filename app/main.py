@@ -1,6 +1,6 @@
 # app/main.py
 
-from app.core.middleware import http_exception_handler, generic_exception_handler
+from app.core.middleware import http_exception_handler, generic_exception_handler, not_found_exception_handler, server_error_exception_handler
 from app.core.middleware import LoggingMiddleware
 from app.services.dash.health.checker import (
     initialize_service_monitor,
@@ -25,6 +25,7 @@ import os
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 import asyncio
 from dotenv import load_dotenv
@@ -242,6 +243,8 @@ app = FastAPI(
 # --- Register Exception Handlers ---
 app.add_exception_handler(
     HTTPException, http_exception_handler)  # type: ignore
+app.add_exception_handler(404, not_found_exception_handler)  # type: ignore
+app.add_exception_handler(500, server_error_exception_handler)  # type: ignore
 app.add_exception_handler(Exception, generic_exception_handler)
 
 # --- Add Middleware ---

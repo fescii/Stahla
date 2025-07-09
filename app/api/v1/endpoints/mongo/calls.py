@@ -6,8 +6,10 @@ import logfire
 from app.services.mongo import MongoService, get_mongo_service
 from app.models.mongo.calls import CallDocument, CallStatus
 from app.models.common import GenericResponse, PaginatedResponse
+from app.core.security import get_current_user
+from app.models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/calls", tags=["calls"])
 
 # Hardcoded pagination limit
 PAGINATION_LIMIT = 10
@@ -16,7 +18,8 @@ PAGINATION_LIMIT = 10
 @router.get("/recent", response_model=GenericResponse[PaginatedResponse[CallDocument]])
 async def get_recent_calls(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get recent calls ordered by creation date (newest first)."""
   try:
@@ -41,7 +44,8 @@ async def get_recent_calls(
 @router.get("/oldest", response_model=GenericResponse[PaginatedResponse[CallDocument]])
 async def get_oldest_calls(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get oldest calls ordered by creation date (oldest first)."""
   try:
@@ -66,7 +70,8 @@ async def get_oldest_calls(
 @router.get("/successful", response_model=GenericResponse[PaginatedResponse[CallDocument]])
 async def get_successful_calls(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get successfully completed calls."""
   try:
@@ -95,7 +100,8 @@ async def get_successful_calls(
 @router.get("/failed", response_model=GenericResponse[PaginatedResponse[CallDocument]])
 async def get_failed_calls(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get failed calls."""
   try:
@@ -124,7 +130,8 @@ async def get_failed_calls(
 @router.get("/longest", response_model=GenericResponse[PaginatedResponse[CallDocument]])
 async def get_longest_calls(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get calls ordered by duration (longest first)."""
   try:
@@ -149,7 +156,8 @@ async def get_longest_calls(
 @router.get("/shortest", response_model=GenericResponse[PaginatedResponse[CallDocument]])
 async def get_shortest_calls(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get calls ordered by duration (shortest first)."""
   try:
@@ -175,7 +183,8 @@ async def get_shortest_calls(
 async def get_calls_by_source(
     source: str,
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get calls by source."""
   try:
@@ -204,7 +213,8 @@ async def get_calls_by_source(
 @router.get("/{call_id}", response_model=GenericResponse[CallDocument])
 async def get_call_by_id(
     call_id: str,
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get a single call by ID."""
   try:

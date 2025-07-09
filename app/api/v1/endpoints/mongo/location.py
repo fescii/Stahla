@@ -5,6 +5,8 @@ from app.models.common import GenericResponse, PaginatedResponse
 from app.models.mongo.location import LocationDocument, LocationStatus
 from typing import Optional
 import logfire
+from app.core.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/location", tags=["location"])
 
@@ -15,7 +17,8 @@ PAGINATION_LIMIT = 10
 @router.get("/recent", response_model=PaginatedResponse[LocationDocument])
 async def get_recent_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get recent locations with pagination."""
   try:
@@ -39,7 +42,8 @@ async def get_recent_locations(
 @router.get("/oldest", response_model=PaginatedResponse[LocationDocument])
 async def get_oldest_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get oldest locations with pagination."""
   try:
@@ -63,7 +67,8 @@ async def get_oldest_locations(
 @router.get("/successful", response_model=PaginatedResponse[LocationDocument])
 async def get_successful_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get successful locations with pagination."""
   try:
@@ -87,7 +92,8 @@ async def get_successful_locations(
 @router.get("/failed", response_model=PaginatedResponse[LocationDocument])
 async def get_failed_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get failed locations with pagination."""
   try:
@@ -111,7 +117,8 @@ async def get_failed_locations(
 @router.get("/pending", response_model=PaginatedResponse[LocationDocument])
 async def get_pending_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get pending locations with pagination."""
   try:
@@ -137,7 +144,8 @@ async def get_locations_by_distance(
     ascending: bool = Query(
         True, description="Sort by distance ascending (nearest first)"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get locations sorted by distance with pagination."""
   try:
@@ -162,7 +170,8 @@ async def get_locations_by_distance(
 async def get_locations_by_branch(
     branch: str = Query(..., description="Branch name to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get locations by branch with pagination."""
   try:
@@ -186,7 +195,8 @@ async def get_locations_by_branch(
 @router.get("/with-fallback", response_model=PaginatedResponse[LocationDocument])
 async def get_locations_with_fallback(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get locations that used fallback method with pagination."""
   try:
@@ -210,7 +220,8 @@ async def get_locations_with_fallback(
 @router.get("/{location_id}", response_model=GenericResponse[LocationDocument])
 async def get_location_by_id(
     location_id: str,
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get a single location by ID."""
   try:

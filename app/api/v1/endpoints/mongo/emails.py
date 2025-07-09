@@ -5,6 +5,8 @@ from app.models.common import GenericResponse, PaginatedResponse
 from app.models.mongo.emails import EmailDocument, EmailStatus, EmailCategory
 from typing import Optional
 import logfire
+from app.core.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/emails", tags=["emails"])
 
@@ -15,7 +17,8 @@ PAGINATION_LIMIT = 10
 @router.get("/recent", response_model=PaginatedResponse[EmailDocument])
 async def get_recent_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get recent emails with pagination."""
   try:
@@ -39,7 +42,8 @@ async def get_recent_emails(
 @router.get("/oldest", response_model=PaginatedResponse[EmailDocument])
 async def get_oldest_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get oldest emails with pagination."""
   try:
@@ -63,7 +67,8 @@ async def get_oldest_emails(
 @router.get("/successful", response_model=PaginatedResponse[EmailDocument])
 async def get_successful_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get successful emails with pagination."""
   try:
@@ -87,7 +92,8 @@ async def get_successful_emails(
 @router.get("/failed", response_model=PaginatedResponse[EmailDocument])
 async def get_failed_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get failed emails with pagination."""
   try:
@@ -111,7 +117,8 @@ async def get_failed_emails(
 @router.get("/pending", response_model=PaginatedResponse[EmailDocument])
 async def get_pending_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get pending emails with pagination."""
   try:
@@ -137,7 +144,8 @@ async def get_emails_by_category(
     category: EmailCategory = Query(...,
                                     description="Email category to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get emails by category with pagination."""
   try:
@@ -163,7 +171,8 @@ async def get_emails_by_direction(
     direction: str = Query(...,
                            description="Email direction (inbound/outbound)"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get emails by direction with pagination."""
   try:
@@ -187,7 +196,8 @@ async def get_emails_by_direction(
 @router.get("/with-attachments", response_model=PaginatedResponse[EmailDocument])
 async def get_emails_with_attachments(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get emails with attachments with pagination."""
   try:
@@ -211,7 +221,8 @@ async def get_emails_with_attachments(
 @router.get("/processed", response_model=PaginatedResponse[EmailDocument])
 async def get_processed_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get processed emails with pagination."""
   try:
@@ -235,7 +246,8 @@ async def get_processed_emails(
 @router.get("/{email_id}", response_model=GenericResponse[EmailDocument])
 async def get_email_by_id(
     email_id: str,
-    service: MongoService = Depends(get_mongo_service)
+    service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get a single email by ID."""
   try:

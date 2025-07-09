@@ -6,6 +6,8 @@ import logfire
 from app.services.mongo import MongoService, get_mongo_service
 from app.models.mongo.classify import ClassifyDocument, ClassifyStatus
 from app.models.common import GenericResponse, PaginatedResponse
+from app.core.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/classify", tags=["classify"])
 
@@ -16,7 +18,8 @@ PAGINATION_LIMIT = 10
 @router.get("/recent", response_model=PaginatedResponse[ClassifyDocument])
 async def get_recent_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get recent classifications ordered by creation date (newest first)."""
   try:
@@ -40,7 +43,8 @@ async def get_recent_classifications(
 @router.get("/oldest", response_model=PaginatedResponse[ClassifyDocument])
 async def get_oldest_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get oldest classifications ordered by creation date (oldest first)."""
   try:
@@ -64,7 +68,8 @@ async def get_oldest_classifications(
 @router.get("/successful", response_model=PaginatedResponse[ClassifyDocument])
 async def get_successful_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get successfully completed classifications."""
   try:
@@ -89,7 +94,8 @@ async def get_successful_classifications(
 @router.get("/failed", response_model=PaginatedResponse[ClassifyDocument])
 async def get_failed_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get failed classifications."""
   try:
@@ -113,7 +119,8 @@ async def get_failed_classifications(
 @router.get("/disqualified", response_model=PaginatedResponse[ClassifyDocument])
 async def get_disqualified_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get disqualified classifications."""
   try:
@@ -139,7 +146,8 @@ async def get_disqualified_classifications(
 async def get_classifications_by_lead_type(
     lead_type: str = Query(..., description="Lead type to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get classifications by lead type (Services, Logistics, Leads, Disqualify)."""
   try:
@@ -168,7 +176,8 @@ async def get_classifications_by_lead_type(
 async def get_classifications_by_confidence(
     min_confidence: float = Query(..., description="Minimum confidence level"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get classifications by minimum confidence level."""
   try:
@@ -197,7 +206,8 @@ async def get_classifications_by_confidence(
 async def get_classifications_by_source(
     source: str = Query(..., description="Source to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get classifications by source (webform, voice, email, hubspot)."""
   try:
@@ -225,7 +235,8 @@ async def get_classifications_by_source(
 @router.get("/{classify_id}", response_model=GenericResponse[ClassifyDocument])
 async def get_classification_by_id(
     classify_id: str,
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get a single classification by ID."""
   try:

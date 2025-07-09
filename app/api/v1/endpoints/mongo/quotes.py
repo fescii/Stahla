@@ -6,8 +6,10 @@ import logfire
 from app.services.mongo import MongoService, get_mongo_service
 from app.models.mongo.quotes import QuoteDocument, QuoteStatus
 from app.models.common import GenericResponse, PaginatedResponse
+from app.core.security import get_current_user
+from app.models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/quotes", tags=["quotes"])
 
 # Hardcoded pagination limit
 PAGINATION_LIMIT = 10
@@ -16,7 +18,8 @@ PAGINATION_LIMIT = 10
 @router.get("/recent", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_recent_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get recent quotes ordered by creation date (newest first)."""
   try:
@@ -41,7 +44,8 @@ async def get_recent_quotes(
 @router.get("/oldest", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_oldest_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get oldest quotes ordered by creation date (oldest first)."""
   try:
@@ -66,7 +70,8 @@ async def get_oldest_quotes(
 @router.get("/highest", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_highest_value_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get quotes ordered by total amount (highest to lowest)."""
   try:
@@ -91,7 +96,8 @@ async def get_highest_value_quotes(
 @router.get("/lowest", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_lowest_value_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get quotes ordered by total amount (lowest to highest)."""
   try:
@@ -116,7 +122,8 @@ async def get_lowest_value_quotes(
 @router.get("/successful", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_successful_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get successfully completed quotes."""
   try:
@@ -145,7 +152,8 @@ async def get_successful_quotes(
 @router.get("/failed", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_failed_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get failed quotes."""
   try:
@@ -174,7 +182,8 @@ async def get_failed_quotes(
 @router.get("/expired", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_expired_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get expired quotes."""
   try:
@@ -203,7 +212,8 @@ async def get_expired_quotes(
 @router.get("/pending", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
 async def get_pending_quotes(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get pending quotes."""
   try:
@@ -233,7 +243,8 @@ async def get_pending_quotes(
 async def get_quotes_by_product(
     product_type: str,
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get quotes by product type."""
   try:
@@ -262,7 +273,8 @@ async def get_quotes_by_product(
 @router.get("/{quote_id}", response_model=GenericResponse[QuoteDocument])
 async def get_quote_by_id(
     quote_id: str,
-    mongo_service: MongoService = Depends(get_mongo_service)
+    mongo_service: MongoService = Depends(get_mongo_service),
+    current_user: User = Depends(get_current_user)
 ):
   """Get a single quote by ID."""
   try:

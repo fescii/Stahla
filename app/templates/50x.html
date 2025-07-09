@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Error - Stahla AI SDR</title>
+
+  <!-- SEO Meta Tags -->
+  <meta name="description"
+    content="Stahla AI SDR - A server error has occurred. Our team has been notified and is working to resolve the issue.">
+  <meta name="keywords" content="Stahla, AI, SDR, 500, Server Error, Internal Error">
+  <meta name="author" content="Stahla">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- CORS and Security Headers -->
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+  <meta http-equiv="Cross-Origin-Resource-Policy" content="cross-origin">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="/static/img/favi.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/favi.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favi.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favi.png">
+  <meta name="theme-color" content="#0060df" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/res.css">
+  <link rel="stylesheet" href="/static/css/50x.css">
+</head>
+
+<body>
+  <main class="error-page" role="main">
+    <div class="error-container">
+      <!-- Error Code -->
+      <h1 class="error-code" aria-label="Server Error">{{ status_code or '5XX' }}</h1>
+
+      <!-- Error Message -->
+      <h2 class="error-message">Server Error</h2>
+
+      <!-- Error Description -->
+      <p class="error-description">
+        Something went wrong on our end. Our team has been notified and is working to fix the issue.
+        Please try again in a few moments.
+      </p>
+
+      <!-- Requested URL Display -->
+      {% if url %}
+      <div class="requested-url" role="status" aria-label="Requested URL">
+        <strong>Requested URL:</strong> {{ url }}
+      </div>
+      {% endif %}
+
+      <!-- Error Details -->
+      <div class="error-details">
+        <h3>What happened?</h3>
+        <ul>
+          <li><strong>Status Code:</strong> {{ status_code or '5XX' }} Server Error</li>
+          <li><strong>Error Type:</strong> Internal Server Error</li>
+          <li><strong>Possible Causes:</strong> Server overload, database connection issues, or application error</li>
+          <li><strong>Timestamp:</strong> <span id="error-time"></span></li>
+        </ul>
+      </div>
+
+      <!-- Help Section -->
+      <div class="help-section">
+        <h3>What can you do?</h3>
+        <div class="help-text">
+          <ul>
+            <li>Wait a few minutes and try again</li>
+            <li>Check if the issue persists across different pages</li>
+            <li>Contact our support team if the problem continues</li>
+            <li>Try accessing the dashboard from the main page</li>
+          </ul>
+        </div>
+        <div class="help-links">
+          <a href="/docs" class="help-link">API Documentation</a>
+          <a href="/docs/features" class="help-link">Features Guide</a>
+          <a href="/docs/faq" class="help-link">FAQ</a>
+          <a href="mailto:support@stahla.com" class="help-link">Contact Support</a>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <nav class="error-actions" role="navigation" aria-label="Error page navigation">
+        <a href="/" class="btn btn-primary" aria-label="Go to dashboard homepage">
+          Go to Dashboard
+        </a>
+        <a href="javascript:history.back()" class="btn btn-secondary" aria-label="Go back to previous page">
+          Go Back
+        </a>
+        <a href="javascript:location.reload()" class="btn btn-refresh" aria-label="Reload current page">
+          Try Again
+        </a>
+      </nav>
+    </div>
+  </main>
+
+  <script>
+    // Set current timestamp
+    document.getElementById('error-time').textContent = new Date().toLocaleString();
+  </script>
+</body>
+
+</html>

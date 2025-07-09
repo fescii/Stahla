@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found - Stahla AI SDR</title>
+
+  <!-- SEO Meta Tags -->
+  <meta name="description"
+    content="Stahla AI SDR - The page you're looking for could not be found. Navigate back to our dashboard or explore our features.">
+  <meta name="keywords" content="Stahla, AI, SDR, 404, Not Found, Error Page">
+  <meta name="author" content="Stahla">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- CORS and Security Headers -->
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+  <meta http-equiv="Cross-Origin-Resource-Policy" content="cross-origin">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="/static/img/favi.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/img/favi.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favi.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favi.png">
+  <meta name="theme-color" content="#0060df" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/res.css">
+  <link rel="stylesheet" href="/static/css/404.css">
+</head>
+
+<body>
+  <main class="error-page" role="main">
+    <div class="error-container">
+      <!-- Error Code -->
+      <h1 class="error-code" aria-label="Error 404">404</h1>
+
+      <!-- Error Message -->
+      <h2 class="error-message">Page Not Found</h2>
+
+      <!-- Error Description -->
+      <p class="error-description">
+        The page you're looking for doesn't exist or has been moved.
+        Don't worry, let's get you back on track.
+      </p>
+
+      <!-- Requested URL Display -->
+      {% if url %}
+      <div class="requested-url" role="status" aria-label="Requested URL">
+        <strong>Requested URL:</strong> {{ url }}
+      </div>
+      {% endif %}
+
+      <!-- Error Details -->
+      <div class="error-details">
+        <h3>What happened?</h3>
+        <ul>
+          <li><strong>Status Code:</strong> 404 Not Found</li>
+          <li><strong>Error Type:</strong> Resource Not Available</li>
+          <li><strong>Possible Causes:</strong> URL was mistyped, page was moved, or link is outdated</li>
+          <li><strong>Timestamp:</strong> <span id="error-time"></span></li>
+        </ul>
+      </div>
+
+      <!-- Action Buttons -->
+      <nav class="error-actions" role="navigation" aria-label="Error page navigation">
+        <a href="/" class="btn btn-primary" aria-label="Go to dashboard homepage">
+          Go to Dashboard
+        </a>
+        <a href="javascript:history.back()" class="btn btn-secondary" aria-label="Go back to previous page">
+          Go Back
+        </a>
+      </nav>
+    </div>
+  </main>
+
+  <script>
+    // Set current timestamp
+    document.getElementById('error-time').textContent = new Date().toLocaleString();
+  </script>
+</body>
+
+</html>

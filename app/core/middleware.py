@@ -2,10 +2,11 @@ import time
 import json  # Import json module
 import logging
 from fastapi import Request, Response, BackgroundTasks, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.exception_handlers import http_exception_handler as default_http_exception_handler
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import StreamingResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import uuid
 import logfire
 
@@ -15,6 +16,9 @@ from app.services.background.request import log_request_response_bg
 
 # Import GenericResponse for error formatting
 from app.models.common import GenericResponse
+
+# Import templating
+from app.core.templating import templates
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,85 @@ async def http_exception_handler(request: Request, exc: HTTPException):
       status_code=exc.status_code,
       content=GenericResponse.error(
           message=exc.detail, status_code=exc.status_code).model_dump(exclude_none=True),
+  )
+
+
+async def not_found_exception_handler(request: Request, exc: StarletteHTTPException):
+  """
+  Handles 404 errors:
+  - Returns GenericResponse for API routes (starting with /api/)
+  - Returns 404.html template for other routes
+  """
+  logfire.warn(
+      f"404 Not Found: {request.url.path}",
+      request_path=str(request.url),
+      request_method=request.method
+  )
+
+  # Check if the request is for an API endpoint
+  if request.url.path.startswith("/api/"):
+    return JSONResponse(
+        status_code=404,
+        content=GenericResponse.error(
+            message="API endpoint not found",
+            details={"path": request.url.path, "method": request.method},
+            status_code=404
+        ).model_dump(exclude_none=True),
+    )
+
+  # For non-API routes, return HTML template
+  return templates.TemplateResponse(
+      "404.html",
+      {
+          "request": request,
+          "url": str(request.url),
+          "title": "Page Not Found - Stahla AI SDR"
+      },
+      status_code=404
+  )
+
+
+async def server_error_exception_handler(request: Request, exc: Exception):
+  """
+  Handles 5xx server errors:
+  - Returns GenericResponse for API routes (starting with /api/)
+  - Returns 50x.html template for other routes
+  """
+  status_code = getattr(exc, 'status_code', 500)
+
+  # Only handle 5xx errors (500-599)
+  if not (500 <= status_code <= 599):
+    # Let other handlers deal with non-5xx errors
+    raise exc
+
+  logfire.error(
+      f"Server Error ({status_code}): {request.url.path}",
+      exc_info=exc,
+      request_path=str(request.url),
+      request_method=request.method
+  )
+
+  # Check if the request is for an API endpoint
+  if request.url.path.startswith("/api/"):
+    return JSONResponse(
+        status_code=status_code,
+        content=GenericResponse.error(
+            message="Internal server error occurred",
+            details={"path": request.url.path, "method": request.method},
+            status_code=status_code
+        ).model_dump(exclude_none=True),
+    )
+
+  # For non-API routes, return HTML template
+  return templates.TemplateResponse(
+      "50x.html",
+      {
+          "request": request,
+          "url": str(request.url),
+          "status_code": status_code,
+          "title": "Server Error - Stahla AI SDR"
+      },
+      status_code=status_code
   )
 
 
