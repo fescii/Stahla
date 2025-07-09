@@ -1514,7 +1514,7 @@ export default class Overview extends HTMLElement {
         
         .cache-bar-hit {
           height: 100%;
-          background: var(--accent-linear);
+          background: var(--second-linear);
           border-radius: 5px;
           position: relative;
           overflow: hidden;

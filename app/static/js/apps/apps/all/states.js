@@ -283,10 +283,9 @@ export default class SheetStates extends HTMLElement {
         }
 
         .container {
-          padding: 1.5rem;
+          padding: 15px 0;
           width: 100%;
           background-color: var(--background);
-          min-height: 100vh;
         }
 
         .loader-container {
@@ -406,18 +405,15 @@ export default class SheetStates extends HTMLElement {
         }
 
         .state-card {
-          background-color: var(--background);
+          background-color: var(--gray-background);
           border-radius: 0.75rem;
-          box-shadow: var(--box-shadow);
           padding: 8px 10px;
           transition: all 0.2s ease;
-          border: 1px solid var(--border-color, rgba(0, 0, 0, 0.05));
           position: relative;
           overflow: hidden;
         }
 
         .state-card:hover {
-          box-shadow: var(--card-box-shadow-alt);
           transform: translateY(-2px);
         }
 

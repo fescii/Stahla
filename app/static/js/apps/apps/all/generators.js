@@ -331,9 +331,8 @@ export default class SheetGenerators extends HTMLElement {
         }
 
         .container {
-          padding: 1.5rem;
+          padding: 15px 0;
           background-color: var(--background);
-          min-height: 100vh;
           width: 100%;
         }
 
@@ -454,16 +453,14 @@ export default class SheetGenerators extends HTMLElement {
         }
 
         .generator-card {
-          background-color: var(--background);
+          background-color: var(--gray-background);
           border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
-          padding: 1.5rem;
+          padding: 20px;
           transition: all 0.2s ease;
           border: 1px solid var(--border);
         }
 
         .generator-card:hover {
-          box-shadow: var(--image-shadow);
           transform: translateY(-2px);
         }
 

@@ -112,6 +112,62 @@ export default class LatencyOverview extends HTMLElement {
     return names[service] || service;
   }
 
+  // Format numbers according to specified rules
+  formatNumber = (value) => {
+    const num = parseFloat(value);
+
+    // Handle invalid numbers
+    if (isNaN(num)) return '0';
+
+    // 0-999: Remains as is
+    if (num < 1000) {
+      return num.toString();
+    }
+
+    // 1,000 - 9,999: Add comma (e.g., 5,475)
+    if (num < 10000) {
+      return num.toLocaleString();
+    }
+
+    // 10,000 - 99,999: Format as X.Xk (e.g., 45.6k)
+    if (num < 100000) {
+      return (num / 1000).toFixed(1) + 'k';
+    }
+
+    // 100,000 - 999,999: Format as XXXk (e.g., 546k)
+    if (num < 1000000) {
+      return Math.round(num / 1000) + 'k';
+    }
+
+    // 1,000,000 - 9,999,999: Format as X.XXm (e.g., 5.47m)
+    if (num < 10000000) {
+      return (num / 1000000).toFixed(2) + 'm';
+    }
+
+    // 10,000,000 - 99,999,999: Format as XX.Xm (e.g., 46.3m)
+    if (num < 100000000) {
+      return (num / 1000000).toFixed(1) + 'm';
+    }
+
+    // 100,000,000 - 999,999,999: Format as XXXm (e.g., 546m)
+    if (num < 1000000000) {
+      return Math.round(num / 1000000) + 'm';
+    }
+
+    // 1,000,000,000 and above: Format as X.XXb, XX.Xb, XXXb, etc.
+    if (num < 10000000000) {
+      return (num / 1000000000).toFixed(2) + 'b';
+    }
+
+    if (num < 100000000000) {
+      return (num / 1000000000).toFixed(1) + 'b';
+    }
+
+    // 100b and above: No decimal
+    return Math.round(num / 1000000000) + 'b';
+  };
+
+
   getTemplate() {
     if (this._loading) {
       return this.getLoadingTemplate();
@@ -131,15 +187,15 @@ export default class LatencyOverview extends HTMLElement {
               <span class="stat-label">Health</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value">${this.latencyData.percentiles.total_samples}</span>
+              <span class="stat-value">${this.formatNumber(this.latencyData.percentiles.total_samples)}</span>
               <span class="stat-label">Samples</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value">${this.latencyData.spikes.total_spikes}</span>
+              <span class="stat-value">${this.formatNumber(this.latencyData.spikes.total_spikes)}</span>
               <span class="stat-label">Spikes</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value">${new Date(this.latencyData.generated_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</span>
+              <span class="stat-value time">${new Date(this.latencyData.generated_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</span>
               <span class="stat-label">Updated</span>
             </div>
           </div>
@@ -265,6 +321,7 @@ export default class LatencyOverview extends HTMLElement {
         :host {
           display: block;
           width: 100%;
+          min-width: 100%;
           font-family: var(--font-main);
         }
 
@@ -274,6 +331,7 @@ export default class LatencyOverview extends HTMLElement {
           color: var(--text-color);
           background: var(--background);
           max-width: 100%;
+          width: 100%;
         }
 
         /* System Summary Styles */
@@ -321,15 +379,23 @@ export default class LatencyOverview extends HTMLElement {
           width: max-content;
           background: var(--gray-background);
           border-radius: 12px;
-          border: 1px solid color-mix(in srgb, var(--gray-color) 20%, transparent);
+          border: 1px solid color-mix(in srgb, var(--alt-color) 20%, transparent);
         }
 
         .system-stats > .stat-item > .stat-value {
           font-size: 1.2rem;
           font-weight: 700;
-          color: var(--accent-color);
+          color: var(--alt-color);
           font-family: var(--font-main);
           margin-bottom: 0.25rem;
+        }
+
+        .system-stats > .stat-item > .stat-value.time {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--alt-color);
+          font-family: var(--font-main);
+          margin-bottom: 0.5rem;
         }
 
         .system-stats > .stat-item > .stat-label {
@@ -354,7 +420,8 @@ export default class LatencyOverview extends HTMLElement {
 
         .service-compact {
           overflow: hidden;
-          padding: 0 5px;
+          padding: 0 5px 25px;
+          border-bottom: 1px solid color-mix(in srgb, var(--alt-color) 80%, transparent);
           transition: all 0.2s ease;
         }
 
@@ -456,9 +523,7 @@ export default class LatencyOverview extends HTMLElement {
         .sample-count {
           font-size: 0.8rem;
           color: var(--gray-color);
-          background: color-mix(in srgb, var(--gray-color) 10%, transparent);
-          padding: 7px 10px;
-          border-radius: 12px;
+          padding: 7px 0;
           font-weight: 500;
         }
 
@@ -692,9 +757,7 @@ export default class LatencyOverview extends HTMLElement {
         .sample-count-inline {
           font-size: 0.75rem;
           color: var(--gray-color);
-          background: color-mix(in srgb, var(--gray-color) 10%, transparent);
-          padding: 7px 10px;
-          border-radius: 12px;
+          padding: 7px 0;
           font-weight: 500;
         }
 
@@ -704,9 +767,7 @@ export default class LatencyOverview extends HTMLElement {
         }
 
         .sample-count {
-          margin-top: 0.75rem;
-          padding: 7px 10px;
-          border-top: 1px solid color-mix(in srgb, var(--gray-color) 20%, transparent);
+          padding: 7px 0;
           font-size: 0.8rem;
           color: var(--gray-color);
           text-align: center;

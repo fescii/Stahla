@@ -516,10 +516,9 @@ export default class ServicesStatus extends HTMLElement {
         }
 
         .container {
-          padding: 1.5rem;
+          padding: 0;
           width: 100%;
           background-color: var(--background);
-          min-height: 100vh;
         }
 
         .status-content-grid {
@@ -600,7 +599,7 @@ export default class ServicesStatus extends HTMLElement {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 1.5rem;
+          margin: 1rem 0;
           flex-wrap: wrap;
           gap: 1rem;
         }
@@ -610,7 +609,7 @@ export default class ServicesStatus extends HTMLElement {
           align-items: center;
           margin-bottom: 0.5rem;
           padding: 0.375rem 0.75rem;
-          border-radius: 9999px;
+          border-radius: 100%;
           font-weight: 500;
         }
 
@@ -681,11 +680,11 @@ export default class ServicesStatus extends HTMLElement {
           gap: var(--spacing-sm);
           background: var(--action-linear);
           color: var(--white-color);
+          padding: 7px 12px;
           border: var(--action-border);
-          padding: var(--spacing-sm) var(--spacing-md);
-          border-radius: var(--border-radius-md);
-          font-weight: var(--font-weight-medium);
-          font-size: var(--font-size-sm);
+          border-radius: 0.375rem;
+          font-weight: 500;
+          font-size: 0.875rem;
           cursor: pointer;
           transition: all 0.2s ease;
         }
@@ -712,7 +711,6 @@ export default class ServicesStatus extends HTMLElement {
           background-color: var(--stat-background);
           border-radius: 12px;
           padding: 1.25rem;
-          box-shadow: var(--card-box-shadow-alt);
           transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           position: relative;
           overflow: hidden;
@@ -828,36 +826,18 @@ export default class ServicesStatus extends HTMLElement {
 
         /* Panel Styles - Match overview.js */
         .panel {
-          background-color: var(--hover-background);
-          border-radius: 8px;
           padding: 0;
-          box-shadow: var(--card-box-shadow-alt);
           transition: box-shadow 0.2s ease;
           overflow: hidden;
         }
 
-        .panel:hover {
-          box-shadow: var(--card-box-shadow);
-        }
-
         .panel-header {
-          padding: 12px 1.25rem;
+          padding: 7px 0;
           display: flex;
           justify-content: space-between;
           align-items: center;
           position: relative;
           box-shadow: 0 1px 0 rgba(107, 114, 128, 0.1);
-        }
-
-        .panel-header:after {
-          content: "";
-          position: absolute;
-          left: 0;
-          top: 0;
-          height: 100%;
-          width: 4px;
-          background: var(--accent-linear);
-          opacity: 0.7;
         }
 
         .panel-title {
@@ -871,13 +851,13 @@ export default class ServicesStatus extends HTMLElement {
         }
 
         .panel-actions {
-          display: flex;
+          display: none;
           gap: 0.5rem;
           color: var(--gray-color);
         }
 
         .panel-body {
-          padding: 1.25rem;
+          padding: 10px 0;
         }
 
         /* Services Grid - Match overview.js */
@@ -909,15 +889,8 @@ export default class ServicesStatus extends HTMLElement {
           border-radius: 8px;
           transition: all 0.2s ease;
           cursor: pointer;
-          box-shadow: var(--card-box-shadow-alt);
           position: relative;
           overflow: hidden;
-        }
-        
-        .service-pill:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--card-box-shadow);
-          background-color: var(--hover-background);
         }
         
         .service-pill:active {
@@ -1013,6 +986,9 @@ export default class ServicesStatus extends HTMLElement {
           }
           
           .export-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 0.375rem;
             flex: 1;
             justify-content: center;
           }

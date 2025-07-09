@@ -402,9 +402,8 @@ export default class SheetProducts extends HTMLElement {
 
         .container {
           width: 100%;
-          padding: 1.5rem;
+          padding: 15px 0;
           background-color: var(--background);
-          min-height: 100vh;
         }
 
         .loader-container {

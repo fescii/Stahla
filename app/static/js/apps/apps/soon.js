@@ -43,7 +43,7 @@ export default class SoonPage extends HTMLElement {
         </p>
         <div class="header-actions">
           <a class="action-button primary" href="mailto:isfescii@gmail.com?subject=Request%20Implementation">Request Implementation</a>
-          <a class="action-button secondary" href="/docs/api">View Documentation</a>
+          <a class="action-button secondary" href="/docs">View Documentation</a>
         </div>
         </div>
         <div class="graphic-container">

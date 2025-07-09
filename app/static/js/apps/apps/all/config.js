@@ -357,9 +357,8 @@ export default class SheetConfig extends HTMLElement {
         }
 
         .container {
-          padding: 1.5rem;
+          padding: 15px 0;
           background-color: var(--background);
-          min-height: 100vh;
           width: 100%;
         }
 
@@ -482,7 +481,6 @@ export default class SheetConfig extends HTMLElement {
           margin-bottom: 1rem;
           color: var(--title-color);
           padding-bottom: 0.5rem;
-          border-bottom: var(--border);
         }
 
         /* Delivery Card Styles */
@@ -492,7 +490,7 @@ export default class SheetConfig extends HTMLElement {
           gap: 1rem;
           background-color: var(--background);
           border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
+          background: var(--gray-background);
           padding: 1.5rem;
         }
 
@@ -523,14 +521,12 @@ export default class SheetConfig extends HTMLElement {
         .multiplier-card {
           background-color: var(--background);
           border-radius: 0.5rem;
-          box-shadow: var(--box-shadow);
           padding: 1.5rem;
           transition: all 0.2s ease;
-          border: 1px solid var(--border);
+          border: var(--border);
         }
 
         .multiplier-card:hover {
-          box-shadow: var(--image-shadow);
           transform: translateY(-2px);
         }
 
@@ -540,7 +536,7 @@ export default class SheetConfig extends HTMLElement {
           align-items: flex-start;
           margin-bottom: 1rem;
           padding-bottom: 1rem;
-          border-bottom: 1px solid var(--border);
+          border-bottom: var(--border);
         }
 
         .tier-name {

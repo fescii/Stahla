@@ -88,18 +88,25 @@ export default class Sidebar extends HTMLElement {
           display: flex;
           max-width: 100%;
           width: 100%;
-          min-width: 100%;
-          padding: 0;
           display: flex;
           flex-direction: column;
           align-items: start;
-          padding: 0;
+          padding: 0 10px;
           gap: 20px;
         }
 
         * {
           box-sizing: border-box;
           font-family: var(--font-main), sans-serif;
+        }
+
+        /* Content Wrapper */
+        .content-wrapper {
+          width: 100%;
+          max-width: 100%;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
         }
 
         /* Header Styles */
@@ -203,8 +210,11 @@ export default class Sidebar extends HTMLElement {
         }
 
         header.header > ul.links > li.link.profile > div.image > img {
-          width: 100%;
-          height: 100%;
+          width: 32px;
+          height: 32px;
+          max-height: 32px;
+          max-width: 32px;
+          border-radius: 50%;
           object-fit: cover;
         }
 
@@ -267,7 +277,7 @@ export default class Sidebar extends HTMLElement {
           animation: updatesPulse 2s ease-in-out infinite;
           transform-origin: center;
           z-index: 1;
-          color: var(--error-color);
+          color: var(--alt-color);
         }
 
         @keyframes updatesPulse {
