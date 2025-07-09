@@ -9,6 +9,7 @@ from pydantic import BaseModel
 # Import models
 from app.models.bland import BlandWebhookPayload
 from app.models.classification import ClassificationInput, ClassificationOutput
+from app.models.mongo.calls import CallStatus  # Add this import
 from app.models.common import GenericResponse
 
 # Import services
@@ -260,7 +261,7 @@ async def webhook_voice(
       "call_id_bland": payload.call_id,
       "phone_number": payload.to or payload.from_ or "unknown",
       "contact_id": hubspot_contact_id,
-      "status": "COMPLETED" if payload.completed else "FAILED",
+      "status": CallStatus.COMPLETED if payload.completed else CallStatus.FAILED,
       "call_duration": payload.call_length,
       "transcript": payload.concatenated_transcript,
       "summary": payload.summary,

@@ -626,12 +626,6 @@ class MongoService:
       return await self.location_ops.get_location_by_address(delivery_location)
     return None
 
-  async def get_locations_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Retrieves locations for a specific contact."""
-    if self.location_ops:
-      return await self.location_ops.get_locations_by_contact(contact_id, limit)
-    return []
-
   async def get_location_stats(self) -> Dict[str, int]:
     """Retrieves statistics about locations."""
     if self.location_ops:

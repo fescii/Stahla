@@ -20,10 +20,6 @@ class LocationDocument(BaseModel):
   """MongoDB document model for location lookups."""
 
   id: str = Field(..., description="Unique location lookup identifier, used as _id in MongoDB")
-  contact_id: Optional[str] = Field(
-      None, description="HubSpot contact ID if available")
-  lead_id: Optional[str] = Field(
-      None, description="HubSpot lead ID if available")
 
   # Request details
   delivery_location: str = Field(..., description="Delivery address requested")
@@ -74,14 +70,6 @@ class LocationDocument(BaseModel):
   distance_provider: Optional[str] = Field(
       None, description="Distance calculation provider")
 
-  # Error handling
-  error_message: Optional[str] = Field(
-      None, description="Error message if lookup failed")
-  error_type: Optional[str] = Field(
-      None, description="Type of error encountered")
-  fallback_reason: Optional[str] = Field(
-      None, description="Reason fallback was used")
-
   # Performance metrics
   processing_time_ms: Optional[int] = Field(
       None, description="Processing time in milliseconds")
@@ -109,7 +97,6 @@ class LocationDocument(BaseModel):
       json_schema_extra={
           "example": {
               "id": "location_uuid_123",
-              "contact_id": "hubspot_contact_123",
               "delivery_location": "123 Main St, Kansas City, KS 66101",
               "original_query": "123 Main St, Kansas City, KS",
               "status": "success",

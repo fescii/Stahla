@@ -19,7 +19,7 @@ async def log_quote_bg(mongo_service, quote_data: Dict[str, Any], background_tas
   """Background task to log a quote to MongoDB."""
   try:
     if not quote_data.get("id"):
-      quote_data["id"] = f"quote_{uuid.uuid4()}"
+      quote_data["id"] = str(uuid.uuid4())
 
     if background_task_id:
       quote_data["background_task_id"] = background_task_id
@@ -183,16 +183,13 @@ async def update_classify_status_bg(mongo_service, classify_id: str, status: Cla
         f"Error updating classification status in background: {e}", exc_info=True)
 
 
-async def update_location_status_bg(mongo_service, location_id: str, status: LocationStatus, error_message: Optional[str] = None):
+async def update_location_status_bg(mongo_service, location_id: str, status: LocationStatus):
   """Background task to update location status in MongoDB."""
   try:
     update_data = {
         "status": status.value,
         "updated_at": datetime.now(timezone.utc)
     }
-
-    if error_message:
-      update_data["error_message"] = error_message
 
     if status == LocationStatus.SUCCESS:
       update_data["lookup_completed_at"] = datetime.now(timezone.utc)

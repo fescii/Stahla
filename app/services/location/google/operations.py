@@ -48,6 +48,10 @@ class GoogleMapsOperations:
         }
     except Exception as e:
       logfire.warning(f"Failed to geocode address '{address}': {e}")
+      # Check if this is an API authorization error
+      if "REQUEST_DENIED" in str(e) or "not authorized" in str(e):
+        logfire.info(
+            f"Geocoding API not available, coordinates will be null for address: {address}")
 
     return None
 

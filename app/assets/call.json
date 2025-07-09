@@ -143,7 +143,7 @@
           [
             "delivery_location",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that one is correct', or similar, extract the value from {{request_data.event_address}}. If they provide a new address, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that one is correct', or similar, extract the value from {{request_data.event_address}}. If they provide a new address, extract exactly what they say inform of 123 Main St, Omaha, NE 68102, format the address properly don't just store numbers in words like 'one two three main street, omaha, nebraska six eight one zero two', convert to '123 Main St, Omaha, NE 68102'."
           ]
         ],
         "modelOptions": {
@@ -720,7 +720,7 @@
       "data": {
         "name": "Get Quote (StahlaQuoteTool_v2)",
         "prompt": "Perfect! I have all the information needed. Let me calculate your customized quote right now.",
-        "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/quote",
+        "url": "https://nicely-thorough-monster.ngrok-free.app/api/v1/webhook/quote/generate",
         "method": "POST",
         "headers": {
           "Content-Type": "application/json",

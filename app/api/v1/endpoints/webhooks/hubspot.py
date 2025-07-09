@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.models.webhook import HubSpotContactDataPayload, HubSpotPropertyDetail
 from app.models.hubspot import HubSpotLeadProperties, HubSpotLeadResult, HubSpotApiResult
 from app.models.classification import ClassificationInput
+from app.models.mongo.classify import ClassifyStatus  # Add this import
 from app.models.common import GenericResponse
 
 # Import services
@@ -124,7 +125,7 @@ async def webhook_hubspot(
           "id": str(uuid.uuid4()),
           "contact_id": contact_id,
           "source": "hubspot",
-          "status": "COMPLETED" if classification_result.status == "success" else "FAILED",
+          "status": ClassifyStatus.COMPLETED if classification_result.status == "success" else ClassifyStatus.FAILED,
           "lead_type": classification_result.classification.lead_type,
           "routing_suggestion": classification_result.classification.routing_suggestion,
           "confidence": classification_result.classification.confidence,

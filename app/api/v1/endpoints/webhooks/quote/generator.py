@@ -8,8 +8,10 @@ Handles pricing calculations and quote generation.
 import logging
 import time
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, BackgroundTasks
 from app.models.quote import QuoteRequest, QuoteResponse
+from app.models.mongo.quotes import QuoteStatus  # Add this import
 from app.models.common import GenericResponse
 from app.services.quote import QuoteService
 from app.services.redis.service import RedisService
@@ -98,16 +100,34 @@ async def quote_webhook(
         "id": str(uuid.uuid4()),
         "request_id": request_id,
         "contact_id": getattr(payload, 'contact_id', None),
+        "lead_id": getattr(payload, 'lead_id', None),
         "delivery_location": payload.delivery_location,
-        "trailer_type": payload.trailer_type,
-        "usage_type": payload.usage_type,
-        "rental_days": payload.rental_days,
-        "rental_start_date": str(payload.rental_start_date) if payload.rental_start_date else None,
-        "total_amount": quote_response_data.quote.subtotal if quote_response_data else 0,
-        "status": "COMPLETED",
+        "rental_duration_days": payload.rental_days,
+        "product_type": payload.trailer_type,
+        "total_amount": (quote_response_data.quote.subtotal
+                         if quote_response_data and quote_response_data.quote
+                         else 0),
+        "subtotal": (quote_response_data.quote.subtotal
+                     if quote_response_data and quote_response_data.quote
+                     else None),
+        "delivery_cost": (quote_response_data.quote.delivery_details.total_delivery_cost
+                          if quote_response_data and quote_response_data.quote and quote_response_data.quote.delivery_details
+                          else None),
+        "rental_cost": (quote_response_data.quote.budget_details.subtotal
+                        if quote_response_data and quote_response_data.quote and quote_response_data.quote.budget_details
+                        else None),
+        "stall_count": (quote_response_data.quote.product_details.stall_count
+                        if quote_response_data and quote_response_data.quote and quote_response_data.quote.product_details
+                        else None),
+        "valid_until": (quote_response_data.metadata.valid_until
+                        if quote_response_data and quote_response_data.metadata and quote_response_data.metadata.valid_until
+                        else None),
+        "status": QuoteStatus.COMPLETED,
         "processing_time_ms": processing_time_ms,
-        "quote_details": quote_response_data.model_dump() if quote_response_data else {},
-        "extras": [{"extra_id": extra.extra_id, "qty": extra.qty} for extra in payload.extras] if payload.extras else []
+        "quote_data": (quote_response_data.quote.model_dump(mode='json')
+                       if quote_response_data and quote_response_data.quote
+                       else None),
+        "request_data": payload.model_dump(mode='json')
     }
     background_tasks.add_task(
         log_quote_bg, mongo_service, quote_data, request_id)
@@ -117,6 +137,31 @@ async def quote_webhook(
   except ValueError as ve:
     logger.warning(
         f"Value error building quote for request {request_id}: {ve}")
+
+    # Log failed quote to MongoDB in background
+    quote_data = {
+        "id": str(uuid.uuid4()),
+        "request_id": request_id,
+        "contact_id": getattr(payload, 'contact_id', None),
+        "lead_id": getattr(payload, 'lead_id', None),
+        "delivery_location": payload.delivery_location,
+        "rental_duration_days": payload.rental_days,
+        "product_type": payload.trailer_type,
+        "total_amount": 0,
+        "subtotal": None,
+        "delivery_cost": None,
+        "rental_cost": None,
+        "stall_count": None,
+        "valid_until": None,
+        "status": QuoteStatus.FAILED,
+        "processing_time_ms": int((time.perf_counter() - start_time) * 1000),
+        "quote_data": None,
+        "request_data": payload.model_dump(mode='json'),
+        "error_message": str(ve),
+        "error_type": "ValueError"
+    }
+    background_tasks.add_task(
+        log_quote_bg, mongo_service, quote_data, request_id)
 
     # Increment total and error counters
     background_tasks.add_task(
@@ -138,6 +183,31 @@ async def quote_webhook(
   except Exception as e:
     logger.exception(
         f"Unexpected error building quote for request {request_id}", exc_info=e)
+
+    # Log failed quote to MongoDB in background
+    quote_data = {
+        "id": str(uuid.uuid4()),
+        "request_id": request_id,
+        "contact_id": getattr(payload, 'contact_id', None),
+        "lead_id": getattr(payload, 'lead_id', None),
+        "delivery_location": payload.delivery_location,
+        "rental_duration_days": payload.rental_days,
+        "product_type": payload.trailer_type,
+        "total_amount": 0,
+        "subtotal": None,
+        "delivery_cost": None,
+        "rental_cost": None,
+        "stall_count": None,
+        "valid_until": None,
+        "status": QuoteStatus.FAILED,
+        "processing_time_ms": int((time.perf_counter() - start_time) * 1000),
+        "quote_data": None,
+        "request_data": payload.model_dump(mode='json'),
+        "error_message": str(e),
+        "error_type": type(e).__name__
+    }
+    background_tasks.add_task(
+        log_quote_bg, mongo_service, quote_data, request_id)
 
     # Increment total and error counters
     background_tasks.add_task(

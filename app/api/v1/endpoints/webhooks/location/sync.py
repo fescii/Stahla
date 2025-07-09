@@ -67,16 +67,30 @@ async def location_lookup_sync_webhook(
       location_data = {
           "id": str(uuid.uuid4()),
           "delivery_location": payload.delivery_location,
+          "original_query": payload.delivery_location,
           "source": "sync_webhook",
           "status": LocationStatus.SUCCESS,
+          "lookup_successful": True,
+          "fallback_used": False,
           "nearest_branch": distance_result.nearest_branch.name,
           "nearest_branch_address": distance_result.nearest_branch.address,
           "distance_miles": distance_result.distance_miles,
           "distance_meters": distance_result.distance_meters,
           "duration_seconds": distance_result.duration_seconds,
           "within_service_area": distance_result.within_service_area,
+          "is_local": distance_result.within_service_area and distance_result.distance_miles < 50,
+          "service_area_type": "primary" if distance_result.within_service_area else "outside",
+          "geocoded_coordinates": distance_result.geocoded_coordinates,
+          "geocoding_successful": distance_result.geocoded_coordinates is not None,
+          "is_distance_estimated": distance_result.is_distance_estimated,
+          "api_method_used": "google_maps",
+          "geocoding_provider": "google_maps" if distance_result.geocoded_coordinates else None,
+          "distance_provider": "google_maps",
           "processing_time_ms": processing_time_ms,
-          "lookup_result": distance_result.model_dump()
+          "api_calls_made": 1,
+          "cache_hit": False,
+          "full_response_data": distance_result.model_dump(),
+          "lookup_completed_at": None
       }
       background_tasks.add_task(
           log_location_bg,
@@ -107,6 +121,30 @@ async def location_lookup_sync_webhook(
     else:
       logger.warning(
           f"No distance result found for {payload.delivery_location}")
+
+      # Log failed location lookup to MongoDB in background
+      location_data = {
+          "id": str(uuid.uuid4()),
+          "delivery_location": payload.delivery_location,
+          "original_query": payload.delivery_location,
+          "source": "sync_webhook",
+          "status": LocationStatus.FAILED,
+          "lookup_successful": False,
+          "fallback_used": False,
+          "geocoding_successful": False,
+          "is_distance_estimated": False,
+          "api_method_used": "google_maps",
+          "processing_time_ms": processing_time_ms,
+          "api_calls_made": 1,
+          "cache_hit": False,
+          "full_response_data": None
+      }
+      background_tasks.add_task(
+          log_location_bg,
+          mongo_service=mongo_service,
+          location_data=location_data
+      )
+
       return GenericResponse.error(
           message=f"Unable to calculate distance for location: {payload.delivery_location}",
           details={"delivery_location": payload.delivery_location}
@@ -117,6 +155,29 @@ async def location_lookup_sync_webhook(
     processing_time_ms = int((end_time - start_time) * 1000)
     logger.exception(
         f"Error calculating distance for {payload.delivery_location}", exc_info=e)
+
+    # Log failed location lookup to MongoDB in background
+    location_data = {
+        "id": str(uuid.uuid4()),
+        "delivery_location": payload.delivery_location,
+        "original_query": payload.delivery_location,
+        "source": "sync_webhook",
+        "status": LocationStatus.FAILED,
+        "lookup_successful": False,
+        "fallback_used": False,
+        "geocoding_successful": False,
+        "is_distance_estimated": False,
+        "api_method_used": "google_maps",
+        "processing_time_ms": processing_time_ms,
+        "api_calls_made": 0,
+        "cache_hit": False,
+        "full_response_data": None
+    }
+    background_tasks.add_task(
+        log_location_bg,
+        mongo_service=mongo_service,
+        location_data=location_data
+    )
 
     return GenericResponse.error(
         message="An error occurred while calculating the distance.",

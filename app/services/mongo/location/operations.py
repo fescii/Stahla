@@ -147,39 +147,6 @@ class LocationOperations:
           f"Error retrieving location by address {delivery_location}: {e}", exc_info=True)
       return None
 
-  async def get_locations_by_contact(self, contact_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """
-    Retrieves locations for a specific contact.
-
-    Args:
-        contact_id: HubSpot contact ID
-        limit: Maximum number of locations to return
-
-    Returns:
-        List of location documents
-    """
-    try:
-      collection = self.db[LOCATION_COLLECTION]
-
-      cursor = collection.find(
-          {"contact_id": contact_id}
-      ).sort("created_at", -1).limit(limit)
-
-      docs = await cursor.to_list(length=limit)
-
-      # Convert _id to id for all documents
-      for doc in docs:
-        doc["id"] = str(doc.pop("_id"))
-
-      logfire.debug(
-          f"Retrieved {len(docs)} locations for contact", contact_id=contact_id)
-      return docs
-
-    except Exception as e:
-      logfire.error(
-          f"Error retrieving locations for contact {contact_id}: {e}", exc_info=True)
-      return []
-
   async def get_locations_by_status(self, status: LocationStatus, limit: int = 100) -> List[Dict[str, Any]]:
     """
     Retrieves locations by status.
@@ -303,14 +270,13 @@ class LocationOperations:
           f"Error retrieving paginated locations: {e}", exc_info=True)
       return [], 0
 
-  async def update_location_status(self, location_id: str, status: LocationStatus, error_message: Optional[str] = None) -> bool:
+  async def update_location_status(self, location_id: str, status: LocationStatus) -> bool:
     """
     Updates a location's status.
 
     Args:
         location_id: Location ID to update
         status: New status
-        error_message: Error message if status is FAILED
 
     Returns:
         True if successful, False otherwise
@@ -319,9 +285,6 @@ class LocationOperations:
         "status": status.value,
         "updated_at": datetime.now(timezone.utc)
     }
-
-    if error_message:
-      update_data["error_message"] = error_message
 
     if status == LocationStatus.SUCCESS:
       update_data["lookup_completed_at"] = datetime.now(timezone.utc)

@@ -62,10 +62,18 @@ async def location_lookup_webhook(
   location_data = {
       "id": str(uuid.uuid4()),
       "delivery_location": payload.delivery_location,
+      "original_query": payload.delivery_location,
       "source": "async_webhook",
       "status": LocationStatus.PENDING,
+      "lookup_successful": False,
+      "fallback_used": False,
+      "geocoding_successful": False,
+      "is_distance_estimated": False,
+      "api_method_used": "google_maps",
       "processing_time_ms": 0,
-      "lookup_result": None  # Will be populated later by the prefetch task
+      "api_calls_made": 0,
+      "cache_hit": False,
+      "full_response_data": None  # Will be populated later by the prefetch task
   }
   background_tasks.add_task(
       log_location_bg,
