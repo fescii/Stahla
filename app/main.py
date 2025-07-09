@@ -238,6 +238,7 @@ app = FastAPI(
     docs_url="/docs",  # Default Swagger UI
     redoc_url="/redoc",  # Default ReDoc
     lifespan=lifespan,
+    redirect_slashes=False,  # Prevent automatic redirects for trailing slashes
 )
 
 # --- Register Exception Handlers ---

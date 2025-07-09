@@ -1,8 +1,9 @@
 # filepath: app/services/mongo/errors/operations.py
 import logfire
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timezone
+from pymongo import ASCENDING, DESCENDING
 from app.services.mongo.collections.names import ERROR_LOGS_COLLECTION
 
 
@@ -67,3 +68,66 @@ class ErrorOperations:
           exc_info=True
       )
       return None
+
+  async def get_error_logs(
+      self,
+      page: int = 1,
+      page_size: int = 10,
+      service_name_filter: Optional[str] = None,
+      error_type_filter: Optional[str] = None,
+      sort_field: str = "timestamp",
+      sort_order: int = DESCENDING
+  ) -> Tuple[List[Dict[str, Any]], int]:
+    """
+    Retrieves error logs from MongoDB with pagination and filtering.
+
+    Args:
+        page: Page number (1-based)
+        page_size: Number of items per page
+        service_name_filter: Optional service name filter
+        error_type_filter: Optional error type filter
+        sort_field: Field to sort by
+        sort_order: Sort order (ASCENDING or DESCENDING)
+
+    Returns:
+        Tuple of (list of error log documents, total count)
+    """
+    if self.db is None:
+      logfire.error("get_error_logs: MongoDB database is not initialized.")
+      return [], 0
+
+    collection = self.db[ERROR_LOGS_COLLECTION]
+
+    # Build filter query
+    filter_query = {}
+    if service_name_filter:
+      filter_query["service_name"] = {
+          "$regex": service_name_filter, "$options": "i"}
+    if error_type_filter:
+      filter_query["error_type"] = {
+          "$regex": error_type_filter, "$options": "i"}
+
+    try:
+      # Get total count
+      total_count = await collection.count_documents(filter_query)
+
+      # Calculate skip value
+      skip = (page - 1) * page_size
+
+      # Get paginated results
+      cursor = collection.find(filter_query).sort(
+          sort_field, sort_order).skip(skip).limit(page_size)
+      error_logs = await cursor.to_list(length=page_size)
+
+      # Convert ObjectId to string and rename _id to id for consistency with ErrorLog model
+      for log in error_logs:
+        log["id"] = str(log["_id"])
+        del log["_id"]
+
+      logfire.info(
+          f"Retrieved {len(error_logs)} error logs (page {page}, total: {total_count})")
+      return error_logs, total_count
+
+    except Exception as e:
+      logfire.error(f"Failed to retrieve error logs: {e}", exc_info=True)
+      return [], 0

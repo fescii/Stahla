@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pydantic import ValidationError
 from fastapi import BackgroundTasks
 from app.models.bland import BlandApiResult, BlandCallbackRequest
-from app.models.blandlog import BlandCallStatus
+from app.models.mongo.calls import CallStatus
 from app.services.mongo import MongoService
 from ..api import BlandApiClient
 from ..logging import BlandLogService
@@ -116,7 +116,7 @@ class BlandCallManager:
         phone_number=request_data.phone_number,
         task=task_sent_to_bland,
         pathway_id_used=pathway_id_used_for_call,
-        initial_status=BlandCallStatus.PENDING,
+        initial_status=CallStatus.PENDING,
         call_id_bland=None,
         retry_of_call_id=log_retry_of_call_id,
         retry_reason=log_retry_reason,

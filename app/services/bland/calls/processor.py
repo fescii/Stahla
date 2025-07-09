@@ -3,7 +3,7 @@
 import logfire
 from datetime import datetime, timezone
 from app.models.bland import BlandWebhookPayload, BlandProcessingResult
-from app.models.blandlog import BlandCallStatus
+from app.models.mongo.calls import CallStatus
 from app.services.mongo import MongoService
 from ..processing import extract_data_from_transcript
 
@@ -61,7 +61,7 @@ class BlandTranscriptProcessor:
       update_success = await self.mongo_service.update_bland_call_log_completion(
           contact_id=contact_id_from_meta,
           call_id_bland=payload.call_id or "",
-          status=BlandCallStatus.COMPLETED,  # Changed to use existing enum member
+          status=CallStatus.COMPLETED,  # Changed to use existing enum member
           transcript_payload=transcripts_as_dict,  # Pass the converted transcripts
           summary_text=processing_result.summary,
           classification_payload=processing_result.classification,

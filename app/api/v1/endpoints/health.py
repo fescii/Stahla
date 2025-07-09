@@ -135,7 +135,7 @@ async def _perform_redis_check(redis_service: RedisService) -> Tuple[str, Dict[s
 
 
 # Updated response_model
-@router.get("", response_model=GenericResponse[HealthCheckResponse], summary="Perform Health Check", tags=["Health"])
+@router.get("/check", response_model=GenericResponse[HealthCheckResponse], summary="Perform Health Check", tags=["Health"])
 async def health_check(
     mongo_db_service: MongoService = Depends(
         get_mongo_service_dep),  # Added dependency

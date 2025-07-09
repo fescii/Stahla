@@ -349,7 +349,7 @@ export default class AppMain extends HTMLElement {
     "/users/add": /* HTML */`<add-user api="/auth/users" method="POST"></add-user>`,
     "/users/profile": /* HTML */`<user-profile api="/auth/me"></user-profile>`,
     "/pricing/location": /* HTML */`<location-lookup api="/webhook/location/lookup/sync"></location-lookup>`,
-    "/pricing/quote": /* HTML */`<quote-form api="/webhook/quote"></quote-form>`,
+    "/pricing/quote": /* HTML */`<quote-form api="/webhook/quote/generate"></quote-form>`,
     "/bland/all": /* HTML */`<soon-page url="/soon"></soon-page>`,
     "/bland/add": /* HTML */`<soon-page url="/soon"></soon-page>`,
     "/bland/failed": /* HTML */`<soon-page url="/soon"></soon-page>`,

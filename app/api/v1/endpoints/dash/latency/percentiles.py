@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=AllServicesPercentiles)
+@router.get("/metrics", response_model=AllServicesPercentiles)
 async def get_all_services_percentiles(
     dashboard_service: DashboardService = Depends(get_dashboard_service_dep),
     current_user: User = Depends(get_current_user),

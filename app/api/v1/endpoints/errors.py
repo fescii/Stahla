@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 # Updated response_model
-@router.get("/", response_model=GenericResponse[PaginatedErrorLogResponse])
+@router.get("/logs", response_model=GenericResponse[PaginatedErrorLogResponse])
 async def list_error_logs(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(

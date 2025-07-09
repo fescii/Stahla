@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=AllServicesTrendAnalysis)
+@router.get("/analysis", response_model=AllServicesTrendAnalysis)
 async def get_all_services_trends(
     time_range_minutes: int = Query(
         60, ge=5, le=1440, description="Time range in minutes (5-1440)"),

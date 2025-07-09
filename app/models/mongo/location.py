@@ -1,5 +1,5 @@
 # filepath: app/models/mongo/location.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -105,36 +105,37 @@ class LocationDocument(BaseModel):
   updated_at: datetime = Field(
       default_factory=datetime.utcnow, description="Last update timestamp")
 
-  class Config:
-    json_schema_extra = {
-        "example": {
-            "id": "location_uuid_123",
-            "contact_id": "hubspot_contact_123",
-            "delivery_location": "123 Main St, Kansas City, KS 66101",
-            "original_query": "123 Main St, Kansas City, KS",
-            "status": "success",
-            "lookup_successful": True,
-            "fallback_used": False,
-            "nearest_branch": "Kansas City",
-            "nearest_branch_address": "456 Branch St, Kansas City, KS 66102",
-            "distance_miles": 15.5,
-            "distance_meters": 24944,
-            "duration_seconds": 1200,
-            "within_service_area": True,
-            "is_local": True,
-            "service_area_type": "primary",
-            "geocoded_coordinates": {
-                "latitude": 39.0997,
-                "longitude": -94.5786
-            },
-            "geocoding_successful": True,
-            "is_distance_estimated": False,
-            "api_method_used": "google_maps",
-            "geocoding_provider": "google_maps",
-            "distance_provider": "google_maps",
-            "processing_time_ms": 450,
-            "api_calls_made": 2,
-            "cache_hit": False,
-            "lookup_completed_at": "2025-07-09T10:02:00.000Z"
-        }
-    }
+  model_config = ConfigDict(
+      json_schema_extra={
+          "example": {
+              "id": "location_uuid_123",
+              "contact_id": "hubspot_contact_123",
+              "delivery_location": "123 Main St, Kansas City, KS 66101",
+              "original_query": "123 Main St, Kansas City, KS",
+              "status": "success",
+              "lookup_successful": True,
+              "fallback_used": False,
+              "nearest_branch": "Kansas City",
+              "nearest_branch_address": "456 Branch St, Kansas City, KS 66102",
+              "distance_miles": 15.5,
+              "distance_meters": 24944,
+              "duration_seconds": 1200,
+              "within_service_area": True,
+              "is_local": True,
+              "service_area_type": "primary",
+              "geocoded_coordinates": {
+                  "latitude": 39.0997,
+                  "longitude": -94.5786
+              },
+              "geocoding_successful": True,
+              "is_distance_estimated": False,
+              "api_method_used": "google_maps",
+              "geocoding_provider": "google_maps",
+              "distance_provider": "google_maps",
+              "processing_time_ms": 450,
+              "api_calls_made": 2,
+              "cache_hit": False,
+              "lookup_completed_at": "2025-07-09T10:02:00.000Z"
+          }
+      }
+  )

@@ -24,8 +24,8 @@ router.include_router(hubspot_router)
 # Include location routers
 router.include_router(location_sync_router)
 router.include_router(location_background_router)
-# Include quote router
-router.include_router(quote_router)
+# Include quote router with proper prefix
+router.include_router(quote_router, prefix="/quote")
 router.include_router(pricing_router)
 
 # Export the router

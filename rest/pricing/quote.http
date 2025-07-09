@@ -1,6 +1,5 @@
-\
-### Request a Price Quote
-# This endpoint calculates and returns a price quote based on the provided details.
+### Quote Generation Endpoints
+# These endpoints handle pricing calculations and quote generation
 
 # --- Variables ---
 @host = http://localhost:8000
@@ -8,8 +7,9 @@
 @pricing_webhook_api_key = 7%FRtf@34hi
 @auth_token = Bearer {{pricing_webhook_api_key}}
 
-# --- Sample Request 1: Event, 2 Stall Trailer, Mountain View --- 
-POST {{host}}/api/v1/webhook/quote
+### Quote Request - Event Usage (2 Stall)
+# Sample Request 1: Event, 2 Stall Trailer, Mountain View
+POST {{host}}/api/v1/webhook/quote/generate
 Content-Type: application/json
 Authorization: {{auth_token}}
 
@@ -24,8 +24,9 @@ Authorization: {{auth_token}}
   ]
 }
 
-### Sample Request 2: Commercial, 4 Stall Trailer, Cupertino, Longer Rental --- 
-POST {{host}}/api/v1/webhook/quote/
+### Quote Request - Commercial Usage (4 Stall)
+# Sample Request 2: Commercial, 4 Stall Trailer, Cupertino, Longer Rental
+POST {{host}}/api/v1/webhook/quote/generate
 Content-Type: application/json
 Authorization: {{auth_token}}
 
@@ -41,8 +42,9 @@ Authorization: {{auth_token}}
   ]
 }
 
-### Sample Request 3: Event, 8 Stall Trailer, Omaha (Near Branch), No Extras --- 
-POST {{host}}/api/v1/webhook/quote/
+### Quote Request - Event Usage (8 Stall)
+# Sample Request 3: Event, 8 Stall Trailer, Omaha (Near Branch), No Extras
+POST {{host}}/api/v1/webhook/quote/generate
 Content-Type: application/json
 Authorization: {{auth_token}}
 
@@ -55,3 +57,16 @@ Authorization: {{auth_token}}
   "extras": [{"extra_id": "3kW Generator", "qty": 1}]
 }
 
+### Quote Request - Minimal Example
+# Basic quote request with minimal required fields
+POST {{host}}/api/v1/webhook/quote/generate
+Content-Type: application/json
+Authorization: {{auth_token}}
+
+{
+  "delivery_location": "123 Main St, Atlanta, GA 30303",
+  "trailer_type": "2 Stall Restroom Trailer",
+  "rental_start_date": "2025-08-15",
+  "rental_days": 1,
+  "usage_type": "event"
+}

@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/", response_model=GenericResponse[QuoteResponse])
+@router.post("/generate", response_model=GenericResponse[QuoteResponse])
 async def quote_webhook(
     payload: QuoteRequest,
     background_tasks: BackgroundTasks,

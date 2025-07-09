@@ -28,7 +28,7 @@ class LocationOperations:
       # Create LocationDocument to validate data
       location_doc = LocationDocument(**location_data)
 
-      # Prepare document for insertion
+      # Prepare document for insertion (use model_dump for Pydantic v2)
       doc_dict = location_doc.model_dump()
       doc_dict["_id"] = doc_dict.pop("id")  # Use id as _id
       doc_dict["created_at"] = datetime.now(timezone.utc)

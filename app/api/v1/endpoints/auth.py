@@ -151,7 +151,7 @@ async def create_user_endpoint(
   return GenericResponse[User](data=user)
 
 
-@router.get("/users/", response_model=GenericResponse[List[User]])
+@router.get("/users", response_model=GenericResponse[List[User]])
 async def read_users_endpoint(
     skip: int = 0,
     limit: int = 100,

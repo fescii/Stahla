@@ -8,6 +8,7 @@ Handles background prefetching of location distances.
 import logging
 from fastapi import APIRouter, Depends, BackgroundTasks
 from app.models.location import LocationLookupRequest
+from app.models.mongo.location import LocationStatus  # Added import
 from app.models.common import GenericResponse, MessageResponse
 from app.services.location import LocationService
 from app.services.redis.service import RedisService
@@ -61,7 +62,7 @@ async def location_lookup_webhook(
       "id": f"location_async_{payload.delivery_location}",
       "delivery_location": payload.delivery_location,
       "source": "async_webhook",
-      "status": "INITIATED",
+      "status": LocationStatus.PENDING,
       "processing_time_ms": 0,
       "lookup_result": None  # Will be populated later by the prefetch task
   }

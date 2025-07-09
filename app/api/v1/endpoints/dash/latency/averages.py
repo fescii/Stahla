@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=AllServicesAverageLatency)
+@router.get("/data", response_model=AllServicesAverageLatency)
 async def get_all_services_averages(
     dashboard_service: DashboardService = Depends(get_dashboard_service_dep),
     current_user: User = Depends(get_current_user),

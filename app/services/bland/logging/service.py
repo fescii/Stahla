@@ -4,7 +4,7 @@ import logfire
 from typing import Optional
 from datetime import datetime, timezone
 from fastapi import BackgroundTasks
-from app.models.blandlog import BlandCallStatus
+from app.models.mongo.calls import CallStatus
 from app.services.mongo import MongoService
 
 
@@ -25,7 +25,7 @@ class BlandLogService:
       phone_number: str,
       task: Optional[str] = None,
       pathway_id_used: Optional[str] = None,
-      initial_status: BlandCallStatus = BlandCallStatus.PENDING,
+      initial_status: CallStatus = CallStatus.PENDING,
       call_id_bland: Optional[str] = None,
       retry_of_call_id: Optional[str] = None,
       retry_reason: Optional[str] = None,
@@ -90,7 +90,7 @@ class BlandLogService:
       current_time = datetime.now(timezone.utc)
       failure_update_data = {
           "$set": {
-              "status": BlandCallStatus.FAILED.value,
+              "status": CallStatus.FAILED.value,
               "error_message": error_message,
               "updated_at": current_time,
               "bland_error_details": error_details,
@@ -133,7 +133,7 @@ class BlandLogService:
       success_init_update_data = {
           "$set": {
               "call_id_bland": call_id_bland,
-              "status": BlandCallStatus.PENDING.value,
+              "status": CallStatus.PENDING.value,
               "updated_at": current_time,
               "error_message": None,
           },

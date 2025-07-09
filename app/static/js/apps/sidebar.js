@@ -29,7 +29,7 @@ export default class Sidebar extends HTMLElement {
     return /* html */`
       ${this.getHeader()}
       <div class="content-wrapper">
-        <latency-overview api="/latency/overview/"></latency-overview>
+        <latency-overview api="/latency/overview/data"></latency-overview>
       </div>
       ${this.getStyles()}
     `;

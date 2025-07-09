@@ -1,6 +1,5 @@
-### Trigger Location Lookup (Background Task)
-# This endpoint initiates a background task to find the nearest branch
-# and cache the distance to the delivery location. It returns 202 Accepted immediately.
+### Location Lookup Endpoints
+# These endpoints handle location distance calculations and caching
 
 # Define variables at the top of the file or per request block
 @host = http://localhost:8000
@@ -8,6 +7,8 @@
 @pricing_webhook_api_key = 7%FRtf@34hi
 @auth_token = Bearer {{pricing_webhook_api_key}}
 
+### Synchronous Location Lookup
+# This endpoint synchronously finds the nearest branch and returns distance immediately
 POST {{host}}/api/v1/webhook/location/lookup/sync
 Content-Type: application/json
 Authorization: {{auth_token}}
@@ -16,7 +17,9 @@ Authorization: {{auth_token}}
   "delivery_location": "1600 Amphitheatre Parkway, Mountain View, CA 94043"
 }
 
-### Example with a different address
+### Asynchronous Location Lookup (Background Task)
+# This endpoint initiates a background task to find the nearest branch
+# and cache the distance to the delivery location. It returns 202 Accepted immediately.
 POST {{host}}/api/v1/webhook/location/lookup/async
 Content-Type: application/json
 Authorization: {{auth_token}}
@@ -25,7 +28,8 @@ Authorization: {{auth_token}}
   "delivery_location": "1 Infinite Loop, Cupertino, CA 95014"
 }
 
-### Example with an address that might be near a configured Stahla branch
+### Location Lookup - Near Stahla Branch
+# Example with an address that might be near a configured Stahla branch
 # Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache hits later
 POST {{host}}/api/v1/webhook/location/lookup/sync
 Content-Type: application/json
@@ -35,8 +39,8 @@ Authorization: {{auth_token}}
   "delivery_location": "Main St, Omaha, NE 68102"
 }
 
-
-### Example with an address that is not near a configured Stahla branch
+### Location Lookup - Not Near Branch
+# Example with an address that is not near a configured Stahla branch
 # Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache misses later
 POST {{host}}/api/v1/webhook/location/lookup/sync
 Content-Type: application/json
@@ -46,8 +50,8 @@ Authorization: {{auth_token}}
   "delivery_location": "123 Main St, Omaha, NE 68102"
 }
 
-###
-// ### Example with an Atlanta address
+### Location Lookup - Atlanta Example
+# Example with an Atlanta address
 # Replace with an address relevant to your STAHLA_BRANCH_LOCATIONS for testing cache hits later
 POST {{host}}/api/v1/webhook/location/lookup/sync
 Content-Type: application/json

@@ -11,9 +11,29 @@ from app.services.mongo import get_mongo_service
 from app.core.security import get_current_user
 from app.models.user import User
 from app.models.bland import BlandCallbackRequest  # Models from bland.py
-# Models from bland_call_log.py -> blandlog.py
-from app.models.blandlog import BlandCallStatus, BlandCallStats, PaginatedBlandCallResponse, BlandCallLog
+# Updated to use new Call models instead of blandlog
+from app.models.mongo.calls import CallDocument, CallStatus
 from app.models.common import GenericResponse  # Added import
+
+# Define response models for backward compatibility with the old API
+from pydantic import BaseModel, Field
+
+
+class BlandCallStats(BaseModel):
+  total_calls: int
+  pending_calls: int
+  completed_calls: int
+  failed_calls: int
+  retrying_calls: int
+
+
+class PaginatedBlandCallResponse(BaseModel):
+  page: int
+  page_size: int
+  total_items: int
+  total_pages: int
+  items: List[CallDocument]
+
 
 router = APIRouter()
 
@@ -37,7 +57,7 @@ async def initiate_bland_call(
     # Check if a log already exists and is in a final state, might influence decision or just log
     existing_log = await mongo_service.get_bland_call_log(contact_id)
     # PENDING means one is already active
-    if existing_log and existing_log.get("status") in [BlandCallStatus.COMPLETED.value, BlandCallStatus.PENDING.value]:
+    if existing_log and existing_log.get("status") in [CallStatus.COMPLETED.value, CallStatus.PENDING.value]:
       logfire.warn(
           f"API: Initiating new call for contact_id {contact_id} which already has a log in status: {existing_log.get('status')}.")
       # Depending on policy, we might prevent this or allow overwriting/new attempt.
@@ -134,7 +154,7 @@ async def list_all_bland_calls(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         10, ge=1, le=100, description="Number of items per page"),
-    status: Optional[BlandCallStatus] = Query(
+    status: Optional[CallStatus] = Query(
         None, description="Filter calls by status"),
     sort_field: str = Query(
         "created_at", description="Field to sort by (e.g., 'created_at', 'updated_at', 'status')"),
@@ -156,7 +176,7 @@ async def list_all_bland_calls(
         sort_order=mongo_sort_order
     )
 
-    call_logs = [BlandCallLog(**item) for item in items_dict]
+    call_logs = [CallDocument(**item) for item in items_dict]
 
     response_data = PaginatedBlandCallResponse(
         page=page,
@@ -184,9 +204,9 @@ async def list_failed_bland_calls(
 ):
   try:
     items_dict, total_items = await mongo_service.get_bland_calls(
-        page=page, page_size=page_size, status_filter=BlandCallStatus.FAILED.value, sort_field="updated_at", sort_order=DESCENDING
+        page=page, page_size=page_size, status_filter=CallStatus.FAILED.value, sort_field="updated_at", sort_order=DESCENDING
     )
-    call_logs = [BlandCallLog(**item) for item in items_dict]
+    call_logs = [CallDocument(**item) for item in items_dict]
     response_data = PaginatedBlandCallResponse(
         page=page, page_size=page_size, total_items=total_items,
         total_pages=(total_items + page_size - 1) // page_size if total_items > 0 else 0, items=call_logs
@@ -209,9 +229,9 @@ async def list_completed_bland_calls(
 ):
   try:
     items_dict, total_items = await mongo_service.get_bland_calls(
-        page=page, page_size=page_size, status_filter=BlandCallStatus.COMPLETED.value, sort_field="updated_at", sort_order=DESCENDING
+        page=page, page_size=page_size, status_filter=CallStatus.COMPLETED.value, sort_field="updated_at", sort_order=DESCENDING
     )
-    call_logs = [BlandCallLog(**item) for item in items_dict]
+    call_logs = [CallDocument(**item) for item in items_dict]
     response_data = PaginatedBlandCallResponse(
         page=page, page_size=page_size, total_items=total_items,
         total_pages=(total_items + page_size - 1) // page_size if total_items > 0 else 0, items=call_logs

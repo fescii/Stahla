@@ -9,6 +9,7 @@ import logging
 import time
 from fastapi import APIRouter, Depends, BackgroundTasks
 from app.models.location import LocationLookupRequest, LocationLookupResponse
+from app.models.mongo.location import LocationStatus  # Added import
 from app.models.common import GenericResponse
 from app.services.location import LocationService
 from app.services.redis.service import RedisService
@@ -66,9 +67,11 @@ async def location_lookup_sync_webhook(
           "id": f"location_sync_{payload.delivery_location}",
           "delivery_location": payload.delivery_location,
           "source": "sync_webhook",
-          "status": "COMPLETED",
-          "nearest_branch": distance_result.nearest_branch.model_dump(),
+          "status": LocationStatus.SUCCESS,
+          "nearest_branch": distance_result.nearest_branch.name,
+          "nearest_branch_address": distance_result.nearest_branch.address,
           "distance_miles": distance_result.distance_miles,
+          "distance_meters": distance_result.distance_meters,
           "duration_seconds": distance_result.duration_seconds,
           "within_service_area": distance_result.within_service_area,
           "processing_time_ms": processing_time_ms,

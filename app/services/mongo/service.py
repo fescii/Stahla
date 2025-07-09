@@ -3,7 +3,6 @@ import logfire
 from app.services.mongo.connection import MongoConnection, IndexManager
 from app.services.mongo.stats import StatsOperations
 from app.services.mongo.reports import ReportsOperations
-from app.services.mongo.bland import BlandOperations, BlandUpdates
 from app.services.mongo.errors import ErrorOperations
 from app.services.mongo.sheets import SheetsOperations
 from app.services.mongo.quotes import QuotesOperations
@@ -14,9 +13,9 @@ from app.services.mongo.emails import EmailsOperations
 from app.models.mongo.classify import ClassifyDocument, ClassifyStatus
 from app.models.mongo.location import LocationDocument
 from app.models.mongo.emails import EmailDocument
+from app.models.mongo.calls import CallDocument, CallStatus
 from typing import Optional, Dict, Any, List, Union, Tuple
 from datetime import datetime, timezone
-from app.models.blandlog import BlandCallStatus
 
 
 class MongoService:
@@ -27,8 +26,6 @@ class MongoService:
     # Operations will be initialized after connection is established
     self.stats_ops: Optional[StatsOperations] = None
     self.reports_ops: Optional[ReportsOperations] = None
-    self.bland_ops: Optional[BlandOperations] = None
-    self.bland_updates: Optional[BlandUpdates] = None
     self.error_ops: Optional[ErrorOperations] = None
     self.sheets_ops: Optional[SheetsOperations] = None
     self.quotes_ops: Optional[QuotesOperations] = None
@@ -46,8 +43,6 @@ class MongoService:
     db = await self.connection.get_db()
     self.stats_ops = StatsOperations(db)
     self.reports_ops = ReportsOperations(db)
-    self.bland_ops = BlandOperations(db)
-    self.bland_updates = BlandUpdates(db)
     self.error_ops = ErrorOperations(db)
     self.sheets_ops = SheetsOperations(db)
     self.quotes_ops = QuotesOperations(db)
@@ -110,7 +105,7 @@ class MongoService:
       return await self.reports_ops.get_report_summary()
     return {}
 
-  # === Bland Operations ===
+  # === Calls Operations (Migrated from Bland) ===
   async def get_bland_calls(
       self,
       page: int,
@@ -119,39 +114,63 @@ class MongoService:
       sort_field: str,
       sort_order: int,
   ) -> Tuple[List[Dict[str, Any]], int]:
-    """Retrieves a paginated list of Bland call logs."""
-    if self.bland_ops:
-      return await self.bland_ops.get_bland_calls(page, page_size, status_filter, sort_field, sort_order)
+    """Retrieves a paginated list of call logs (migrated from Bland)."""
+    if self.calls_ops:
+      # Convert to calls operations - get recent calls for now
+      limit = page_size
+      offset = (page - 1) * page_size
+      calls = await self.calls_ops.get_recent_calls(limit, offset)
+
+      # Convert CallDocument objects to dicts for backward compatibility
+      calls_dict = [call.model_dump() for call in calls]
+
+      # For total count, we'll approximate
+      stats = await self.calls_ops.get_call_stats()
+      total_count = stats.get('total_calls', len(calls_dict))
+
+      return calls_dict, total_count
     return [], 0
 
   async def get_bland_call_log(self, contact_id: str) -> Optional[Dict[str, Any]]:
-    """Retrieves a single Bland call log by contact_id."""
-    if self.bland_ops:
-      return await self.bland_ops.get_bland_call_log(contact_id)
+    """Retrieves a single call log by contact_id (migrated from Bland)."""
+    if self.calls_ops:
+      call = await self.calls_ops.get_call_by_contact(contact_id)
+      return call  # Already a dict
     return None
 
   async def get_bland_call_stats(self) -> Dict[str, int]:
-    """Retrieves statistics about Bland call logs."""
-    if self.bland_ops:
-      return await self.bland_ops.get_bland_call_stats()
+    """Retrieves statistics about call logs (migrated from Bland)."""
+    if self.calls_ops:
+      stats = await self.calls_ops.get_call_stats()
+      # Map to old format for backward compatibility
+      return {
+          "total_calls": stats.get("total_calls", 0),
+          "pending_calls": stats.get("pending_calls", 0),
+          "completed_calls": stats.get("completed_calls", 0),
+          "failed_calls": stats.get("failed_calls", 0),
+          "retrying_calls": stats.get("retrying_calls", 0)
+      }
     return {}
 
-  # === Bland Update Operations ===
+  # === Call Update Operations (Migrated from Bland) ===
   async def update_bland_call_log_internal(
       self,
       contact_id: str,
       update_data: Dict[str, Any]
   ) -> bool:
-    """Updates a Bland call log document in MongoDB."""
-    if self.bland_updates:
-      return await self.bland_updates.update_bland_call_log_internal(contact_id, update_data)
+    """Updates a call log document in MongoDB (migrated from Bland)."""
+    if self.calls_ops:
+      # Find the call by contact_id first
+      call = await self.calls_ops.get_call_by_contact(contact_id)
+      if call and call.get("id"):
+        return await self.calls_ops.update_call(call["id"], update_data)
     return False
 
   async def update_bland_call_log_completion(
       self,
       contact_id: str,
       call_id_bland: str,
-      status: BlandCallStatus,
+      status: CallStatus,
       transcript_payload: List[Dict[str, Any]],
       summary_text: Optional[str] = None,
       classification_payload: Optional[Dict[str, Any]] = None,
@@ -160,14 +179,23 @@ class MongoService:
       bland_processing_result_payload: Optional[Dict[str, Any]] = None,
       processing_status_message: Optional[str] = None
   ) -> bool:
-    """Updates a Bland call log with completion data."""
-    if self.bland_updates:
-      return await self.bland_updates.update_bland_call_log_completion(
-          contact_id, call_id_bland, status, transcript_payload,
-          summary_text, classification_payload, full_webhook_payload,
-          call_completed_timestamp, bland_processing_result_payload,
-          processing_status_message
-      )
+    """Updates a call log with completion data (migrated from Bland)."""
+    if self.calls_ops:
+      call = await self.calls_ops.get_call_by_contact(contact_id)
+      if call and call.get("id"):
+        update_data = {
+            "status": status,
+            "call_id_bland": call_id_bland,
+            "transcript_payload": transcript_payload,
+            "summary": summary_text,
+            "classification_payload": classification_payload,
+            "full_webhook_payload": full_webhook_payload,
+            "call_completed_at": call_completed_timestamp or datetime.now(timezone.utc),
+            "processing_result_payload": bland_processing_result_payload,
+            "processing_status_message": processing_status_message,
+            "updated_at": datetime.now(timezone.utc)
+        }
+        return await self.calls_ops.update_call(call["id"], update_data)
     return False
 
   async def log_bland_call_attempt(
@@ -176,7 +204,7 @@ class MongoService:
       phone_number: str,
       task: Optional[str] = None,
       pathway_id_used: Optional[str] = None,
-      initial_status: BlandCallStatus = BlandCallStatus.PENDING,
+      initial_status: CallStatus = CallStatus.PENDING,
       call_id_bland: Optional[str] = None,
       retry_of_call_id: Optional[str] = None,
       retry_reason: Optional[str] = None,
@@ -186,13 +214,27 @@ class MongoService:
       request_data_variables: Optional[Dict[str, Any]] = None,
       transfer_phone_number: Optional[str] = None
   ) -> bool:
-    """Logs an initial Bland.ai call attempt to MongoDB."""
-    if self.bland_updates:
-      return await self.bland_updates.log_bland_call_attempt(
-          contact_id, phone_number, task, pathway_id_used, initial_status,
-          call_id_bland, retry_of_call_id, retry_reason, voice_id,
-          webhook_url, max_duration, request_data_variables, transfer_phone_number
-      )
+    """Logs an initial call attempt to MongoDB (migrated from Bland)."""
+    if self.calls_ops:
+      call_data = {
+          "id": f"call_{contact_id}_{datetime.now().timestamp()}",
+          "contact_id": contact_id,
+          "phone_number": phone_number,
+          "task": task,
+          "pathway_id_used": pathway_id_used,
+          "status": initial_status,
+          "call_id_bland": call_id_bland,
+          "retry_of_call_id": retry_of_call_id,
+          "retry_reason": retry_reason,
+          "voice_id": voice_id,
+          "webhook_url": webhook_url,
+          "max_duration": max_duration,
+          "request_data_variables": request_data_variables,
+          "transfer_phone_number": transfer_phone_number,
+          "call_initiated_at": datetime.now(timezone.utc)
+      }
+      result = await self.calls_ops.create_call(call_data)
+      return bool(result)
     return False
 
   # === Error Operations ===
@@ -211,6 +253,22 @@ class MongoService:
           service_name, error_type, message, details, stack_trace, request_context
       )
     return None
+
+  async def get_error_logs(
+      self,
+      page: int = 1,
+      page_size: int = 10,
+      service_name_filter: Optional[str] = None,
+      error_type_filter: Optional[str] = None,
+      sort_field: str = "timestamp",
+      sort_order: int = -1  # DESCENDING
+  ) -> Tuple[List[Dict[str, Any]], int]:
+    """Retrieves error logs from MongoDB with pagination and filtering."""
+    if self.error_ops:
+      return await self.error_ops.get_error_logs(
+          page, page_size, service_name_filter, error_type_filter, sort_field, sort_order
+      )
+    return [], 0
 
   # === Sheets Operations ===
   async def replace_sheet_collection_data(

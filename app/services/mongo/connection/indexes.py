@@ -23,7 +23,6 @@ class IndexManager:
       await self._create_users_indexes()
       await self._create_reports_indexes()
       await self._create_sheet_indexes()
-      await self._create_bland_indexes()
       await self._create_error_indexes()
       await self._create_service_status_indexes()
       await self._create_stats_indexes()
@@ -106,30 +105,6 @@ class IndexManager:
     )
     logfire.info(
         f"Index 'sheet_state_code_unique_idx' ensured for collection '{SHEET_STATES_COLLECTION}'."
-    )
-
-  async def _create_bland_indexes(self):
-    """Creates indexes for Bland Call Logs."""
-    bland_logs_coll = self.db[BLAND_CALL_LOGS_COLLECTION]
-
-    await bland_logs_coll.create_index(
-        [("status", ASCENDING)], name="bland_call_log_status_idx"
-    )
-    await bland_logs_coll.create_index(
-        [("created_at", DESCENDING)], name="bland_call_log_created_at_idx"
-    )
-    await bland_logs_coll.create_index(
-        [("phone_number", ASCENDING)],
-        name="bland_call_log_phone_idx",
-        sparse=True,
-    )
-    await bland_logs_coll.create_index(
-        [("call_id_bland", ASCENDING)],
-        name="bland_call_log_bland_call_id_idx",
-        sparse=True,
-    )
-    logfire.info(
-        f"Indexes ensured for collection '{BLAND_CALL_LOGS_COLLECTION}'."
     )
 
   async def _create_error_indexes(self):

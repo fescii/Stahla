@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=AllServicesAlerts)
+@router.get("/active", response_model=AllServicesAlerts)
 async def get_all_services_alerts(
     dashboard_service: DashboardService = Depends(get_dashboard_service_dep),
     current_user: User = Depends(get_current_user),
