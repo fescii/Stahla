@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, Depends
 import logfire
+import uuid
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
@@ -120,7 +121,7 @@ async def webhook_hubspot(
     # Log classification to MongoDB in background
     if classification_result.classification:
       classify_data = {
-          "id": f"classify_hubspot_{contact_id}",
+          "id": str(uuid.uuid4()),
           "contact_id": contact_id,
           "source": "hubspot",
           "status": "COMPLETED" if classification_result.status == "success" else "FAILED",

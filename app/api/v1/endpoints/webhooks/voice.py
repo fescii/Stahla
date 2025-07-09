@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, status, Depends
 import logfire
+import uuid
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
@@ -255,7 +256,7 @@ async def webhook_voice(
 
   # Log call data to MongoDB in background
   call_data = {
-      "id": f"call_{payload.call_id or 'unknown'}",
+      "id": str(uuid.uuid4()),
       "call_id_bland": payload.call_id,
       "phone_number": payload.to or payload.from_ or "unknown",
       "contact_id": hubspot_contact_id,
@@ -274,7 +275,7 @@ async def webhook_voice(
   # Log classification to MongoDB in background
   if classification_result.classification:
     classify_data = {
-        "id": f"classify_{payload.call_id or 'voice'}_{payload.call_id or 'unknown'}",
+        "id": str(uuid.uuid4()),
         "contact_id": hubspot_contact_id,
         "source": "voice",
         "status": "COMPLETED" if classification_result.status == "success" else "FAILED",

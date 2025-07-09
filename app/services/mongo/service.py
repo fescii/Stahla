@@ -1,5 +1,6 @@
 # filepath: app/services/mongo/service.py
 import logfire
+import uuid
 from app.services.mongo.connection import MongoConnection, IndexManager
 from app.services.mongo.stats import StatsOperations
 from app.services.mongo.reports import ReportsOperations
@@ -217,7 +218,7 @@ class MongoService:
     """Logs an initial call attempt to MongoDB (migrated from Bland)."""
     if self.calls_ops:
       call_data = {
-          "id": f"call_{contact_id}_{datetime.now().timestamp()}",
+          "id": str(uuid.uuid4()),
           "contact_id": contact_id,
           "phone_number": phone_number,
           "task": task,

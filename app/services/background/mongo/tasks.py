@@ -37,7 +37,7 @@ async def log_call_bg(mongo_service, call_data: Dict[str, Any], background_task_
   """Background task to log a call to MongoDB."""
   try:
     if not call_data.get("id"):
-      call_data["id"] = f"call_{uuid.uuid4()}"
+      call_data["id"] = str(uuid.uuid4())
 
     if background_task_id:
       call_data["background_task_id"] = background_task_id
@@ -55,7 +55,7 @@ async def log_classify_bg(mongo_service, classify_data: Dict[str, Any], backgrou
   """Background task to log a classification to MongoDB."""
   try:
     if not classify_data.get("id"):
-      classify_data["id"] = f"classify_{uuid.uuid4()}"
+      classify_data["id"] = str(uuid.uuid4())
 
     if background_task_id:
       classify_data["background_task_id"] = background_task_id
@@ -75,7 +75,7 @@ async def log_location_bg(mongo_service, location_data: Dict[str, Any], backgrou
   """Background task to log a location lookup to MongoDB."""
   try:
     if not location_data.get("id"):
-      location_data["id"] = f"location_{uuid.uuid4()}"
+      location_data["id"] = str(uuid.uuid4())
 
     if background_task_id:
       location_data["background_task_id"] = background_task_id
@@ -93,7 +93,7 @@ async def log_email_bg(mongo_service, email_data: Dict[str, Any], background_tas
   """Background task to log an email to MongoDB."""
   try:
     if not email_data.get("id"):
-      email_data["id"] = f"email_{uuid.uuid4()}"
+      email_data["id"] = str(uuid.uuid4())
 
     if background_task_id:
       email_data["background_task_id"] = background_task_id

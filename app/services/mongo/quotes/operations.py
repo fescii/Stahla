@@ -167,7 +167,8 @@ class QuotesOperations:
 
       quotes = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         quotes.append(QuoteDocument(**result))
 
       logfire.debug(
@@ -269,7 +270,8 @@ class QuotesOperations:
 
       if result:
         # Remove MongoDB's _id field
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         return QuoteDocument(**result)
       return None
     except Exception as e:
@@ -286,7 +288,8 @@ class QuotesOperations:
 
       quotes = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         quotes.append(QuoteDocument(**result))
       return quotes
     except Exception as e:
@@ -302,7 +305,8 @@ class QuotesOperations:
 
       quotes = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         quotes.append(QuoteDocument(**result))
       return quotes
     except Exception as e:
@@ -320,7 +324,8 @@ class QuotesOperations:
 
       quotes = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         quotes.append(QuoteDocument(**result))
       return quotes
     except Exception as e:
@@ -337,7 +342,8 @@ class QuotesOperations:
 
       quotes = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         quotes.append(QuoteDocument(**result))
       return quotes
     except Exception as e:

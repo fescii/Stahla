@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends
 import logfire
+import uuid
 from pydantic import BaseModel  # Added
 from typing import Optional, Any  # Added
 
@@ -89,7 +90,7 @@ async def webhook_form(
   # Log classification to MongoDB in background
   if classification_result.classification:
     classify_data = {
-        "id": f"classify_form_{payload.email or 'unknown'}",
+        "id": str(uuid.uuid4()),
         "source": "webform",
         "status": "COMPLETED" if classification_result.status == "success" else "FAILED",
         "lead_type": classification_result.classification.lead_type,

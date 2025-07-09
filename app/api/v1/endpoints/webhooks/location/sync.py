@@ -7,6 +7,7 @@ Handles real-time distance calculations.
 
 import logging
 import time
+import uuid
 from fastapi import APIRouter, Depends, BackgroundTasks
 from app.models.location import LocationLookupRequest, LocationLookupResponse
 from app.models.mongo.location import LocationStatus  # Added import
@@ -64,7 +65,7 @@ async def location_lookup_sync_webhook(
 
       # Log location lookup to MongoDB in background
       location_data = {
-          "id": f"location_sync_{payload.delivery_location}",
+          "id": str(uuid.uuid4()),
           "delivery_location": payload.delivery_location,
           "source": "sync_webhook",
           "status": LocationStatus.SUCCESS,

@@ -184,7 +184,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -493,7 +494,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -511,7 +513,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -529,7 +532,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -547,7 +551,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -565,7 +570,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -583,7 +589,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -601,7 +608,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -620,7 +628,8 @@ class EmailsOperations:
 
       emails = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         emails.append(EmailDocument(**result))
 
       return emails
@@ -635,7 +644,8 @@ class EmailsOperations:
       result = await collection.find_one({"id": email_id})
 
       if result:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         return EmailDocument(**result)
       return None
     except Exception as e:

@@ -200,7 +200,8 @@ class CallsOperations:
 
       calls = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         calls.append(CallDocument(**result))
 
       logfire.debug(f"Retrieved {len(calls)} calls with status {status.value}")
@@ -350,7 +351,8 @@ class CallsOperations:
 
       calls = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         calls.append(CallDocument(**result))
       return calls
     except Exception as e:
@@ -366,7 +368,8 @@ class CallsOperations:
 
       calls = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         calls.append(CallDocument(**result))
       return calls
     except Exception as e:
@@ -384,7 +387,8 @@ class CallsOperations:
 
       calls = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         calls.append(CallDocument(**result))
       return calls
     except Exception as e:
@@ -401,7 +405,8 @@ class CallsOperations:
 
       calls = []
       for result in results:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         calls.append(CallDocument(**result))
       return calls
     except Exception as e:
@@ -415,7 +420,8 @@ class CallsOperations:
       result = await collection.find_one({"id": call_id})
 
       if result:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         return CallDocument(**result)
       return None
     except Exception as e:

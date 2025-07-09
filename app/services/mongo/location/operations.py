@@ -409,7 +409,9 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        # Map MongoDB _id to id field required by LocationDocument
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -427,7 +429,9 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        # Map MongoDB _id to id field required by LocationDocument
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -445,7 +449,8 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -463,7 +468,8 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -481,7 +487,8 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -500,7 +507,8 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -518,7 +526,8 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -536,7 +545,8 @@ class LocationOperations:
 
       locations = []
       async for result in cursor:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         locations.append(LocationDocument(**result))
 
       return locations
@@ -551,7 +561,8 @@ class LocationOperations:
       result = await collection.find_one({"id": location_id})
 
       if result:
-        result.pop("_id", None)
+        if "_id" in result:
+          result["id"] = str(result.pop("_id"))
         return LocationDocument(**result)
       return None
     except Exception as e:

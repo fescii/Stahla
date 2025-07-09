@@ -6,6 +6,7 @@ Handles background prefetching of location distances.
 """
 
 import logging
+import uuid
 from fastapi import APIRouter, Depends, BackgroundTasks
 from app.models.location import LocationLookupRequest
 from app.models.mongo.location import LocationStatus  # Added import
@@ -59,7 +60,7 @@ async def location_lookup_webhook(
 
   # Log location lookup initiation to MongoDB in background
   location_data = {
-      "id": f"location_async_{payload.delivery_location}",
+      "id": str(uuid.uuid4()),
       "delivery_location": payload.delivery_location,
       "source": "async_webhook",
       "status": LocationStatus.PENDING,

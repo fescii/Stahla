@@ -95,7 +95,7 @@ async def quote_webhook(
 
     # Log quote to MongoDB in background
     quote_data = {
-        "id": f"quote_{request_id}",
+        "id": str(uuid.uuid4()),
         "request_id": request_id,
         "contact_id": getattr(payload, 'contact_id', None),
         "delivery_location": payload.delivery_location,
