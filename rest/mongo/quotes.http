@@ -2,58 +2,70 @@
 # These endpoints provide paginated access to quotes with various filters
 
 # --- Variables ---
-@host = http://localhost:8000
-@api_key = your_api_key_here
-@auth_token = Bearer {{api_key}}
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
 
 ### Get Recent Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Recent Quotes (Page 2)
-GET {{host}}/api/v1/mongo/quotes/recent?page=2
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/recent?page=2
+Authorization: Bearer {{authToken}}
 
 ### Get Oldest Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/oldest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/oldest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Highest Value Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/highest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/highest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Lowest Value Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/lowest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/lowest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Successful Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Failed Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/failed?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/failed?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Expired Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/expired?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/expired?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Pending Quotes (Page 1)
-GET {{host}}/api/v1/mongo/quotes/pending?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/pending?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Quotes by Product (Page 1)
-GET {{host}}/api/v1/mongo/quotes/by-product?product=2 Stall Restroom Trailer&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/by-product?product=2 Stall Restroom Trailer&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Quotes by Product - Portable Toilet (Page 1)
-GET {{host}}/api/v1/mongo/quotes/by-product?product=Portable Toilet&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/by-product?product=Portable Toilet&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Quote by ID
-GET {{host}}/api/v1/mongo/quotes/quote_id_here
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/quote_id_here
+Authorization: Bearer {{authToken}}
 
 ### Sample Quote ID lookup
-GET {{host}}/api/v1/mongo/quotes/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}

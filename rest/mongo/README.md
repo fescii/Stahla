@@ -14,6 +14,7 @@ This directory contains REST client files for testing all MongoDB pagination end
 ## Usage
 
 ### Prerequisites
+
 1. Ensure your API server is running on `http://localhost:8000`
 2. Replace `your_api_key_here` with your actual API key in the variables section
 3. Use a REST client like VS Code REST Client extension, Postman, or curl
@@ -21,6 +22,7 @@ This directory contains REST client files for testing all MongoDB pagination end
 ### Pagination Pattern
 
 All endpoints follow the same pagination pattern:
+
 - **Page Parameter**: `?page=1` (starts from 1)
 - **Limit**: Hardcoded to 10 items per page
 - **Offset**: Calculated as `(page - 1) * 10`
@@ -28,6 +30,7 @@ All endpoints follow the same pagination pattern:
 ### Response Format
 
 All paginated endpoints return the following structure:
+
 ```json
 {
   "items": [...],          // Array of items (max 10)
@@ -41,6 +44,7 @@ All paginated endpoints return the following structure:
 ### Individual Records
 
 Each collection has a `/{id}` endpoint for fetching single records:
+
 ```json
 {
   "success": true,
@@ -54,6 +58,7 @@ Each collection has a `/{id}` endpoint for fetching single records:
 ## Collections and Endpoints
 
 ### 1. Quotes (`/api/v1/mongo/quotes/`)
+
 - `GET /recent?page=1` - Recent quotes
 - `GET /oldest?page=1` - Oldest quotes
 - `GET /highest?page=1` - Highest value quotes
@@ -66,6 +71,7 @@ Each collection has a `/{id}` endpoint for fetching single records:
 - `GET /{quote_id}` - Single quote by ID
 
 ### 2. Calls (`/api/v1/mongo/calls/`)
+
 - `GET /recent?page=1` - Recent calls
 - `GET /oldest?page=1` - Oldest calls
 - `GET /successful?page=1` - Successful calls
@@ -76,6 +82,7 @@ Each collection has a `/{id}` endpoint for fetching single records:
 - `GET /{call_id}` - Single call by ID
 
 ### 3. Classifications (`/api/v1/mongo/classify/`)
+
 - `GET /recent?page=1` - Recent classifications
 - `GET /oldest?page=1` - Oldest classifications
 - `GET /successful?page=1` - Successful classifications
@@ -87,6 +94,7 @@ Each collection has a `/{id}` endpoint for fetching single records:
 - `GET /{classification_id}` - Single classification by ID
 
 ### 4. Locations (`/api/v1/mongo/location/`)
+
 - `GET /recent?page=1` - Recent locations
 - `GET /oldest?page=1` - Oldest locations
 - `GET /successful?page=1` - Successful locations
@@ -98,6 +106,7 @@ Each collection has a `/{id}` endpoint for fetching single records:
 - `GET /{location_id}` - Single location by ID
 
 ### 5. Emails (`/api/v1/mongo/emails/`)
+
 - `GET /recent?page=1` - Recent emails
 - `GET /oldest?page=1` - Oldest emails
 - `GET /successful?page=1` - Successful emails
@@ -124,11 +133,13 @@ Each collection has a `/{id}` endpoint for fetching single records:
 ## Error Handling
 
 All endpoints return appropriate HTTP status codes:
+
 - `200 OK` - Success
 - `404 Not Found` - Resource not found
 - `500 Internal Server Error` - Server error
 
 Error responses include:
+
 ```json
 {
   "success": false,
@@ -142,6 +153,7 @@ Error responses include:
 ## Authentication
 
 All endpoints require authentication via the `Authorization` header:
+
 ```
 Authorization: Bearer your_api_key_here
 ```

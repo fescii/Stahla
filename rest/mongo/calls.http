@@ -2,54 +2,66 @@
 # These endpoints provide paginated access to calls with various filters
 
 # --- Variables ---
-@host = http://localhost:8000
-@api_key = your_api_key_here
-@auth_token = Bearer {{api_key}}
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
 
 ### Get Recent Calls (Page 1)
-GET {{host}}/api/v1/mongo/calls/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Recent Calls (Page 2)
-GET {{host}}/api/v1/mongo/calls/recent?page=2
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/recent?page=2
+Authorization: Bearer {{authToken}}
 
 ### Get Oldest Calls (Page 1)
-GET {{host}}/api/v1/mongo/calls/oldest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/oldest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Successful Calls (Page 1)
-GET {{host}}/api/v1/mongo/calls/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Failed Calls (Page 1)
-GET {{host}}/api/v1/mongo/calls/failed?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/failed?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Longest Calls (Page 1)
-GET {{host}}/api/v1/mongo/calls/longest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/longest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Shortest Calls (Page 1)
-GET {{host}}/api/v1/mongo/calls/shortest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/shortest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Calls by Source (Page 1)
-GET {{host}}/api/v1/mongo/calls/by-source?source=webform&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/by-source?source=webform&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Calls by Source - Phone (Page 1)
-GET {{host}}/api/v1/mongo/calls/by-source?source=phone&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/by-source?source=phone&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Calls by Source - Email (Page 1)
-GET {{host}}/api/v1/mongo/calls/by-source?source=email&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/by-source?source=email&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Call by ID
-GET {{host}}/api/v1/mongo/calls/call_id_here
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/call_id_here
+Authorization: Bearer {{authToken}}
 
 ### Sample Call ID lookup
-GET {{host}}/api/v1/mongo/calls/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}

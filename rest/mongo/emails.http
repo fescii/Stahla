@@ -2,74 +2,86 @@
 # These endpoints provide paginated access to emails with various filters
 
 # --- Variables ---
-@host = http://localhost:8000
-@api_key = your_api_key_here
-@auth_token = Bearer {{api_key}}
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
 
 ### Get Recent Emails (Page 1)
-GET {{host}}/api/v1/mongo/emails/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Recent Emails (Page 2)
-GET {{host}}/api/v1/mongo/emails/recent?page=2
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/recent?page=2
+Authorization: Bearer {{authToken}}
 
 ### Get Oldest Emails (Page 1)
-GET {{host}}/api/v1/mongo/emails/oldest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/oldest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Successful Emails (Page 1)
-GET {{host}}/api/v1/mongo/emails/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Failed Emails (Page 1)
-GET {{host}}/api/v1/mongo/emails/failed?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/failed?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Pending Emails (Page 1)
-GET {{host}}/api/v1/mongo/emails/pending?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/pending?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Category - Sent (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-category?category=sent&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-category?category=sent&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Category - Received (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-category?category=received&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-category?category=received&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Category - Failed (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-category?category=failed&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-category?category=failed&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Category - Queued (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-category?category=queued&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-category?category=queued&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Category - Processing (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-category?category=processing&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-category?category=processing&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Direction - Inbound (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-direction?direction=inbound&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-direction?direction=inbound&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails by Direction - Outbound (Page 1)
-GET {{host}}/api/v1/mongo/emails/by-direction?direction=outbound&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-direction?direction=outbound&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Emails with Attachments (Page 1)
-GET {{host}}/api/v1/mongo/emails/with-attachments?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/with-attachments?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Processed Emails (Page 1)
-GET {{host}}/api/v1/mongo/emails/processed?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/processed?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Email by ID
-GET {{host}}/api/v1/mongo/emails/email_id_here
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/email_id_here
+Authorization: Bearer {{authToken}}
 
 ### Sample Email ID lookup
-GET {{host}}/api/v1/mongo/emails/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}

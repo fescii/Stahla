@@ -2,9 +2,21 @@
 # This file provides an overview of all MongoDB pagination endpoints
 
 # --- Variables ---
-@host = http://localhost:8000
-@api_key = your_api_key_here
-@auth_token = Bearer {{api_key}}
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
 
 # ===========================================
 # PAGINATION PATTERN
@@ -29,20 +41,20 @@
 # Base URL: /api/v1/mongo/quotes/
 
 ### Recent Quotes
-GET {{host}}/api/v1/mongo/quotes/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Oldest Quotes
-GET {{host}}/api/v1/mongo/quotes/oldest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/oldest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Highest Value Quotes
-GET {{host}}/api/v1/mongo/quotes/highest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/highest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Lowest Value Quotes
-GET {{host}}/api/v1/mongo/quotes/lowest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/lowest?page=1
+Authorization: Bearer {{authToken}}
 
 # ===========================================
 # CALLS ENDPOINTS
@@ -50,16 +62,16 @@ Authorization: {{auth_token}}
 # Base URL: /api/v1/mongo/calls/
 
 ### Recent Calls
-GET {{host}}/api/v1/mongo/calls/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Successful Calls
-GET {{host}}/api/v1/mongo/calls/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Failed Calls
-GET {{host}}/api/v1/mongo/calls/failed?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/failed?page=1
+Authorization: Bearer {{authToken}}
 
 # ===========================================
 # CLASSIFY ENDPOINTS
@@ -67,16 +79,16 @@ Authorization: {{auth_token}}
 # Base URL: /api/v1/mongo/classify/
 
 ### Recent Classifications
-GET {{host}}/api/v1/mongo/classify/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/classify/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Successful Classifications
-GET {{host}}/api/v1/mongo/classify/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/classify/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Disqualified Classifications
-GET {{host}}/api/v1/mongo/classify/disqualified?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/classify/disqualified?page=1
+Authorization: Bearer {{authToken}}
 
 # ===========================================
 # LOCATION ENDPOINTS
@@ -84,16 +96,16 @@ Authorization: {{auth_token}}
 # Base URL: /api/v1/mongo/location/
 
 ### Recent Locations
-GET {{host}}/api/v1/mongo/location/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Successful Locations
-GET {{host}}/api/v1/mongo/location/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Locations by Distance
-GET {{host}}/api/v1/mongo/location/by-distance?ascending=true&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/by-distance?ascending=true&page=1
+Authorization: Bearer {{authToken}}
 
 # ===========================================
 # EMAILS ENDPOINTS
@@ -101,16 +113,16 @@ Authorization: {{auth_token}}
 # Base URL: /api/v1/mongo/emails/
 
 ### Recent Emails
-GET {{host}}/api/v1/mongo/emails/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Successful Emails
-GET {{host}}/api/v1/mongo/emails/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Emails by Category
-GET {{host}}/api/v1/mongo/emails/by-category?category=sent&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/by-category?category=sent&page=1
+Authorization: Bearer {{authToken}}
 
 # ===========================================
 # INDIVIDUAL RECORD ENDPOINTS
@@ -118,21 +130,21 @@ Authorization: {{auth_token}}
 # Each collection has a /{id} endpoint for single record access
 
 ### Get Quote by ID
-GET {{host}}/api/v1/mongo/quotes/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/quotes/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}
 
 ### Get Call by ID
-GET {{host}}/api/v1/mongo/calls/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/calls/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}
 
 ### Get Classification by ID
-GET {{host}}/api/v1/mongo/classify/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/classify/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}
 
 ### Get Location by ID
-GET {{host}}/api/v1/mongo/location/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}
 
 ### Get Email by ID
-GET {{host}}/api/v1/mongo/emails/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/emails/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}

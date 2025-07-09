@@ -2,62 +2,74 @@
 # These endpoints provide paginated access to locations with various filters
 
 # --- Variables ---
-@host = http://localhost:8000
-@api_key = your_api_key_here
-@auth_token = Bearer {{api_key}}
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
 
 ### Get Recent Locations (Page 1)
-GET {{host}}/api/v1/mongo/location/recent?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/recent?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Recent Locations (Page 2)
-GET {{host}}/api/v1/mongo/location/recent?page=2
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/recent?page=2
+Authorization: Bearer {{authToken}}
 
 ### Get Oldest Locations (Page 1)
-GET {{host}}/api/v1/mongo/location/oldest?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/oldest?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Successful Locations (Page 1)
-GET {{host}}/api/v1/mongo/location/successful?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/successful?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Failed Locations (Page 1)
-GET {{host}}/api/v1/mongo/location/failed?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/failed?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Pending Locations (Page 1)
-GET {{host}}/api/v1/mongo/location/pending?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/pending?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Locations by Distance - Nearest First (Page 1)
-GET {{host}}/api/v1/mongo/location/by-distance?ascending=true&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/by-distance?ascending=true&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Locations by Distance - Farthest First (Page 1)
-GET {{host}}/api/v1/mongo/location/by-distance?ascending=false&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/by-distance?ascending=false&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Locations by Branch - San Francisco (Page 1)
-GET {{host}}/api/v1/mongo/location/by-branch?branch=San Francisco&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/by-branch?branch=San Francisco&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Locations by Branch - Oakland (Page 1)
-GET {{host}}/api/v1/mongo/location/by-branch?branch=Oakland&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/by-branch?branch=Oakland&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Locations by Branch - San Jose (Page 1)
-GET {{host}}/api/v1/mongo/location/by-branch?branch=San Jose&page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/by-branch?branch=San Jose&page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Locations with Fallback Method (Page 1)
-GET {{host}}/api/v1/mongo/location/with-fallback?page=1
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/with-fallback?page=1
+Authorization: Bearer {{authToken}}
 
 ### Get Location by ID
-GET {{host}}/api/v1/mongo/location/location_id_here
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/location_id_here
+Authorization: Bearer {{authToken}}
 
 ### Sample Location ID lookup
-GET {{host}}/api/v1/mongo/location/67890abcdef1234567890abc
-Authorization: {{auth_token}}
+GET {{baseUrl}}/mongo/location/67890abcdef1234567890abc
+Authorization: Bearer {{authToken}}
