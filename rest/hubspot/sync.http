@@ -1,0 +1,66 @@
+### HubSpot Property Sync API Tests
+# These endpoints manage property synchronization with HubSpot
+
+# --- Variables ---
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Sync All Properties (Contacts and Leads)
+POST {{baseUrl}}/hubspot/properties/sync/all
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Sync Contact Properties Only
+POST {{baseUrl}}/hubspot/properties/sync/contacts
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Sync Lead Properties Only
+POST {{baseUrl}}/hubspot/properties/sync/leads
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Check Property Status - Contacts
+GET {{baseUrl}}/hubspot/properties/sync/status/contacts
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Check Property Status - Leads
+GET {{baseUrl}}/hubspot/properties/sync/status/leads
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Check Specific Property Status - Contacts
+GET {{baseUrl}}/hubspot/properties/sync/status/contacts?property_names=email,firstname,lastname,phone
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Check Specific Property Status - Leads
+GET {{baseUrl}}/hubspot/properties/sync/status/leads?property_names=project_category,ai_lead_type,quote_urgency
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

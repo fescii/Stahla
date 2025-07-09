@@ -15,7 +15,7 @@ router = APIRouter(prefix="/classify", tags=["classify"])
 PAGINATION_LIMIT = 10
 
 
-@router.get("/recent", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/recent", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_recent_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     mongo_service: MongoService = Depends(get_mongo_service),
@@ -27,20 +27,25 @@ async def get_recent_classifications(
     classifications = await mongo_service.get_recent_classifications(offset=offset)
     total_count = await mongo_service.count_all_classifications()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching recent classifications: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/oldest", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/oldest", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_oldest_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     mongo_service: MongoService = Depends(get_mongo_service),
@@ -52,20 +57,25 @@ async def get_oldest_classifications(
     classifications = await mongo_service.get_oldest_classifications(offset=offset)
     total_count = await mongo_service.count_all_classifications()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching oldest classifications: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/successful", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/successful", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_successful_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     mongo_service: MongoService = Depends(get_mongo_service),
@@ -77,21 +87,26 @@ async def get_successful_classifications(
     classifications = await mongo_service.get_successful_classifications(offset=offset)
     total_count = await mongo_service.count_classifications_by_status("success")
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(
         f"Error fetching successful classifications: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/failed", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/failed", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_failed_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     mongo_service: MongoService = Depends(get_mongo_service),
@@ -103,20 +118,25 @@ async def get_failed_classifications(
     classifications = await mongo_service.get_failed_classifications(offset=offset)
     total_count = await mongo_service.count_classifications_by_status("failed")
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching failed classifications: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/disqualified", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/disqualified", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_disqualified_classifications(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     mongo_service: MongoService = Depends(get_mongo_service),
@@ -128,21 +148,26 @@ async def get_disqualified_classifications(
     classifications = await mongo_service.get_disqualified_classifications(offset=offset)
     total_count = await mongo_service.count_classifications_by_lead_type("Disqualify")
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(
         f"Error fetching disqualified classifications: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/by-lead-type", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/by-lead-type", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_classifications_by_lead_type(
     lead_type: str = Query(..., description="Lead type to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
@@ -158,21 +183,26 @@ async def get_classifications_by_lead_type(
     )
     total_count = await mongo_service.count_classifications_by_lead_type(lead_type)
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(
         f"Error fetching classifications by lead type: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/by-confidence", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/by-confidence", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_classifications_by_confidence(
     min_confidence: float = Query(..., description="Minimum confidence level"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
@@ -188,21 +218,26 @@ async def get_classifications_by_confidence(
     )
     total_count = await mongo_service.count_classifications_by_confidence(min_confidence)
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(
         f"Error fetching classifications by confidence: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/by-source", response_model=PaginatedResponse[ClassifyDocument])
+@router.get("/by-source", response_model=GenericResponse[PaginatedResponse[ClassifyDocument]])
 async def get_classifications_by_source(
     source: str = Query(..., description="Source to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
@@ -218,18 +253,23 @@ async def get_classifications_by_source(
     )
     total_count = await mongo_service.count_classifications_by_source(source)
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=classifications,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total_count,
         has_more=(offset + PAGINATION_LIMIT) < total_count
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(
         f"Error fetching classifications by source: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classifications")
+    return GenericResponse.error(
+        message="Failed to fetch classifications",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/{classify_id}", response_model=GenericResponse[ClassifyDocument])
@@ -242,15 +282,16 @@ async def get_classification_by_id(
   try:
     classification = await mongo_service.get_classification_by_id(classify_id)
     if not classification:
-      raise HTTPException(status_code=404, detail="Classification not found")
+      return GenericResponse.error(
+          message="Classification not found",
+          status_code=404
+      )
 
-    return GenericResponse(
-        success=True,
-        data=classification
-    )
-  except HTTPException:
-    raise
+    return GenericResponse(data=classification)
   except Exception as e:
     logfire.error(f"Error fetching classification by ID: {e}", exc_info=True)
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch classification")
+    return GenericResponse.error(
+        message="Failed to fetch classification",
+        details={"error": str(e)},
+        status_code=500
+    )

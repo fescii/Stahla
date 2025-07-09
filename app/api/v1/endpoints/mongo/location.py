@@ -14,7 +14,7 @@ router = APIRouter(prefix="/location", tags=["location"])
 PAGINATION_LIMIT = 10
 
 
-@router.get("/recent", response_model=PaginatedResponse[LocationDocument])
+@router.get("/recent", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_recent_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -26,20 +26,25 @@ async def get_recent_locations(
     locations = await service.get_recent_locations(offset)
     total = await service.count_all_locations()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching recent locations: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch recent locations")
+    return GenericResponse.error(
+        message="Failed to fetch recent locations",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/oldest", response_model=PaginatedResponse[LocationDocument])
+@router.get("/oldest", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_oldest_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -51,20 +56,25 @@ async def get_oldest_locations(
     locations = await service.get_oldest_locations(offset)
     total = await service.count_all_locations()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching oldest locations: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch oldest locations")
+    return GenericResponse.error(
+        message="Failed to fetch oldest locations",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/successful", response_model=PaginatedResponse[LocationDocument])
+@router.get("/successful", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_successful_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -76,20 +86,25 @@ async def get_successful_locations(
     locations = await service.get_successful_locations(offset)
     total = await service.count_locations_by_status("success")
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching successful locations: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch successful locations")
+    return GenericResponse.error(
+        message="Failed to fetch successful locations",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/failed", response_model=PaginatedResponse[LocationDocument])
+@router.get("/failed", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_failed_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -101,20 +116,25 @@ async def get_failed_locations(
     locations = await service.get_failed_locations(offset)
     total = await service.count_locations_by_status("failed")
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching failed locations: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch failed locations")
+    return GenericResponse.error(
+        message="Failed to fetch failed locations",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/pending", response_model=PaginatedResponse[LocationDocument])
+@router.get("/pending", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_pending_locations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -126,20 +146,25 @@ async def get_pending_locations(
     locations = await service.get_pending_locations(offset)
     total = await service.count_locations_by_status("pending")
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching pending locations: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch pending locations")
+    return GenericResponse.error(
+        message="Failed to fetch pending locations",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/by-distance", response_model=PaginatedResponse[LocationDocument])
+@router.get("/by-distance", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_locations_by_distance(
     ascending: bool = Query(
         True, description="Sort by distance ascending (nearest first)"),
@@ -153,20 +178,25 @@ async def get_locations_by_distance(
     locations = await service.get_locations_by_distance(ascending, offset)
     total = await service.count_all_locations()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching locations by distance: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch locations by distance")
+    return GenericResponse.error(
+        message="Failed to fetch locations by distance",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/by-branch", response_model=PaginatedResponse[LocationDocument])
+@router.get("/by-branch", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_locations_by_branch(
     branch: str = Query(..., description="Branch name to filter by"),
     page: int = Query(1, ge=1, description="Page number starting from 1"),
@@ -179,20 +209,25 @@ async def get_locations_by_branch(
     locations = await service.get_locations_by_branch(branch, offset)
     total = await service.count_locations_by_branch(branch)
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching locations by branch: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch locations by branch")
+    return GenericResponse.error(
+        message="Failed to fetch locations by branch",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/with-fallback", response_model=PaginatedResponse[LocationDocument])
+@router.get("/with-fallback", response_model=GenericResponse[PaginatedResponse[LocationDocument]])
 async def get_locations_with_fallback(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -204,17 +239,22 @@ async def get_locations_with_fallback(
     locations = await service.get_locations_with_fallback(offset)
     total = await service.count_locations_with_fallback()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=locations,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching locations with fallback: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch locations with fallback")
+    return GenericResponse.error(
+        message="Failed to fetch locations with fallback",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/{location_id}", response_model=GenericResponse[LocationDocument])
@@ -227,14 +267,16 @@ async def get_location_by_id(
   try:
     location = await service.get_location_by_id(location_id)
     if not location:
-      raise HTTPException(status_code=404, detail="Location not found")
+      return GenericResponse.error(
+          message="Location not found",
+          status_code=404
+      )
 
-    return GenericResponse(
-        success=True,
-        data=location
-    )
-  except HTTPException:
-    raise
+    return GenericResponse(data=location)
   except Exception as e:
     logfire.error(f"Error fetching location by ID: {str(e)}")
-    raise HTTPException(status_code=500, detail="Failed to fetch location")
+    return GenericResponse.error(
+        message="Failed to fetch location",
+        details={"error": str(e)},
+        status_code=500
+    )

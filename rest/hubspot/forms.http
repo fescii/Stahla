@@ -1,0 +1,117 @@
+### HubSpot Forms API Tests
+# These endpoints handle form processing and contact creation
+
+# --- Variables ---
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Create Contact from Form Data - Complete Form
+POST {{baseUrl}}/hubspot/forms/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "What service do you need?": "Restroom Trailer",
+  "How Many Portable Toilet Stalls?": 4,
+  "Event or Job Address": "123 Main St, Austin, TX",
+  "Postal code": "78701",
+  "City": "Austin",
+  "Event start date": "2024-12-01",
+  "Event end date": "2024-12-03",
+  "First name": "Sarah",
+  "Last name": "Johnson",
+  "Phone number": "512-555-0123",
+  "Email": "sarah.johnson@email.com",
+  "I consent to receive texts on the phone number provided": true
+}
+
+###
+
+### Create Contact from Form Data - Shower Trailer
+POST {{baseUrl}}/hubspot/forms/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "What service do you need?": "Shower Trailer",
+  "How Many Portable Toilet Stalls?": 2,
+  "Event or Job Address": "456 Oak Ave, Dallas, TX",
+  "Postal code": "75201",
+  "City": "Dallas",
+  "Event start date": "2024-12-10",
+  "Event end date": "2024-12-12",
+  "First name": "Mike",
+  "Last name": "Wilson",
+  "Phone number": "214-555-0456",
+  "Email": "mike.wilson@email.com",
+  "I consent to receive texts on the phone number provided": false
+}
+
+###
+
+### Create Contact from Form Data - Minimal Required Fields
+POST {{baseUrl}}/hubspot/forms/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "First name": "Lisa",
+  "Last name": "Brown",
+  "Phone number": "713-555-0789",
+  "Email": "lisa.brown@email.com"
+}
+
+###
+
+### Create Contact from Form Data - Porta Potty Service
+POST {{baseUrl}}/hubspot/forms/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "What service do you need?": "Porta Potty",
+  "How Many Portable Toilet Stalls?": 10,
+  "Event or Job Address": "789 Pine St, Houston, TX",
+  "Postal code": "77001",
+  "City": "Houston",
+  "Event start date": "2024-12-20",
+  "Event end date": "2024-12-22",
+  "First name": "David",
+  "Last name": "Garcia",
+  "Phone number": "713-555-0987",
+  "Email": "david.garcia@email.com",
+  "I consent to receive texts on the phone number provided": true
+}
+
+###
+
+### Create Contact from Form Data - Other Service Type
+POST {{baseUrl}}/hubspot/forms/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "What service do you need?": "Other",
+  "Event or Job Address": "321 Elm St, San Antonio, TX",
+  "Postal code": "78201",
+  "City": "San Antonio",
+  "Event start date": "2025-01-05",
+  "Event end date": "2025-01-07",
+  "First name": "Jennifer",
+  "Last name": "Martinez",
+  "Phone number": "210-555-0654",
+  "Email": "jennifer.martinez@email.com"
+}

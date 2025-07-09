@@ -1,0 +1,52 @@
+### HubSpot Properties API Tests
+# These endpoints provide access to property definitions and metadata
+
+# --- Variables ---
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Get Contact Properties
+GET {{baseUrl}}/hubspot/properties/contacts
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Lead Properties
+GET {{baseUrl}}/hubspot/properties/leads
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get All Properties (Contacts and Leads)
+GET {{baseUrl}}/hubspot/properties/all
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Contact Field Names Only
+GET {{baseUrl}}/hubspot/properties/fields/contacts
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Lead Field Names Only
+GET {{baseUrl}}/hubspot/properties/fields/leads
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

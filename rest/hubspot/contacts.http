@@ -1,0 +1,66 @@
+### HubSpot Contacts API Tests
+# These endpoints provide paginated access to contacts with various filters
+
+# --- Variables ---
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Get Recent Contacts
+GET {{baseUrl}}/hubspot/contacts/recent?page=1&limit=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Recent Contacts with Pagination
+GET {{baseUrl}}/hubspot/contacts/recent?page=2&limit=5
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Contacts - Basic
+GET {{baseUrl}}/hubspot/contacts/search?page=1&limit=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Contacts - With Filters
+GET {{baseUrl}}/hubspot/contacts/search?page=1&limit=10&service_type=Restroom Trailer&city=Austin
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Contacts - Date Range
+GET {{baseUrl}}/hubspot/contacts/search?page=1&limit=10&created_after=2024-01-01&created_before=2024-12-31
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Contact by ID
+GET {{baseUrl}}/hubspot/contacts/123456789
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Contacts - All Filters Example
+GET {{baseUrl}}/hubspot/contacts/search?page=1&limit=5&service_type=Porta Potty&city=Dallas&state=TX&has_phone=true&created_after=2024-06-01
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

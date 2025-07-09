@@ -1,0 +1,108 @@
+### HubSpot Operations API Tests
+# These endpoints provide core HubSpot CRUD operations
+
+# --- Variables ---
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Create or Update Contact
+POST {{baseUrl}}/hubspot/operations/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "firstname": "John",
+  "lastname": "Doe",
+  "phone": "555-123-4567",
+  "city": "Austin",
+  "zip": "78701",
+  "what_service_do_you_need_": "Restroom Trailer",
+  "how_many_restroom_stalls_": 5,
+  "event_start_date": "2024-12-01",
+  "event_end_date": "2024-12-03"
+}
+
+###
+
+### Create Contact - Minimal Data
+POST {{baseUrl}}/hubspot/operations/contact
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "email": "jane.smith@example.com",
+  "firstname": "Jane",
+  "lastname": "Smith"
+}
+
+###
+
+### Create Lead
+POST {{baseUrl}}/hubspot/operations/lead
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "project_category": "Wedding",
+  "units_needed": 3,
+  "expected_attendance": 150,
+  "ada_required": true,
+  "rental_start_date": "2024-12-15",
+  "rental_end_date": "2024-12-15",
+  "ai_lead_type": "Hot Lead",
+  "quote_urgency": "Standard",
+  "within_local_service_area": true,
+  "ai_estimated_value": 2500.00
+}
+
+###
+
+### Create Lead with Contact Association
+POST {{baseUrl}}/hubspot/operations/lead
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "project_category": "Corporate Event",
+  "units_needed": 8,
+  "expected_attendance": 500,
+  "ada_required": true,
+  "additional_services_needed": "Hand washing stations",
+  "rental_start_date": "2024-12-20",
+  "rental_end_date": "2024-12-22",
+  "ai_lead_type": "Qualified",
+  "quote_urgency": "Urgent",
+  "within_local_service_area": true,
+  "weekend_service_needed": true,
+  "cleaning_service_needed": true,
+  "ai_estimated_value": 5000.00,
+  "contact_id": "123456789"
+}
+
+###
+
+### Get HubSpot Owners
+GET {{baseUrl}}/hubspot/operations/owners
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get HubSpot Owners with Email Filter
+GET {{baseUrl}}/hubspot/operations/owners?email=sales@company.com
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

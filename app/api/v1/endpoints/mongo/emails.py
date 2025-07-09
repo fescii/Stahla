@@ -14,7 +14,7 @@ router = APIRouter(prefix="/emails", tags=["emails"])
 PAGINATION_LIMIT = 10
 
 
-@router.get("/recent", response_model=PaginatedResponse[EmailDocument])
+@router.get("/recent", response_model=GenericResponse[PaginatedResponse[EmailDocument]])
 async def get_recent_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -26,20 +26,25 @@ async def get_recent_emails(
     emails = await service.get_recent_emails(offset)
     total = await service.count_all_emails()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=emails,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching recent emails: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch recent emails")
+    return GenericResponse.error(
+        message="Failed to fetch recent emails",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
-@router.get("/oldest", response_model=PaginatedResponse[EmailDocument])
+@router.get("/oldest", response_model=GenericResponse[PaginatedResponse[EmailDocument]])
 async def get_oldest_emails(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
     service: MongoService = Depends(get_mongo_service),
@@ -51,17 +56,22 @@ async def get_oldest_emails(
     emails = await service.get_oldest_emails(offset)
     total = await service.count_all_emails()
 
-    return PaginatedResponse(
+    pagination_response = PaginatedResponse(
         items=emails,
         page=page,
         limit=PAGINATION_LIMIT,
         total=total,
         has_more=offset + PAGINATION_LIMIT < total
     )
+
+    return GenericResponse(data=pagination_response)
   except Exception as e:
     logfire.error(f"Error fetching oldest emails: {str(e)}")
-    raise HTTPException(
-        status_code=500, detail="Failed to fetch oldest emails")
+    return GenericResponse.error(
+        message="Failed to fetch oldest emails",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/successful", response_model=PaginatedResponse[EmailDocument])

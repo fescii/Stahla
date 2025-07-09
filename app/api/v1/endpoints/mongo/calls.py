@@ -38,7 +38,11 @@ async def get_recent_calls(
     )
   except Exception as e:
     logfire.error(f"Error fetching recent calls: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/oldest", response_model=GenericResponse[PaginatedResponse[CallDocument]])
@@ -64,7 +68,11 @@ async def get_oldest_calls(
     )
   except Exception as e:
     logfire.error(f"Error fetching oldest calls: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/successful", response_model=GenericResponse[PaginatedResponse[CallDocument]])
@@ -94,7 +102,11 @@ async def get_successful_calls(
     )
   except Exception as e:
     logfire.error(f"Error fetching successful calls: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/failed", response_model=GenericResponse[PaginatedResponse[CallDocument]])
@@ -124,7 +136,11 @@ async def get_failed_calls(
     )
   except Exception as e:
     logfire.error(f"Error fetching failed calls: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/longest", response_model=GenericResponse[PaginatedResponse[CallDocument]])
@@ -150,7 +166,11 @@ async def get_longest_calls(
     )
   except Exception as e:
     logfire.error(f"Error fetching longest calls: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/shortest", response_model=GenericResponse[PaginatedResponse[CallDocument]])
@@ -176,7 +196,11 @@ async def get_shortest_calls(
     )
   except Exception as e:
     logfire.error(f"Error fetching shortest calls: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/by-source/{source}", response_model=GenericResponse[PaginatedResponse[CallDocument]])
@@ -207,7 +231,11 @@ async def get_calls_by_source(
     )
   except Exception as e:
     logfire.error(f"Error fetching calls by source: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch calls")
+    return GenericResponse.error(
+        message="Failed to fetch calls",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/{call_id}", response_model=GenericResponse[CallDocument])
@@ -220,11 +248,16 @@ async def get_call_by_id(
   try:
     call = await mongo_service.get_call_by_id(call_id)
     if not call:
-      raise HTTPException(status_code=404, detail="Call not found")
+      return GenericResponse.error(
+          message="Call not found",
+          status_code=404
+      )
 
     return GenericResponse(data=call)
-  except HTTPException:
-    raise
   except Exception as e:
     logfire.error(f"Error fetching call by ID: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch call")
+    return GenericResponse.error(
+        message="Failed to fetch call",
+        details={"error": str(e)},
+        status_code=500
+    )

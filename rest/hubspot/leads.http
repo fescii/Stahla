@@ -1,0 +1,94 @@
+### HubSpot Leads API Tests
+# These endpoints provide paginated access to leads with various filters
+
+# --- Variables ---
+@baseUrl = http://localhost:8000/api/v1
+@contentType = application/json
+
+### Get JWT Token (Login)
+# @name login
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+    "username": "isfescii@gmail.com",
+    "password": "pass1234"
+}
+
+### Get the token from the previous response
+@authToken = {{login.response.body.data.access_token}}
+
+### Get Recent Leads
+GET {{baseUrl}}/hubspot/leads/recent?page=1&limit=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Recent Leads with Pagination
+GET {{baseUrl}}/hubspot/leads/recent?page=2&limit=5
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - Basic
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - With Project Category Filter
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10&project_category=Commercial Events
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - With AI Lead Type Filter
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10&ai_lead_type=Hot Lead
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - With Quote Urgency Filter
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10&quote_urgency=Urgent
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - With Boolean Filters
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10&within_local_service_area=true&ada_required=true&weekend_service_needed=false
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - With Date Range
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10&created_after=2024-01-01&created_before=2024-12-31
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - With Estimated Value Range
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=10&estimated_value_min=1000&estimated_value_max=10000
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Search Leads - All Filters Example
+GET {{baseUrl}}/hubspot/leads/search?page=1&limit=5&project_category=Wedding&ai_lead_type=Qualified&quote_urgency=Standard&within_local_service_area=true&needs_human_follow_up=true&estimated_value_min=500
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+###
+
+### Get Lead by ID
+GET {{baseUrl}}/hubspot/leads/123456789
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

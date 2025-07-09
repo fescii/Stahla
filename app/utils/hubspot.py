@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 from typing import Optional
 
 
-def to_hubspot_midnight_unix(date_str: Optional[str]) -> Optional[int]:
+def to_hubspot_midnight_unix(date_str: Optional[str]) -> Optional[str]:
   """
-  Convert a date string to a HubSpot-compatible Unix timestamp.
+  Convert a date string to a HubSpot-compatible Unix timestamp as string.
   This function assumes the date string is in 'YYYY-MM-DD' format.
   """
   if not date_str:
@@ -21,6 +21,6 @@ def to_hubspot_midnight_unix(date_str: Optional[str]) -> Optional[int]:
         continue
     if not dt:
       return None
-    return int(dt.replace(hour=0, minute=0, second=0).timestamp())
+    return str(int(dt.replace(hour=0, minute=0, second=0).timestamp()))
   except ValueError:
     return None

@@ -38,7 +38,11 @@ async def get_recent_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching recent quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/oldest", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -64,7 +68,11 @@ async def get_oldest_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching oldest quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/highest", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -90,7 +98,11 @@ async def get_highest_value_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching highest value quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/lowest", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -116,7 +128,11 @@ async def get_lowest_value_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching lowest value quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/successful", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -146,7 +162,11 @@ async def get_successful_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching successful quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/failed", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -176,7 +196,11 @@ async def get_failed_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching failed quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/expired", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -206,7 +230,11 @@ async def get_expired_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching expired quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/pending", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -236,7 +264,11 @@ async def get_pending_quotes(
     )
   except Exception as e:
     logfire.error(f"Error fetching pending quotes: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/by-product/{product_type}", response_model=GenericResponse[PaginatedResponse[QuoteDocument]])
@@ -267,7 +299,11 @@ async def get_quotes_by_product(
     )
   except Exception as e:
     logfire.error(f"Error fetching quotes by product type: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quotes")
+    return GenericResponse.error(
+        message="Failed to fetch quotes",
+        details={"error": str(e)},
+        status_code=500
+    )
 
 
 @router.get("/{quote_id}", response_model=GenericResponse[QuoteDocument])
@@ -280,11 +316,16 @@ async def get_quote_by_id(
   try:
     quote = await mongo_service.get_quote_by_id(quote_id)
     if not quote:
-      raise HTTPException(status_code=404, detail="Quote not found")
+      return GenericResponse.error(
+          message="Quote not found",
+          status_code=404
+      )
 
     return GenericResponse(data=quote)
-  except HTTPException:
-    raise
   except Exception as e:
     logfire.error(f"Error fetching quote by ID: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Failed to fetch quote")
+    return GenericResponse.error(
+        message="Failed to fetch quote",
+        details={"error": str(e)},
+        status_code=500
+    )
