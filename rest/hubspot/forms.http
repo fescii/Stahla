@@ -29,12 +29,12 @@ Content-Type: application/json
   "Event or Job Address": "123 Main St, Austin, TX",
   "Postal code": "78701",
   "City": "Austin",
-  "Event start date": "2024-12-01",
-  "Event end date": "2024-12-03",
-  "First name": "Sarah",
-  "Last name": "Johnson",
-  "Phone number": "512-555-0123",
-  "Email": "sarah.johnson@email.com",
+  "Event start date": "2025-12-01",
+  "Event end date": "2025-12-03",
+  "First name": "Fred",
+  "Last name": "Juma",
+  "Phone number": "713253018",
+  "Email": "fred.juma@email.com",
   "I consent to receive texts on the phone number provided": true
 }
 

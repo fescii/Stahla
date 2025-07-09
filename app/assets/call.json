@@ -66,12 +66,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm Contact Name",
-        "prompt": "Great! Just to confirm, I have {{request_data.firstname}} {{request_data.lastname}} as your name? If not, please tell me your full name.",
+        "prompt": "Great! Just to confirm, I have {{request_data.firstname}} {{request_data.lastname}} as your name. Is that correct, or would you like me to update it?",
         "extractVars": [
           [
             "contact_name",
             "string",
-            "The confirmed or corrected full name of the contact person. If they confirm the existing name from {{request_data.firstname}} {{request_data.lastname}}, concatenate those values. Otherwise, capture the name they provide."
+            "If they confirm with words like 'yes', 'correct', 'that's right', extract the name by combining {{request_data.firstname}} {{request_data.lastname}}. If they provide a different name, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -84,12 +84,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Email",
-        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? We might have {{request_data.email}}. If that's not correct or you'd like to use a different one, please tell me your email address.",
+        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? I have {{request_data.email}} on file. Is that correct, or would you like to provide a different email?",
         "extractVars": [
           [
             "contact_email",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', or similar, extract the value from {{request_data.email}}. If they provide a new email, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', 'that's correct', extract the value from {{request_data.email}}. If they provide a new email, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -102,12 +102,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Phone",
-        "prompt": "And is the best phone number to reach you still {{request_data.phone | default: 'the number I called'}}? If not, please provide the best number.",
+        "prompt": "And is the best phone number to reach you still {{request_data.phone}}? If not, please provide the best number.",
         "extractVars": [
           [
             "phone_number",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', or similar, extract the value from {{request_data.phone}}. If they provide a new number, extract exactly what they say."
+            "If they confirm with words like 'yes', 'correct', 'that's right', extract the value from {{request_data.phone}}. If they provide a new number, extract exactly what they say."
           ]
         ],
         "modelOptions": {
@@ -138,12 +138,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Address",
-        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? Our records might show it as {{request_data.event_address | default: 'the address we have on file, or please provide the full address'}}. If that's not correct, or if no address is on file, please provide the full address, including street, city, state, and zip code.",
+        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? I have {{request_data.event_address}} on file. Is that correct, or would you like to provide the full address including street, city, state, and zip code?",
         "extractVars": [
           [
             "delivery_location",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that one is correct', or similar, extract the value from {{request_data.event_address}}. If they provide a new address, extract exactly what they say inform of 123 Main St, Omaha, NE 68102, format the address properly don't just store numbers in words like 'one two three main street, omaha, nebraska six eight one zero two', convert to '123 Main St, Omaha, NE 68102'."
+            "If they confirm with words like 'yes', 'correct', 'that's right', extract the value from {{request_data.event_address}}. If they provide a new address, extract exactly what they say and format it properly as a standard US address (e.g., '123 Main St, Omaha, NE 68102'). If they provide numbers in words like 'one two three main street', convert to proper format '123 Main St'. Always ensure the state is included in the address. Proper capitalization should be used for street names, city names, and state abbreviations."
           ]
         ],
         "modelOptions": {
@@ -267,7 +267,7 @@
       "type": "Default",
       "data": {
         "name": "Determine Order Category (Path A Start)",
-        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your {{request_data.service_needed | default: 'Product'}} specific needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
+        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your {{request_data.service_needed}} needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
         "extractVars": [
           [
             "project_category",
@@ -290,12 +290,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm Product Type",
-        "prompt": "Great! Just to confirm, you requested {{request_data.service_needed | default: 'Product'}}. Is that correct? If not, please let me know what type of product you are primarily interested in, we have a variety of options available, including; a Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or another Specialty Trailer?",
+        "prompt": "Great! Just to confirm, you requested {{request_data.service_needed}}. Is that correct? If not, please let me know what type of product you are primarily interested in. We have a variety of options available, including Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or other Specialty Trailers.",
         "extractVars": [
           [
             "product_type",
             "string",
-            "The user's confirmed primary product type focus (e.g., 'Porta Potty', 'Restroom Trailer', 'Shower Trailer', 'Combo Trailer', 'Specialty Trailer'). If they say 'other', capture that as well."
+            "If they confirm the service from {{request_data.service_needed}}, extract that value. Otherwise, capture their specified product type (e.g., 'Porta Potty', 'Restroom Trailer', 'Shower Trailer', 'Combo Trailer', 'Specialty Trailer')."
           ]
         ],
         "modelOptions": {
@@ -526,12 +526,12 @@
       "type": "Default",
       "data": {
         "name": "Ask Rental Start Date (Trailer/General)",
-        "prompt": "What is the ideal delivery date for the {{trailer_type | default: 'units'}}? We have an initial start date logged around {{request_data.event_start_date}}, which is a timestamp. Can you confirm the start date as Month Day, Year?",
+        "prompt": "What is the ideal delivery date for the {{trailer_type | default: 'units'}}? I have {{request_data.event_start_date}} as a reference. Can you confirm the start date as Month Day, Year?",
         "extractVars": [
           [
             "rental_start_date",
             "string",
-            "Ideal delivery date (YYYY-MM-DD). Confirm or update based on {{request_data.event_start_date}}."
+            "If they confirm the date from {{request_data.event_start_date}}, extract that value in YYYY-MM-DD format. If they provide a different date, extract the date they provide and convert to YYYY-MM-DD format."
           ]
         ],
         "modelOptions": {
@@ -544,7 +544,7 @@
       "type": "Default",
       "data": {
         "name": "Ask Rental Days (Trailer/General)",
-        "prompt": "And for how many days do you need the {{trailer_type | default: 'units'}} starting from {{rental_start_date}}? You can say days, weeks, or months. If you are unsure, please provide your best estimate. We may have an end date from your initial request as {{request_data.event_end_date}} (timestamp).",
+        "prompt": "And for how many days do you need the {{trailer_type | default: 'units'}} starting from {{rental_start_date}}? You can say days, weeks, or months. If you are unsure, please provide your best estimate. I may have an end date from your initial request as {{request_data.event_end_date}} for reference.",
         "extractVars": [
           [
             "rental_days",
@@ -554,7 +554,7 @@
           [
             "event_end_date",
             "string",
-            "Calculated pickup date (YYYY-MM-DD), based on {{rental_start_date}} and {{rental_days}}. Or confirmed from {{request_data.event_end_date}} if user confirms it."
+            "If they confirm the end date from {{request_data.event_end_date}}, extract that value in YYYY-MM-DD format. Otherwise, calculate the pickup date based on rental start date and rental days provided."
           ]
         ],
         "modelOptions": {

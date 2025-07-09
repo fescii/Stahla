@@ -1,5 +1,5 @@
 import APIManager from "./api.js";
-import uis from "./apps/apps.js"
+import uis from "./uis/apps.js"
 
 export default class AppMain extends HTMLElement {
   constructor() {
