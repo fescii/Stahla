@@ -413,6 +413,7 @@ export default class AppMain extends HTMLElement {
         ${this.getHubspotNav()}
         ${this.getLocationNav()}
         ${this.getEmailNav()}
+        ${this.getPropertiesNav()}
         ${this.getTweakNav()}
       </section>
     `;
@@ -831,6 +832,42 @@ export default class AppMain extends HTMLElement {
             </li>
             <li class="received">
               <a href="/email/received"><span class="text">Received</span></a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    `;
+  }
+
+  getPropertiesNav = () => {
+    return /* html */`
+      <ul class="special nav">
+        <li class="properties">
+          <div class="link-section">
+            <span class="left">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M2.50014 11.9999C2.50014 7.52157 2.50014 5.28239 3.89138 3.89115C5.28263 2.49991 7.5218 2.49991 12.0001 2.49991C16.4785 2.49991 18.7177 2.49991 20.1089 3.89115C21.5001 5.28239 21.5001 7.52157 21.5001 11.9999C21.5001 16.4783 21.5001 18.7174 20.1089 20.1087C18.7177 21.4999 16.4785 21.4999 12.0001 21.4999C7.5218 21.4999 5.28263 21.4999 3.89138 20.1087C2.50014 18.7174 2.50014 16.4783 2.50014 11.9999Z" stroke="currentColor" stroke-width="1.8" />
+                <path d="M2.5 8H21.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                <path d="M11 17H17M7 17H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M11 13H17M7 13H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span class="text">Properties</span>
+            </span>
+            <span class="right">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="currentColor" fill="none">
+                <path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </div>
+          <ul class="dropdown">
+            <li class="leads">
+              <a href="/properties/lead"><span class="text">Lead</span></a>
+            </li>
+            <li class="fields">
+              <a href="/properties/fields"><span class="text">Fields</span></a>
+            </li>
+            <li class="contact">
+              <a href="/properties/contact"><span class="text">Contact</span></a>
             </li>
           </ul>
         </li>
