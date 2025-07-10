@@ -1,5 +1,6 @@
 """Main Bland AI manager that orchestrates all components."""
 
+import logfire
 from typing import Optional
 from fastapi import Depends, BackgroundTasks
 from app.core.config import settings
@@ -81,32 +82,209 @@ class BlandAIManager:
       log_retry_of_call_id: Optional[str] = None,
       log_retry_reason: Optional[str] = None
   ) -> BlandApiResult:
-    """Initiates a callback using the Bland.ai API."""
-    return await self.call_manager.initiate_callback(
-        request_data=request_data,
-        contact_id=contact_id,
-        log_retry_of_call_id=log_retry_of_call_id,
-        log_retry_reason=log_retry_reason
-    )
+    """
+    Initiates a callback using the Bland.ai API.
+    Ensures call logs are saved to MongoDB for tracking and analytics.
+    """
+    try:
+      # Call the manager which already handles MongoDB logging
+      result = await self.call_manager.initiate_callback(
+          request_data=request_data,
+          contact_id=contact_id,
+          log_retry_of_call_id=log_retry_of_call_id,
+          log_retry_reason=log_retry_reason
+      )
+
+      # Additional verification that the call was logged
+      if result.status == "success" and result.call_id:
+        logfire.info(
+            f"Call successfully initiated and logged to MongoDB",
+            contact_id=contact_id,
+            call_id_bland=result.call_id,
+            manager="BlandAIManager"
+        )
+      elif result.status == "error":
+        logfire.warn(
+            f"Call initiation failed but error logged to MongoDB",
+            contact_id=contact_id,
+            error_message=result.message,
+            manager="BlandAIManager"
+        )
+
+      return result
+
+    except Exception as e:
+      logfire.error(
+          f"Unexpected error in BlandAIManager.initiate_callback: {e}",
+          contact_id=contact_id,
+          exc_info=True
+      )
+
+      # Log the error to MongoDB as well
+      self.background_tasks.add_task(
+          self.mongo_service.log_error_to_db,
+          service_name="BlandAIManager.initiate_callback",
+          error_type="UnexpectedError",
+          message=str(e),
+          details={"contact_id": contact_id},
+          request_context={"request_data": request_data.model_dump()}
+      )
+
+      return BlandApiResult(
+          status="error",
+          message=f"Unexpected error during call initiation: {str(e)}",
+          details={"contact_id": contact_id}
+      )
 
   async def retry_call(
       self,
       contact_id: str,
       retry_reason: Optional[str] = "User initiated retry",
   ) -> BlandApiResult:
-    """Retries a previously failed or problematic call."""
-    return await self.call_manager.retry_call(
-        contact_id=contact_id,
-        retry_reason=retry_reason
-    )
+    """
+    Retries a previously failed or problematic call.
+    Ensures retry attempts are properly logged to MongoDB.
+    """
+    try:
+      # Call the manager which already handles MongoDB logging
+      result = await self.call_manager.retry_call(
+          contact_id=contact_id,
+          retry_reason=retry_reason
+      )
+
+      # Additional verification that the retry was logged
+      if result.status == "success" and result.call_id:
+        logfire.info(
+            f"Call retry successfully initiated and logged to MongoDB",
+            contact_id=contact_id,
+            call_id_bland=result.call_id,
+            retry_reason=retry_reason,
+            manager="BlandAIManager"
+        )
+      elif result.status == "error":
+        logfire.warn(
+            f"Call retry failed but error logged to MongoDB",
+            contact_id=contact_id,
+            error_message=result.message,
+            retry_reason=retry_reason,
+            manager="BlandAIManager"
+        )
+
+      return result
+
+    except Exception as e:
+      logfire.error(
+          f"Unexpected error in BlandAIManager.retry_call: {e}",
+          contact_id=contact_id,
+          retry_reason=retry_reason,
+          exc_info=True
+      )
+
+      # Log the error to MongoDB as well
+      self.background_tasks.add_task(
+          self.mongo_service.log_error_to_db,
+          service_name="BlandAIManager.retry_call",
+          error_type="UnexpectedError",
+          message=str(e),
+          details={"contact_id": contact_id, "retry_reason": retry_reason}
+      )
+
+      return BlandApiResult(
+          status="error",
+          message=f"Unexpected error during call retry: {str(e)}",
+          details={"contact_id": contact_id}
+      )
 
   # Transcript processing operations
   async def process_incoming_transcript(
       self,
       payload: BlandWebhookPayload
   ) -> BlandProcessingResult:
-    """Processes the incoming transcript from the Bland.ai webhook."""
-    return await self.transcript_processor.process_incoming_transcript(payload)
+    """
+    Processes the incoming transcript from the Bland.ai webhook.
+    Updates call logs in MongoDB with completion data.
+    """
+    try:
+      # Process the transcript which updates the call log in MongoDB
+      result = await self.transcript_processor.process_incoming_transcript(payload)
+
+      # Additional verification that transcript processing was logged
+      if result.status == "success":
+        logfire.info(
+            f"Transcript successfully processed and call log updated in MongoDB",
+            call_id_bland=payload.call_id,
+            contact_id=getattr(payload, 'contact_id', 'unknown'),
+            manager="BlandAIManager"
+        )
+      else:
+        logfire.warn(
+            f"Transcript processing failed but logged to MongoDB",
+            call_id_bland=payload.call_id,
+            error_message=result.message,
+            manager="BlandAIManager"
+        )
+
+      return result
+
+    except Exception as e:
+      logfire.error(
+          f"Unexpected error in BlandAIManager.process_incoming_transcript: {e}",
+          call_id_bland=getattr(payload, 'call_id', 'unknown'),
+          exc_info=True
+      )
+
+      # Log the error to MongoDB as well
+      self.background_tasks.add_task(
+          self.mongo_service.log_error_to_db,
+          service_name="BlandAIManager.process_incoming_transcript",
+          error_type="UnexpectedError",
+          message=str(e),
+          details={"call_id_bland": getattr(payload, 'call_id', 'unknown')},
+          request_context={"payload_keys": list(
+              payload.__dict__.keys()) if hasattr(payload, '__dict__') else []}
+      )
+
+      return BlandProcessingResult(
+          status="error",
+          message=f"Unexpected error during transcript processing: {str(e)}",
+          call_id=getattr(payload, 'call_id', None)
+      )
+
+  # Call analytics and monitoring operations
+  async def get_call_stats(self) -> dict:
+    """
+    Retrieves comprehensive call statistics from MongoDB.
+    Useful for monitoring call success rates and system health.
+    """
+    try:
+      return await self.mongo_service.get_call_stats()
+    except Exception as e:
+      logfire.error(f"Error retrieving call stats: {e}", exc_info=True)
+      return {"total_calls": 0, "error": str(e)}
+
+  async def get_recent_calls(self, limit: int = 10) -> list:
+    """
+    Retrieves recent call logs from MongoDB.
+    Useful for monitoring recent call activity.
+    """
+    try:
+      calls = await self.mongo_service.get_recent_calls(limit=limit, offset=0)
+      return [call.model_dump() if hasattr(call, 'model_dump') else call for call in calls]
+    except Exception as e:
+      logfire.error(f"Error retrieving recent calls: {e}", exc_info=True)
+      return []
+
+  async def get_call_by_contact(self, contact_id: str) -> Optional[dict]:
+    """
+    Retrieves the most recent call log for a specific contact.
+    Useful for checking call history and status.
+    """
+    try:
+      return await self.mongo_service.get_call_by_contact(contact_id)
+    except Exception as e:
+      logfire.error(
+          f"Error retrieving call for contact {contact_id}: {e}", exc_info=True)
+      return None
 
 
 # --- Singleton Instance and Startup Sync ---
@@ -117,7 +295,6 @@ _bland_manager: Optional[BlandAIManager] = None
 
 async def initialize_bland_manager(mongo_service: MongoService, background_tasks: BackgroundTasks) -> BlandAIManager:
   """Initialize and sync the Bland AI manager with required dependencies."""
-  import logfire
   global _bland_manager
 
   if _bland_manager is not None:
