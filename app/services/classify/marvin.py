@@ -5,12 +5,9 @@ Marvin-based classification engine for Stahla.
 This module implements AI-powered lead classification using Marvin.
 """
 
-import marvin
-import logfire
-from typing import Tuple, Optional, Dict, Any, List
+# Configure environment variables early to disable Marvin verbose output
 import os
-from functools import lru_cache
-
+from app.core.config import settings
 from app.models.classification import (
     ClassificationInput,
     LeadClassificationType,
@@ -19,7 +16,36 @@ from app.models.classification import (
     ExtractedCallDetails,
     ClassificationOutput  # Added import
 )
-from app.core.config import settings
+from functools import lru_cache
+import logging
+from typing import Tuple, Optional, Dict, Any, List
+import logfire
+import marvin
+
+# Configure Marvin logging using settings values directly
+_log_level = getattr(logging, settings.MARVIN_LOG_LEVEL.upper(), logging.ERROR)
+
+# Disable Marvin's verbose logging immediately upon import
+logging.getLogger('marvin').setLevel(_log_level)
+logging.getLogger('marvin').propagate = False
+
+# Disable Rich console if it's being used by Marvin (based on MARVIN_VERBOSE setting)
+if settings.MARVIN_VERBOSE.lower() == "false":
+  try:
+    from rich.console import Console
+    # Override rich console to reduce verbosity if it's used by Marvin
+    original_print = Console.print
+
+    def quiet_print(self, *args, **kwargs):
+      # Only print if it's an error or warning
+      if kwargs.get('style') in ['red', 'yellow'] or any('error' in str(arg).lower() or 'warning' in str(arg).lower() for arg in args):
+        return original_print(self, *args, **kwargs)
+      # Suppress other Rich console output
+      return None
+    Console.print = quiet_print
+  except ImportError:
+    pass
+
 
 # Configure Marvin with API keys from settings based on selected provider
 
@@ -28,6 +54,27 @@ def configure_marvin():
   """Configure Marvin based on the selected LLM provider in settings"""
   provider = settings.LLM_PROVIDER.lower() if settings.LLM_PROVIDER else ""
   config_kwargs = {}
+
+  # Suppress Marvin logging by configuring Python logging using settings values
+  import logging
+  try:
+    # Convert settings log level string to logging level
+    log_level = getattr(
+        logging, settings.MARVIN_LOG_LEVEL.upper(), logging.ERROR)
+
+    # Try to get Marvin's logger and set it to the configured level
+    marvin_logger = logging.getLogger('marvin')
+    marvin_logger.setLevel(log_level)
+    marvin_logger.propagate = False  # Don't propagate to root logger
+
+    # Also try some common Marvin-related logger names
+    for logger_name in ['marvin.ai', 'marvin.tools', 'marvin.agents', 'marvin.core']:
+      logger = logging.getLogger(logger_name)
+      logger.setLevel(log_level)
+      logger.propagate = False
+
+  except Exception as e:
+    logfire.debug(f"Could not configure Marvin logging settings: {e}")
 
   # Set up configuration based on selected provider
   if provider == "openai":
@@ -301,7 +348,7 @@ class MarvinClassificationManager:
     """
     intended_use = input_data.intended_use
     product_interest = input_data.product_interest or []
-    stalls = input_data.stall_count or 0
+    stalls = input_data.required_stalls or 0
     duration_days = input_data.duration_days or 0
     is_local = input_data.is_local or False
 
@@ -447,7 +494,13 @@ class MarvinClassificationManager:
           "Could not find call summary or transcript in input_data for Marvin classification.")
       reasoning = "Error: Missing call summary/transcript for classification. Defaulting to Leads."
       # Return a default ClassificationOutput on error
-      return ClassificationOutput(lead_type="Leads", reasoning=reasoning, requires_human_review=True)
+      return ClassificationOutput(
+          lead_type="Leads",
+          reasoning=reasoning,
+          requires_human_review=True,
+          routing_suggestion="Stahla Leads Team",
+          confidence=0.0
+      )
     # --- End Extraction ---
 
     try:
@@ -494,6 +547,8 @@ class MarvinClassificationManager:
           lead_type=classification,
           reasoning=reasoning,
           requires_human_review=True,  # Default to needing review after AI call?
+          routing_suggestion=owner_team,
+          confidence=0.8,  # Default confidence for AI classification
           metadata=extracted_details.model_dump(
               exclude_none=True)  # Add extracted details to metadata
       )
@@ -516,7 +571,13 @@ class MarvinClassificationManager:
                     )
       reasoning = f"Error during classification: {e}. Defaulting to Leads."
       # Return default ClassificationOutput on error
-      return ClassificationOutput(lead_type="Leads", reasoning=reasoning, requires_human_review=True)
+      return ClassificationOutput(
+          lead_type="Leads",
+          reasoning=reasoning,
+          requires_human_review=True,
+          routing_suggestion="Stahla Leads Team",
+          confidence=0.0
+      )
 
 
 # Create a singleton instance of the manager

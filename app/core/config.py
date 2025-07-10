@@ -114,6 +114,10 @@ class Settings(BaseSettings):
   # Optionally specify a particular model
   MODEL_NAME: Optional[str] = None  # e.g., "gpt-4", "claude-3-opus-20240229"
 
+  # Marvin Logging Configuration
+  MARVIN_LOG_LEVEL: str = "ERROR"  # Control Marvin's logging verbosity
+  MARVIN_VERBOSE: str = "false"    # Disable Marvin's verbose console output
+
   # N8N Configuration
   N8N_WEBHOOK_URL: Optional[str] = None
   N8N_API_KEY: Optional[str] = None

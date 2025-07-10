@@ -15,7 +15,7 @@ from app.models.common import GenericResponse
 from app.models.user import User
 from app.core.security import get_current_user
 from app.services.hubspot import hubspot_manager
-from app.utils.hubspot import to_hubspot_midnight_unix
+from app.utils.hubspot import to_hubspot_date_string_from_input
 from .models import SampleContactForm
 
 router = APIRouter(prefix="/forms", tags=["hubspot-forms"])
@@ -48,8 +48,8 @@ async def create_contact_from_form_data(
       "event_or_job_address": form_data.event_or_job_address,
       "zip": form_data.zip,
       "city": form_data.city,
-      "event_start_date": to_hubspot_midnight_unix(form_data.event_start_date),
-      "event_end_date": to_hubspot_midnight_unix(form_data.event_end_date),
+      "event_start_date": to_hubspot_date_string_from_input(form_data.event_start_date),
+      "event_end_date": to_hubspot_date_string_from_input(form_data.event_end_date),
       "firstname": form_data.firstname,
       "lastname": form_data.lastname,
       "phone": form_data.phone,

@@ -5,18 +5,33 @@
       "id": "start_call",
       "type": "Default",
       "data": {
-        "name": "Start Call - Confirm Good Time",
-        "prompt": "Hi, this is Stahla Services following up on your recent inquiry. I’d like to confirm a few details with you. Is now a convenient time to talk?",
-        "isStart": true,
+        "name": "Start Call - Check Timing",
+        "prompt": "Hi {{firstname}}, this is calling from Stahla Services regarding your inquiry about {{service_needed}}. I have some information and questions to help get you a quote. Is this a good time to talk for about 5-10 minutes?",
         "extractVars": [
           [
             "is_now_good_time",
             "boolean",
-            "Whether now is a good time to talk. Capture true or false."
+            "Whether now is a good time to continue with the call. Extract true for positive responses like 'yes', 'sure', 'that's fine', 'go ahead'. Extract false for negative responses like 'no', 'not now', 'can you call back', 'busy right now'."
           ]
         ],
         "modelOptions": {
           "interruptionThreshold": 100
+        }
+      }
+    },
+    {
+      "id": "global_handle_user_question_kb",
+      "type": "Knowledge Base",
+      "data": {
+        "name": "Global: Answer User Question from KB",
+        "isGlobal": true,
+        "returnToPrevious": true,
+        "globalLabel": "User has a general question or needs help or asks something off-script",
+        "kb": "Stahla Services (Stahla Rentals) - Knowledge Base\nSummary\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\nCompany Overview\nLegal Name: Stahla Services, LLC\nFounded: 2014\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\nServices Offered\nRestroom Trailer Rentals: Options range from 2-stall to 10-stall configurations. Examples: '2 Stall Restroom Trailer (Luxury)', '4 Stall Restroom Trailer (Standard)', '8 Stall Restroom Trailer (ADA Combo)'.\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors.\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Examples: '3 Stall Shower Trailer', '8 Stall Shower/Restroom Combo Trailer'.\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers.\nPorta Potty Rentals: Standard, budget-friendly option. Available in basic, deluxe, or hand washing-equipped models. Includes ADA Porta Potty options.\nGenerator Rentals: Various sizes available, e.g., '3kW Generator', '7kW Generator'.\nOther Services: Holding tanks, fresh water delivery, regular servicing/pump-outs, cleaning.\nService Area\nServes 17 U.S. states: Arkansas (AR), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), Wyoming (WY)\nHeadquarters and Locations\nPrimary HQ: Omaha, Nebraska\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\nOther Office Locations:\nLincoln, NE – 420 W A St, Suite 200\nGretna, NE – 21824 Williams Circle\nSmithville, MO – 17609 HH Lake Road\nDenver, CO – 1340 Umatilla St\nContact Information\nPhone: (844) 900-3190\nEmail: [email protected]\nBusiness Hours:\nMon–Fri: 8 AM–5 PM\nSat: 8 AM–5 PM\nSun: Closed\nWebsite: https://stahla.com/\nProduct List (Examples - refer to full product sheet for all models):\n2 Stall Restroom Trailer (Luxury), 2 Stall Restroom Trailer (Standard), 3 Stall Restroom Trailer (Luxury), 4 Stall Restroom Trailer (Standard), 4 Stall Restroom Trailer (ADA Compliant), 5 Stall Restroom Trailer, 6 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, ADA Porta Potty, Standard Porta Potty, Deluxe Porta Potty, Hand wash Station (Porta Potty Addon), 3 Stall Shower Trailer, 8 Stall Shower Trailer, Laundry Trailer (8 Washer/Dryer), 3kW Generator, 7kW Generator.\nUsage Types for Quotes: event, commercial, construction, disaster_relief, other.",
+        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, let them know that will be covered in their personalized quote. After answering, I'll continue with gathering the rental details.",
+        "modelOptions": {
+          "temperature": 0.6,
+          "interruptionThreshold": 0.8
         }
       }
     },
@@ -47,26 +62,11 @@
       }
     },
     {
-      "id": "global_handle_user_question_kb",
-      "type": "Knowledge Base",
-      "data": {
-        "name": "Global: Answer User Question from KB",
-        "isGlobal": true,
-        "globalLabel": "User has a general question or needs help or asks something off-script",
-        "knowledgeBase": "Stahla Services (Stahla Rentals) - Knowledge Base\nSummary\nStahla Services, now known simply as Stahla, is a Nebraska-based, family-owned company specializing in luxury portable restroom and shower trailer rentals. Founded in 2014 by Grant and Erin Stahla, the company emphasizes hospitality, cleanliness, and a faith-driven commitment to customer care. Serving 17 states across the Midwest and Southwest, Stahla provides high-end sanitation solutions for events, construction sites, and emergency responses. Their trailers feature amenities like climate control, flushing toilets, and running water, aiming to offer a dignified and comfortable experience. With a focus on exceptional service and community values, Stahla has grown into a trusted provider in the portable sanitation industry.\nCompany Overview\nLegal Name: Stahla Services, LLC\nFounded: 2014\nFounders: Grant Stahla (CEO) & Erin Stahla (Co-Owner)\nCore Values: Family-run, faith-driven, customer-first service, Midwest work ethic\nServices Offered\nRestroom Trailer Rentals: Options range from 2-stall to 10-stall configurations. Examples: '2 Stall Restroom Trailer (Luxury)', '4 Stall Restroom Trailer (Standard)', '8 Stall Restroom Trailer (ADA Combo)'.\nADA Restroom Trailers: Fully compliant with Americans with Disabilities Act (ADA) standards. Include ramps, handrails, and spacious interiors.\nShower Trailer Rentals: Provide private, lockable shower stalls with hot water. Examples: '3 Stall Shower Trailer', '8 Stall Shower/Restroom Combo Trailer'.\nLaundry Trailer Rentals: Mobile units equipped with commercial-grade washers and dryers.\nPorta Potty Rentals: Standard, budget-friendly option. Available in basic, deluxe, or hand washing-equipped models. Includes ADA Porta Potty options.\nGenerator Rentals: Various sizes available, e.g., '3kW Generator', '7kW Generator'.\nOther Services: Holding tanks, fresh water delivery, regular servicing/pump-outs, cleaning.\nService Area\nServes 17 U.S. states: Arkansas (AR), Colorado (CO), Illinois (IL), Iowa (IA), Kansas (KS), Louisiana (LA), Minnesota (MN), Missouri (MO), Montana (MT), Nebraska (NE), New Mexico (NM), North Dakota (ND), Oklahoma (OK), South Dakota (SD), Texas (TX), Wisconsin (WI), Wyoming (WY)\nHeadquarters and Locations\nPrimary HQ: Omaha, Nebraska\nMain Address: 16902 South 180th Street, Suite 200, Springfield, NE 68059\nOther Office Locations:\nLincoln, NE – 420 W A St, Suite 200\nGretna, NE – 21824 Williams Circle\nSmithville, MO – 17609 HH Lake Road\nDenver, CO – 1340 Umatilla St\nContact Information\nPhone: (844) 900-3190\nEmail: [email protected]\nBusiness Hours:\nMon–Fri: 8 AM–5 PM\nSat: 8 AM–5 PM\nSun: Closed\nWebsite: https://stahla.com/\nProduct List (Examples - refer to full product sheet for all models):\n2 Stall Restroom Trailer (Luxury), 2 Stall Restroom Trailer (Standard), 3 Stall Restroom Trailer (Luxury), 4 Stall Restroom Trailer (Standard), 4 Stall Restroom Trailer (ADA Compliant), 5 Stall Restroom Trailer, 6 Stall Restroom Trailer, 8 Stall Restroom Trailer, 10 Stall Restroom Trailer, ADA Porta Potty, Standard Porta Potty, Deluxe Porta Potty, Hand wash Station (Porta Potty Addon), 3 Stall Shower Trailer, 8 Stall Shower Trailer, Laundry Trailer (8 Washer/Dryer), 3kW Generator, 7kW Generator.\nUsage Types for Quotes: event, commercial, construction, disaster_relief, other.",
-        "prompt": "The user asked: {{lastUserMessage}}. Please find the answer in the knowledge base. If the question is about pricing or specific availability not in the KB, let them know that will be covered in their personalized quote. After answering, I'll continue with gathering the rental details.",
-        "modelOptions": {
-          "temperature": 0.6,
-          "interruptionThreshold": 0.8
-        }
-      }
-    },
-    {
       "id": "confirm_name",
       "type": "Default",
       "data": {
         "name": "Confirm Contact Name",
-        "prompt": "Great! Just to confirm, I have {{request_data.firstname}} {{request_data.lastname}} as your name. Is that correct, or would you like me to update it?",
+        "prompt": "Great! Just to confirm, I have {{firstname}} {{lastname}} as your name. Is that correct, or would you like me to update it?",
         "extractVars": [
           [
             "contact_name",
@@ -84,7 +84,7 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Email",
-        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? I have {{request_data.email}} on file. Is that correct, or would you like to provide a different email?",
+        "prompt": "Thanks, {{contact_name}}. Can you confirm your email address? I have {{email}} on file. Is that correct, or would you like to provide a different email?",
         "extractVars": [
           [
             "contact_email",
@@ -102,7 +102,7 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Phone",
-        "prompt": "And is the best phone number to reach you still {{request_data.phone}}? If not, please provide the best number.",
+        "prompt": "And is the best phone number to reach you still {{phone}}? If not, please provide the best number.",
         "extractVars": [
           [
             "phone_number",
@@ -138,12 +138,12 @@
       "type": "Default",
       "data": {
         "name": "Confirm or Collect Address",
-        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? I have {{request_data.event_address}} on file. Is that correct, or would you like to provide the full address including street, city, state, and zip code?",
+        "prompt": "Thank you, {{contact_name}}. Could you please confirm the address for this order? I have {{event_address}} on file. Is that correct, or would you like to provide the full address including street, city, state, and zip code?",
         "extractVars": [
           [
             "delivery_location",
             "string",
-            "If they confirm with words like 'yes', 'correct', 'that's right', extract the actual address from the request data. If they provide a new address, extract only the physical address they speak and format it properly as a standard US address (e.g., '123 Main St, Omaha, NE 68102'). Convert spoken numbers like 'one two three' to digits '123'. Do not extract confirmation words like 'yes' or 'that's correct'. Always ensure the state is included in the address. Use proper capitalization for street names, city names, and state abbreviations."
+            "Extract the complete delivery address from the user's response(s). If they confirm with words like 'yes', 'correct', 'that's right', use the address from {{event_address}}. If they provide a new or partial address, combine all address components they mention (street number, street name, city, state, zip) into a complete US address format (e.g., '123 Main St, Austin, TX 78701'). Convert spoken numbers like 'one two three' to digits '123'. If the user provides address information across multiple responses (e.g., street first, then city/state), combine all parts into one complete address. Always include city and state when provided. Use proper capitalization. Do not extract confirmation words."
           ]
         ],
         "modelOptions": {
@@ -267,7 +267,7 @@
       "type": "Default",
       "data": {
         "name": "Determine Order Category (Path A Start)",
-        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your {{request_data.service_needed}} needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
+        "prompt": "Now that we've confirmed the location is in our service area, let's talk about your {{service_needed}} needs. Is this order primarily for an Event, Construction, Disaster Relief, a Construction Company, or a Facility?",
         "extractVars": [
           [
             "project_category",
@@ -290,7 +290,7 @@
       "type": "Default",
       "data": {
         "name": "Confirm Product Type",
-        "prompt": "Great! Just to confirm, you requested {{request_data.service_needed}}. Is that correct? If not, please let me know what type of product you are primarily interested in. We have a variety of options available, including Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or other Specialty Trailers.",
+        "prompt": "Great! Just to confirm, you requested {{service_needed}}. Is that correct? If not, please let me know what type of product you are primarily interested in. We have a variety of options available, including Porta Potty, Restroom Trailer, Shower Trailer, Combo Trailer, or other Specialty Trailers.",
         "extractVars": [
           [
             "product_type",
@@ -526,7 +526,7 @@
       "type": "Default",
       "data": {
         "name": "Ask Rental Start Date (Trailer/General)",
-        "prompt": "What is the ideal delivery date for the {{trailer_type | default: 'units'}}? I have {{request_data.event_start_date}} as a reference. Can you confirm the start date as Month Day, Year?",
+        "prompt": "What is the ideal delivery date for the {{trailer_type | default: 'units'}}? I have {{event_start_date}} as a reference. Can you confirm the start date as Month Day, Year?",
         "extractVars": [
           [
             "rental_start_date",
@@ -544,7 +544,7 @@
       "type": "Default",
       "data": {
         "name": "Ask Rental Days (Trailer/General)",
-        "prompt": "And for how many days do you need the {{trailer_type | default: 'units'}} starting from {{rental_start_date}}? You can say days, weeks, or months. If you are unsure, please provide your best estimate. I may have an end date from your initial request as {{request_data.event_end_date}} for reference.",
+        "prompt": "And for how many days do you need the {{trailer_type | default: 'units'}} starting from {{rental_start_date}}? You can say days, weeks, or months. If you are unsure, please provide your best estimate. I may have an end date from your initial request as {{event_end_date}} for reference.",
         "extractVars": [
           [
             "rental_days",
@@ -956,12 +956,6 @@
       "source": "api_error_location_tool",
       "target": "location_final_error_continue",
       "label": "Continue without location verification"
-    },
-    {
-      "id": "edge_location_retry_error_to_continue",
-      "source": "api_error_location_tool",
-      "target": "location_final_error_continue",
-      "label": "Continue without location verification after error"
     },
     {
       "id": "edge_location_final_error_to_continue",
