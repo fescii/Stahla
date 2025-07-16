@@ -143,7 +143,7 @@ export default class EditUserAdminPopup extends HTMLElement {
       submitBtn.disabled = loading;
       submitBtn.innerHTML = loading
         ? this._getLoadingSpinner() + 'Updating...'
-        : 'Update User';
+        : 'Update';
     }
   }
 
@@ -277,7 +277,7 @@ export default class EditUserAdminPopup extends HTMLElement {
           <div class="actions">
             <button type="button" class="action cancel-btn">Cancel</button>
             <button type="submit" class="action next" ${this._loading ? 'disabled' : ''}>
-              ${this._loading ? this._getLoadingSpinner() + 'Updating...' : 'Update User'}
+              ${this._loading ? this._getLoadingSpinner() + 'Updating...' : 'Update'}
             </button>
           </div>
         </form>
@@ -699,11 +699,13 @@ export default class EditUserAdminPopup extends HTMLElement {
 
         form.fields .actions {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
+          font-family: var(--font-main), sans-serif;
           width: 100%;
+          flex-flow: row;
+          align-items: center;
+          justify-content: end;
+          gap: 35px;
           margin: 20px 0 0;
-          gap: 16px;
         }
 
         form.fields .actions > .action {
@@ -718,39 +720,24 @@ export default class EditUserAdminPopup extends HTMLElement {
           align-items: center;
           text-transform: capitalize;
           justify-content: center;
-          padding: 14px 24px;
-          height: 48px;
+          padding: 12px 20px;
+          min-width: 100px;
+          width: 150px;
           position: relative;
-          border-radius: 12px;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          flex: 1;
+          border-radius: 15px;
+          -webkit-border-radius: 15px;
+          -moz-border-radius: 15px;
         }
 
         form.fields .actions > .action.cancel-btn {
           background: var(--gray-background);
           color: var(--text-color);
-          border: 1px solid var(--border);
-        }
-
-        form.fields .actions > .action.cancel-btn:hover {
-          background: var(--hover-background);
-          transform: translateY(-1px);
+          border: none;
         }
 
         form.fields .actions > .action.next {
-          background: var(--accent-linear);
+          background: var(--accent-color);
           color: var(--white-color);
-          box-shadow: 0 2px 8px rgba(0, 96, 223, 0.2);
-        }
-
-        form.fields .actions > .action.next:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 16px rgba(0, 96, 223, 0.3);
-        }
-
-        form.fields .actions > .action.next:active {
-          transform: translateY(0);
-          box-shadow: 0 2px 8px rgba(0, 96, 223, 0.2);
         }
 
         form.fields .actions > .action:disabled {

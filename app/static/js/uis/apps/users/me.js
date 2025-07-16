@@ -42,38 +42,12 @@ export default class UserProfile extends HTMLElement {
   }
 
   _setupEventListeners() {
-    // Add event listeners for interactive elements
-    const editProfileBtn = this.shadowObj.querySelector('.edit-profile-btn');
-    if (editProfileBtn) {
-      editProfileBtn.addEventListener('click', this._handleEditProfile);
-    }
-
-    // Security button
-    const securityBtn = this.shadowObj.querySelector('.security-btn');
-    if (securityBtn) {
-      securityBtn.addEventListener('click', () => {
-        console.log('Security settings clicked');
-        // TODO: Implement security settings
-      });
-    }
-
-    // Notifications button
-    const notifyBtn = this.shadowObj.querySelector('.notify-btn');
-    if (notifyBtn) {
-      notifyBtn.addEventListener('click', () => {
-        console.log('Notification settings clicked');
-        // TODO: Implement notification settings
-      });
-    }
-
-    // Activity button
-    const activityBtn = this.shadowObj.querySelector('.activity-btn');
-    if (activityBtn) {
-      activityBtn.addEventListener('click', () => {
-        console.log('Activity log clicked');
-        // TODO: Implement activity log
-      });
-    }
+    // Use event delegation for edit profile button
+    this.shadowObj.addEventListener('click', (e) => {
+      if (e.target.closest('.edit-profile-btn')) {
+        this._handleEditProfile();
+      }
+    });
   }
 
   // Method to fetch user data
@@ -135,7 +109,7 @@ export default class UserProfile extends HTMLElement {
     }
   };
 
-  // Handle edit profile action
+  // Handle edit profile action - similar to all.js pattern
   _handleEditProfile = () => {
     console.log("Edit profile button clicked");
     console.log("Current user data:", this.userData);
@@ -144,10 +118,18 @@ export default class UserProfile extends HTMLElement {
     const existingPopups = document.querySelectorAll('edit-profile-popup, edit-user-admin-popup, delete-popup');
     existingPopups.forEach(popup => popup.remove());
 
-    // Create and show edit profile popup
-    const popup = document.createElement('edit-profile-popup');
-    popup.setAttribute('user', JSON.stringify(this.userData));
-    document.body.insertBefore(popup, document.body.lastElementChild);
+    // Create and show edit profile popup using the same pattern as all.js
+    const popup = /*html*/`<edit-profile-popup 
+      user-id="${this.userData.id}"
+      user-name="${this.userData.name || ''}"
+      user-email="${this.userData.email}"
+      user-bio="${this.userData.bio || ''}"
+      user-role="${this.userData.role || 'member'}"
+      user-active="${this.userData.is_active}"
+      user-picture="${this.userData.picture || ''}"
+    ></edit-profile-popup>`;
+
+    document.body.insertAdjacentHTML('beforeend', popup);
   };
 
   getTemplate() {
@@ -174,87 +156,48 @@ export default class UserProfile extends HTMLElement {
           <h1 class="profile-title">My Profile</h1>
           <button class="edit-profile-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
             </svg>
             Edit Profile
           </button>
         </div>
         
         <div class="profile-card">
-          <div class="profile-avatar">
-            ${this.userData.picture
+          <div class="profile-info">
+            <div class="profile-avatar">
+              ${this.userData.picture
         ? `<img src="${this.userData.picture}" alt="Profile picture" class="profile-image">`
         : this._getInitialsAvatar(this.userData.name)
       }
+            </div>
+            
+            <div class="profile-details">
+              <div class="user-main">
+                <h2 class="user-name">${this.userData.name}</h2>
+                <span class="user-email">${this.userData.email}</span>
+              </div>
+              
+              <div class="user-meta">
+                <span class="role-badge ${this.userData.role}">${this._formatRole(this.userData.role)}</span>
+                <span class="status-badge ${this.userData.is_active ? 'active' : 'inactive'}">
+                  ${this.userData.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
           </div>
           
-          <div class="profile-details">
-            <div class="detail-group">
-              <h2 class="user-name">${this.userData.name}</h2>
-              <span class="user-role ${this.userData.role}">${this._formatRole(this.userData.role)}</span>
-              <span class="user-status ${this.userData.is_active ? 'active' : 'inactive'}">
-                ${this.userData.is_active ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-            
-            <div class="user-info">
+          <div class="user-info-details">
+            ${this.userData.bio ? `
               <div class="info-item">
-                <span class="info-label">Email Address</span>
-                <span class="info-value">${this.userData.email}</span>
+                <span class="info-label">Bio</span>
+                <span class="info-value bio">${this.userData.bio}</span>
               </div>
-              
-              ${this.userData.bio ? `
-                <div class="info-item">
-                  <span class="info-label">Bio</span>
-                  <span class="info-value bio">${this.userData.bio}</span>
-                </div>
-              ` : ''}
-              
-              <div class="info-item">
-                <span class="info-label">User ID</span>
-                <span class="info-value id">${this.userData.id}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="profile-actions">
-          <div class="action-cards">
-            <div class="action-card">
-              <h3>Account Security</h3>
-              <p>Manage your password and security settings to keep your account protected</p>
-              <button class="action-btn security-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-                <span>Manage Security</span>
-              </button>
-            </div>
+            ` : ''}
             
-            <div class="action-card">
-              <h3>Notification Preferences</h3>
-              <p>Update how and when you receive notifications about account activity and updates</p>
-              <button class="action-btn notify-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-                <span>Manage Notifications</span>
-              </button>
-            </div>
-            
-            <div class="action-card">
-              <h3>Activity Log</h3>
-              <p>View your recent account activity and login history to monitor your account usage</p>
-              <button class="action-btn activity-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <span>View Activity</span>
-              </button>
+            <div class="info-item">
+              <span class="info-label">User ID</span>
+              <span class="info-value id">${this.userData.id}</span>
             </div>
           </div>
         </div>
@@ -361,7 +304,7 @@ export default class UserProfile extends HTMLElement {
       .profile-container {
         display: flex;
         flex-direction: column;
-        gap: 2rem;
+        gap: 1.5rem;
       }
       
       .profile-header {
@@ -369,12 +312,11 @@ export default class UserProfile extends HTMLElement {
         justify-content: space-between;
         align-items: center;
         margin-bottom: 1rem;
-        position: relative;
       }
       
       .profile-title {
         font-family: var(--font-main, 'Inter', sans-serif);
-        font-size: 1.9rem;
+        font-size: 1.8rem;
         font-weight: 800;
         margin: 0;
         color: var(--title-color);
@@ -391,11 +333,6 @@ export default class UserProfile extends HTMLElement {
         height: 4px;
         background: linear-gradient(90deg, var(--accent-color) 0%, rgba(0, 96, 223, 0.6) 100%);
         border-radius: 4px;
-        transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      }
-      
-      .profile-container:hover .profile-title::after {
-        width: 60px;
       }
       
       .edit-profile-btn {
@@ -406,55 +343,36 @@ export default class UserProfile extends HTMLElement {
         color: var(--white-color);
         border: none;
         border-radius: 10px;
-        padding: 0.8rem 1.35rem;
+        padding: 0.8rem 1.2rem;
         font-weight: 600;
         font-size: 0.95rem;
         cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: all 0.2s ease;
         box-shadow: 0 4px 12px rgba(0, 96, 223, 0.25);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .edit-profile-btn::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2));
-        transform: translateY(100%);
-        transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
       }
       
       .edit-profile-btn:hover {
-        transform: translateY(-2px) scale(1.02);
+        transform: translateY(-1px);
         box-shadow: 0 6px 16px rgba(0, 96, 223, 0.35);
       }
       
-      .edit-profile-btn:hover::after {
-        transform: translateY(0);
-      }
-      
       .edit-profile-btn:active {
-        transform: translateY(0) scale(0.98);
-        box-shadow: 0 2px 8px rgba(0, 96, 223, 0.2);
-      }
-      
-      .edit-profile-btn svg {
-        transition: transform 0.3s ease;
-      }
-      
-      .edit-profile-btn:hover svg {
-        transform: translateY(-1px) rotate(-5deg);
+        transform: translateY(0);
       }
       
       /* Profile Card */
       .profile-card {
+        background-color: var(--background);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: var(--border);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      }
+      
+      .profile-info {
         display: flex;
-        gap: 2rem;
-        padding: 20px 0;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
       }
       
       .profile-avatar {
@@ -462,183 +380,120 @@ export default class UserProfile extends HTMLElement {
       }
   
       .avatar-circle {
-        width: 110px;
-        height: 110px;
+        width: 80px;
+        height: 80px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: bold;
-        border: 3px solid rgba(255, 255, 255, 0.8);
+        border: 2px solid var(--border);
       }
 
       .profile-image {
-        width: 110px;
-        height: 110px;
+        width: 80px;
+        height: 80px;
         border-radius: 50%;
         object-fit: cover;
-        border: 3px solid var(--border);
+        border: 2px solid var(--border);
       }
       
       .avatar-initials {
-        font-size: 2.6rem;
+        font-size: 2rem;
         color: var(--white-color);
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: -1px;
-        text-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
       }
       
       .profile-details {
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
-      }
-      
-      .detail-group {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
         gap: 1rem;
       }
       
+      .user-main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      
       .user-name {
-        font-size: 2rem;
+        font-size: 1.6rem;
         font-weight: 700;
         margin: 0;
         color: var(--title-color);
         letter-spacing: -0.01em;
-        position: relative;
-        transition: all 0.3s ease;
       }
       
-      .user-role, .user-status {
+      .user-email {
+        font-size: 1rem;
+        color: var(--gray-color);
+      }
+      
+      .user-meta {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      
+      .role-badge, .status-badge {
         display: inline-flex;
         align-items: center;
-        padding: 0.35rem 1rem;
-        border-radius: 25px;
-        font-size: 0.85rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: 16px;
+        font-size: 0.75rem;
         font-weight: 600;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
-        position: relative;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
       }
       
-      .user-role::before,
-      .user-status::before {
-        content: '';
-        position: absolute;
-        left: 0.75rem;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        transition: all 0.3s ease;
-      }
-      
-      .user-role {
-        padding-left: 1.5rem;
-      }
-      
-      .user-status {
-        padding-left: 1.5rem;
-      }
-      
-      .user-role.admin {
+      .role-badge.admin {
         background: linear-gradient(135deg, rgba(0, 96, 223, 0.1) 0%, rgba(0, 96, 223, 0.2) 100%);
         color: var(--accent-color);
         border: 1px solid rgba(0, 96, 223, 0.25);
       }
       
-      .user-role.admin::before {
-        background-color: var(--accent-color);
-        box-shadow: 0 0 0 3px rgba(0, 96, 223, 0.15);
-      }
-      
-      .user-role.user {
+      .role-badge.user {
         background: linear-gradient(135deg, rgba(69, 162, 158, 0.1) 0%, rgba(69, 162, 158, 0.2) 100%);
         color: #45a29e;
         border: 1px solid rgba(69, 162, 158, 0.25);
       }
       
-      .user-role.user::before {
-        background-color: #45a29e;
-        box-shadow: 0 0 0 3px rgba(69, 162, 158, 0.15);
-      }
-      
-      .user-status.active {
+      .status-badge.active {
         background: linear-gradient(135deg, rgba(44, 182, 125, 0.1) 0%, rgba(44, 182, 125, 0.2) 100%);
         color: var(--success-color);
         border: 1px solid rgba(44, 182, 125, 0.25);
       }
       
-      .user-status.active::before {
-        background-color: var(--success-color);
-        box-shadow: 0 0 0 3px rgba(44, 182, 125, 0.15);
-      }
-      
-      .user-status.active::before {
-        box-shadow: 0 0 0 4px rgba(44, 182, 125, 0.2), 0 0 10px rgba(44, 182, 125, 0.3);
-      }
-      
-      .user-status.inactive {
+      .status-badge.inactive {
         background: linear-gradient(135deg, rgba(239, 71, 111, 0.1) 0%, rgba(239, 71, 111, 0.2) 100%);
         color: var(--error-color);
         border: 1px solid rgba(239, 71, 111, 0.25);
       }
       
-      .user-status.inactive::before {
-        background-color: var(--error-color);
-        box-shadow: 0 0 0 3px rgba(239, 71, 111, 0.15);
-      }
-      
-      .user-status.inactive::before {
-        box-shadow: 0 0 0 4px rgba(239, 71, 111, 0.2), 0 0 10px rgba(239, 71, 111, 0.3);
-      }
-      
-      .user-info {
+      .user-info-details {
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        margin-top: 1rem;
-        background-color: rgba(0, 0, 0, 0.01);
-        padding: 1.25rem;
-        border-radius: 12px;
-        border: 1px solid rgba(0, 0, 0, 0.04);
-        transition: all 0.3s ease;
-      }
-      
-      .profile-card:hover .user-info {
-        background-color: rgba(0, 0, 0, 0.02);
-        transform: translateX(3px);
+        padding-top: 1rem;
+        border-top: var(--border);
       }
       
       .info-item {
         display: flex;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: 0.25rem;
       }
       
       .info-label {
         font-size: 0.875rem;
         color: var(--gray-color);
         font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-      
-      .info-label::before {
-        content: '';
-        width: 3px;
-        height: 3px;
-        background-color: var(--accent-color);
-        border-radius: 50%;
-        display: inline-block;
       }
       
       .info-value {
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 500;
         color: var(--title-color);
       }
@@ -646,11 +501,10 @@ export default class UserProfile extends HTMLElement {
       .info-value.id {
         font-family: var(--font-mono, monospace);
         font-size: 0.9rem;
-        background-color: rgba(0, 0, 0, 0.03);
-        padding: 0.65rem 0.85rem;
-        border-radius: 8px;
-        color: var(--gray-color);
         background-color: var(--gray-background);
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        color: var(--gray-color);
         display: inline-block;
         max-width: fit-content;
       }
@@ -662,200 +516,37 @@ export default class UserProfile extends HTMLElement {
         font-style: italic;
       }
       
-      .info-item:hover .info-value.id {
-        background-color: rgba(0, 0, 0, 0.05);
-        border-color: rgba(0, 0, 0, 0.12);
-      }
-      
-      /* Profile Actions */
-      .profile-actions {
-        margin-top: 1rem;
-      }
-      
-      .action-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1.5rem;
-      }
-      
-      .action-card {
-        background-color: var(--background);
-        border-radius: 14px;
-        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.04), 
-                    0 5px 10px -5px rgba(0, 0, 0, 0.03);
-        padding: 1.75rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .action-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 4px;
-        height: 0;
-        background: linear-gradient(to bottom, var(--accent-color), rgba(0, 96, 223, 0.5));
-        transition: height 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-        border-radius: 4px 0 0 4px;
-      }
-      
-      .action-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.08), 
-                    0 10px 20px -5px rgba(0, 0, 0, 0.05);
-      }
-      
-      .action-card:hover::before {
-        height: 100%;
-      }
-      
-      .action-card h3 {
-        margin: 0;
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: var(--title-color);
-        transition: all 0.3s ease;
-      }
-      
-      .action-card:hover h3 {
-        transform: translateX(5px);
-        color: var(--accent-color);
-      }
-      
-      .action-card p {
-        margin: 0;
-        color: var(--gray-color);
-        font-size: 0.95rem;
-        line-height: 1.6;
-        flex-grow: 1;
-        transition: all 0.3s ease;
-      }
-      
-      .action-card:hover p {
-        transform: translateX(3px);
-      }
-      
-      .action-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.65rem 1.25rem;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        background-color: rgba(0, 0, 0, 0.02);
-        color: var(--text-color);
-        margin-top: auto;
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .action-btn::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100%;
-        height: 100%;
-        background-color: var(--accent-color);
-        border-radius: 50%;
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0);
-        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
-        z-index: 0;
-      }
-      
-      .action-btn svg {
-        position: relative;
-        z-index: 1;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      }
-      
-      .action-btn span {
-        position: relative;
-        z-index: 1;
-      }
-      
-      .action-btn:hover {
-        border-color: var(--accent-color);
-        color: var(--accent-color);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-      }
-      
-      .action-btn:hover::after {
-        opacity: 0.08;
-        transform: translate(-50%, -50%) scale(2);
-      }
-      
-      .action-btn:hover svg {
-        transform: scale(1.15) rotate(-5deg);
-      }
-      
       /* Loader */
       .loader-container {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 1.75rem;
+        gap: 1.5rem;
         height: 400px;
         background-color: var(--background);
-        border-radius: 16px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 
-                    0 8px 10px -6px rgba(0, 0, 0, 0.02);
-        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 12px;
+        border: var(--border);
       }
       
       .spinner {
-        width: 56px;
-        height: 56px;
-        border: 4px solid rgba(0, 0, 0, 0.05);
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(0, 0, 0, 0.1);
         border-top-color: var(--accent-color);
         border-radius: 50%;
-        filter: drop-shadow(0 4px 10px rgba(0, 96, 223, 0.2));
-        animation: spin 1.4s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+        animation: spin 1s linear infinite;
       }
       
       @keyframes spin {
         0% { transform: rotate(0deg); }
-        25% { transform: rotate(90deg); }
-        50% { transform: rotate(180deg); }
-        75% { transform: rotate(270deg); }
         100% { transform: rotate(360deg); }
       }
       
       .loader-container p {
         color: var(--gray-color);
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 500;
-        animation: pulse 1.8s infinite alternate;
-        background: linear-gradient(90deg, var(--title-color), var(--gray-color));
-        background-size: 200% auto;
-        background-clip: text;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: gradientText 2s linear infinite;
-      }
-      
-      @keyframes pulse {
-        from { opacity: 0.7; }
-        to { opacity: 1; }
-      }
-      
-      @keyframes gradientText {
-        0% { background-position: 0% center; }
-        50% { background-position: 100% center; }
-        100% { background-position: 0% center; }
       }
       
       /* Error State */
@@ -868,151 +559,61 @@ export default class UserProfile extends HTMLElement {
         text-align: center;
         height: 400px;
         background-color: var(--background);
-        border-radius: 16px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 
-                    0 8px 10px -6px rgba(0, 0, 0, 0.02);
-        border: 1px solid rgba(239, 71, 111, 0.15);
-        padding: 2.5rem;
+        border-radius: 12px;
+        border: 1px solid rgba(239, 71, 111, 0.2);
+        padding: 2rem;
       }
       
       .error-state svg {
         color: var(--error-color);
-        animation: pulse-error 2s ease infinite;
-        filter: drop-shadow(0 4px 8px rgba(239, 71, 111, 0.3));
-      }
-      
-      @keyframes pulse-error {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
-        100% { transform: scale(1); opacity: 1; }
       }
       
       .error-state h3 {
-        font-size: 1.8rem;
-        font-weight: 800;
+        font-size: 1.5rem;
+        font-weight: 700;
         margin: 0;
         color: var(--title-color);
-        letter-spacing: -0.01em;
       }
       
       .error-state p {
         color: var(--gray-color);
-        max-width: 450px;
+        max-width: 400px;
         margin: 0;
-        line-height: 1.7;
-        font-size: 1.05rem;
+        line-height: 1.6;
       }
       
       .retry-btn {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.5rem;
         background: linear-gradient(135deg, var(--accent-color) 0%, #0052cc 100%);
         color: var(--white-color);
         border: none;
-        border-radius: 12px;
-        padding: 0.9rem 1.8rem;
+        border-radius: 10px;
+        padding: 0.8rem 1.5rem;
         font-weight: 600;
-        font-size: 1rem;
         cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        margin-top: 0.75rem;
+        transition: all 0.2s ease;
         box-shadow: 0 4px 12px rgba(0, 96, 223, 0.25);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .retry-btn::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2));
-        transform: translateY(100%);
-        transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+        margin-top: 0.5rem;
       }
       
       .retry-btn:hover {
-        transform: translateY(-3px) scale(1.03);
-        box-shadow: 0 6px 18px rgba(0, 96, 223, 0.35);
-      }
-      
-      .retry-btn:hover::after {
-        transform: translateY(0);
-      }
-      
-      .retry-btn:active {
-        transform: translateY(0) scale(0.98);
-      }
-      
-      .retry-btn svg {
-        transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        animation: none;
-        filter: none;
-      }
-      
-      .retry-btn:hover svg {
-        transform: rotate(180deg);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0, 96, 223, 0.35);
       }
       
       /* Responsive Design */
-      @media (max-width: 900px) {
+      @media (max-width: 768px) {
         .container {
           padding: 1.5rem 1rem;
         }
         
-        .profile-card {
-          padding: 1.5rem;
-          gap: 1.5rem;
-        }
-      }
-      
-      @media (max-width: 768px) {
-        .profile-card {
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-        }
-        
-        .avatar-circle {
-          width: 100px;
-          height: 100px;
-        }
-        
-        .avatar-initials {
-          font-size: 2.3rem;
-        }
-        
-        .detail-group {
-          justify-content: center;
-        }
-        
-        .user-info {
-          text-align: left;
-        }
-        
-        .action-cards {
-          grid-template-columns: 1fr;
-          gap: 1.25rem;
-        }
-        
-        .action-card {
-          padding: 1.5rem;
-        }
-      }
-      
-      @media (max-width: 600px) {
         .profile-header {
           flex-direction: column;
           align-items: flex-start;
-          gap: 1.25rem;
+          gap: 1rem;
           margin-bottom: 1.5rem;
-        }
-        
-        .profile-title {
-          font-size: 1.7rem;
         }
         
         .edit-profile-btn {
@@ -1020,12 +621,14 @@ export default class UserProfile extends HTMLElement {
           justify-content: center;
         }
         
-        .profile-card {
-          padding: 1.25rem;
+        .profile-info {
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
         }
         
-        .user-name {
-          font-size: 1.7rem;
+        .user-meta {
+          justify-content: center;
         }
       }
       
@@ -1034,30 +637,26 @@ export default class UserProfile extends HTMLElement {
           padding: 1rem 0.75rem;
         }
         
-        .avatar-circle {
-          width: 85px;
-          height: 85px;
-        }
-        
-        .avatar-initials {
-          font-size: 2rem;
-        }
-        
-        .user-info {
-          padding: 1rem;
-        }
-        
-        .info-value.id {
-          font-size: 0.8rem;
-          padding: 0.5rem 0.75rem;
-        }
-        
-        .action-card {
+        .profile-card {
           padding: 1.25rem;
         }
         
-        .action-card h3 {
-          font-size: 1.2rem;
+        .avatar-circle, .profile-image {
+          width: 70px;
+          height: 70px;
+        }
+        
+        .avatar-initials {
+          font-size: 1.8rem;
+        }
+        
+        .user-name {
+          font-size: 1.4rem;
+        }
+        
+        .user-meta {
+          flex-direction: column;
+          gap: 0.5rem;
         }
       }
     </style>

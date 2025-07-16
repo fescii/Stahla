@@ -280,6 +280,28 @@ async def delete_user_endpoint(
   """Delete a user (Admin only)."""
   try:
     collection = await auth_service.get_users_collection()
+
+    # Prevent self-deletion
+    if current_admin.id == user_id:
+      return GenericResponse.error(
+          message="You cannot delete your own account",
+          status_code=status.HTTP_403_FORBIDDEN
+      )
+
+    # Check if user exists and get their role
+    user_to_delete = await collection.find_one({"_id": user_id})
+    if not user_to_delete:
+      return GenericResponse.error(message="User not found", status_code=404)
+
+    # If deleting an admin, ensure at least one admin remains
+    if user_to_delete.get("role") == "admin":
+      admin_count = await collection.count_documents({"role": "admin"})
+      if admin_count <= 1:
+        return GenericResponse.error(
+            message="Cannot delete the last admin. At least one admin must remain.",
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
     delete_result = await collection.delete_one({"_id": user_id})
     if delete_result.deleted_count == 0:
       return GenericResponse.error(message="User not found", status_code=404)

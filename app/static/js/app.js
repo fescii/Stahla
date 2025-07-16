@@ -362,9 +362,9 @@ export default class AppMain extends HTMLElement {
       if (header && dropdown) {
         // Default state: if ul.special.nav has 'opned' class, it's open, otherwise collapsed.
         if (ul.classList.contains('opned')) {
-          item.classList.remove('collapsed');
-          dropdown.style.maxHeight = dropdown.scrollHeight + 'px';
-          item.classList.add('active'); // Add active class for the vertical line
+          // Use the same method as internal navigation switching
+          item.classList.add('collapsed'); // Start as collapsed
+          this._expandDropdown(item); // Then expand using the proper method
         } else {
           item.classList.add('collapsed');
           dropdown.style.maxHeight = '0px';

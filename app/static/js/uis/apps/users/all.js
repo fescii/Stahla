@@ -482,8 +482,6 @@ export default class UsersList extends HTMLElement {
       gap: 0;
       border-radius: 16px;
       padding: 1.75rem 0;
-      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-      will-change: transform;
       }
       
       .users-header {
@@ -491,7 +489,6 @@ export default class UsersList extends HTMLElement {
       justify-content: space-between;
       align-items: center;
       padding-bottom: 1.5rem;
-      will-change: transform;
       }
       
       .header-left {
@@ -520,8 +517,6 @@ export default class UsersList extends HTMLElement {
       height: 4px;
       background: linear-gradient(90deg, var(--accent-color) 0%, rgba(0, 96, 223, 0.6) 100%);
       border-radius: 4px;
-      transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: width;
       }
       
       .users-container:hover .users-title::after {
@@ -582,7 +577,7 @@ export default class UsersList extends HTMLElement {
       background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2));
       transform: translateY(100%);
       transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-      will-change: transform;
+     
       }
       
       .add-user-btn:hover {
@@ -602,7 +597,7 @@ export default class UsersList extends HTMLElement {
       
       .add-user-btn svg {
       transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: transform;
+     
       }
       
       .add-user-btn:hover svg {
@@ -618,7 +613,6 @@ export default class UsersList extends HTMLElement {
       .search-input-wrapper {
       position: relative;
       max-width: 400px;
-      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
       border-radius: 12px;
       will-change: transform, max-width;
       }
@@ -738,8 +732,7 @@ export default class UsersList extends HTMLElement {
       
       .user-avatar {
         flex-shrink: 0;
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        will-change: transform;
+       
         display: flex;
         align-items: center;
         justify-content: center;
@@ -757,8 +750,7 @@ export default class UsersList extends HTMLElement {
         align-items: center;
         justify-content: center;
         font-weight: bold;
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        will-change: transform;
+       
       }
 
       .profile-image {
@@ -767,8 +759,7 @@ export default class UsersList extends HTMLElement {
         border-radius: 50%;
         object-fit: cover;
         border: 2px solid var(--border);
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        will-change: transform;
+       
       }
       
       .user-item:hover .avatar-circle {
@@ -959,7 +950,7 @@ export default class UsersList extends HTMLElement {
       position: relative;
       z-index: 2;
       transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: transform;
+     
       }
       
       .action-btn:hover svg {
@@ -1009,7 +1000,7 @@ export default class UsersList extends HTMLElement {
       border-radius: 50%;
       filter: drop-shadow(0 4px 10px rgba(0, 96, 223, 0.2));
       animation: spin 1.4s cubic-bezier(0.68, -0.15, 0.265, 1.35) infinite;
-      will-change: transform;
+     
       }
       
       @keyframes spin {
@@ -1121,7 +1112,7 @@ export default class UsersList extends HTMLElement {
       background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2));
       transform: translateY(100%);
       transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-      will-change: transform;
+     
       }
       
       .retry-btn:hover {
@@ -1142,7 +1133,7 @@ export default class UsersList extends HTMLElement {
       transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
       animation: none;
       filter: none;
-      will-change: transform;
+     
       }
       
       .retry-btn:hover svg {

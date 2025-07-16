@@ -20,6 +20,12 @@ export default class DeletePopup extends HTMLElement {
     if (overlay) {
       overlay.addEventListener('click', () => this.remove());
     }
+
+    // Delete button functionality
+    const deleteBtn = this.shadowObj.querySelector('.action:not(.cancel-btn)');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', this.handleDelete.bind(this));
+    }
   }
 
   disconnectedCallback() {
@@ -50,6 +56,91 @@ export default class DeletePopup extends HTMLElement {
         this.remove();
       });
     })
+  }
+
+  handleDelete = async (e) => {
+    e.preventDefault();
+
+    if (!this.url) {
+      console.error('No URL provided for delete operation');
+      return;
+    }
+
+    const deleteBtn = e.target;
+    const originalText = deleteBtn.textContent;
+
+    // Show loading state
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = `
+      <div class="spinner" style="width: 16px; height: 16px; border: 2px solid currentColor; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px;"></div>
+      Deleting...
+    `;
+
+    try {
+      // Get API instance from window.app
+      const api = window.app?.api;
+      if (!api) {
+        throw new Error('API not available');
+      }
+
+      const response = await api.delete(this.url, { content: 'json' });
+
+      if (!response.success) {
+        throw new Error(response.message || response.error_message || 'Delete operation failed');
+      }
+
+      // Success - refresh the users list and close popup
+      if (window.app && typeof window.app.refreshUsersList === 'function') {
+        window.app.refreshUsersList();
+      }
+
+      this.remove();
+
+    } catch (error) {
+      console.error('Delete operation failed:', error);
+
+      // Reset button state
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = originalText;
+
+      // Show error message
+      this.showError(error.message || 'Failed to delete item. Please try again.');
+    }
+  }
+
+  showError = (message) => {
+    const actions = this.shadowObj.querySelector('.actions');
+    if (actions) {
+      // Remove any existing error message
+      const existingError = this.shadowObj.querySelector('.error-message');
+      if (existingError) {
+        existingError.remove();
+      }
+
+      // Add error message
+      const errorElement = document.createElement('div');
+      errorElement.className = 'error-message';
+      errorElement.style.cssText = `
+        color: var(--error-color);
+        font-size: 0.9rem;
+        margin-top: 10px;
+        text-align: center;
+        padding: 8px 12px;
+        background: rgba(236, 75, 25, 0.1);
+        border: 1px solid rgba(236, 75, 25, 0.2);
+        border-radius: 8px;
+      `;
+      errorElement.textContent = message;
+
+      actions.parentNode.insertBefore(errorElement, actions);
+
+      // Auto-remove error after 5 seconds
+      setTimeout(() => {
+        if (errorElement.parentNode) {
+          errorElement.remove();
+        }
+      }, 5000);
+    }
   }
 
   getTemplate() {
@@ -231,6 +322,11 @@ export default class DeletePopup extends HTMLElement {
           background: var(--gray-background);
           color: var(--text-color);
           padding: 12px 20px;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       </style>
     `;
