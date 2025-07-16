@@ -772,6 +772,7 @@ export default class HubspotProperties extends HTMLElement {
           flex-direction: column;
           flex-flow: column;
           gap: 0;
+          margin-bottom: 20px;
         }
 
         .header h1 {
@@ -849,7 +850,7 @@ export default class HubspotProperties extends HTMLElement {
           gap: 16px;
           background: var(--gray-background);
           padding: 16px;
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
         }
 
         .header-cell {
@@ -868,7 +869,7 @@ export default class HubspotProperties extends HTMLElement {
           grid-template-columns: 2fr 1fr 1fr auto;
           gap: 16px;
           padding: 16px;
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
           transition: background-color 0.2s ease;
         }
 
@@ -1197,7 +1198,7 @@ export default class HubspotProperties extends HTMLElement {
           }
 
           .cell {
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: var(--border);
             padding-bottom: 8px;
           }
 

@@ -109,7 +109,6 @@ export default class LocationFailed extends HTMLElement {
     return /* html */ `
       <div class="container">
         ${this.getHeader()}
-        ${this.getFailureStats()}
         ${this.getLocationsList()}
         ${this.getPagination()}
       </div>
@@ -121,32 +120,6 @@ export default class LocationFailed extends HTMLElement {
       <div class="header">
         <h1>Failed Locations</h1>
         <p class="subtitle">Location lookups that encountered errors</p>
-      </div>
-    `;
-  };
-
-  getFailureStats = () => {
-    if (!this.locationsData.items || this.locationsData.items.length === 0) {
-      return '';
-    }
-
-    const failureTypes = this.locationsData.items.reduce((acc, location) => {
-      const status = location.status;
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {});
-
-    return /* html */ `
-      <div class="failure-stats">
-        <h3>Failure Analysis</h3>
-        <div class="stats-grid">
-          ${Object.entries(failureTypes).map(([status, count]) => /* html */ `
-            <div class="stat-item">
-              <span class="stat-count">${count}</span>
-              <span class="stat-label">${this.formatStatus(status)}</span>
-            </div>
-          `).join('')}
-        </div>
       </div>
     `;
   };
@@ -374,7 +347,7 @@ export default class LocationFailed extends HTMLElement {
         .container {
           max-width: 100%;
           margin: 0 auto;
-          padding: 20px 10px;
+          padding: 15px 0;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -458,7 +431,7 @@ export default class LocationFailed extends HTMLElement {
           display: grid;
           grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
           background: var(--gray-background);
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
         }
 
         .header-cell {
@@ -483,7 +456,7 @@ export default class LocationFailed extends HTMLElement {
         .location-row {
           display: grid;
           grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
           transition: background-color 0.2s ease;
           cursor: pointer;
         }
@@ -911,12 +884,12 @@ export default class LocationFailed extends HTMLElement {
           }
           
           .location-row:last-child {
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: var(--border);
           }
           
           .cell {
             border-right: none;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: var(--border);
             padding: 12px 16px;
           }
           

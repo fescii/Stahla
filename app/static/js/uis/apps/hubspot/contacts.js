@@ -429,7 +429,7 @@ export default class HubspotContacts extends HTMLElement {
         .container {
           max-width: 100%;
           margin: 0 auto;
-          padding: 20px 10px;
+          padding: 15px 0;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -513,7 +513,7 @@ export default class HubspotContacts extends HTMLElement {
           display: grid;
           grid-template-columns: 1.5fr 2fr 1.5fr 1fr;
           background: var(--gray-background);
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
         }
 
         .header-cell {
@@ -538,7 +538,7 @@ export default class HubspotContacts extends HTMLElement {
         .contact-row {
           display: grid;
           grid-template-columns: 1.5fr 2fr 1.5fr 1fr;
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
           transition: background-color 0.2s ease;
           cursor: pointer;
         }
@@ -749,12 +749,12 @@ export default class HubspotContacts extends HTMLElement {
           }
           
           .contact-row:last-child {
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: var(--border);
           }
           
           .cell {
             border-right: none;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: var(--border);
             padding: 12px 16px;
           }
           

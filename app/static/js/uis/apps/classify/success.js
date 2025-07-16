@@ -466,7 +466,7 @@ export default class ClassifySuccess extends HTMLElement {
         .container {
           max-width: 100%;
           margin: 0 auto;
-          padding: 20px 10px;
+          padding: 15px 0;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -496,7 +496,7 @@ export default class ClassifySuccess extends HTMLElement {
           padding: 0;
           line-height: 1.4;
         }
-        
+
         .success-stats {
           background: var(--success-background);
           border: var(--border);

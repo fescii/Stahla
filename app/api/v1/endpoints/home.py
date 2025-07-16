@@ -234,3 +234,191 @@ async def read_docs_hubspot(request: Request):
 @router.get("/docs/marvin", response_class=HTMLResponse)
 async def read_docs_marvin(request: Request):
   return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Marvin"})
+
+# Quotes routes
+
+
+@router.get("/quotes/recent", response_class=HTMLResponse)
+async def read_quotes_recent(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Recent Quotes"})
+
+
+@router.get("/quotes/oldest", response_class=HTMLResponse)
+async def read_quotes_oldest(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Oldest Quotes"})
+
+
+@router.get("/quotes/highest", response_class=HTMLResponse)
+async def read_quotes_highest(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Highest Quotes"})
+
+
+@router.get("/quotes/lowest", response_class=HTMLResponse)
+async def read_quotes_lowest(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Lowest Quotes"})
+
+# Location routes
+
+
+@router.get("/location/recent", response_class=HTMLResponse)
+async def read_location_recent(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Recent Location"})
+
+
+@router.get("/location/oldest", response_class=HTMLResponse)
+async def read_location_oldest(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Oldest Location"})
+
+
+@router.get("/location/success", response_class=HTMLResponse)
+async def read_location_success(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Successful Location"})
+
+
+@router.get("/location/failed", response_class=HTMLResponse)
+async def read_location_failed(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Failed Location"})
+
+
+@router.get("/location/pending", response_class=HTMLResponse)
+async def read_location_pending(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Pending Location"})
+
+# HubSpot routes
+
+
+@router.get("/hubspot/contacts", response_class=HTMLResponse)
+async def read_hubspot_contacts(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | HubSpot Contacts"})
+
+
+@router.get("/hubspot/leads", response_class=HTMLResponse)
+async def read_hubspot_leads(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | HubSpot Leads"})
+
+
+@router.get("/hubspot/properties", response_class=HTMLResponse)
+async def read_hubspot_properties(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | HubSpot Properties"})
+
+# Properties routes
+
+
+@router.get("/properties/contact", response_class=HTMLResponse)
+async def read_properties_contact(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Contact Properties"})
+
+
+@router.get("/properties/lead", response_class=HTMLResponse)
+async def read_properties_lead(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Lead Properties"})
+
+
+@router.get("/properties/fields", response_class=HTMLResponse)
+async def read_properties_fields(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Property Fields"})
+
+# Classify routes
+
+
+@router.get("/classify/recent", response_class=HTMLResponse)
+async def read_classify_recent(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Recent Classification"})
+
+
+@router.get("/classify/success", response_class=HTMLResponse)
+async def read_classify_success(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Successful Classification"})
+
+
+@router.get("/classify/failed", response_class=HTMLResponse)
+async def read_classify_failed(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Failed Classification"})
+
+
+@router.get("/classify/disqualified", response_class=HTMLResponse)
+async def read_classify_disqualified(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Disqualified Classification"})
+
+# Calls routes
+
+
+@router.get("/calls/recent", response_class=HTMLResponse)
+async def read_calls_recent(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Recent Calls"})
+
+
+@router.get("/calls/success", response_class=HTMLResponse)
+async def read_calls_success(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Successful Calls"})
+
+
+@router.get("/calls/failed", response_class=HTMLResponse)
+async def read_calls_failed(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Failed Calls"})
+
+
+@router.get("/calls/oldest", response_class=HTMLResponse)
+async def read_calls_oldest(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Oldest Calls"})
+
+# Email routes
+
+
+@router.get("/email/sent", response_class=HTMLResponse)
+async def read_email_sent(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Sent Emails"})
+
+
+@router.get("/email/failed", response_class=HTMLResponse)
+async def read_email_failed(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Failed Emails"})
+
+
+@router.get("/email/compose", response_class=HTMLResponse)
+async def read_email_compose(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Compose Email"})
+
+
+@router.get("/email/received", response_class=HTMLResponse)
+async def read_email_received(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Received Emails"})
+
+# Additional Bland routes from navigation
+
+
+@router.get("/bland/calls", response_class=HTMLResponse)
+async def read_bland_calls(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Bland Calls"})
+
+
+@router.get("/bland/status", response_class=HTMLResponse)
+async def read_bland_status(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Bland Status"})
+
+
+@router.get("/bland/simulate", response_class=HTMLResponse)
+async def read_bland_simulate(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Bland Simulate"})
+
+# Legal/Static pages
+
+
+@router.get("/terms", response_class=HTMLResponse)
+async def read_terms(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Terms of Service"})
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def read_privacy(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Privacy Policy"})
+
+
+@router.get("/contact", response_class=HTMLResponse)
+async def read_contact(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Contact"})
+
+
+@router.get("/docs", response_class=HTMLResponse)
+async def read_docs(request: Request):
+  return templates.TemplateResponse("home.html", {"request": request, "url": request.url, "title": "Stahla AI SDR | Documentation"})

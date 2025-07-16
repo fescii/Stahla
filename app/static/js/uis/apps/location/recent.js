@@ -429,7 +429,7 @@ export default class LocationRecent extends HTMLElement {
         .container {
           max-width: 100%;
           margin: 0 auto;
-          padding: 20px 10px;
+          padding: 15px 0;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -471,7 +471,7 @@ export default class LocationRecent extends HTMLElement {
           display: grid;
           grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
           background: var(--gray-background);
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
         }
 
         .header-cell {
@@ -496,7 +496,7 @@ export default class LocationRecent extends HTMLElement {
         .location-row {
           display: grid;
           grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
-          border-bottom: 1px solid var(--border-color);
+          border-bottom: var(--border);
           transition: background-color 0.2s ease;
           cursor: pointer;
         }
@@ -802,7 +802,7 @@ export default class LocationRecent extends HTMLElement {
           .cell {
             display: block;
             border-right: none;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: var(--border);
             padding: 12px;
           }
 
