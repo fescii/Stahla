@@ -15,6 +15,11 @@ export default class UsersList extends HTMLElement {
     this._sortDirection = "asc";
     this._filteredUsers = [];
 
+    // Add global refresh function for popups to call
+    if (this.app) {
+      this.app.refreshUsersList = this._fetchUsersData.bind(this);
+    }
+
     this.render();
   }
 
@@ -43,37 +48,32 @@ export default class UsersList extends HTMLElement {
     if (searchInput) {
       searchInput.addEventListener("input", (e) => {
         this._searchTerm = e.target.value.toLowerCase();
-        this._filterAndSortUsers();
+        this._filterUsers();
         this.render();
       });
     }
 
-    // Sort headers
-    const sortHeaders = this.shadowObj.querySelectorAll(".sort-header");
-    if (sortHeaders) {
-      sortHeaders.forEach((header) => {
-        header.addEventListener("click", () => {
-          const field = header.dataset.field;
-          if (this._sortField === field) {
-            // Toggle direction if already sorting by this field
-            this._sortDirection =
-              this._sortDirection === "asc" ? "desc" : "asc";
-          } else {
-            // New field, default to ascending
-            this._sortField = field;
-            this._sortDirection = "asc";
-          }
-          this._filterAndSortUsers();
-          this.render();
-        });
-      });
-    }
+    // Remove sort headers event listeners (no longer needed)
 
     // Add user button
     const addUserBtn = this.shadowObj.querySelector(".add-user-btn");
     if (addUserBtn) {
       addUserBtn.addEventListener("click", this._handleAddUser);
     }
+
+    // Use event delegation for dynamically created buttons
+    this.shadowObj.addEventListener('click', (e) => {
+      if (e.target.closest('.edit-btn')) {
+        const userItem = e.target.closest('.user-item');
+        this._handleEditUser(userItem);
+      } else if (e.target.closest('.admin-edit-btn')) {
+        const userItem = e.target.closest('.user-item');
+        this._handleAdminEditUser(userItem);
+      } else if (e.target.closest('.delete-btn')) {
+        const userItem = e.target.closest('.user-item');
+        this._handleDeleteUser(userItem);
+      }
+    });
   }
 
   // Method to fetch users data
@@ -128,9 +128,10 @@ export default class UsersList extends HTMLElement {
         "Users data fetched successfully, count:",
         this.usersData.length
       );
+      console.log("Sample user data:", this.usersData[0]);
 
-      // Filter and sort the users
-      this._filterAndSortUsers();
+      // Filter the users
+      this._filterUsers();
 
       // Render with the new data
       this.render();
@@ -144,14 +145,14 @@ export default class UsersList extends HTMLElement {
     }
   };
 
-  // Filter and sort users based on current settings
-  _filterAndSortUsers = () => {
+  // Filter users based on current settings (removed sorting)
+  _filterUsers = () => {
     if (!this.usersData) {
       this._filteredUsers = [];
       return;
     }
 
-    // First filter by search term
+    // Filter by search term only
     this._filteredUsers = this.usersData.filter((user) => {
       if (!this._searchTerm) return true;
 
@@ -163,39 +164,6 @@ export default class UsersList extends HTMLElement {
         (user.id && user.id.toLowerCase().includes(this._searchTerm))
       );
     });
-
-    // Then sort by the selected field
-    this._filteredUsers.sort((a, b) => {
-      let aValue = a[this._sortField] || "";
-      let bValue = b[this._sortField] || "";
-
-      // Handle null values
-      if (aValue === null) aValue = "";
-      if (bValue === null) bValue = "";
-
-      // String comparison
-      if (typeof aValue === "string") {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      // Boolean comparison
-      if (typeof aValue === "boolean") {
-        if (aValue === bValue) return 0;
-        if (this._sortDirection === "asc") {
-          return aValue ? -1 : 1;
-        } else {
-          return aValue ? 1 : -1;
-        }
-      }
-
-      // Numeric or string comparison
-      if (this._sortDirection === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
   };
 
   // Handle add user action
@@ -205,9 +173,67 @@ export default class UsersList extends HTMLElement {
     if (this.app && typeof this.app.navigate === "function") {
       this.app.navigate("/users/add");
     } else {
-      // Fallback: use window.location
-      window.location.href = "/users/add";
+      console.log("Navigation not available");
     }
+  };
+
+  // Handle edit user action
+  _handleEditUser = (userItem) => {
+    // Remove any existing popups first
+    const existingPopups = document.querySelectorAll('edit-profile-popup, edit-user-admin-popup, delete-popup');
+    existingPopups.forEach(popup => popup.remove());
+
+    // Create and show edit profile popup using proper convention
+    const popup = /*html*/`<edit-profile-popup 
+      user-id="${userItem.dataset.userId}"
+      user-name="${userItem.dataset.userName || ''}"
+      user-email="${userItem.dataset.userEmail}"
+      user-bio="${userItem.dataset.userBio || ''}"
+      user-role="${userItem.dataset.userRole || 'member'}"
+      user-active="${userItem.dataset.userActive}"
+      user-picture="${userItem.dataset.userPicture || ''}"
+    ></edit-profile-popup>`;
+
+    document.body.insertAdjacentHTML('beforeend', popup);
+  };    // Handle admin edit user action
+  _handleAdminEditUser = (userItem) => {
+    // Remove any existing popups first
+    const existingPopups = document.querySelectorAll('edit-profile-popup, edit-user-admin-popup, delete-popup');
+    existingPopups.forEach(popup => popup.remove());
+
+    // Create and show edit user admin popup using proper convention
+    const popup = /*html*/`<edit-user-admin-popup 
+      user-id="${userItem.dataset.userId}"
+      user-name="${userItem.dataset.userName || ''}"
+      user-email="${userItem.dataset.userEmail}"
+      user-bio="${userItem.dataset.userBio || ''}"
+      user-role="${userItem.dataset.userRole || 'member'}"
+      user-active="${userItem.dataset.userActive}"
+      user-picture="${userItem.dataset.userPicture || ''}"
+    ></edit-user-admin-popup>`;
+
+    document.body.insertAdjacentHTML('beforeend', popup);
+  };  // Handle delete user action
+  _handleDeleteUser = (userItem) => {
+    console.log("Delete user button clicked");
+
+    // Get user data from data attributes
+    const user = {
+      id: userItem.dataset.userId,
+      name: userItem.dataset.userName,
+      email: userItem.dataset.userEmail,
+      role: userItem.dataset.userRole,
+      active: userItem.dataset.userActive
+    };
+
+    // Remove any existing popups first
+    const existingPopups = document.querySelectorAll('edit-profile-popup, edit-user-admin-popup, delete-popup');
+    existingPopups.forEach(popup => popup.remove());
+
+    // Create and show delete popup with detailed user information
+    const popup = /*html*/`<delete-popup url="/auth/users/${user.id}">${user.name || 'Unnamed User'}</delete-popup>`;
+
+    document.body.insertAdjacentHTML('beforeend', popup);
   };
 
   getTemplate() {
@@ -238,8 +264,7 @@ export default class UsersList extends HTMLElement {
             <h1 class="users-title">Users</h1>
             <div class="users-count">
               <span class="count">${this._filteredUsers.length}</span>
-              <span class="total-text">${this._filteredUsers.length === 1 ? "user" : "users"
-      }</span>
+              <span class="total-text">${this._filteredUsers.length === 1 ? "user" : "users"}</span>
               ${this._searchTerm
         ? `<span class="filter-text">(filtered from ${this.usersData.length})</span>`
         : ""
@@ -263,134 +288,80 @@ export default class UsersList extends HTMLElement {
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" class="search-input" placeholder="Search users by name, email, or role" value="${this._searchTerm
-      }">
+            <input type="text" class="search-input" placeholder="Search users by name, email, or role" value="${this._searchTerm}">
           </div>
         </div>
         
-        <div class="users-table-wrapper">
-          <table class="users-table">
-            <thead>
-              <tr>
-                <th class="sort-header" data-field="name">
-                  <div class="th-content">
-                    <span>Name</span>
-                    ${this._getSortIcon("name")}
-                  </div>
-                </th>
-                <th class="sort-header" data-field="email">
-                  <div class="th-content">
-                    <span>Email</span>
-                    ${this._getSortIcon("email")}
-                  </div>
-                </th>
-                <th class="sort-header" data-field="role">
-                  <div class="th-content">
-                    <span>Role</span>
-                    ${this._getSortIcon("role")}
-                  </div>
-                </th>
-                <th class="sort-header" data-field="is_active">
-                  <div class="th-content">
-                    <span>Status</span>
-                    ${this._getSortIcon("is_active")}
-                  </div>
-                </th>
-                <th class="actions-header">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${this._filteredUsers.length > 0
+        <div class="users-list-wrapper">
+          <ul class="users-list">
+            ${this._filteredUsers.length > 0
         ? this._filteredUsers
-          .map((user) => this._getUserRowHTML(user))
+          .map((user) => this._getUserItemHTML(user))
           .join("")
-        : `<tr class="empty-row"><td colspan="5">No users found</td></tr>`
+        : `<li class="empty-item">No users found</li>`
       }
-            </tbody>
-          </table>
+          </ul>
         </div>
       </div>
     `;
   };
 
-  _getUserRowHTML = (user) => {
+  _getUserItemHTML = (user) => {
     return /* html */ `
-      <tr class="user-row">
-        <td class="user-name-cell">
-          <div class="user-info">
-            <div class="user-avatar">
-              ${this._getInitialsAvatar(user.name || user.email)}
+      <li class="user-item"
+          data-user-id="${user.id}"
+          data-user-name="${user.name || ''}"
+          data-user-email="${user.email}"
+          data-user-bio="${user.bio || ''}"
+          data-user-role="${user.role || 'member'}"
+          data-user-active="${user.is_active}"
+          data-user-picture="${user.picture || ''}">
+        <div class="user-info">
+          <div class="user-avatar">
+            ${user.picture
+        ? `<img src="${user.picture}" alt="Profile picture" class="profile-image">`
+        : this._getInitialsAvatar(user.name || user.email)
+      }
+          </div>
+          <div class="user-details">
+            <div class="user-main-info">
+              <span class="user-name">${user.name || "Unnamed User"}</span>
+              <span class="user-email">${user.email}</span>
             </div>
-            <span class="user-name">${user.name || "Unnamed User"}</span>
           </div>
-        </td>
-        <td class="user-email-cell">
-          <div class="centered-content">${user.email}</div>
-        </td>
-        <td class="user-role-cell">
-          <div class="centered-content">
-            <span class="role-badge ${user.role || "user"}">
-              ${this._formatRole(user.role)}
-            </span>
-          </div>
-        </td>
-        <td class="user-status-cell">
-          <div class="centered-content">
-            <span class="status-badge ${user.is_active ? "active" : "inactive"
-      }">
-              ${user.is_active ? "Active" : "Inactive"}
-            </span>
-          </div>
-        </td>
-        <td class="user-actions-cell">
-          <div class="actions-buttons">
-            <button class="action-btn edit-btn" data-user-id="${user.id
-      }" title="Edit User">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-            </button>
-            <button class="action-btn delete-btn" data-user-id="${user.id
-      }" title="Delete User">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18"></path>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
-              </svg>
-            </button>
-          </div>
-        </td>
-      </tr>
+        </div>
+        <div class="user-meta">
+          <span class="role-badge ${user.role || "member"}">
+            ${this._formatRole(user.role)}
+          </span>
+          <span class="status-badge ${user.is_active ? "active" : "inactive"}">
+            ${user.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+        <div class="actions-buttons">
+          <button class="action-btn edit-btn" title="Edit Profile">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+          </button>
+          <button class="action-btn admin-edit-btn" title="Edit Role & Status">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+          <button class="action-btn delete-btn" title="Delete User">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
+        </div>
+      </li>
     `;
-  };
-
-  _getSortIcon = (field) => {
-    if (this._sortField !== field) {
-      return /* html */ `
-        <svg class="sort-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7 15l5 5 5-5"></path>
-          <path d="M7 9l5-5 5 5"></path>
-        </svg>
-      `;
-    }
-
-    if (this._sortDirection === "asc") {
-      return /* html */ `
-        <svg class="sort-icon active" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7 11l5-5 5 5"></path>
-          <path d="M7 17l5-5 5 5"></path>
-        </svg>
-      `;
-    } else {
-      return /* html */ `
-        <svg class="sort-icon active" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7 7l5 5 5-5"></path>
-          <path d="M7 13l5 5 5-5"></path>
-        </svg>
-      `;
-    }
   };
 
   _getInitialsAvatar = (text) => {
@@ -691,298 +662,260 @@ export default class UsersList extends HTMLElement {
       box-shadow: 0 4px 12px rgba(0, 96, 223, 0.12);
       }
       
-      /* Users Table */
-      .users-table-wrapper {
-        overflow-x: auto;
-        border-radius: 12px;
+      /* Users List */
+      .users-list-wrapper {
         background-color: var(--background);
+        border-radius: 12px;
+        overflow: hidden;
         transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-        scrollbar-width: 0;
       }
       
-      .users-table-wrapper::-webkit-scrollbar {
-      height: 8px;
+      .users-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
       }
       
-      .users-table-wrapper::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.02);
-      border-radius: 20px;
+      .user-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 10px;
+        border-bottom: var(--border);
+        background-color: var(--background);
+        transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        position: relative;
+        cursor: default;
+        will-change: transform, background-color, box-shadow;
       }
       
-      .users-table-wrapper::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.1);
-      border-radius: 20px;
-      transition: background-color 0.3s ease;
+      .user-item:last-child {
+        border-bottom: none;
       }
       
-      .users-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font-size: 0.95rem;
+      .user-item:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+        transform: translateX(4px) scale(1.01);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        z-index: 1;
       }
       
-      .users-table th, 
-      .users-table td {
-      padding: 1rem 1.25rem;
-      text-align: left;
-      border-bottom: var(--border);
-      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      .empty-item {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 1rem;
+        color: var(--gray-color);
+        background-color: var(--background);
+        border-radius: 12px;
+        font-size: 1.05rem;
+        font-weight: 500;
+        text-align: center;
       }
       
-      .users-table tr:last-child td {
-      border-bottom: none;
-      }
-      
-      /* Center all columns except the first one */
-      .users-table th:not(:first-child),
-      .users-table td:not(:first-child) {
-      text-align: center;
-      }
-      
-      .users-table thead {
-      background-color: rgba(0, 0, 0, 0.02);
-      }
-      
-      .users-table thead tr th:first-child {
-      border-top-left-radius: 12px;
-      }
-      
-      .users-table thead tr th:last-child {
-      border-top-right-radius: 12px;
-      }
-      
-      .users-table th {
-      font-weight: 700;
-      color: var(--title-color);
-      white-space: nowrap;
-      padding: 1.25rem;
-      position: sticky;
-      top: 0;
-      background-color: rgba(0, 0, 0, 0.02);
-      z-index: 10;
-      border-bottom: var(--border);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-      letter-spacing: 0.01em;
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      }
-      
-      .th-content {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      cursor: pointer;
-      justify-content: center;
-      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-      padding: 0.5rem;
-      border-radius: 6px;
-      will-change: transform, background-color, color;
-      }
-      
-      .th-content:hover {
-      color: var(--accent-color);
-      background-color: rgba(0, 0, 0, 0.03);
-      transform: translateY(-1px);
-      }
-      
-      .users-table th:first-child .th-content {
-      justify-content: flex-start;
-      margin-left: -0.5rem;
-      }
-      
-      .sort-icon {
-      opacity: 0.4;
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: transform, opacity;
-      }
-      
-      .sort-icon.active {
-      opacity: 1;
-      color: var(--accent-color);
-      transform: scale(1.1);
-      }
-      
-      .th-content:hover .sort-icon:not(.active) {
-      opacity: 0.7;
-      transform: scale(1.05);
-      }
-      
-      .users-table tbody tr {
-      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-      cursor: default;
-      position: relative;
-      will-change: transform, background-color;
-      }
-      
-      .users-table tbody tr:hover {
-      background-color: rgba(0, 0, 0, 0.02);
-      transform: translateX(4px) scale(1.01);
-      z-index: 1;
-      }
-      
-      .empty-row td {
-      text-align: center;
-      color: var(--gray-color);
-      padding: 4rem 1rem;
-      background-color: var(--background);
-      border-radius: 0 0 12px 12px;
-      font-size: 1.05rem;
-      font-weight: 500;
-      }
-      
-      /* User Row Styles */
+      /* User Info Section */
       .user-info {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .user-details {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .user-main-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
       
       .user-avatar {
-      flex-shrink: 0;
-      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: transform;
+        flex-shrink: 0;
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        will-change: transform;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
-      .user-row:hover .user-avatar {
-      transform: scale(1.08);
+      .user-item:hover .user-avatar {
+        transform: scale(1.08);
       }
       
       .avatar-circle {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: transform;
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        will-change: transform;
+      }
+
+      .profile-image {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--border);
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        will-change: transform;
       }
       
-      .user-row:hover .avatar-circle {
-      transform: translateY(-2px);
+      .user-item:hover .avatar-circle {
+        transform: translateY(-2px);
       }
       
       .avatar-initials {
-      font-size: 0.95rem;
-      color: var(--white-color);
-      font-weight: 700;
-      letter-spacing: -0.5px;
+        font-size: 1rem;
+        color: var(--white-color);
+        font-weight: 700;
+        letter-spacing: -0.5px;
       }
       
       .user-name {
-      font-weight: 600;
-      font-size: 1.05rem;
-      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      color: var(--title-color);
-      letter-spacing: -0.01em;
-      will-change: transform, color;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        color: var(--title-color);
+        letter-spacing: -0.01em;
+        will-change: transform, color;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .user-email {
+        font-size: 0.9rem;
+        color: var(--gray-color);
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .user-bio {
+        font-size: 0.85rem;
+        color: var(--gray-color);
+        font-style: italic;
+        line-height: 1.3;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        margin-top: 4px;
+        font-family: var(--font-text), sans-serif;
       }
       
-      .user-row:hover .user-name {
-      color: var(--accent-color);
-      transform: translateX(2px);
+      .user-item:hover .user-name {
+        color: var(--accent-color);
+        transform: translateX(2px);
       }
       
-      .user-email-cell {
-      font-size: 0.9rem;
-      color: var(--gray-color);
+      /* User Meta Section */
+      .user-meta {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 0.75rem;
+        align-items: center;
+        margin: 0 1rem;
       }
       
       .role-badge, .status-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.35rem 0.9rem;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-align: center;
-      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      min-width: 90px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
-      will-change: transform, box-shadow;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.3rem 0.8rem;
+        border-radius: 16px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-align: center;
+        transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        min-width: 70px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+        will-change: transform, box-shadow;
       }
       
-      .user-row:hover .role-badge,
-      .user-row:hover .status-badge {
-      transform: scale(1.08) translateY(-1px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-      }
-      
-      .centered-content {
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      .user-item:hover .role-badge,
+      .user-item:hover .status-badge {
+        transform: scale(1.05) translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
       }
       
       .role-badge.admin {
-      background: linear-gradient(135deg, rgba(0, 96, 223, 0.1) 0%, rgba(0, 96, 223, 0.2) 100%);
-      color: var(--accent-color);
-      border: 1px solid rgba(0, 96, 223, 0.25);
+        background: linear-gradient(135deg, rgba(0, 96, 223, 0.1) 0%, rgba(0, 96, 223, 0.2) 100%);
+        color: var(--accent-color);
+        border: 1px solid rgba(0, 96, 223, 0.25);
       }
       
       .role-badge.member {
-      background: linear-gradient(135deg, rgba(69, 162, 158, 0.1) 0%, rgba(69, 162, 158, 0.2) 100%);
-      color: #45a29e;
-      border: 1px solid rgba(69, 162, 158, 0.25);
+        background: linear-gradient(135deg, rgba(69, 162, 158, 0.1) 0%, rgba(69, 162, 158, 0.2) 100%);
+        color: #45a29e;
+        border: 1px solid rgba(69, 162, 158, 0.25);
       }
       
       .role-badge.user {
-      background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(107, 114, 128, 0.2) 100%);
-      color: var(--gray-color);
-      border: 1px solid rgba(107, 114, 128, 0.25);
+        background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(107, 114, 128, 0.2) 100%);
+        color: var(--gray-color);
+        border: 1px solid rgba(107, 114, 128, 0.25);
       }
       
       .status-badge {
-      position: relative;
-      padding-left: 1.2rem;
+        position: relative;
+        padding-left: 1rem;
       }
       
       .status-badge::before {
-      content: '';
-      position: absolute;
-      left: 0.6rem;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      will-change: box-shadow;
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        will-change: box-shadow;
       }
       
       .status-badge.active {
-      background: linear-gradient(135deg, rgba(44, 182, 125, 0.1) 0%, rgba(44, 182, 125, 0.2) 100%);
-      color: var(--success-color);
-      border: 1px solid rgba(44, 182, 125, 0.25);
+        background: linear-gradient(135deg, rgba(44, 182, 125, 0.1) 0%, rgba(44, 182, 125, 0.2) 100%);
+        color: var(--success-color);
+        border: 1px solid rgba(44, 182, 125, 0.25);
       }
       
       .status-badge.active::before {
-      background-color: var(--success-color);
-      box-shadow: 0 0 0 3px rgba(44, 182, 125, 0.2);
+        background-color: var(--success-color);
+        box-shadow: 0 0 0 2px rgba(44, 182, 125, 0.2);
       }
       
-      .user-row:hover .status-badge.active::before {
-      box-shadow: 0 0 0 4px rgba(44, 182, 125, 0.25), 0 0 10px rgba(44, 182, 125, 0.4);
+      .user-item:hover .status-badge.active::before {
+        box-shadow: 0 0 0 3px rgba(44, 182, 125, 0.25), 0 0 8px rgba(44, 182, 125, 0.4);
       }
       
       .status-badge.inactive {
-      background: linear-gradient(135deg, rgba(239, 71, 111, 0.1) 0%, rgba(239, 71, 111, 0.2) 100%);
-      color: var(--error-color);
-      border: 1px solid rgba(239, 71, 111, 0.25);
+        background: linear-gradient(135deg, rgba(239, 71, 111, 0.1) 0%, rgba(239, 71, 111, 0.2) 100%);
+        color: var(--error-color);
+        border: 1px solid rgba(239, 71, 111, 0.25);
       }
       
       .status-badge.inactive::before {
-      background-color: var(--error-color);
-      box-shadow: 0 0 0 3px rgba(239, 71, 111, 0.2);
+        background-color: var(--error-color);
+        box-shadow: 0 0 0 2px rgba(239, 71, 111, 0.2);
       }
-      
       
       /* Action Buttons */
       .actions-buttons {
         display: flex;
-        gap: 0.85rem;
-        justify-content: center;
+        gap: 0.6rem;
+        align-items: center;
+        flex-shrink: 0;
       }
       
       .action-btn {
@@ -1041,16 +974,19 @@ export default class UsersList extends HTMLElement {
       }
       
       .edit-btn:hover {
-      border-color: var(--accent-color);
-      color: var(--accent-color);
+        border-color: var(--accent-color);
+        color: var(--accent-color);
+      }
+
+      .admin-edit-btn:hover {
+        border-color: var(--alt-color);
+        color: var(--alt-color);
       }
       
       .delete-btn:hover {
-      border-color: var(--error-color);
-      color: var(--error-color);
-      }
-      
-      /* Loader */
+        border-color: var(--error-color);
+        color: var(--error-color);
+      }      /* Loader */
       .loader-container {
       display: flex;
       flex-direction: column;
@@ -1238,134 +1174,158 @@ export default class UsersList extends HTMLElement {
       
       /* Responsive Design */
       @media (max-width: 900px) {
-      .container {
-        padding: 1.5rem 0;
-      }
-      
-      .users-container {
-        padding: 1.5rem 0;
-        gap: 1.5rem;
-        border-radius: 14px;
-      }
-      
-      .users-header {
-        padding-bottom: 1.25rem;
-      }
-      
-      .users-title {
-        font-size: 1.6rem;
-      }
+        .container {
+          padding: 1.5rem 0;
+        }
+        
+        .users-container {
+          padding: 1.5rem 0;
+          gap: 1.5rem;
+          border-radius: 14px;
+        }
+        
+        .users-header {
+          padding-bottom: 1.25rem;
+        }
+        
+        .users-title {
+          font-size: 1.6rem;
+        }
+        
+        .user-item {
+          padding: 1rem 1.25rem;
+        }
+        
+        .user-meta {
+          margin: 0 0.75rem;
+        }
       }
       
       @media (max-width: 768px) {
-      .users-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1.25rem;
-      }
-      
-      .add-user-btn {
-        align-self: stretch;
-        justify-content: center;
-      }
-      
-      .search-input-wrapper {
-        max-width: 100%;
-      }
-      
-      .users-table th:nth-child(4),
-      .users-table td:nth-child(4) {
-        display: none;
-      }
-      
-      .users-table th, 
-      .users-table td {
-        padding: 1rem;
-      }
-      
-      .action-btn {
-        width: 36px;
-        height: 36px;
-      }
-      
-      .avatar-circle {
-        width: 38px;
-        height: 38px;
-      }
+        .users-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1.25rem;
+        }
+        
+        .add-user-btn {
+          align-self: stretch;
+          justify-content: center;
+        }
+        
+        .search-input-wrapper {
+          max-width: 100%;
+        }
+        
+        .user-item {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
+          padding: 1.25rem 1rem;
+        }
+        
+        .user-meta {
+          align-self: stretch;
+          flex-direction: row;
+          justify-content: space-between;
+          margin: 0;
+        }
+        
+        .actions-buttons {
+          align-self: stretch;
+          justify-content: center;
+          gap: 1rem;
+        }
+        
+        .action-btn {
+          flex: 1;
+          max-width: 80px;
+        }
+        
+        .avatar-circle, .profile-image {
+          width: 44px;
+          height: 44px;
+        }
       }
       
       @media (max-width: 600px) {
-      .container {
-        padding: 1rem 0.75rem;
-      }
-      
-      .users-container {
-        padding: 1.25rem;
-        border-radius: 12px;
-        box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.1);
-      }
-      
-      .users-title {
-        font-size: 1.5rem;
-      }
-      
-      .users-table {
-        font-size: 0.85rem;
-      }
-      
-      .search-input {
-        padding: 0.85rem 1rem 0.85rem 2.75rem;
-        border-radius: 10px;
-      }
-      
-      .user-avatar {
-        flex-shrink: 0;
-      }
-      
-      .user-info {
-        gap: 0.8rem;
-      }
+        .container {
+          padding: 1rem 0.75rem;
+        }
+        
+        .users-container {
+          padding: 1.25rem;
+          border-radius: 12px;
+          box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .users-title {
+          font-size: 1.5rem;
+        }
+        
+        .search-input {
+          padding: 0.85rem 1rem 0.85rem 2.75rem;
+          border-radius: 10px;
+        }
+        
+        .user-item {
+          padding: 1rem 0.75rem;
+        }
+        
+        .user-info {
+          gap: 0.8rem;
+        }
+        
+        .user-name {
+          font-size: 1rem;
+        }
+        
+        .role-badge, .status-badge {
+          min-width: 60px;
+          font-size: 0.65rem;
+          padding: 0.25rem 0.6rem;
+        }
       }
       
       @media (max-width: 480px) {
-      .users-table th:nth-child(3),
-      .users-table td:nth-child(3) {
-        display: none;
-      }
-      
-      .actions-buttons {
-        gap: 0.5rem;
-      }
-      
-      .users-table th, 
-      .users-table td {
-        padding: 0.85rem 0.75rem;
-      }
-      
-      .avatar-circle {
-        width: 34px;
-        height: 34px;
-      }
-      
-      .user-name {
-        font-size: 0.9rem;
-      }
-      
-      .user-info {
-        gap: 0.7rem;
-      }
-      
-      .error-state h3 {
-        font-size: 1.5rem;
-      }
-      
-      .error-state p {
-        font-size: 0.95rem;
-      }
-      
-      .users-container {
-        padding: 1rem;
-      }
+        .user-meta {
+          flex-direction: column;
+          gap: 0.5rem;
+          align-items: center;
+        }
+        
+        .actions-buttons {
+          gap: 0.5rem;
+        }
+        
+        .avatar-circle, .profile-image {
+          width: 40px;
+          height: 40px;
+        }
+        
+        .user-name {
+          font-size: 0.95rem;
+        }
+        
+        .user-email {
+          font-size: 0.8rem;
+        }
+        
+        .user-bio {
+          font-size: 0.75rem;
+        }
+        
+        .error-state h3 {
+          font-size: 1.5rem;
+        }
+        
+        .error-state p {
+          font-size: 0.95rem;
+        }
+        
+        .users-container {
+          padding: 1rem;
+        }
       }
     </style>
     `;

@@ -872,11 +872,7 @@ export default class HubspotProperties extends HTMLElement {
           border-bottom: var(--border);
           transition: background-color 0.2s ease;
         }
-
-        .property-row:hover {
-          background: var(--gray-background);
-        }
-
+        
         .property-row:last-child {
           border-bottom: none;
         }

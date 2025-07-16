@@ -15,6 +15,12 @@ export default class AccessPopup extends HTMLElement {
   connectedCallback() {
     const form = this.shadowObj.querySelector('form');
     this.submitForm(form);
+
+    // Overlay click to close
+    const overlay = this.shadowObj.querySelector('.overlay');
+    if (overlay) {
+      overlay.addEventListener('click', () => this.remove());
+    }
   }
 
   disconnectedCallback() {

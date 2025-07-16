@@ -111,11 +111,27 @@ export default class PropertiesFields extends HTMLElement {
       });
     }
 
-    // Field item interactions
-    const fieldItems = this.shadowObj.querySelectorAll('.field-item');
-    fieldItems.forEach(item => {
-      item.addEventListener('click', () => {
-        item.classList.toggle('expanded');
+    // Expand button interactions
+    const expandButtons = this.shadowObj.querySelectorAll('.expand-btn');
+    expandButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const propertyRow = btn.closest('.property-row');
+        const isExpanded = propertyRow.classList.contains('expanded');
+
+        // Toggle expansion
+        propertyRow.classList.toggle('expanded');
+
+        // Update aria attributes
+        btn.setAttribute('aria-expanded', !isExpanded);
+
+        // Animate the expand icon
+        const expandIcon = btn.querySelector('.expand-icon');
+        if (expandIcon) {
+          expandIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
       });
     });
   };
@@ -141,32 +157,39 @@ export default class PropertiesFields extends HTMLElement {
   };
 
   filterByType = (type) => {
-    const fieldItems = this.shadowObj.querySelectorAll('.field-item');
+    const propertyRows = this.shadowObj.querySelectorAll('.property-row');
 
-    fieldItems.forEach(item => {
-      const itemType = item.dataset.fieldType || '';
+    propertyRows.forEach(row => {
+      const fieldTypeElement = row.querySelector('.field-type');
+      const itemType = fieldTypeElement?.textContent?.toLowerCase() || '';
 
       if (type === 'all' || itemType === type) {
-        item.style.display = 'block';
+        row.style.display = 'grid';
       } else {
-        item.style.display = 'none';
+        row.style.display = 'none';
       }
     });
   };
 
   filterFields = (searchTerm) => {
-    const fieldItems = this.shadowObj.querySelectorAll('.field-item');
+    const propertyRows = this.shadowObj.querySelectorAll('.property-row');
     const term = searchTerm.toLowerCase();
 
-    fieldItems.forEach(item => {
-      const fieldName = item.dataset.fieldName?.toLowerCase() || '';
-      const fieldLabel = item.querySelector('.field-name')?.textContent?.toLowerCase() || '';
-      const fieldType = item.querySelector('.field-type')?.textContent?.toLowerCase() || '';
+    propertyRows.forEach(row => {
+      const fieldName = row.dataset.fieldName?.toLowerCase() || '';
+      const fieldTitle = row.querySelector('.property-title')?.textContent?.toLowerCase() || '';
+      const propertyName = row.querySelector('.property-name')?.textContent?.toLowerCase() || '';
+      const fieldType = row.querySelector('.field-type')?.textContent?.toLowerCase() || '';
+      const propertyGroup = row.querySelector('.property-group')?.textContent?.toLowerCase() || '';
 
-      if (fieldName.includes(term) || fieldLabel.includes(term) || fieldType.includes(term)) {
-        item.style.display = 'block';
+      if (fieldName.includes(term) ||
+        fieldTitle.includes(term) ||
+        propertyName.includes(term) ||
+        fieldType.includes(term) ||
+        propertyGroup.includes(term)) {
+        row.style.display = 'grid';
       } else {
-        item.style.display = 'none';
+        row.style.display = 'none';
       }
     });
   };
@@ -191,8 +214,6 @@ export default class PropertiesFields extends HTMLElement {
       <div class="container">
         ${this.getHeader()}
         ${this.getViewSwitcher()}
-        ${this.getControls()}
-        ${this.getFieldsStats()}
         ${this.getFieldsList()}
       </div>
     `;
@@ -219,28 +240,6 @@ export default class PropertiesFields extends HTMLElement {
         <button class="view-btn ${this.currentView === 'leads' ? 'active' : ''}" data-view="leads">
           Lead Fields
         </button>
-      </div>
-    `;
-  };
-
-  getControls = () => {
-    const types = this.getUniqueTypes();
-
-    return /* html */ `
-      <div class="controls">
-        <div class="search-container">
-          <input type="text" class="search-input" placeholder="Search field names, labels, or types..." />
-          <span class="search-icon">🔍</span>
-        </div>
-        
-        <div class="filter-container">
-          <select class="type-filter">
-            <option value="all">All Field Types</option>
-            ${types.map(type => /* html */ `
-              <option value="${type}">${this.getTypeDisplayName(type)}</option>
-            `).join('')}
-          </select>
-        </div>
       </div>
     `;
   };
@@ -279,38 +278,6 @@ export default class PropertiesFields extends HTMLElement {
     return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  getFieldsStats = () => {
-    if (!this.propertiesData || this.propertiesData.length === 0) {
-      return '';
-    }
-
-    const stats = this.calculateFieldsStats(this.propertiesData);
-
-    return /* html */ `
-      <div class="fields-stats">
-        <h3>Fields Overview</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-count">${stats.totalFields}</span>
-            <span class="stat-label">Total Fields</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.formFields}</span>
-            <span class="stat-label">Form Fields</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.requiredFields}</span>
-            <span class="stat-label">Required Fields</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.fieldTypes}</span>
-            <span class="stat-label">Field Types</span>
-          </div>
-        </div>
-      </div>
-    `;
-  };
-
   calculateFieldsStats = (properties) => {
     const totalFields = properties.length;
     const formFields = properties.filter(p => p.formField).length;
@@ -332,14 +299,17 @@ export default class PropertiesFields extends HTMLElement {
       return this.getEmptyMessage();
     }
 
-    // Group fields by field type for better organization
-    const groupedFields = this.groupFieldsByType(this.propertiesData);
-
     return /* html */ `
-      <div class="fields-container">
-        ${Object.entries(groupedFields).map(([type, fields]) =>
-      this.getFieldGroup(type, fields)
-    ).join('')}
+      <div class="properties-table">
+        <div class="table-header">
+          <div class="header-cell">Field</div>
+          <div class="header-cell">Group</div>
+          <div class="header-cell">Type</div>
+          <div class="header-cell">Actions</div>
+        </div>
+        <div class="table-body">
+          ${this.propertiesData.map(field => this.getFieldRow(field)).join('')}
+        </div>
       </div>
     `;
   };
@@ -371,58 +341,121 @@ export default class PropertiesFields extends HTMLElement {
     `;
   };
 
-  getFieldItem = (field) => {
+  getFieldRow = (field) => {
+    const uniqueId = `field-${field.name}`;
     const fieldType = field.fieldType || field.type || 'unknown';
 
     return /* html */ `
-      <div class="field-item" 
-           data-field-name="${field.name}" 
-           data-field-type="${fieldType}" 
-           tabindex="0">
-        <div class="field-header">
-          <div class="field-info">
-            <h4 class="field-name">${field.label || field.name}</h4>
-            <span class="field-type type-${fieldType}">${fieldType}</span>
-            ${field.formField ? '<span class="form-badge">Form Field</span>' : ''}
-            ${field.displayOrder >= 0 ? '<span class="required-badge">Required</span>' : ''}
+      <div class="property-row" data-field-name="${field.name}">
+        <div class="cell property-cell">
+          <div class="property-main">
+            <div class="property-info">
+              <h4 class="property-title">${field.label || field.name}</h4>
+              <span class="property-name">${field.name}</span>
+            </div>
           </div>
-          ${this.getFieldStatus(field)}
         </div>
         
-        <div class="field-body">
-          <div class="field-details">
-            <div class="detail-item">
-              <span class="detail-label">Internal Name</span>
-              <span class="detail-value field-name-value">${field.name}</span>
+        <div class="cell type-cell">
+          <span class="property-group">${field.groupName || 'Default'}</span>
+        </div>
+        
+        <div class="cell status-cell">
+          <div class="type-info">
+            <span class="property-type type-${fieldType}">${this.getTypeDisplayName(fieldType)}</span>
+            <span class="field-type">${fieldType}</span>
+          </div>
+        </div>
+        
+        <div class="cell actions-cell">
+          <button class="expand-btn" aria-expanded="false" aria-controls="${uniqueId}-details">
+            <span class="expand-icon">${this.getSVGIcon('expand')}</span>
+          </button>
+        </div>
+        
+        <div class="property-details" id="${uniqueId}-details">
+          <div class="details-grid">
+            <div class="detail-section">
+              <h5 class="section-title">
+                ${this.getSVGIcon('info')}
+                Basic Information
+              </h5>
+              <div class="detail-items">
+                ${field.description ? `<div class="detail-item">
+                  <span class="detail-label">Description:</span>
+                  <span class="detail-value">${field.description}</span>
+                </div>` : ''}
+                <div class="detail-item">
+                  <span class="detail-label">Group:</span>
+                  <span class="detail-value">${field.groupName || 'N/A'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Field Type:</span>
+                  <span class="detail-value">${fieldType}</span>
+                </div>
+                ${field.formField ? `<div class="detail-item">
+                  <span class="detail-label">Form Field:</span>
+                  <span class="detail-value">Yes</span>
+                </div>` : ''}
+              </div>
             </div>
             
-            ${field.description ? /* html */ `
-              <div class="detail-item">
-                <span class="detail-label">Description</span>
-                <p class="detail-value field-description">${field.description}</p>
-              </div>
-            ` : ''}
-            
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Group</span>
-                <span class="detail-value">${field.groupName || 'Default'}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Display Order</span>
-                <span class="detail-value">${field.displayOrder >= 0 ? field.displayOrder : 'N/A'}</span>
-              </div>
-            </div>
-            
-            ${this.getFieldOptions(field)}
-            
-            ${this.getFieldConfiguration(field)}
-            
-            ${this.getFieldMetadata(field)}
+            ${this.getFieldOptionsSection(field)}
+            ${this.getFieldConfigurationSection(field)}
+            ${this.getFieldMetadataSection(field)}
           </div>
         </div>
       </div>
     `;
+  };
+
+  getSVGIcon = (type) => {
+    const icons = {
+      string: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 7V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3M4 7h16M4 7v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/>
+        <path d="M9 11h6"/>
+      </svg>`,
+      enumeration: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>`,
+      number: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">#</text>
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>`,
+      date: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>`,
+      bool: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 12l2 2 4-4"/>
+        <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
+      </svg>`,
+      expand: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>`,
+      info: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>`,
+      options: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <path d="M9 9h6v6H9z"/>
+      </svg>`,
+      metadata: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10,9 9,9 8,9"/>
+      </svg>`,
+      property: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 2v20M14 2v20M4 7h16M4 17h16"/>
+      </svg>`
+    };
+    return icons[type] || icons.property;
   };
 
   getFieldStatus = (field) => {
@@ -451,77 +484,86 @@ export default class PropertiesFields extends HTMLElement {
     ` : '';
   };
 
-  getFieldOptions = (field) => {
+  getFieldOptionsSection = (field) => {
     if (!field.options || field.options.length === 0) {
       return '';
     }
 
     return /* html */ `
-      <div class="field-options">
-        <span class="detail-label">Available Options (${field.options.length})</span>
-        <div class="options-list">
-          ${field.options.slice(0, 5).map(option => /* html */ `
-            <span class="option-tag" title="${option.description || ''}">${option.label}</span>
-          `).join('')}
-          ${field.options.length > 5 ? /* html */ `
-            <span class="option-more">+${field.options.length - 5} more options</span>
-          ` : ''}
-        </div>
-        ${field.options.length > 5 ? /* html */ `
-          <div class="all-options" style="display: none;">
-            ${field.options.slice(5).map(option => /* html */ `
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('options')}
+          Available Options (${field.options.length})
+        </h5>
+        <div class="detail-items">
+          <div class="options-list">
+            ${field.options.slice(0, 5).map(option => `
               <span class="option-tag" title="${option.description || ''}">${option.label}</span>
             `).join('')}
+            ${field.options.length > 5 ? `
+              <span class="option-more">+${field.options.length - 5} more options</span>
+            ` : ''}
           </div>
-        ` : ''}
+        </div>
       </div>
     `;
   };
 
-  getFieldConfiguration = (field) => {
+  getFieldConfigurationSection = (field) => {
     const configs = [];
 
-    if (field.hasUniqueValue) configs.push('Unique Values Required');
+    if (field.hasUniqueValue) configs.push('Unique Values');
     if (field.searchableInGlobalSearch) configs.push('Globally Searchable');
     if (field.referencedObjectType) configs.push(`References: ${field.referencedObjectType}`);
-    if (field.externalOptions) configs.push('External Options Source');
+    if (field.externalOptions) configs.push('External Options');
 
     if (configs.length === 0) return '';
 
     return /* html */ `
-      <div class="field-configuration">
-        <span class="detail-label">Configuration Settings</span>
-        <div class="config-tags">
-          ${configs.map(config => /* html */ `
-            <span class="config-tag">${config}</span>
-          `).join('')}
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('info')}
+          Configuration Settings
+        </h5>
+        <div class="detail-items">
+          <div class="config-tags">
+            ${configs.map(config => `
+              <span class="config-tag">${config}</span>
+            `).join('')}
+          </div>
         </div>
       </div>
     `;
   };
 
-  getFieldMetadata = (field) => {
+  getFieldMetadataSection = (field) => {
     return /* html */ `
-      <div class="field-metadata">
-        <div class="metadata-row">
-          <div class="detail-item">
-            <span class="detail-label">Created</span>
-            <span class="detail-value">${this.formatDate(field.createdAt)}</span>
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('metadata')}
+          Metadata
+        </h5>
+        <div class="detail-items">
+          <div class="metadata-row">
+            <div class="detail-item">
+              <span class="detail-label">Created:</span>
+              <span class="detail-value">${this.formatDate(field.createdAt)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Updated:</span>
+              <span class="detail-value">${this.formatDate(field.updatedAt)}</span>
+            </div>
           </div>
-          <div class="detail-item">
-            <span class="detail-label">Updated</span>
-            <span class="detail-value">${this.formatDate(field.updatedAt)}</span>
-          </div>
-        </div>
-        
-        <div class="detail-row">
-          <div class="detail-item">
-            <span class="detail-label">HubSpot Defined</span>
-            <span class="detail-value">${field.hubspotDefined ? 'Yes' : 'No'}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Modification Allowed</span>
-            <span class="detail-value">${field.modificationMetadata?.readOnlyDefinition ? 'No' : 'Yes'}</span>
+          
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">HubSpot Defined:</span>
+              <span class="detail-value">${field.hubspotDefined ? 'Yes' : 'No'}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Modification Allowed:</span>
+              <span class="detail-value">${field.modificationMetadata?.readOnlyDefinition ? 'No' : 'Yes'}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -556,30 +598,21 @@ export default class PropertiesFields extends HTMLElement {
     });
   };
 
-  getStyles = () => {
+
+  getStyles() {
     return /* html */ `
       <style>
         :host {
           display: block;
-          width: 100%;
-          background-color: var(--background);
-          font-family: var(--font-text), sans-serif;
-          line-height: 1.6;
-          color: var(--text-color);
-        }
-
-        * {
-          box-sizing: border-box;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .container {
+          padding: 24px;
+          background: var(--background);
+          color: var(--text-color);
+          border-radius: 8px;
           max-width: 100%;
-          margin: 0 auto;
-          padding: 15px 0;
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
         }
 
         .header {
@@ -587,6 +620,7 @@ export default class PropertiesFields extends HTMLElement {
           flex-direction: column;
           flex-flow: column;
           gap: 0;
+          margin-bottom: 20px;
         }
 
         .header h1 {
@@ -608,315 +642,268 @@ export default class PropertiesFields extends HTMLElement {
 
         .view-switcher {
           display: flex;
-          justify-content: center;
           gap: 8px;
-          margin-bottom: 10px;
+          margin-bottom: 20px;
+          padding: 4px;
+          background: var(--gray-background);
+          border-radius: 8px;
+          width: fit-content;
         }
 
         .view-btn {
-          background: var(--background);
-          border: var(--border);
-          color: var(--text-color);
           padding: 8px 16px;
+          border: none;
+          background: transparent;
+          color: var(--text-color);
           border-radius: 6px;
           cursor: pointer;
-          font-size: 0.9rem;
+          font-size: 14px;
+          font-weight: 500;
           transition: all 0.2s ease;
-        }
-
-        .view-btn:hover {
-          border-color: var(--accent-color);
-          color: var(--accent-color);
         }
 
         .view-btn.active {
-          background: var(--accent-color);
+          background: var(--hubspot-color);
           color: var(--white-color);
-          border-color: var(--accent-color);
         }
 
-        .controls {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        .search-container {
-          position: relative;
-          max-width: 350px;
-          flex: 1;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 8px 35px 8px 12px;
-          border: var(--border);
-          border-radius: 6px;
+        .view-btn:hover:not(.active) {
           background: var(--background);
-          color: var(--text-color);
-          font-size: 0.9rem;
         }
 
-        .search-input:focus {
-          outline: none;
-          border-color: var(--accent-color);
-        }
-
-        .search-icon {
-          position: absolute;
-          right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--gray-color);
-          pointer-events: none;
-        }
-
-        .filter-container {
-          display: flex;
-          gap: 8px;
-        }
-
-        .type-filter {
-          padding: 8px 12px;
-          border: var(--border);
+        .properties-summary {
+          margin-bottom: 20px;
+          padding: 12px 16px;
+          background: var(--gray-background);
           border-radius: 6px;
-          background: var(--background);
+          border: 1px solid var(--border-color);
+        }
+
+        .summary-text {
+          font-size: 14px;
           color: var(--text-color);
-          font-size: 0.9rem;
-          cursor: pointer;
+          font-weight: 500;
         }
 
-        .type-filter:focus {
-          outline: none;
-          border-color: var(--accent-color);
-        }
-
-        .fields-stats {
-          background: var(--create-background);
-          border: var(--border);
+        .properties-table {
+          background: var(--background);
           border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 10px;
+          border: 1px solid var(--border-color);
+          overflow: hidden;
         }
 
-        .fields-stats h3 {
-          margin: 0 0 12px 0;
-          color: var(--accent-color);
-          font-size: 1.1rem;
-        }
-
-        .stats-grid {
+        .table-header {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 12px;
-        }
-
-        .stat-item {
-          text-align: center;
-          background: var(--background);
-          border-radius: 6px;
-          padding: 12px 8px;
-        }
-
-        .stat-count {
-          display: block;
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--accent-color);
-          margin-bottom: 4px;
-        }
-
-        .stat-label {
-          font-size: 0.8rem;
-          color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
-        }
-
-        .fields-container {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
-
-        .field-group {
-          background: var(--background);
-          border: var(--border);
-          border-radius: 8px;
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 16px;
+          background: var(--gray-background);
           padding: 16px;
-        }
-
-        .group-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          padding-bottom: 8px;
           border-bottom: var(--border);
         }
 
-        .group-header h3 {
-          margin: 0;
+        .header-cell {
+          font-weight: 600;
           color: var(--title-color);
-          font-size: 1.2rem;
+          font-size: 14px;
         }
 
-        .group-count {
-          background: var(--gray-background);
-          color: var(--gray-color);
-          font-size: 0.8rem;
-          padding: 4px 8px;
-          border-radius: 10px;
-        }
-
-        .fields-list {
+        .table-body {
           display: flex;
           flex-direction: column;
-          gap: 8px;
         }
 
-        .field-item {
-          border: var(--border);
-          border-radius: 6px;
-          padding: 12px;
-          transition: all 0.2s ease;
-          cursor: pointer;
+        .property-row {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 16px;
+          padding: 16px;
+          border-bottom: var(--border);
+          transition: background-color 0.2s ease;
         }
 
-        .field-item:hover {
-          border-color: var(--accent-color);
+        .property-row:last-child {
+          border-bottom: none;
         }
 
-        .field-item:focus {
-          outline: none;
-          border-color: var(--accent-color);
-        }
-
-        .field-item.expanded .field-body {
-          display: block;
-        }
-
-        .field-header {
+        .cell {
           display: flex;
-          justify-content: space-between;
+          align-items: center;
+        }
+
+        .property-cell {
+          flex-direction: column;
           align-items: flex-start;
         }
 
-        .field-info {
+        .property-main {
           display: flex;
           align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
+          width: 100%;
         }
 
-        .field-name {
-          margin: 0;
-          font-size: 1rem;
+        .property-info {
+          flex: 1;
+        }
+
+        .property-title {
+          font-size: 14px;
           font-weight: 600;
           color: var(--title-color);
+          margin: 0 0 4px 0;
         }
 
-        .field-type {
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
+        .property-name {
+          font-size: 12px;
+          color: var(--gray-color);
+          font-family: monospace;
+        }
+
+        .type-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .property-group {
+          background: var(--gray-background);
+          color: var(--text-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
           font-weight: 500;
-          text-transform: uppercase;
-          background: var(--accent-color);
+          border: 1px solid var(--border-color);
+        }
+
+        .status-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .type-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .property-type {
+          background: var(--success-color);
           color: var(--white-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
         }
 
         /* Type-specific colors */
-        .field-type.type-text,
-        .field-type.type-string {
+        .property-type.type-string {
           background: var(--success-color);
         }
 
-        .field-type.type-textarea {
-          background: var(--hubspot-color);
-        }
-
-        .field-type.type-select,
-        .field-type.type-enumeration {
+        .property-type.type-enumeration {
           background: var(--alt-color);
         }
 
-        .field-type.type-number {
+        .property-type.type-number {
           background: var(--accent-color);
         }
 
-        .field-type.type-date,
-        .field-type.type-datetime {
-          background: var(--error-color);
-        }
-
-        .field-type.type-checkbox,
-        .field-type.type-booleancheckbox,
-        .field-type.type-bool {
+        .property-type.type-bool {
           background: var(--gray-color);
         }
 
-        .form-badge {
-          background: var(--success-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
-        }
-
-        .required-badge {
+        .property-type.type-datetime,
+        .property-type.type-date {
           background: var(--error-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
         }
 
-        .field-status {
+        .field-type {
+          font-size: 11px;
+          color: var(--gray-color);
+        }
+
+        .actions-cell {
+          justify-content: center;
+        }
+
+        .expand-btn {
+          background: none;
+          border: 1px solid var(--border-color);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
           display: flex;
-          gap: 4px;
-          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
         }
 
-        .status-badge {
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-          font-weight: 500;
+        .expand-btn:hover {
+          background: var(--gray-background);
+          border-color: var(--hubspot-color);
         }
 
-        .status-badge.readonly {
-          background: var(--gray-color);
-          color: var(--white-color);
+        .expand-icon {
+          width: 16px;
+          height: 16px;
+          color: var(--gray-color);
+          transition: transform 0.2s ease;
         }
 
-        .status-badge.hidden {
-          background: var(--alt-color);
-          color: var(--white-color);
+        .expand-btn.expanded .expand-icon {
+          transform: rotate(180deg);
         }
 
-        .status-badge.calculated {
-          background: var(--create-color);
-          color: var(--white-color);
-        }
-
-        .status-badge.unique {
+        .expand-btn.expanded {
           background: var(--hubspot-color);
+          border-color: var(--hubspot-color);
+        }
+
+        .expand-btn.expanded .expand-icon {
           color: var(--white-color);
         }
 
-        .field-body {
+        .property-details {
           display: none;
-          padding-top: 12px;
-          border-top: var(--border);
-          margin-top: 8px;
+          grid-column: 1 / -1;
+          margin-top: 16px;
+          padding: 20px;
+          background: var(--gray-background);
+          border-radius: 6px;
+          border: 1px solid var(--border-color);
         }
 
-        .field-details {
+        .property-details.expanded {
+          display: block;
+        }
+
+        .details-grid {
+          display: grid;
+          gap: 20px;
+        }
+
+        .detail-section {
+          background: var(--background);
+          border-radius: 6px;
+          padding: 16px;
+          border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          color: var(--title-color);
+          font-size: 14px;
+          margin: 0 0 12px 0;
+        }
+
+        .section-title .icon {
+          width: 16px;
+          height: 16px;
+          color: var(--hubspot-color);
+        }
+
+        .detail-items {
           display: flex;
           flex-direction: column;
           gap: 8px;
@@ -924,106 +911,100 @@ export default class PropertiesFields extends HTMLElement {
 
         .detail-item {
           display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          align-items: flex-start;
+          gap: 8px;
         }
 
         .detail-label {
-          font-size: 0.75rem;
+          font-size: 12px;
           color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
+          font-weight: 500;
+          min-width: 80px;
         }
 
         .detail-value {
-          font-size: 0.85rem;
+          font-size: 14px;
+          color: var(--text-color);
+          flex: 1;
+        }
+
+        .validation-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .validation-tag {
+          background: var(--success-color);
+          color: var(--white-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .options-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .options-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 8px;
+        }
+
+        .option-item {
+          background: var(--background);
+          border: 1px solid var(--border-color);
+          padding: 8px 12px;
+          border-radius: 4px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .option-label {
+          font-size: 13px;
           color: var(--text-color);
           font-weight: 500;
         }
 
-        .field-name-value {
+        .option-value {
+          font-size: 11px;
+          color: var(--gray-color);
           font-family: monospace;
-          background: var(--background);
-          padding: 2px 6px;
+        }
+
+        .show-more-btn {
+          background: none;
+          border: 1px solid var(--border-color);
+          color: var(--text-color);
+          padding: 8px 12px;
           border-radius: 4px;
-          font-size: 0.8rem;
-        }
-
-        .field-description {
-          margin: 0;
-          line-height: 1.4;
-          font-style: italic;
-        }
-
-        .field-options {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .options-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-        }
-
-        .option-tag {
-          background: var(--accent-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-          cursor: help;
-        }
-
-        .option-more {
-          background: var(--gray-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-          font-style: italic;
           cursor: pointer;
-        }
-
-        .field-configuration {
+          font-size: 12px;
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 6px;
+          transition: all 0.2s ease;
         }
 
-        .config-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
+        .show-more-btn:hover {
+          background: var(--gray-background);
+          border-color: var(--hubspot-color);
         }
 
-        .config-tag {
-          background: var(--success-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-        }
-
-        .field-metadata {
-          background: var(--background);
-          border-radius: 4px;
-          padding: 8px;
-          margin-top: 4px;
-        }
-
-        .metadata-row {
+        .metadata-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 12px;
-          margin-bottom: 8px;
+        }
+
+        .icon {
+          width: 16px;
+          height: 16px;
+          fill: currentColor;
         }
 
         .loader-container {
@@ -1036,8 +1017,8 @@ export default class PropertiesFields extends HTMLElement {
         .loader {
           width: 40px;
           height: 40px;
-          border: 3px solid var(--gray-background);
-          border-top: 3px solid var(--accent-color);
+          border: 3px solid var(--border-color);
+          border-top: 3px solid var(--hubspot-color);
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }
@@ -1056,45 +1037,59 @@ export default class PropertiesFields extends HTMLElement {
         .empty-state h2 {
           margin: 0 0 8px 0;
           color: var(--title-color);
+          font-size: 18px;
+          font-weight: 600;
         }
 
         .empty-state p {
           margin: 0;
-          font-size: 0.9rem;
+          font-size: 14px;
+          line-height: 1.5;
         }
 
+        /* Mobile Responsive */
         @media (max-width: 768px) {
-          .detail-row,
-          .metadata-row {
+          .container {
+            padding: 16px;
+          }
+
+          .table-header,
+          .property-row {
             grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .field-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 6px;
+            gap: 12px;
           }
 
-          .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
+          .header-cell {
+            display: none;
           }
 
-          .controls {
-            flex-direction: column;
-            align-items: stretch;
+          .cell {
+            border-bottom: var(--border);
+            padding-bottom: 8px;
           }
 
-          .search-container {
-            max-width: 100%;
+          .cell:last-child {
+            border-bottom: none;
           }
 
-          .view-switcher {
-            flex-direction: column;
-            align-items: center;
+          .property-details {
+            margin-top: 12px;
+            padding: 16px;
+          }
+
+          .details-grid {
+            gap: 16px;
+          }
+
+          .options-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .metadata-grid {
+            grid-template-columns: 1fr;
           }
         }
       </style>
     `;
-  };
+  }
 }

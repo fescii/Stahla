@@ -11,6 +11,14 @@ export default class UserProfile extends HTMLElement {
     this._error = false;
     this._errorMessage = null;
 
+    // Add global update function for popups to call
+    if (this.app) {
+      this.app.updateUserData = (newUserData) => {
+        this.userData = newUserData;
+        this.render();
+      };
+    }
+
     this.render();
   }
 
@@ -38,6 +46,33 @@ export default class UserProfile extends HTMLElement {
     const editProfileBtn = this.shadowObj.querySelector('.edit-profile-btn');
     if (editProfileBtn) {
       editProfileBtn.addEventListener('click', this._handleEditProfile);
+    }
+
+    // Security button
+    const securityBtn = this.shadowObj.querySelector('.security-btn');
+    if (securityBtn) {
+      securityBtn.addEventListener('click', () => {
+        console.log('Security settings clicked');
+        // TODO: Implement security settings
+      });
+    }
+
+    // Notifications button
+    const notifyBtn = this.shadowObj.querySelector('.notify-btn');
+    if (notifyBtn) {
+      notifyBtn.addEventListener('click', () => {
+        console.log('Notification settings clicked');
+        // TODO: Implement notification settings
+      });
+    }
+
+    // Activity button
+    const activityBtn = this.shadowObj.querySelector('.activity-btn');
+    if (activityBtn) {
+      activityBtn.addEventListener('click', () => {
+        console.log('Activity log clicked');
+        // TODO: Implement activity log
+      });
     }
   }
 
@@ -103,8 +138,16 @@ export default class UserProfile extends HTMLElement {
   // Handle edit profile action
   _handleEditProfile = () => {
     console.log("Edit profile button clicked");
-    // Implement edit profile functionality or navigation here
-    // For example, could open a modal or navigate to an edit page
+    console.log("Current user data:", this.userData);
+
+    // Remove any existing popups first
+    const existingPopups = document.querySelectorAll('edit-profile-popup, edit-user-admin-popup, delete-popup');
+    existingPopups.forEach(popup => popup.remove());
+
+    // Create and show edit profile popup
+    const popup = document.createElement('edit-profile-popup');
+    popup.setAttribute('user', JSON.stringify(this.userData));
+    document.body.insertBefore(popup, document.body.lastElementChild);
   };
 
   getTemplate() {
@@ -140,7 +183,10 @@ export default class UserProfile extends HTMLElement {
         
         <div class="profile-card">
           <div class="profile-avatar">
-            ${this._getInitialsAvatar(this.userData.name)}
+            ${this.userData.picture
+        ? `<img src="${this.userData.picture}" alt="Profile picture" class="profile-image">`
+        : this._getInitialsAvatar(this.userData.name)
+      }
           </div>
           
           <div class="profile-details">
@@ -157,6 +203,13 @@ export default class UserProfile extends HTMLElement {
                 <span class="info-label">Email Address</span>
                 <span class="info-value">${this.userData.email}</span>
               </div>
+              
+              ${this.userData.bio ? `
+                <div class="info-item">
+                  <span class="info-label">Bio</span>
+                  <span class="info-value bio">${this.userData.bio}</span>
+                </div>
+              ` : ''}
               
               <div class="info-item">
                 <span class="info-label">User ID</span>
@@ -418,6 +471,14 @@ export default class UserProfile extends HTMLElement {
         font-weight: bold;
         border: 3px solid rgba(255, 255, 255, 0.8);
       }
+
+      .profile-image {
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid var(--border);
+      }
       
       .avatar-initials {
         font-size: 2.6rem;
@@ -592,6 +653,13 @@ export default class UserProfile extends HTMLElement {
         background-color: var(--gray-background);
         display: inline-block;
         max-width: fit-content;
+      }
+
+      .info-value.bio {
+        line-height: 1.5;
+        font-family: var(--font-text), sans-serif;
+        opacity: 0.9;
+        font-style: italic;
       }
       
       .info-item:hover .info-value.id {

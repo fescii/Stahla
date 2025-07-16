@@ -31,9 +31,15 @@ class ImageProcessor:
     """
     try:
       with Image.open(io.BytesIO(file_content)) as img:
+        # Get format before verification (verify destroys the image)
+        img_format = img.format
+        # Check if format is supported
+        if img_format not in ImageProcessor.SUPPORTED_FORMATS:
+          logfire.warning(f"Unsupported image format: {img_format}")
+          return False
         # Verify it's a valid image by attempting to load it
         img.verify()
-        return img.format in ImageProcessor.SUPPORTED_FORMATS
+        return True
     except Exception as e:
       logfire.warning(f"Image validation failed: {e}")
       return False
@@ -165,21 +171,28 @@ class ImageProcessor:
     Raises:
         ValueError: If the image cannot be processed
     """
-    # Validate the image
-    if not ImageProcessor.validate_image(file_content):
-      raise ValueError("Invalid image format or corrupted image data")
+    try:
+      # Validate the image
+      if not ImageProcessor.validate_image(file_content):
+        raise ValueError("Invalid image format or corrupted image data")
 
-    # Create thumbnail
-    thumbnail_bytes = ImageProcessor.create_thumbnail(file_content)
+      # Create thumbnail
+      thumbnail_bytes = ImageProcessor.create_thumbnail(file_content)
 
-    # Generate filename - always use .jpg for thumbnails since we convert to JPEG
-    original_name = Path(original_filename).stem
-    final_filename = f"{original_name}_{timestamp}.jpg"
+      # Generate filename - always use .jpg for thumbnails since we convert to JPEG
+      original_name = Path(original_filename).stem
+      final_filename = f"{original_name}_{timestamp}.jpg"
 
-    logfire.info(
-        f"Processed user picture: {original_filename} -> {final_filename}")
+      logfire.info(
+          f"Processed user picture: {original_filename} -> {final_filename}")
 
-    return thumbnail_bytes, final_filename
+      return thumbnail_bytes, final_filename
+
+    except Exception as e:
+      logfire.error(
+          f"Error processing user picture {original_filename}: {e}", exc_info=True)
+      raise ValueError(
+          f"Invalid image format or corrupted image data: {str(e)}")
 
 
 # Convenience functions for backward compatibility

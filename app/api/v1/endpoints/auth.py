@@ -1,9 +1,9 @@
 # filepath: app/api/v1/endpoints/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, Form
-from typing import Any, List  # Import List
+from typing import Any, List, Optional, Literal  # Import List, Optional, Literal
 import logfire
 import uuid  # Import uuid
-from pydantic import BaseModel  # Add BaseModel import
+from pydantic import BaseModel, Field  # Add BaseModel and Field import
 import os
 import shutil
 from pathlib import Path
@@ -30,6 +30,7 @@ def user_in_db_to_user(user_in_db: UserInDB) -> User:
       id=user_in_db.id,
       email=user_in_db.email,
       name=user_in_db.name,
+      bio=getattr(user_in_db, 'bio', None),
       role=user_in_db.role,
       is_active=user_in_db.is_active,
       picture=user_in_db.picture
@@ -169,6 +170,9 @@ async def read_users_endpoint(
     users = []
     for doc in user_docs:
       doc["id"] = doc.get("_id")
+      # Ensure bio field exists for compatibility
+      if "bio" not in doc:
+        doc["bio"] = None
       # Exclude hashed_password from response
       if "hashed_password" in doc:
         del doc["hashed_password"]
@@ -195,6 +199,9 @@ async def read_user_by_id_endpoint(
     user_doc = await collection.find_one({"_id": user_id})
     if user_doc:
       user_doc["id"] = user_doc.get("_id")
+      # Ensure bio field exists for compatibility
+      if "bio" not in user_doc:
+        user_doc["bio"] = None
       # Exclude hashed_password from response
       if "hashed_password" in user_doc:
         del user_doc["hashed_password"]
@@ -501,4 +508,232 @@ async def delete_user_picture(
         f"Error deleting picture for user {user_id}: {e}", exc_info=True)
     return GenericResponse.error(
         message="Failed to delete picture", details=str(e), status_code=500
+    )
+
+
+# Additional models for profile updates
+class ProfileUpdate(BaseModel):
+  name: Optional[str] = Field(default=None, description="User's new name")
+  bio: Optional[str] = Field(default=None, description="User's bio")
+
+
+class ProfileAdminUpdate(BaseModel):
+  role: Literal["admin", "member", "dev"] = Field(..., description="User role")
+  is_active: bool = Field(..., description="Whether user is active")
+
+
+@router.patch("/me/profile", response_model=GenericResponse[User])
+async def update_profile(
+    profile_update: ProfileUpdate,
+    auth_service: AuthService = Depends(get_auth_service),
+    current_user: UserInDB = Depends(get_current_user),
+):
+  """Update current user's profile (name and/or bio)."""
+  try:
+    collection = await auth_service.get_users_collection()
+
+    # Build update data only with provided fields
+    update_data = {}
+    if profile_update.name is not None:
+      update_data["name"] = profile_update.name
+    if profile_update.bio is not None:
+      update_data["bio"] = profile_update.bio
+
+    # If no fields to update, return error
+    if not update_data:
+      return GenericResponse.error(
+          message="No fields provided to update",
+          status_code=status.HTTP_400_BAD_REQUEST
+      )
+
+    update_result = await collection.update_one(
+        {"_id": current_user.id},
+        {"$set": update_data}
+    )
+
+    if update_result.modified_count == 0:
+      return GenericResponse.error(
+          message="Failed to update profile",
+          status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+      )
+
+    # Return updated user
+    updated_user_doc = await collection.find_one({"_id": current_user.id})
+    if updated_user_doc:
+      updated_user_doc["id"] = updated_user_doc.get("_id")
+      # Ensure bio field exists for compatibility
+      if "bio" not in updated_user_doc:
+        updated_user_doc["bio"] = None
+      # Exclude hashed_password from response
+      if "hashed_password" in updated_user_doc:
+        del updated_user_doc["hashed_password"]
+      return GenericResponse(data=User(**updated_user_doc))
+
+    return GenericResponse.error(
+        message="User updated but failed to retrieve updated data",
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
+
+  except Exception as e:
+    logfire.error(
+        f"Error updating profile for user {current_user.id}: {e}", exc_info=True)
+    return GenericResponse.error(
+        message="Failed to update profile", details=str(e), status_code=500
+    )
+
+
+@router.patch("/users/{user_id}/admin", response_model=GenericResponse[User])
+async def update_user_admin_fields(
+    user_id: uuid.UUID,
+    admin_update: ProfileAdminUpdate,
+    auth_service: AuthService = Depends(get_auth_service),
+    current_admin: UserInDB = Depends(get_current_active_admin),
+):
+  """Update user role and status (Admin only)."""
+  try:
+    collection = await auth_service.get_users_collection()
+
+    # Check if user exists
+    user_doc = await collection.find_one({"_id": user_id})
+    if not user_doc:
+      return GenericResponse.error(message="User not found", status_code=404)
+
+    # Prevent admin from deactivating themselves
+    if user_id == current_admin.id and not admin_update.is_active:
+      return GenericResponse.error(
+          message="You cannot deactivate your own account",
+          status_code=status.HTTP_400_BAD_REQUEST
+      )
+
+    # Prevent admin from demoting themselves if they're the only admin
+    if user_id == current_admin.id and admin_update.role != "admin":
+      admin_count = await collection.count_documents({"role": "admin", "is_active": True})
+      if admin_count <= 1:
+        return GenericResponse.error(
+            message="Cannot change role. You are the only active admin.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Prevent demoting any admin if they would be the last active admin
+    if user_doc.get("role") == "admin" and admin_update.role != "admin":
+      # Count other active admins (excluding the user being modified)
+      other_admin_count = await collection.count_documents({
+          "_id": {"$ne": user_id},
+          "role": "admin",
+          "is_active": True
+      })
+      if other_admin_count == 0:
+        return GenericResponse.error(
+            message="Cannot demote this admin. At least one active admin must remain to maintain system access.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Update user document
+    update_data = {
+        "role": admin_update.role,
+        "is_active": admin_update.is_active
+    }
+
+    update_result = await collection.update_one(
+        {"_id": user_id},
+        {"$set": update_data}
+    )
+
+    if update_result.modified_count == 0:
+      return GenericResponse.error(
+          message="Failed to update user",
+          status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+      )
+
+    # Return updated user
+    updated_user_doc = await collection.find_one({"_id": user_id})
+    if updated_user_doc:
+      updated_user_doc["id"] = updated_user_doc.get("_id")
+      # Ensure bio field exists for compatibility
+      if "bio" not in updated_user_doc:
+        updated_user_doc["bio"] = None
+      # Exclude hashed_password from response
+      if "hashed_password" in updated_user_doc:
+        del updated_user_doc["hashed_password"]
+      return GenericResponse(data=User(**updated_user_doc))
+
+    return GenericResponse.error(
+        message="User updated but failed to retrieve updated data",
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
+
+  except Exception as e:
+    logfire.error(
+        f"Error updating admin fields for user {user_id}: {e}", exc_info=True)
+    return GenericResponse.error(
+        message="Failed to update user", details=str(e), status_code=500
+    )
+
+
+# Admin validation models
+class AdminDemotionValidation(BaseModel):
+  user_id: str
+
+
+class AdminValidationResponse(BaseModel):
+  can_demote: bool
+  message: Optional[str] = None
+
+
+@router.post("/users/validate-admin-demotion", response_model=GenericResponse[AdminValidationResponse])
+async def validate_admin_demotion(
+    validation_request: AdminDemotionValidation,
+    current_user: UserInDB = Depends(get_current_active_admin),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> GenericResponse[AdminValidationResponse]:
+  """
+  Validate if an admin user can be demoted without losing all admin access.
+  Only admins can call this endpoint.
+  """
+  try:
+    logfire.info(
+        f"Admin validation requested for user {validation_request.user_id} by {current_user.email}")
+
+    collection = await auth_service.get_users_collection()
+
+    # Get the user to be demoted
+    target_user_doc = await collection.find_one({"_id": validation_request.user_id})
+    if not target_user_doc:
+      return GenericResponse.error(
+          message="User not found",
+          status_code=status.HTTP_404_NOT_FOUND
+      )
+
+    # Check if target user is actually an admin
+    if target_user_doc.get("role") != "admin":
+      return GenericResponse(data=AdminValidationResponse(
+          can_demote=True,
+          message="User is not an admin, demotion allowed"
+      ))
+
+    # Count other active admins (excluding the user being demoted)
+    other_active_admins = await collection.count_documents({
+        "_id": {"$ne": validation_request.user_id},
+        "role": "admin",
+        "is_active": True
+    })
+
+    if other_active_admins == 0:
+      return GenericResponse(data=AdminValidationResponse(
+          can_demote=False,
+          message="Cannot demote the last active admin. At least one admin must remain to maintain system access."
+      ))
+
+    return GenericResponse(data=AdminValidationResponse(
+        can_demote=True,
+        message=f"Demotion allowed. {other_active_admins} other active admin(s) will remain."
+    ))
+
+  except Exception as e:
+    logfire.error(
+        f"Error validating admin demotion for user {validation_request.user_id}: {e}", exc_info=True)
+    return GenericResponse.error(
+        message="Failed to validate admin demotion",
+        details=str(e),
+        status_code=500
     )

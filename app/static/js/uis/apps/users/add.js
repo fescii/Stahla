@@ -11,6 +11,7 @@ export default class AddUser extends HTMLElement {
     this._formData = {
       name: '',
       email: '',
+      bio: '',
       password: '',
       is_active: true,
       is_admin: false
@@ -62,6 +63,18 @@ export default class AddUser extends HTMLElement {
     if (emailInput) {
       emailInput.addEventListener('input', (e) => {
         this._formData.email = e.target.value;
+      });
+    }
+
+    const bioInput = this.shadowObj.querySelector('#bio');
+    if (bioInput) {
+      bioInput.addEventListener('input', (e) => {
+        this._formData.bio = e.target.value;
+        // Update character count
+        const charCount = this.shadowObj.querySelector('.char-count');
+        if (charCount) {
+          charCount.textContent = `${e.target.value.length}/500`;
+        }
       });
     }
 
@@ -238,6 +251,7 @@ export default class AddUser extends HTMLElement {
     this._formData = {
       name: '',
       email: '',
+      bio: '',
       password: '',
       is_active: true,
       is_admin: false
@@ -280,6 +294,12 @@ export default class AddUser extends HTMLElement {
             <div class="form-group">
               <label for="name" class="form-label">Full Name</label>
               <input type="text" id="name" class="form-input" placeholder="Enter user's full name" value="${this._formData.name}">
+            </div>
+            
+            <div class="form-group">
+              <label for="bio" class="form-label">Bio</label>
+              <textarea id="bio" class="form-input bio-input" placeholder="Enter a brief bio (optional)" maxlength="500">${this._formData.bio}</textarea>
+              <span class="char-count">0/500</span>
             </div>
             
             <div class="form-group">
@@ -473,11 +493,27 @@ export default class AddUser extends HTMLElement {
         color: var(--text-color);
         font-size: 0.95rem;
         transition: border-color 0.2s ease;
+        font-family: var(--font-main), sans-serif;
+      }
+
+      .form-input.bio-input {
+        min-height: 100px;
+        resize: vertical;
+        font-family: var(--font-text), sans-serif;
+        line-height: 1.5;
       }
       
       .form-input:focus {
         border-color: var(--accent-color);
         outline: none;
+        box-shadow: 0 0 0 3px rgba(0, 96, 223, 0.1);
+      }
+
+      .char-count {
+        font-size: 0.8rem;
+        color: var(--gray-color);
+        align-self: flex-end;
+        margin-top: 4px;
       }
       
       .password-input-wrapper {

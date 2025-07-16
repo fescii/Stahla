@@ -91,91 +91,145 @@ export default class AppMain extends HTMLElement {
   }
 
   _updateActiveNavItem(url) {
-    // Find all expanded dropdowns first to maintain their visibility state
-    const expandedDropdowns = Array.from(this.shadowRoot.querySelectorAll('section.nav > ul.nav.special > li:not(.collapsed)'));
+    // Clear all active states first
+    this._clearAllActiveStates();
 
-    // Remove active class from all items
+    // Handle root/overview routes
+    if (this._isRootRoute(url)) {
+      this._activateOverviewNav();
+      return;
+    }
+
+    // Parse URL into segments
+    const segments = this._parseUrlSegments(url);
+    if (!segments.length) return;
+
+    // Try to activate navigation item
+    const activated = this._activateNavForSegments(segments);
+
+    // Fallback: try to match any segment
+    if (!activated) {
+      this._activateNavFallback(segments);
+    }
+  }
+
+  _clearAllActiveStates() {
     const allNavItems = this.shadowRoot.querySelectorAll('section.nav li');
     allNavItems.forEach(item => item.classList.remove('active'));
+  }
 
-    // Re-add active class to expanded dropdowns to maintain vertical line
-    expandedDropdowns.forEach(dropdown => {
-      dropdown.classList.add('active');
-    });
+  _isRootRoute(url) {
+    return url === '/' || url === '/overview';
+  }
 
-    // Add active class to the current nav item
-    if (url === '/' || url === '/overview') {
-      const overviewItem = this.shadowRoot.querySelector('li.overview');
-      if (overviewItem) overviewItem.classList.add('active');
+  _activateOverviewNav() {
+    const overviewItem = this.shadowRoot.querySelector('li.overview');
+    if (overviewItem) {
+      overviewItem.classList.add('active');
+    }
+  }
+
+  _parseUrlSegments(url) {
+    return url.split('/').filter(segment => segment.trim());
+  }
+
+  _activateNavForSegments(segments) {
+    const [mainSection, subSection] = segments;
+
+    // Find main navigation item using multiple selector strategies
+    const mainNavItem = this._findMainNavItem(mainSection);
+
+    if (!mainNavItem) {
+      return false;
+    }
+
+    // Handle subsection navigation
+    if (subSection) {
+      return this._activateSubNavigation(mainNavItem, subSection);
     } else {
-      // Parse URL segments
-      const urlSegments = url.split('/').filter(segment => segment);
+      // Just activate main section
+      this._activateNavItem(mainNavItem);
+      return true;
+    }
+  }
 
-      if (urlSegments.length === 0) return;
+  _findMainNavItem(mainSection) {
+    // Use only the two official navigation structures
+    // 1. Main navigation: ul.nav.main
+    // 2. Special navigation: ul.nav.special (handles both class orders)
 
-      // Get the main section (first segment)
-      const mainSection = urlSegments[0];
-      const subSection = urlSegments[1];
+    // Try main navigation first
+    let mainNavItem = this.shadowRoot.querySelector(`section.nav > ul.nav.main > li.${mainSection}`);
 
-      // Find the main navigation item for this section
-      const mainNavItem = this.shadowRoot.querySelector(`section.nav > ul.nav.special > li.${mainSection}`);
+    // If not found, try special navigation (both class orders)
+    if (!mainNavItem) {
+      mainNavItem = this.shadowRoot.querySelector(`section.nav > ul.nav.special > li.${mainSection}`) ||
+        this.shadowRoot.querySelector(`section.nav > ul.special.nav > li.${mainSection}`);
+    }
 
-      if (mainNavItem) {
-        // If there's a subsection, look for it in the dropdown
-        if (subSection) {
-          const dropdownContainer = mainNavItem.querySelector('ul.dropdown');
+    return mainNavItem;
+  }
 
-          if (dropdownContainer) {
-            // Look for the specific subsection in this dropdown only
-            const subNavItem = dropdownContainer.querySelector(`li.${subSection}`);
+  _activateSubNavigation(mainNavItem, subSection) {
+    const dropdownContainer = mainNavItem.querySelector('ul.dropdown');
 
-            if (subNavItem) {
-              // Mark the specific sub-item as active
-              subNavItem.classList.add('active');
+    if (!dropdownContainer) {
+      // No dropdown, just activate main item
+      this._activateNavItem(mainNavItem);
+      return true;
+    }
 
-              // Mark the parent section as active
-              mainNavItem.classList.add('active');
+    // Look for subsection in dropdown
+    const subNavItem = dropdownContainer.querySelector(`li.${subSection}`);
 
-              // Expand the dropdown if it's collapsed
-              if (mainNavItem.classList.contains('collapsed')) {
-                this._expandDropdown(mainNavItem);
-              }
-            } else {
-              // Subsection not found in dropdown, just mark main section as active
-              mainNavItem.classList.add('active');
-            }
-          } else {
-            // No dropdown, just mark main section as active
-            mainNavItem.classList.add('active');
+    if (subNavItem) {
+      // Activate both main and sub items
+      this._activateNavItem(mainNavItem);
+      this._activateNavItem(subNavItem);
+      this._ensureDropdownExpanded(mainNavItem);
+      return true;
+    } else {
+      // Subsection not found, just activate main
+      this._activateNavItem(mainNavItem);
+      return true;
+    }
+  }
+
+  _activateNavItem(navItem) {
+    if (navItem) {
+      navItem.classList.add('active');
+    }
+  }
+
+  _ensureDropdownExpanded(navItem) {
+    if (navItem && navItem.classList.contains('collapsed')) {
+      this._expandDropdown(navItem);
+    }
+  }
+
+  _activateNavFallback(segments) {
+    // Try to match any segment in the navigation
+    for (const segment of segments) {
+      const navItem = this.shadowRoot.querySelector(`section.nav li.${segment}`);
+
+      if (navItem) {
+        this._activateNavItem(navItem);
+
+        // Handle parent dropdown activation
+        const parentDropdown = navItem.closest('ul.dropdown');
+        if (parentDropdown) {
+          const parentNavItem = parentDropdown.closest('li');
+          if (parentNavItem) {
+            this._activateNavItem(parentNavItem);
+            this._ensureDropdownExpanded(parentNavItem);
           }
-        } else {
-          // No subsection, just mark main section as active
-          mainNavItem.classList.add('active');
         }
-      } else {
-        // Main section not found, try to find any nav item that matches any segment
-        // This is a fallback for edge cases
-        for (const segment of urlSegments) {
-          const anyNavItem = this.shadowRoot.querySelector(`section.nav li.${segment}`);
-          if (anyNavItem) {
-            anyNavItem.classList.add('active');
 
-            // If it's in a dropdown, handle parent activation
-            const parentDropdown = anyNavItem.closest('ul.dropdown');
-            if (parentDropdown) {
-              const parentLi = parentDropdown.closest('li');
-              if (parentLi) {
-                parentLi.classList.add('active');
-                if (parentLi.classList.contains('collapsed')) {
-                  this._expandDropdown(parentLi);
-                }
-              }
-            }
-            break;
-          }
-        }
+        return true;
       }
     }
+
+    return false;
   }
 
   setUpEvents = () => {
@@ -940,7 +994,7 @@ export default class AppMain extends HTMLElement {
             </span>
           </div>
           <ul class="dropdown">
-            <li class="leads">
+            <li class="lead">
               <a href="/properties/lead"><span class="text">Lead</span></a>
             </li>
             <li class="fields">

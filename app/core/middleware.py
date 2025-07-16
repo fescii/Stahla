@@ -163,15 +163,22 @@ class LoggingMiddleware(BaseHTTPMiddleware):
       try:
         request_body_bytes = await request.body()
         if request_body_bytes:
-          # Attempt to parse as JSON, fallback if not JSON or empty
-          try:
-            request_payload_dict = json.loads(
-                request_body_bytes.decode('utf-8'))
-          except json.JSONDecodeError:
+          # Check if this is a multipart/form-data request (file upload)
+          content_type = request.headers.get('content-type', '')
+          if content_type.startswith('multipart/form-data'):
+            # Don't try to decode binary file data as UTF-8
             request_payload_dict = {
-                "raw_body": request_body_bytes.decode('utf-8', errors='replace')}
-            logger.info(
-                f"Request body for {request.method} {request.url.path} is not valid JSON.")
+                "multipart_form_data": f"<binary data {len(request_body_bytes)} bytes>"}
+          else:
+            # Attempt to parse as JSON, fallback if not JSON or empty
+            try:
+              request_payload_dict = json.loads(
+                  request_body_bytes.decode('utf-8'))
+            except json.JSONDecodeError:
+              request_payload_dict = {
+                  "raw_body": request_body_bytes.decode('utf-8', errors='replace')}
+              logger.info(
+                  f"Request body for {request.method} {request.url.path} is not valid JSON.")
         else:
           request_body_bytes = b""
           request_payload_dict = None  # No body

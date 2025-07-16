@@ -2,7 +2,7 @@ export default class DeletePopup extends HTMLElement {
   constructor() {
     super();
     this.url = this.getAttribute('url');
-    this.shadowObj = this.attachShadow({mode: 'open'});
+    this.shadowObj = this.attachShadow({ mode: 'open' });
     this.render();
   }
 
@@ -14,6 +14,12 @@ export default class DeletePopup extends HTMLElement {
     this.disableScroll();
     const btns = this.shadowObj.querySelectorAll('.cancel-btn');
     if (btns) this.closePopup(btns);
+
+    // Overlay click to close
+    const overlay = this.shadowObj.querySelector('.overlay');
+    if (overlay) {
+      overlay.addEventListener('click', () => this.remove());
+    }
   }
 
   disconnectedCallback() {
@@ -27,14 +33,14 @@ export default class DeletePopup extends HTMLElement {
     document.body.classList.add("stop-scrolling");
 
     // if any scroll is attempted, set this to the previous value
-    window.onscroll = function() {
+    window.onscroll = function () {
       window.scrollTo(scrollLeft, scrollTop);
     };
   }
 
   enableScroll() {
     document.body.classList.remove("stop-scrolling");
-    window.onscroll = function() {};
+    window.onscroll = function () { };
   }
 
   closePopup = (btns) => {

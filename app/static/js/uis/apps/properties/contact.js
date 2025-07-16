@@ -73,22 +73,6 @@ export default class PropertiesContact extends HTMLElement {
   };
 
   attachEventListeners = () => {
-    // Property card interactions
-    const propertyCards = this.shadowObj.querySelectorAll('.property-card');
-    propertyCards.forEach(card => {
-      card.addEventListener('click', () => {
-        card.classList.toggle('expanded');
-      });
-    });
-
-    // Search functionality
-    const searchInput = this.shadowObj.querySelector('.search-input');
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        this.filterProperties(e.target.value);
-      });
-    }
-
     // Group filter
     const groupFilter = this.shadowObj.querySelector('.group-filter');
     if (groupFilter) {
@@ -96,35 +80,42 @@ export default class PropertiesContact extends HTMLElement {
         this.filterByGroup(e.target.value);
       });
     }
-  };
 
-  filterProperties = (searchTerm) => {
-    const propertyCards = this.shadowObj.querySelectorAll('.property-card');
-    const term = searchTerm.toLowerCase();
+    // Expand button interactions
+    const expandButtons = this.shadowObj.querySelectorAll('.expand-btn');
+    expandButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
 
-    propertyCards.forEach(card => {
-      const propertyName = card.dataset.propertyName?.toLowerCase() || '';
-      const propertyLabel = card.querySelector('.property-name')?.textContent?.toLowerCase() || '';
-      const propertyType = card.querySelector('.property-type')?.textContent?.toLowerCase() || '';
+        const propertyRow = btn.closest('.property-row');
+        const isExpanded = propertyRow.classList.contains('expanded');
 
-      if (propertyName.includes(term) || propertyLabel.includes(term) || propertyType.includes(term)) {
-        card.style.display = 'block';
-      } else {
-        card.style.display = 'none';
-      }
+        // Toggle expansion
+        propertyRow.classList.toggle('expanded');
+
+        // Update aria attributes
+        btn.setAttribute('aria-expanded', !isExpanded);
+
+        // Animate the expand icon
+        const expandIcon = btn.querySelector('.expand-icon');
+        if (expandIcon) {
+          expandIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+      });
     });
   };
 
   filterByGroup = (groupName) => {
-    const propertyCards = this.shadowObj.querySelectorAll('.property-card');
+    const propertyRows = this.shadowObj.querySelectorAll('.property-row');
 
-    propertyCards.forEach(card => {
-      const cardGroup = card.dataset.propertyGroup || '';
+    propertyRows.forEach(row => {
+      const rowGroup = row.querySelector('.property-group')?.textContent || '';
 
-      if (groupName === 'all' || cardGroup === groupName) {
-        card.style.display = 'block';
+      if (groupName === 'all' || rowGroup === groupName) {
+        row.style.display = 'grid';
       } else {
-        card.style.display = 'none';
+        row.style.display = 'none';
       }
     });
   };
@@ -148,8 +139,6 @@ export default class PropertiesContact extends HTMLElement {
     return /* html */ `
       <div class="container">
         ${this.getHeader()}
-        ${this.getControls()}
-        ${this.getPropertiesStats()}
         ${this.getPropertiesList()}
       </div>
     `;
@@ -160,28 +149,6 @@ export default class PropertiesContact extends HTMLElement {
       <div class="header">
         <h1>Contact Properties</h1>
         <p class="subtitle">HubSpot contact property definitions and configurations</p>
-      </div>
-    `;
-  };
-
-  getControls = () => {
-    const groups = this.getUniqueGroups();
-
-    return /* html */ `
-      <div class="controls">
-        <div class="search-container">
-          <input type="text" class="search-input" placeholder="Search contact properties..." />
-          <span class="search-icon">🔍</span>
-        </div>
-        
-        <div class="filter-container">
-          <select class="group-filter">
-            <option value="all">All Groups</option>
-            ${groups.map(group => /* html */ `
-              <option value="${group}">${group}</option>
-            `).join('')}
-          </select>
-        </div>
       </div>
     `;
   };
@@ -197,38 +164,6 @@ export default class PropertiesContact extends HTMLElement {
     });
 
     return Array.from(groups).sort();
-  };
-
-  getPropertiesStats = () => {
-    if (!this.propertiesData || this.propertiesData.length === 0) {
-      return '';
-    }
-
-    const stats = this.calculatePropertiesStats(this.propertiesData);
-
-    return /* html */ `
-      <div class="properties-stats">
-        <h3>Contact Properties Overview</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-count">${stats.totalProperties}</span>
-            <span class="stat-label">Total Properties</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.customProperties}</span>
-            <span class="stat-label">Custom Properties</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.requiredProperties}</span>
-            <span class="stat-label">Required Properties</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.groupCount}</span>
-            <span class="stat-label">Property Groups</span>
-          </div>
-        </div>
-      </div>
-    `;
   };
 
   calculatePropertiesStats = (properties) => {
@@ -250,14 +185,17 @@ export default class PropertiesContact extends HTMLElement {
       return this.getEmptyMessage();
     }
 
-    // Group properties by group name
-    const groupedProperties = this.groupPropertiesByGroup(this.propertiesData);
-
     return /* html */ `
-      <div class="properties-container">
-        ${Object.entries(groupedProperties).map(([group, properties]) =>
-      this.getPropertyGroup(group, properties)
-    ).join('')}
+      <div class="properties-table">
+        <div class="table-header">
+          <div class="header-cell">Property</div>
+          <div class="header-cell">Group</div>
+          <div class="header-cell">Type</div>
+          <div class="header-cell">Actions</div>
+        </div>
+        <div class="table-body">
+          ${this.propertiesData.map(property => this.getPropertyRow(property)).join('')}
+        </div>
       </div>
     `;
   };
@@ -287,56 +225,106 @@ export default class PropertiesContact extends HTMLElement {
     `;
   };
 
-  getPropertyCard = (property) => {
+  getPropertyRow = (property) => {
+    const uniqueId = `property-${property.name}`;
+
     return /* html */ `
-      <div class="property-card" 
-           data-property-name="${property.name}" 
-           data-property-group="${property.groupName || ''}" 
-           tabindex="0">
-        <div class="property-header">
-          <div class="property-info">
-            <h4 class="property-name">${property.label || property.name}</h4>
-            <span class="property-type type-${property.type}">${property.type}</span>
-            ${property.hubspotDefined === false ? '<span class="custom-badge">Custom</span>' : ''}
-            ${property.displayOrder >= 0 ? '<span class="required-badge">Required</span>' : ''}
+      <div class="property-row" data-property-name="${property.name}">
+        <div class="cell property-cell">
+          <div class="property-main">
+            <div class="property-info">
+              <h4 class="property-title">${property.label || property.name}</h4>
+              <span class="property-name">${property.name}</span>
+            </div>
           </div>
-          ${this.getPropertyStatus(property)}
         </div>
         
-        <div class="property-body">
-          <div class="property-details">
-            <div class="detail-item">
-              <span class="detail-label">Internal Name</span>
-              <span class="detail-value property-name-value">${property.name}</span>
+        <div class="cell type-cell">
+          <span class="property-group">${property.groupName || 'Default'}</span>
+        </div>
+        
+        <div class="cell status-cell">
+          <div class="type-info">
+            <span class="property-type type-${property.type}">${property.type}</span>
+            <span class="field-type">${property.fieldType || property.type}</span>
+          </div>
+        </div>
+        
+        <div class="cell actions-cell">
+          <button class="expand-btn" aria-expanded="false" aria-controls="${uniqueId}-details">
+            <span class="expand-icon">${this.getSVGIcon('expand')}</span>
+          </button>
+        </div>
+        
+        <div class="property-details" id="${uniqueId}-details">
+          <div class="details-grid">
+            <div class="detail-section">
+              <h5 class="section-title">
+                ${this.getSVGIcon('info')}
+                Basic Information
+              </h5>
+              <div class="detail-items">
+                ${property.description ? `<div class="detail-item">
+                  <span class="detail-label">Description:</span>
+                  <span class="detail-value">${property.description}</span>
+                </div>` : ''}
+                <div class="detail-item">
+                  <span class="detail-label">Group:</span>
+                  <span class="detail-value">${property.groupName || 'N/A'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Field Type:</span>
+                  <span class="detail-value">${property.fieldType || property.type}</span>
+                </div>
+                ${property.displayOrder >= 0 ? `<div class="detail-item">
+                  <span class="detail-label">Display Order:</span>
+                  <span class="detail-value">${property.displayOrder}</span>
+                </div>` : ''}
+              </div>
             </div>
             
-            ${property.description ? /* html */ `
-              <div class="detail-item">
-                <span class="detail-label">Description</span>
-                <p class="detail-value property-description">${property.description}</p>
-              </div>
-            ` : ''}
-            
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Field Type</span>
-                <span class="detail-value">${property.fieldType || property.type}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Display Order</span>
-                <span class="detail-value">${property.displayOrder >= 0 ? property.displayOrder : 'N/A'}</span>
-              </div>
-            </div>
-            
-            ${this.getPropertyOptions(property)}
-            
-            ${this.getPropertyConfiguration(property)}
-            
-            ${this.getPropertyMetadata(property)}
+            ${this.getPropertyOptionsSection(property)}
+            ${this.getPropertyConfigurationSection(property)}
+            ${this.getPropertyMetadataSection(property)}
           </div>
         </div>
       </div>
     `;
+  };
+
+  getSVGIcon = (type) => {
+    const icons = {
+      string: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 7V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3M4 7h16M4 7v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/>
+        <path d="M9 11h6"/>
+      </svg>`,
+      enumeration: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>`,
+      expand: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>`,
+      info: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>`,
+      options: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <path d="M9 9h6v6H9z"/>
+      </svg>`,
+      metadata: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10,9 9,9 8,9"/>
+      </svg>`,
+      property: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 2v20M14 2v20M4 7h16M4 17h16"/>
+      </svg>`
+    };
+    return icons[type] || icons.property;
   };
 
   getPropertyStatus = (property) => {
@@ -361,27 +349,32 @@ export default class PropertiesContact extends HTMLElement {
     ` : '';
   };
 
-  getPropertyOptions = (property) => {
+  getPropertyOptionsSection = (property) => {
     if (!property.options || property.options.length === 0) {
       return '';
     }
 
     return /* html */ `
-      <div class="property-options">
-        <span class="detail-label">Available Options</span>
-        <div class="options-list">
-          ${property.options.slice(0, 8).map(option => /* html */ `
-            <span class="option-tag">${option.label}</span>
-          `).join('')}
-          ${property.options.length > 8 ? /* html */ `
-            <span class="option-more">+${property.options.length - 8} more</span>
-          ` : ''}
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('options')}
+          Available Options (${property.options.length})
+        </h5>
+        <div class="detail-items">
+          <div class="options-list">
+            ${property.options.slice(0, 8).map(option => `
+              <span class="option-tag">${option.label}</span>
+            `).join('')}
+            ${property.options.length > 8 ? `
+              <span class="option-more">+${property.options.length - 8} more</span>
+            ` : ''}
+          </div>
         </div>
       </div>
     `;
   };
 
-  getPropertyConfiguration = (property) => {
+  getPropertyConfigurationSection = (property) => {
     const configs = [];
 
     if (property.hasUniqueValue) configs.push('Unique Values');
@@ -391,37 +384,48 @@ export default class PropertiesContact extends HTMLElement {
     if (configs.length === 0) return '';
 
     return /* html */ `
-      <div class="property-configuration">
-        <span class="detail-label">Configuration</span>
-        <div class="config-tags">
-          ${configs.map(config => /* html */ `
-            <span class="config-tag">${config}</span>
-          `).join('')}
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('settings')}
+          Configuration
+        </h5>
+        <div class="detail-items">
+          <div class="config-tags">
+            ${configs.map(config => `
+              <span class="config-tag">${config}</span>
+            `).join('')}
+          </div>
         </div>
       </div>
     `;
   };
 
-  getPropertyMetadata = (property) => {
+  getPropertyMetadataSection = (property) => {
     return /* html */ `
-      <div class="property-metadata">
-        <div class="metadata-row">
-          <div class="detail-item">
-            <span class="detail-label">Created</span>
-            <span class="detail-value">${this.formatDate(property.createdAt)}</span>
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('metadata')}
+          Metadata
+        </h5>
+        <div class="detail-items">
+          <div class="metadata-row">
+            <div class="detail-item">
+              <span class="detail-label">Created</span>
+              <span class="detail-value">${this.formatDate(property.createdAt)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Updated</span>
+              <span class="detail-value">${this.formatDate(property.updatedAt)}</span>
+            </div>
           </div>
-          <div class="detail-item">
-            <span class="detail-label">Updated</span>
-            <span class="detail-value">${this.formatDate(property.updatedAt)}</span>
-          </div>
+          
+          ${property.createdUserId ? `
+            <div class="detail-item">
+              <span class="detail-label">Created By</span>
+              <span class="detail-value">${property.createdUserId}</span>
+            </div>
+          ` : ''}
         </div>
-        
-        ${property.createdUserId ? /* html */ `
-          <div class="detail-item">
-            <span class="detail-label">Created By</span>
-            <span class="detail-value">${property.createdUserId}</span>
-          </div>
-        ` : ''}
       </div>
     `;
   };
@@ -454,30 +458,20 @@ export default class PropertiesContact extends HTMLElement {
     });
   };
 
-  getStyles = () => {
+  getStyles() {
     return /* html */ `
       <style>
         :host {
           display: block;
-          width: 100%;
-          background-color: var(--background);
-          font-family: var(--font-text), sans-serif;
-          line-height: 1.6;
-          color: var(--text-color);
-        }
-
-        * {
-          box-sizing: border-box;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .container {
+          padding: 24px;
+          background: var(--background);
+          color: var(--text-color);
+          border-radius: 8px;
           max-width: 100%;
-          margin: 0 auto;
-          padding: 15px 0;
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
         }
 
         .header {
@@ -485,6 +479,7 @@ export default class PropertiesContact extends HTMLElement {
           flex-direction: column;
           flex-flow: column;
           gap: 0;
+          margin-bottom: 20px;
         }
 
         .header h1 {
@@ -504,283 +499,270 @@ export default class PropertiesContact extends HTMLElement {
           line-height: 1.4;
         }
 
-        .controls {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        .search-container {
-          position: relative;
-          max-width: 300px;
-          flex: 1;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 8px 35px 8px 12px;
-          border: var(--border);
-          border-radius: 6px;
-          background: var(--background);
-          color: var(--text-color);
-          font-size: 0.9rem;
-        }
-
-        .search-input:focus {
-          outline: none;
-          border-color: var(--alt-color);
-        }
-
-        .search-icon {
-          position: absolute;
-          right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--gray-color);
-          pointer-events: none;
-        }
-
-        .filter-container {
+        .view-switcher {
           display: flex;
           gap: 8px;
+          margin-bottom: 20px;
+          padding: 4px;
+          background: var(--gray-background);
+          border-radius: 8px;
+          width: fit-content;
         }
 
-        .group-filter {
-          padding: 8px 12px;
-          border: var(--border);
-          border-radius: 6px;
-          background: var(--background);
+        .view-btn {
+          padding: 8px 16px;
+          border: none;
+          background: transparent;
           color: var(--text-color);
-          font-size: 0.9rem;
-          cursor: pointer;
-        }
-
-        .group-filter:focus {
-          outline: none;
-          border-color: var(--alt-color);
-        }
-
-        .properties-stats {
-          background: var(--create-background);
-          border: var(--border);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 10px;
-        }
-
-        .properties-stats h3 {
-          margin: 0 0 12px 0;
-          color: var(--alt-color);
-          font-size: 1.1rem;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 12px;
-        }
-
-        .stat-item {
-          text-align: center;
-          background: var(--background);
           border-radius: 6px;
-          padding: 12px 8px;
-        }
-
-        .stat-count {
-          display: block;
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--alt-color);
-          margin-bottom: 4px;
-        }
-
-        .stat-label {
-          font-size: 0.8rem;
-          color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
-        }
-
-        .properties-container {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
-
-        .property-group {
-          background: var(--background);
-          border: var(--border);
-          border-radius: 8px;
-          padding: 16px;
-        }
-
-        .group-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          padding-bottom: 8px;
-          border-bottom: var(--border);
-        }
-
-        .group-header h3 {
-          margin: 0;
-          color: var(--title-color);
-          font-size: 1.2rem;
-        }
-
-        .group-count {
-          background: var(--gray-background);
-          color: var(--gray-color);
-          font-size: 0.8rem;
-          padding: 4px 8px;
-          border-radius: 10px;
-        }
-
-        .properties-grid {
-          display: grid;
-          gap: 12px;
-          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        }
-
-        .property-card {
-          background: var(--gray-background);
-          border: var(--border);
-          border-radius: 6px;
-          padding: 12px;
-          transition: all 0.2s ease;
           cursor: pointer;
-          border-left: 3px solid var(--alt-color);
-        }
-
-        .property-card:hover {
-          border-color: var(--alt-color);
-        }
-
-        .property-card:focus {
-          outline: none;
-          border-color: var(--alt-color);
-        }
-
-        .property-card.expanded .property-body {
-          display: block;
-        }
-
-        .property-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 8px;
-        }
-
-        .property-info {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .property-name {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--title-color);
-        }
-
-        .property-type {
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
+          font-size: 14px;
           font-weight: 500;
-          text-transform: uppercase;
+          transition: all 0.2s ease;
         }
 
-        .property-type.type-string {
-          background: var(--accent-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-enumeration {
-          background: var(--alt-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-number {
-          background: var(--success-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-bool {
-          background: var(--create-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-datetime,
-        .property-type.type-date {
+        .view-btn.active {
           background: var(--hubspot-color);
           color: var(--white-color);
         }
 
-        .custom-badge {
-          background: var(--error-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
+        .view-btn:hover:not(.active) {
+          background: var(--background);
+        }
+
+        .properties-summary {
+          margin-bottom: 20px;
+          padding: 12px 16px;
+          background: var(--gray-background);
+          border-radius: 6px;
+          border: 1px solid var(--border-color);
+        }
+
+        .summary-text {
+          font-size: 14px;
+          color: var(--text-color);
           font-weight: 500;
         }
 
-        .required-badge {
-          background: var(--accent-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
-        }
-
-        .property-status {
-          display: flex;
-          gap: 4px;
-          flex-wrap: wrap;
-        }
-
-        .status-badge {
-          font-size: 0.7rem;
-          padding: 2px 6px;
+        .properties-table {
+          background: var(--background);
           border-radius: 8px;
+          border: 1px solid var(--border-color);
+          overflow: hidden;
+        }
+
+        .table-header {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 16px;
+          background: var(--gray-background);
+          padding: 16px;
+          border-bottom: var(--border);
+        }
+
+        .header-cell {
+          font-weight: 600;
+          color: var(--title-color);
+          font-size: 14px;
+        }
+
+        .table-body {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .property-row {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 16px;
+          padding: 16px;
+          border-bottom: var(--border);
+          transition: background-color 0.2s ease;
+        }
+        
+        .property-row:last-child {
+          border-bottom: none;
+        }
+
+        .cell {
+          display: flex;
+          align-items: center;
+        }
+
+        .property-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .property-main {
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+
+        .property-info {
+          flex: 1;
+        }
+
+        .property-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--title-color);
+          margin: 0 0 4px 0;
+        }
+
+        .property-name {
+          font-size: 12px;
+          color: var(--gray-color);
+          font-family: monospace;
+        }
+
+        .type-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .property-group {
+          background: var(--gray-background);
+          color: var(--text-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          border: 1px solid var(--border-color);
+        }
+
+        .status-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .type-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .property-type {
+          background: var(--success-color);
+          color: var(--white-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
           font-weight: 500;
         }
 
-        .status-badge.readonly {
-          background: var(--gray-color);
-          color: var(--white-color);
+        /* Type-specific colors */
+        .property-type.type-string {
+          background: var(--success-color);
         }
 
-        .status-badge.hidden {
+        .property-type.type-enumeration {
           background: var(--alt-color);
-          color: var(--white-color);
         }
 
-        .status-badge.calculated {
+        .property-type.type-number {
           background: var(--accent-color);
+        }
+
+        .property-type.type-bool {
+          background: var(--gray-color);
+        }
+
+        .property-type.type-datetime,
+        .property-type.type-date {
+          background: var(--error-color);
+        }
+
+        .field-type {
+          font-size: 11px;
+          color: var(--gray-color);
+        }
+
+        .actions-cell {
+          justify-content: center;
+        }
+
+        .expand-btn {
+          background: none;
+          border: 1px solid var(--border-color);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .expand-btn:hover {
+          background: var(--gray-background);
+          border-color: var(--hubspot-color);
+        }
+
+        .expand-icon {
+          width: 16px;
+          height: 16px;
+          color: var(--gray-color);
+          transition: transform 0.2s ease;
+        }
+
+        .expand-btn.expanded .expand-icon {
+          transform: rotate(180deg);
+        }
+
+        .expand-btn.expanded {
+          background: var(--hubspot-color);
+          border-color: var(--hubspot-color);
+        }
+
+        .expand-btn.expanded .expand-icon {
           color: var(--white-color);
-        }
-
-        .property-body {
-          display: none;
-        }
-
-        .property-card.expanded .property-body {
-          display: block;
-          padding-top: 8px;
-          border-top: var(--border);
         }
 
         .property-details {
+          display: none;
+          grid-column: 1 / -1;
+          margin-top: 16px;
+          padding: 20px;
+          background: var(--gray-background);
+          border-radius: 6px;
+          border: 1px solid var(--border-color);
+        }
+
+        .property-row.expanded .property-details {
+          display: block;
+        }
+
+        .details-grid {
+          display: grid;
+          gap: 20px;
+        }
+
+        .detail-section {
+          background: var(--background);
+          border-radius: 6px;
+          padding: 16px;
+          border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          color: var(--title-color);
+          font-size: 14px;
+          margin: 0 0 12px 0;
+        }
+
+        .section-title .icon {
+          width: 16px;
+          height: 16px;
+          color: var(--hubspot-color);
+        }
+
+        .detail-items {
           display: flex;
           flex-direction: column;
           gap: 8px;
@@ -788,104 +770,100 @@ export default class PropertiesContact extends HTMLElement {
 
         .detail-item {
           display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          align-items: flex-start;
+          gap: 8px;
         }
 
         .detail-label {
-          font-size: 0.75rem;
+          font-size: 12px;
           color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
+          font-weight: 500;
+          min-width: 80px;
         }
 
         .detail-value {
-          font-size: 0.85rem;
+          font-size: 14px;
+          color: var(--text-color);
+          flex: 1;
+        }
+
+        .validation-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .validation-tag {
+          background: var(--success-color);
+          color: var(--white-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .options-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .options-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 8px;
+        }
+
+        .option-item {
+          background: var(--background);
+          border: 1px solid var(--border-color);
+          padding: 8px 12px;
+          border-radius: 4px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .option-label {
+          font-size: 13px;
           color: var(--text-color);
           font-weight: 500;
         }
 
-        .property-name-value {
+        .option-value {
+          font-size: 11px;
+          color: var(--gray-color);
           font-family: monospace;
-          background: var(--background);
-          padding: 2px 6px;
+        }
+
+        .show-more-btn {
+          background: none;
+          border: 1px solid var(--border-color);
+          color: var(--text-color);
+          padding: 8px 12px;
           border-radius: 4px;
-          font-size: 0.8rem;
-        }
-
-        .property-description {
-          margin: 0;
-          line-height: 1.4;
-          font-style: italic;
-        }
-
-        .property-options {
+          cursor: pointer;
+          font-size: 12px;
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 6px;
+          transition: all 0.2s ease;
         }
 
-        .options-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
+        .show-more-btn:hover {
+          background: var(--gray-background);
+          border-color: var(--hubspot-color);
         }
 
-        .option-tag {
-          background: var(--alt-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-        }
-
-        .option-more {
-          background: var(--gray-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-          font-style: italic;
-        }
-
-        .property-configuration {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .config-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-        }
-
-        .config-tag {
-          background: var(--success-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-        }
-
-        .property-metadata {
-          background: var(--background);
-          border-radius: 4px;
-          padding: 8px;
-          margin-top: 4px;
-        }
-
-        .metadata-row {
+        .metadata-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 12px;
-          margin-bottom: 8px;
+        }
+
+        .icon {
+          width: 16px;
+          height: 16px;
+          fill: currentColor;
         }
 
         .loader-container {
@@ -898,8 +876,8 @@ export default class PropertiesContact extends HTMLElement {
         .loader {
           width: 40px;
           height: 40px;
-          border: 3px solid var(--gray-background);
-          border-top: 3px solid var(--accent-color);
+          border: 3px solid var(--border-color);
+          border-top: 3px solid var(--hubspot-color);
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }
@@ -918,44 +896,59 @@ export default class PropertiesContact extends HTMLElement {
         .empty-state h2 {
           margin: 0 0 8px 0;
           color: var(--title-color);
+          font-size: 18px;
+          font-weight: 600;
         }
 
         .empty-state p {
           margin: 0;
-          font-size: 0.9rem;
+          font-size: 14px;
+          line-height: 1.5;
         }
 
+        /* Mobile Responsive */
         @media (max-width: 768px) {
-          .properties-grid {
+          .container {
+            padding: 16px;
+          }
+
+          .table-header,
+          .property-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
+          .header-cell {
+            display: none;
+          }
+
+          .cell {
+            border-bottom: var(--border);
+            padding-bottom: 8px;
+          }
+
+          .cell:last-child {
+            border-bottom: none;
+          }
+
+          .property-details {
+            margin-top: 12px;
+            padding: 16px;
+          }
+
+          .details-grid {
+            gap: 16px;
+          }
+
+          .options-grid {
             grid-template-columns: 1fr;
           }
-          
-          .detail-row,
-          .metadata-row {
+
+          .metadata-grid {
             grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .property-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 6px;
-          }
-
-          .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .controls {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .search-container {
-            max-width: 100%;
           }
         }
       </style>
     `;
-  };
+  }
 }
