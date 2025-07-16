@@ -976,7 +976,6 @@ export default class AppMain extends HTMLElement {
     `
   }
 
-
   getStyles() {
     return /* css */`
 	    <style>
