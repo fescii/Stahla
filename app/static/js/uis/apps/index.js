@@ -4,6 +4,12 @@ import SoonPage from "./soon.js";
 import all from "./all/index.js";
 import docs from "./docs/index.js";
 import quote from "./quote/index.js";
+import quotes from "./quotes/index.js";
+import location from "./location/index.js";
+import hubspot from "./hubspot/index.js";
+import properties from "./properties/index.js";
+import classify from "./classify/index.js";
+import calls from "./calls/index.js";
 import users from "./users/index.js";
 
 export default function home() {
@@ -12,6 +18,12 @@ export default function home() {
   all();
   users();
   quote();
+  quotes();
+  location();
+  hubspot();
+  properties();
+  classify();
+  calls();
   docs();
   customElements.define("soon-page", SoonPage);
 }

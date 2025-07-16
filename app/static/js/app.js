@@ -360,6 +360,41 @@ export default class AppMain extends HTMLElement {
     "/sheet/branches": /* HTML */`<sheet-branches api="/dashboard/sheet/branches"></sheet-branches>`,
     "/sheet/states": /* HTML */`<sheet-states api="/dashboard/sheet/states"></sheet-states>`,
     "/updates": /* HTML */`<soon-page url="/soon"></soon-page>`,
+
+    // Quotes routes
+    "/quotes/recent": /* HTML */`<quotes-recent api="/mongo/quotes/recent"></quotes-recent>`,
+    "/quotes/oldest": /* HTML */`<quotes-oldest api="/mongo/quotes/oldest"></quotes-oldest>`,
+    "/quotes/highest": /* HTML */`<quotes-highest api="/mongo/quotes/highest"></quotes-highest>`,
+    "/quotes/lowest": /* HTML */`<quotes-lowest api="/mongo/quotes/lowest"></quotes-lowest>`,
+
+    // Location routes
+    "/location/recent": /* HTML */`<location-recent api="/mongo/location/recent"></location-recent>`,
+    "/location/oldest": /* HTML */`<location-oldest api="/mongo/location/oldest"></location-oldest>`,
+    "/location/success": /* HTML */`<location-success api="/mongo/location/successful"></location-success>`,
+    "/location/failed": /* HTML */`<location-failed api="/mongo/location/failed"></location-failed>`,
+    "/location/pending": /* HTML */`<location-pending api="/mongo/location/pending"></location-pending>`,
+
+    // HubSpot routes
+    "/hubspot/contacts": /* HTML */`<hubspot-contacts api="/hubspot/contacts/recent"></hubspot-contacts>`,
+    "/hubspot/leads": /* HTML */`<hubspot-leads api="/hubspot/leads/recent"></hubspot-leads>`,
+    "/hubspot/properties": /* HTML */`<hubspot-properties api="/hubspot/properties/all"></hubspot-properties>`,
+
+    // Properties routes
+    "/properties/contact": /* HTML */`<properties-contact api="/hubspot/properties/contacts"></properties-contact>`,
+    "/properties/lead": /* HTML */`<properties-lead api="/hubspot/properties/leads"></properties-lead>`,
+    "/properties/fields": /* HTML */`<properties-fields api="/hubspot/properties/all"></properties-fields>`,
+
+    // Classify routes
+    "/classify/recent": /* HTML */`<classify-recent api="/mongo/classify/recent"></classify-recent>`,
+    "/classify/success": /* HTML */`<classify-success api="/mongo/classify/successful"></classify-success>`,
+    "/classify/failed": /* HTML */`<classify-failed api="/mongo/classify/failed"></classify-failed>`,
+    "/classify/disqualified": /* HTML */`<classify-disqualified api="/mongo/classify/disqualified"></classify-disqualified>`,
+
+    // Calls routes
+    "/calls/recent": /* HTML */`<calls-recent api="/mongo/calls/recent"></calls-recent>`,
+    "/calls/success": /* HTML */`<calls-success api="/mongo/calls/successful"></calls-success>`,
+    "/calls/failed": /* HTML */`<calls-failed api="/mongo/calls/failed"></calls-failed>`,
+    "/calls/oldest": /* HTML */`<calls-oldest api="/mongo/calls/oldest"></calls-oldest>`,
     default: /* HTML */`<soon-page url="/soon"></soon-page>`,
   }
 
