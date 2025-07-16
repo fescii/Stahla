@@ -949,6 +949,28 @@ export default class HubspotProperties extends HTMLElement {
           font-weight: 500;
         }
 
+        /* Type-specific colors */
+        .property-type.type-string {
+          background: var(--success-color);
+        }
+
+        .property-type.type-enumeration {
+          background: var(--alt-color);
+        }
+
+        .property-type.type-number {
+          background: var(--accent-color);
+        }
+
+        .property-type.type-bool {
+          background: var(--gray-color);
+        }
+
+        .property-type.type-datetime,
+        .property-type.type-date {
+          background: var(--error-color);
+        }
+
         .field-type {
           font-size: 11px;
           color: var(--gray-color);

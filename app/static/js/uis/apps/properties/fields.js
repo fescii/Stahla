@@ -48,9 +48,25 @@ export default class PropertiesFields extends HTMLElement {
         return;
       }
 
+      // Handle different response structures
+      let properties = [];
+      if (response.data.contacts && response.data.leads) {
+        // Combined response with contacts and leads
+        properties = [
+          ...response.data.contacts.properties,
+          ...response.data.leads.properties
+        ];
+      } else if (response.data.properties) {
+        // Single type response
+        properties = response.data.properties;
+      } else if (Array.isArray(response.data)) {
+        // Direct array response
+        properties = response.data;
+      }
+
       this._loading = false;
-      this._empty = false;
-      this.propertiesData = response.data;
+      this._empty = properties.length === 0;
+      this.propertiesData = properties;
       this.render();
       this.attachEventListeners();
     } catch (error) {
@@ -762,13 +778,11 @@ export default class PropertiesFields extends HTMLElement {
         }
 
         .field-item {
-          background: var(--gray-background);
           border: var(--border);
           border-radius: 6px;
           padding: 12px;
           transition: all 0.2s ease;
           cursor: pointer;
-          border-left: 3px solid var(--accent-color);
         }
 
         .field-item:hover {
@@ -812,6 +826,36 @@ export default class PropertiesFields extends HTMLElement {
           text-transform: uppercase;
           background: var(--accent-color);
           color: var(--white-color);
+        }
+
+        /* Type-specific colors */
+        .field-type.type-text,
+        .field-type.type-string {
+          background: var(--success-color);
+        }
+
+        .field-type.type-textarea {
+          background: var(--hubspot-color);
+        }
+
+        .field-type.type-select,
+        .field-type.type-enumeration {
+          background: var(--alt-color);
+        }
+
+        .field-type.type-number {
+          background: var(--accent-color);
+        }
+
+        .field-type.type-date,
+        .field-type.type-datetime {
+          background: var(--error-color);
+        }
+
+        .field-type.type-checkbox,
+        .field-type.type-booleancheckbox,
+        .field-type.type-bool {
+          background: var(--gray-color);
         }
 
         .form-badge {

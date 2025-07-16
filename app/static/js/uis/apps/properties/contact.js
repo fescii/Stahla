@@ -45,9 +45,17 @@ export default class PropertiesContact extends HTMLElement {
         return;
       }
 
+      // Extract properties array from response
+      let properties = [];
+      if (response.data.properties) {
+        properties = response.data.properties;
+      } else if (Array.isArray(response.data)) {
+        properties = response.data;
+      }
+
       this._loading = false;
-      this._empty = false;
-      this.propertiesData = response.data;
+      this._empty = properties.length === 0;
+      this.propertiesData = properties;
       this.render();
       this.attachEventListeners();
     } catch (error) {
