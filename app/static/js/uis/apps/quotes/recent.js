@@ -304,25 +304,25 @@ export default class QuotesRecent extends HTMLElement {
         .header {
           display: flex;
           flex-direction: column;
-          margin-bottom: 2rem;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          font-size: 1.875rem;
-          font-weight: 700;
+          font-size: 24px;
+          font-weight: 600;
+          color: var(--title-color);
           margin: 0;
           padding: 0;
-          color: var(--title-color);
-          line-height: 1.2;
-          letter-spacing: -0.01em;
+          line-height: 1.4;
         }
 
-        .header .subtitle {
+        .subtitle {
+          font-size: 14px;
           color: var(--gray-color);
-          margin: 0.25rem 0 0;
+          margin: 0;
           padding: 0;
-          font-size: 0.9rem;
-          opacity: 0.9;
+          line-height: 1.4;
         }
 
         .loader-container {

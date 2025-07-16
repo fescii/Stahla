@@ -1058,13 +1058,13 @@ export default class Quote extends HTMLElement {
           width: 100%;
           font-family: var(--font-main), sans-serif;
         }
-        
+
         * {
           box-sizing: border-box;
           margin: 0;
           padding: 0;
         }
-        
+
         /* ===== LAYOUT COMPONENTS ===== */
         .container {
           display: flex;
@@ -1073,30 +1073,36 @@ export default class Quote extends HTMLElement {
           padding: 15px 0;
           background: var(--background);
         }
-        
+
         .quote-builder-container {
           background: var(--background);
           width: 100%;
           max-width: 100%;
           padding: 0;
         }
-        
+
         .header {
-          margin-bottom: 2rem;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
-        
+
         .header h1 {
-          font-size: 1.5rem;
-          font-weight: 700;
+          font-size: 24px;
+          font-weight: 600;
+          color: var(--title-color);
           margin: 0;
           padding: 0;
-          color: var(--title-color);
-          line-height: 1.5;
+          line-height: 1.4;
         }
-        
-        .header .subtitle {
-          font-size: 1rem;
+
+        .subtitle {
+          font-size: 14px;
           color: var(--gray-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
         
         .form-container {

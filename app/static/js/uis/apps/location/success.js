@@ -186,127 +186,114 @@ export default class LocationSuccess extends HTMLElement {
     }
 
     return /* html */ `
-      <div class="locations-grid">
-        ${this.locationsData.items.map(location => this.getLocationCard(location)).join('')}
+      <div class="locations-table">
+        <div class="table-header">
+          <div class="header-cell address">Location</div>
+          <div class="header-cell details">Details</div>
+          <div class="header-cell performance">Performance</div>
+          <div class="header-cell status">Status</div>
+        </div>
+        <div class="table-body">
+          ${this.locationsData.items.map(location => this.getLocationRow(location)).join('')}
+        </div>
       </div>
     `;
   };
 
-  getLocationCard = (location) => {
+  getSVGIcon = (type) => {
+    const icons = {
+      success: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22,4 12,14.01 9,11.01"/>
+      </svg>`,
+      location: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>`,
+      branch: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>`,
+      distance: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>`,
+      cache: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12.89 1.45l8 4-8 4-8-4 8-4z"/>
+        <path d="M4 9.5l8 4 8-4"/>
+        <path d="M4 14.5l8 4 8-4"/>
+      </svg>`
+    };
+    return icons[type] || '';
+  };
+
+  getLocationRow = (location) => {
     return /* html */ `
-      <div class="location-card success-card" data-location-id="${location.id}" tabindex="0">
-        <div class="location-header">
-          <div class="location-status">
-            <span class="status-indicator status-success"></span>
-            <span class="status-text">Success</span>
-            ${location.fallback_used ? /* html */ `<span class="fallback-badge">Fallback</span>` : ''}
-            ${location.within_service_area ? /* html */ `<span class="service-badge">In Area</span>` : ''}
-          </div>
-          <div class="location-id">${location.id.slice(-8)}</div>
-        </div>
-        
-        <div class="location-body">
-          <div class="location-address">
-            <h3>${location.delivery_location}</h3>
+      <div class="location-row" data-location-id="${location.id}" tabindex="0">
+        <div class="cell address-cell">
+          <div class="address-info">
+            <h4>${location.delivery_location}</h4>
+            <span class="location-id">ID: ${location.id.slice(-8)}</span>
             ${location.original_query && location.original_query !== location.delivery_location ?
               /* html */ `<p class="original-query">Originally: ${location.original_query}</p>` : ''}
           </div>
-          
-          <div class="success-details">
-            <div class="success-header">
-              <span class="success-icon">✓</span>
-              <span class="success-text">Location Successfully Resolved</span>
-            </div>
-            
-            ${location.nearest_branch ? /* html */ `
-              <div class="branch-section">
-                <div class="branch-info">
-                  <div class="detail-item">
-                    <span class="detail-label">Nearest Branch</span>
-                    <span class="detail-value branch-name">${location.nearest_branch}</span>
-                  </div>
-                  ${location.nearest_branch_address ? /* html */ `
-                    <div class="detail-item">
-                      <span class="detail-label">Branch Address</span>
-                      <span class="detail-value">${location.nearest_branch_address}</span>
-                    </div>
-                  ` : ''}
-                </div>
-                
-                ${location.distance_miles ? /* html */ `
-                  <div class="distance-section">
-                    <div class="distance-grid">
-                      <div class="detail-item">
-                        <span class="detail-label">Distance</span>
-                        <span class="detail-value distance-value">${location.distance_miles} miles</span>
-                      </div>
-                      <div class="detail-item">
-                        <span class="detail-label">Drive Time</span>
-                        <span class="detail-value">${this.formatDuration(location.duration_seconds)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ` : ''}
-              </div>
-            ` : ''}
-            
-            <div class="service-area-section">
-              <div class="service-status ${location.within_service_area ? 'in-area' : 'out-area'}">
-                <span class="service-icon">${location.within_service_area ? '✓' : '○'}</span>
-                <span class="service-text">
-                  ${location.within_service_area ? 'Within Service Area' : 'Outside Service Area'}
-                </span>
-                ${location.service_area_type ? /* html */ `
-                  <span class="area-type">(${location.service_area_type})</span>
-                ` : ''}
-              </div>
-            </div>
-          </div>
-          
+        </div>
+        
+        <div class="cell details-cell">
           <div class="location-details">
-            <div class="detail-row">
+            ${location.nearest_branch ? /* html */ `
               <div class="detail-item">
-                <span class="detail-label">Processing Time</span>
-                <span class="detail-value performance-metric">${location.processing_time_ms ? `${location.processing_time_ms}ms` : 'N/A'}</span>
+                ${this.getSVGIcon('branch')}
+                <span class="detail-text">${location.nearest_branch}</span>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">API Method</span>
-                <span class="detail-value">${location.api_method_used || 'N/A'}</span>
-              </div>
-            </div>
+            ` : ''}
             
-            <div class="detail-row">
+            ${location.distance_miles ? /* html */ `
               <div class="detail-item">
-                <span class="detail-label">API Calls</span>
-                <span class="detail-value">${location.api_calls_made || 0}</span>
+                ${this.getSVGIcon('distance')}
+                <span class="detail-text">${location.distance_miles} miles • ${this.formatDuration(location.duration_seconds)}</span>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">Cache Status</span>
-                <span class="detail-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
-              </div>
-            </div>
+            ` : ''}
             
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Geocoding</span>
-                <span class="detail-value ${location.geocoding_successful ? 'success' : 'failed'}">
-                  ${location.geocoding_successful ? 'Successful' : 'Failed'}
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Provider</span>
-                <span class="detail-value">${location.geocoding_provider || location.distance_provider || 'N/A'}</span>
-              </div>
+            <div class="detail-item">
+              ${this.getSVGIcon('location')}
+              <span class="detail-text ${location.within_service_area ? 'in-area' : 'out-area'}">
+                ${location.within_service_area ? 'In Service Area' : 'Outside Service Area'}
+              </span>
             </div>
           </div>
-          
-          <div class="location-footer">
-            <span class="timestamp">Completed: ${this.formatDate(location.lookup_completed_at || location.created_at)}</span>
-            ${location.processing_time_ms && location.processing_time_ms < 1000 ? /* html */ `
-              <span class="performance-badge fast">Fast</span>
-            ` : location.processing_time_ms && location.processing_time_ms > 5000 ? /* html */ `
-              <span class="performance-badge slow">Slow</span>
+        </div>
+        
+        <div class="cell performance-cell">
+          <div class="performance-info">
+            <div class="perf-item">
+              <span class="perf-label">Processing</span>
+              <span class="perf-value">${location.processing_time_ms ? `${location.processing_time_ms}ms` : 'N/A'}</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">API Calls</span>
+              <span class="perf-value">${location.api_calls_made || 0}</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Cache</span>
+              <span class="perf-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="cell status-cell">
+          <div class="status-info">
+            <div class="status-badge success">
+              ${this.getSVGIcon('success')}
+              <span>Success</span>
+            </div>
+            ${location.fallback_used ? /* html */ `
+              <div class="status-tag fallback">Fallback Used</div>
             ` : ''}
+            <div class="completion-time">
+              <span class="time-label">Completed</span>
+              <span class="time-value">${this.formatDate(location.lookup_completed_at || location.created_at)}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -403,21 +390,27 @@ export default class LocationSuccess extends HTMLElement {
         }
 
         .header {
-          text-align: center;
-          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 8px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
-          color: var(--success-color);
+          color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
-          margin: 0;
+          font-size: 14px;
           color: var(--gray-color);
-          font-size: 0.95rem;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .success-stats {
@@ -462,100 +455,73 @@ export default class LocationSuccess extends HTMLElement {
           letter-spacing: 0.025em;
         }
 
-        .locations-grid {
-          display: grid;
-          gap: 16px;
-          grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-        }
-
-        .location-card {
+        .locations-table {
           background: var(--background);
-          border: var(--border);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
-          padding: 16px;
-          transition: all 0.2s ease;
-          cursor: pointer;
-          position: relative;
+          overflow: hidden;
         }
 
-        .success-card {
-          border-left: 4px solid var(--success-color);
-          background: linear-gradient(135deg, var(--background) 0%, var(--create-background) 100%);
-        }
-
-        .location-card:hover {
-          border-color: var(--success-color);
-        }
-
-        .location-card:focus {
-          outline: none;
-          border-color: var(--success-color);
-        }
-
-        .location-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .location-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
-        }
-
-        .status-indicator {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
-
-        .status-indicator.status-success {
-          background: var(--success-color);
-        }
-
-        .status-text {
-          font-size: 0.85rem;
-          font-weight: 500;
-          color: var(--success-color);
-        }
-
-        .fallback-badge {
-          background: var(--alt-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
-        }
-
-        .service-badge {
-          background: var(--success-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
-        }
-
-        .location-id {
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-          color: var(--gray-color);
+        .table-header {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
           background: var(--gray-background);
-          padding: 2px 6px;
-          border-radius: 4px;
+          border-bottom: 1px solid var(--border-color);
         }
 
-        .location-body {
+        .header-cell {
+          padding: 12px 16px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          border-right: 1px solid var(--border-color);
+        }
+
+        .header-cell:last-child {
+          border-right: none;
+        }
+
+        .table-body {
           display: flex;
           flex-direction: column;
-          gap: 12px;
         }
 
-        .location-address h3 {
+        .location-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          border-bottom: 1px solid var(--border-color);
+          transition: background-color 0.2s ease;
+          cursor: pointer;
+        }
+
+        .location-row:last-child {
+          border-bottom: none;
+        }
+
+        .location-row:hover {
+          background: var(--gray-background);
+        }
+
+        .location-row:focus {
+          outline: none;
+          background: var(--create-background);
+        }
+
+        .cell {
+          padding: 16px;
+          border-right: 1px solid var(--border-color);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .cell:last-child {
+          border-right: none;
+        }
+
+        .address-info h4 {
           margin: 0 0 4px 0;
           font-size: 1rem;
           font-weight: 600;
@@ -563,176 +529,140 @@ export default class LocationSuccess extends HTMLElement {
           line-height: 1.3;
         }
 
+        .location-id {
+          font-family: var(--font-mono);
+          font-size: 0.7rem;
+          color: var(--gray-color);
+        }
+
         .original-query {
-          margin: 0;
-          font-size: 0.8rem;
+          margin: 4px 0 0 0;
+          font-size: 0.75rem;
           color: var(--gray-color);
           font-style: italic;
         }
 
-        .success-details {
-          background: var(--create-background);
-          border: 1px solid var(--success-color);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .success-header {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-bottom: 12px;
-        }
-
-        .success-icon {
-          color: var(--success-color);
-          font-weight: bold;
-        }
-
-        .success-text {
-          font-weight: 500;
-          font-size: 0.9rem;
-          color: var(--success-color);
-        }
-
-        .branch-section {
-          margin-bottom: 12px;
-        }
-
-        .branch-name {
-          font-weight: 600;
-          color: var(--accent-color);
-        }
-
-        .distance-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-top: 8px;
-        }
-
-        .distance-value {
-          font-weight: 600;
-          color: var(--success-color);
-        }
-
-        .service-area-section {
-          padding-top: 8px;
-          border-top: var(--border);
-        }
-
-        .service-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .service-status.in-area {
-          color: var(--success-color);
-        }
-
-        .service-status.out-area {
-          color: var(--alt-color);
-        }
-
-        .service-icon {
-          font-weight: bold;
-        }
-
-        .service-text {
-          font-weight: 500;
-        }
-
-        .area-type {
-          font-size: 0.8rem;
-          color: var(--gray-color);
-        }
-
         .location-details {
-          background: var(--gray-background);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 8px;
-        }
-
-        .detail-row:last-child {
-          margin-bottom: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
 
         .detail-item {
           display: flex;
-          flex-direction: column;
-          gap: 2px;
+          align-items: center;
+          gap: 8px;
         }
 
-        .detail-label {
-          font-size: 0.75rem;
-          color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
+        .icon {
+          width: 14px;
+          height: 14px;
+          color: var(--success-color);
+          flex-shrink: 0;
         }
 
-        .detail-value {
+        .detail-text {
           font-size: 0.85rem;
           color: var(--text-color);
+        }
+
+        .detail-text.in-area {
+          color: var(--success-color);
           font-weight: 500;
         }
 
-        .performance-metric {
-          color: var(--accent-color);
-          font-weight: 600;
+        .detail-text.out-area {
+          color: var(--warning-color);
+          font-weight: 500;
         }
 
-        .detail-value.success {
-          color: var(--success-color);
+        .performance-info {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
 
-        .detail-value.failed {
-          color: var(--error-color);
-        }
-
-        .cache-hit {
-          color: var(--success-color);
-        }
-
-        .cache-miss {
-          color: var(--gray-color);
-        }
-
-        .location-footer {
-          padding-top: 8px;
-          border-top: var(--border);
+        .perf-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
         }
 
-        .timestamp {
+        .perf-label {
           font-size: 0.75rem;
           color: var(--gray-color);
         }
 
-        .performance-badge {
+        .perf-value {
+          font-size: 0.8rem;
+          color: var(--text-color);
+          font-weight: 500;
+        }
+
+        .perf-value.cache-hit {
+          color: var(--success-color);
+        }
+
+        .perf-value.cache-miss {
+          color: var(--warning-color);
+        }
+
+        .status-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .status-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          border-radius: 6px;
+          font-size: 0.8rem;
+          font-weight: 500;
+        }
+
+        .status-badge.success {
+          background: var(--success-color);
+          color: var(--white-color);
+        }
+
+        .status-badge .icon {
+          width: 12px;
+          height: 12px;
+          color: currentColor;
+        }
+
+        .status-tag {
           font-size: 0.7rem;
           padding: 2px 6px;
           border-radius: 10px;
           font-weight: 500;
         }
 
-        .performance-badge.fast {
-          background: var(--success-color);
+        .status-tag.fallback {
+          background: var(--warning-color);
           color: var(--white-color);
         }
 
-        .performance-badge.slow {
-          background: var(--alt-color);
-          color: var(--white-color);
+        .completion-time {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .time-label {
+          font-size: 0.7rem;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+        }
+
+        .time-value {
+          font-size: 0.75rem;
+          color: var(--text-color);
+          font-weight: 500;
         }
 
         .pagination {
@@ -808,21 +738,48 @@ export default class LocationSuccess extends HTMLElement {
         }
 
         @media (max-width: 768px) {
-          .locations-grid {
-            grid-template-columns: 1fr;
+          .table-header {
+            display: none;
           }
           
-          .detail-row,
-          .distance-grid {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .location-header {
+          .location-row {
+            display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            background: var(--background);
           }
+          
+          .location-row:last-child {
+            border-bottom: 1px solid var(--border-color);
+          }
+          
+          .cell {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+          }
+          
+          .cell:last-child {
+            border-bottom: none;
+          }
+          
+          .cell::before {
+            content: attr(data-label);
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--gray-color);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            display: block;
+            margin-bottom: 4px;
+          }
+          
+          .address-cell::before { content: "Location"; }
+          .details-cell::before { content: "Details"; }
+          .performance-cell::before { content: "Performance"; }
+          .status-cell::before { content: "Status"; }
 
           .stats-grid {
             grid-template-columns: repeat(2, 1fr);

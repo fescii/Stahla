@@ -473,21 +473,27 @@ export default class PropertiesContact extends HTMLElement {
         }
 
         .header {
-          text-align: center;
-          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 8px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
-          color: var(--alt-color);
+          color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
-          margin: 0;
+          font-size: 14px;
           color: var(--gray-color);
-          font-size: 0.95rem;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .controls {

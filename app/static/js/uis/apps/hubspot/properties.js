@@ -50,7 +50,37 @@ export default class HubspotProperties extends HTMLElement {
 
       this._loading = false;
       this._empty = false;
-      this.propertiesData = response.data;
+
+      // Handle the structured response based on current view
+      if (Array.isArray(response.data)) {
+        // Direct array response
+        this.propertiesData = response.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // Structured response with contacts/leads/summary
+        if (this.currentView === 'contacts' && response.data.contacts?.properties) {
+          this.propertiesData = response.data.contacts.properties;
+        } else if (this.currentView === 'leads' && response.data.leads?.properties) {
+          this.propertiesData = response.data.leads.properties;
+        } else if (this.currentView === 'all') {
+          // Combine both contacts and leads properties for 'all' view
+          const contactProps = response.data.contacts?.properties || [];
+          const leadProps = response.data.leads?.properties || [];
+          this.propertiesData = [...contactProps, ...leadProps];
+        } else if (response.data.properties) {
+          // Fallback: direct properties array
+          this.propertiesData = response.data.properties;
+        } else if (response.data.results) {
+          // Fallback: results array
+          this.propertiesData = response.data.results;
+        } else {
+          console.warn('Unexpected data structure for view:', this.currentView, response.data);
+          this.propertiesData = [];
+        }
+      } else {
+        console.warn('Unexpected data structure:', response.data);
+        this.propertiesData = [];
+      }
+
       this.render();
       this.attachEventListeners();
     } catch (error) {
@@ -84,6 +114,20 @@ export default class HubspotProperties extends HTMLElement {
     propertyCards.forEach(card => {
       card.addEventListener('click', () => {
         card.classList.toggle('expanded');
+      });
+    });
+
+    // Expand button interactions
+    const expandButtons = this.shadowObj.querySelectorAll('.expand-btn');
+    expandButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const detailsId = btn.getAttribute('aria-controls');
+        if (detailsId) {
+          this.togglePropertyDetails(e, detailsId);
+        }
       });
     });
 
@@ -153,7 +197,6 @@ export default class HubspotProperties extends HTMLElement {
       <div class="container">
         ${this.getHeader()}
         ${this.getViewSwitcher()}
-        ${this.getSearchBar()}
         ${this.getPropertiesStats()}
         ${this.getPropertiesList()}
       </div>
@@ -185,48 +228,34 @@ export default class HubspotProperties extends HTMLElement {
     `;
   };
 
-  getSearchBar = () => {
-    return /* html */ `
-      <div class="search-container">
-        <input type="text" class="search-input" placeholder="Search properties by name, type, or label..." />
-        <span class="search-icon">🔍</span>
-      </div>
-    `;
-  };
-
   getPropertiesStats = () => {
-    if (!this.propertiesData || this.propertiesData.length === 0) {
+    if (!this.propertiesData || !Array.isArray(this.propertiesData) || this.propertiesData.length === 0) {
       return '';
     }
 
     const stats = this.calculatePropertiesStats(this.propertiesData);
 
     return /* html */ `
-      <div class="properties-stats">
-        <h3>Properties Overview</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-count">${stats.totalProperties}</span>
-            <span class="stat-label">Total Properties</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.customProperties}</span>
-            <span class="stat-label">Custom Properties</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.typeBreakdown.string || 0}</span>
-            <span class="stat-label">Text Properties</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-count">${stats.typeBreakdown.enumeration || 0}</span>
-            <span class="stat-label">Dropdown Properties</span>
-          </div>
-        </div>
+      <div class="properties-summary">
+        <span class="summary-text">
+          Showing ${stats.totalProperties} properties 
+          (${stats.customProperties} custom)
+        </span>
       </div>
     `;
   };
 
   calculatePropertiesStats = (properties) => {
+    // Ensure properties is an array
+    if (!Array.isArray(properties)) {
+      console.warn('Properties is not an array:', properties);
+      return {
+        totalProperties: 0,
+        customProperties: 0,
+        typeBreakdown: {}
+      };
+    }
+
     const totalProperties = properties.length;
     const customProperties = properties.filter(p => p.hubspotDefined === false).length;
 
@@ -244,23 +273,31 @@ export default class HubspotProperties extends HTMLElement {
   };
 
   getPropertiesList = () => {
-    if (!this.propertiesData || this.propertiesData.length === 0) {
+    if (!this.propertiesData || !Array.isArray(this.propertiesData) || this.propertiesData.length === 0) {
       return this.getEmptyMessage();
     }
 
-    // Group properties by type for better organization
-    const groupedProperties = this.groupPropertiesByType(this.propertiesData);
-
     return /* html */ `
-      <div class="properties-container">
-        ${Object.entries(groupedProperties).map(([type, properties]) =>
-      this.getPropertyGroup(type, properties)
-    ).join('')}
+      <div class="properties-table">
+        <div class="table-header">
+          <div class="header-cell">Property</div>
+          <div class="header-cell">Group</div>
+          <div class="header-cell">Type</div>
+          <div class="header-cell">Actions</div>
+        </div>
+        <div class="table-body">
+          ${this.propertiesData.map(property => this.getPropertyRow(property)).join('')}
+        </div>
       </div>
     `;
   };
 
   groupPropertiesByType = (properties) => {
+    if (!Array.isArray(properties)) {
+      console.warn('Properties is not an array in groupPropertiesByType:', properties);
+      return {};
+    }
+
     return properties.reduce((groups, property) => {
       const type = property.type || 'unknown';
       if (!groups[type]) {
@@ -414,7 +451,257 @@ export default class HubspotProperties extends HTMLElement {
     `;
   };
 
-  getLoader() {
+  getSVGIcon = (type) => {
+    const icons = {
+      string: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 7V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3M4 7h16M4 7v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/>
+        <path d="M9 11h6"/>
+      </svg>`,
+      enumeration: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>`,
+      number: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">#</text>
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>`,
+      date: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>`,
+      bool: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 12l2 2 4-4"/>
+        <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
+      </svg>`,
+      custom: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>`,
+      hubspot: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+      </svg>`,
+      required: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>`,
+      expand: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>`,
+      info: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>`,
+      validation: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 12l2 2 4-4"/>
+        <circle cx="12" cy="12" r="10"/>
+      </svg>`,
+      options: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <path d="M9 9h6v6H9z"/>
+      </svg>`,
+      metadata: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10,9 9,9 8,9"/>
+      </svg>`,
+      property: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 2v20M14 2v20M4 7h16M4 17h16"/>
+      </svg>`
+    };
+    return icons[type] || icons.property;
+  };
+
+  getPropertyRow = (property) => {
+    const uniqueId = `property-${property.name}`;
+
+    return /* html */ `
+      <div class="property-row" data-property-name="${property.name}">
+        <div class="cell property-cell">
+          <div class="property-main">
+            <div class="property-info">
+              <h4 class="property-title">${property.label || property.name}</h4>
+              <span class="property-name">${property.name}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="cell type-cell">
+          <span class="property-group">${property.groupName || 'Default'}</span>
+        </div>
+        
+        <div class="cell status-cell">
+          <div class="type-info">
+            <span class="property-type">${this.getTypeDisplay(property.type)}</span>
+            <span class="field-type">${property.fieldType || property.type}</span>
+          </div>
+        </div>
+        
+        <div class="cell actions-cell">
+          <button class="expand-btn" aria-expanded="false" aria-controls="${uniqueId}-details">
+            <span class="expand-icon">${this.getSVGIcon('expand')}</span>
+          </button>
+        </div>
+        
+        <div class="property-details" id="${uniqueId}-details">
+          <div class="details-grid">
+            <div class="detail-section">
+              <h5 class="section-title">
+                ${this.getSVGIcon('info')}
+                Basic Information
+              </h5>
+              <div class="detail-items">
+                ${property.description ? `<div class="detail-item">
+                  <span class="detail-label">Description:</span>
+                  <span class="detail-value">${property.description}</span>
+                </div>` : ''}
+                <div class="detail-item">
+                  <span class="detail-label">Group:</span>
+                  <span class="detail-value">${property.groupName || 'N/A'}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Field Type:</span>
+                  <span class="detail-value">${property.fieldType || property.type}</span>
+                </div>
+              </div>
+            </div>
+            
+            ${this.getValidationSection(property)}
+            ${this.getOptionsSection(property)}
+            ${this.getMetadataSection(property)}
+          </div>
+        </div>
+      </div>
+    `;
+  }; getValidationInfo = (property) => {
+    const validations = [];
+    if (property.required) validations.push('Required');
+    if (property.calculated) validations.push('Calculated');
+    if (property.readOnly) validations.push('Read Only');
+
+    return validations.length > 0 ?
+      `<div class="validation-tags">${validations.map(v => `<span class="validation-tag">${v}</span>`).join('')}</div>` : '';
+  };
+
+  getOptionsInfo = (property) => {
+    if (!property.options || property.options.length === 0) return '';
+
+    const displayOptions = property.options.slice(0, 3);
+    const hasMore = property.options.length > 3;
+
+    return /* html */ `
+      <div class="config-item">
+        <span class="config-label">Options:</span>
+        <div class="options-list">
+          ${displayOptions.map(option => `<span class="option-item">${option.label || option.value}</span>`).join('')}
+          ${hasMore ? `<span class="option-more">+${property.options.length - 3} more</span>` : ''}
+        </div>
+      </div>
+    `;
+  };
+
+  getTypeDisplay = (type) => {
+    const typeMap = {
+      'string': 'Text',
+      'enumeration': 'Dropdown',
+      'number': 'Number',
+      'bool': 'Boolean',
+      'datetime': 'Date/Time',
+      'date': 'Date',
+      'phone_number': 'Phone',
+      'unknown': 'Other'
+    };
+    return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  getValidationSection = (property) => {
+    const validations = [];
+    if (property.required) validations.push('Required');
+    if (property.calculated) validations.push('Calculated');
+    if (property.readOnly) validations.push('Read Only');
+
+    if (validations.length === 0) return '';
+
+    return /* html */ `
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('validation')}
+          Validation Rules
+        </h5>
+        <div class="validation-tags">
+          ${validations.map(v => `<span class="validation-tag">${v}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  };
+
+  getOptionsSection = (property) => {
+    if (!property.options || property.options.length === 0) return '';
+
+    return /* html */ `
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('options')}
+          Available Options (${property.options.length})
+        </h5>
+        <div class="options-container">
+          <div class="options-grid">
+            ${property.options.slice(0, 6).map(option => /* html */ `
+              <div class="option-item">
+                <span class="option-label">${option.label || option.value}</span>
+                ${option.value !== option.label ? `<span class="option-value">${option.value}</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
+          ${property.options.length > 6 ? /* html */ `
+            <button class="show-more-btn" onclick="this.previousElementSibling.classList.toggle('expanded')">
+              ${this.getSVGIcon('expand')}
+              Show ${property.options.length - 6} more options
+            </button>
+            <div class="options-grid hidden">
+              ${property.options.slice(6).map(option => /* html */ `
+                <div class="option-item">
+                  <span class="option-label">${option.label || option.value}</span>
+                  ${option.value !== option.label ? `<span class="option-value">${option.value}</span>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  };
+
+  getMetadataSection = (property) => {
+    return /* html */ `
+      <div class="detail-section">
+        <h5 class="section-title">
+          ${this.getSVGIcon('metadata')}
+          Metadata
+        </h5>
+        <div class="metadata-grid">
+          ${property.createdAt ? `<div class="detail-item">
+            <span class="detail-label">Created:</span>
+            <span class="detail-value">${this.formatDate(property.createdAt)}</span>
+          </div>` : ''}
+          ${property.updatedAt ? `<div class="detail-item">
+            <span class="detail-label">Updated:</span>
+            <span class="detail-value">${this.formatDate(property.updatedAt)}</span>
+          </div>` : ''}
+          ${property.modificationMetadata ? `<div class="detail-item">
+            <span class="detail-label">Modified by:</span>
+            <span class="detail-value">${property.modificationMetadata.readOnlyDefinition ? 'System' : 'User'}</span>
+          </div>` : ''}
+        </div>
+      </div>
+    `;
+  };
+
+  getLoader = () => {
     return /* html */ `
       <div class="loader-container">
         <div class="loader"></div>
@@ -442,319 +729,314 @@ export default class HubspotProperties extends HTMLElement {
     });
   };
 
-  getStyles = () => {
+  togglePropertyDetails = (event, detailsId) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const button = event.target.closest('.expand-btn');
+    const details = this.shadowObj.getElementById(detailsId);
+
+    if (!button || !details) return;
+
+    const isExpanded = button.classList.contains('expanded');
+
+    if (isExpanded) {
+      button.classList.remove('expanded');
+      details.classList.remove('expanded');
+      button.setAttribute('aria-expanded', 'false');
+    } else {
+      button.classList.add('expanded');
+      details.classList.add('expanded');
+      button.setAttribute('aria-expanded', 'true');
+    }
+  };
+
+  getStyles() {
     return /* html */ `
       <style>
         :host {
           display: block;
-          width: 100%;
-          background-color: var(--background);
-          font-family: var(--font-text), sans-serif;
-          line-height: 1.6;
-          color: var(--text-color);
-        }
-
-        * {
-          box-sizing: border-box;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .container {
+          padding: 24px;
+          background: var(--background);
+          color: var(--text-color);
+          border-radius: 8px;
           max-width: 100%;
-          margin: 0 auto;
-          padding: 20px 10px;
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
         }
 
         .header {
-          text-align: center;
-          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 8px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
-          color: var(--hubspot-color);
+          color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
-          margin: 0;
+          font-size: 14px;
           color: var(--gray-color);
-          font-size: 0.95rem;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .view-switcher {
           display: flex;
-          justify-content: center;
           gap: 8px;
-          margin-bottom: 10px;
+          margin-bottom: 20px;
+          padding: 4px;
+          background: var(--gray-background);
+          border-radius: 8px;
+          width: fit-content;
         }
 
         .view-btn {
-          background: var(--background);
-          border: var(--border);
-          color: var(--text-color);
           padding: 8px 16px;
+          border: none;
+          background: transparent;
+          color: var(--text-color);
           border-radius: 6px;
           cursor: pointer;
-          font-size: 0.9rem;
+          font-size: 14px;
+          font-weight: 500;
           transition: all 0.2s ease;
-        }
-
-        .view-btn:hover {
-          border-color: var(--hubspot-color);
-          color: var(--hubspot-color);
         }
 
         .view-btn.active {
           background: var(--hubspot-color);
           color: var(--white-color);
-          border-color: var(--hubspot-color);
         }
 
-        .search-container {
-          position: relative;
-          max-width: 400px;
-          margin: 0 auto 10px;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 10px 40px 10px 12px;
-          border: var(--border);
-          border-radius: 6px;
+        .view-btn:hover:not(.active) {
           background: var(--background);
+        }
+
+        .properties-summary {
+          margin-bottom: 20px;
+          padding: 12px 16px;
+          background: var(--gray-background);
+          border-radius: 6px;
+          border: 1px solid var(--border-color);
+        }
+
+        .summary-text {
+          font-size: 14px;
           color: var(--text-color);
-          font-size: 0.9rem;
+          font-weight: 500;
         }
 
-        .search-input:focus {
-          outline: none;
-          border-color: var(--hubspot-color);
-        }
-
-        .search-icon {
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--gray-color);
-          pointer-events: none;
-        }
-
-        .properties-stats {
-          background: var(--hubspot-background);
-          border: var(--border);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 10px;
-        }
-
-        .properties-stats h3 {
-          margin: 0 0 12px 0;
-          color: var(--hubspot-color);
-          font-size: 1.1rem;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 12px;
-        }
-
-        .stat-item {
-          text-align: center;
+        .properties-table {
           background: var(--background);
-          border-radius: 6px;
-          padding: 12px 8px;
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+          overflow: hidden;
         }
 
-        .stat-count {
-          display: block;
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--hubspot-color);
-          margin-bottom: 4px;
+        .table-header {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 16px;
+          background: var(--gray-background);
+          padding: 16px;
+          border-bottom: 1px solid var(--border-color);
         }
 
-        .stat-label {
-          font-size: 0.8rem;
-          color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
+        .header-cell {
+          font-weight: 600;
+          color: var(--title-color);
+          font-size: 14px;
         }
 
-        .properties-container {
+        .table-body {
           display: flex;
           flex-direction: column;
-          gap: 24px;
         }
 
-        .property-group {
-          background: var(--background);
-          border: var(--border);
-          border-radius: 8px;
-          padding: 16px;
-        }
-
-        .group-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          padding-bottom: 8px;
-          border-bottom: var(--border);
-        }
-
-        .group-header h3 {
-          margin: 0;
-          color: var(--title-color);
-          font-size: 1.2rem;
-        }
-
-        .group-count {
-          background: var(--gray-background);
-          color: var(--gray-color);
-          font-size: 0.8rem;
-          padding: 4px 8px;
-          border-radius: 10px;
-        }
-
-        .properties-grid {
+        .property-row {
           display: grid;
-          gap: 12px;
-          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 16px;
+          padding: 16px;
+          border-bottom: 1px solid var(--border-color);
+          transition: background-color 0.2s ease;
         }
 
-        .property-card {
+        .property-row:hover {
           background: var(--gray-background);
-          border: var(--border);
-          border-radius: 6px;
-          padding: 12px;
-          transition: all 0.2s ease;
-          cursor: pointer;
-          border-left: 3px solid var(--hubspot-color);
         }
 
-        .property-card:hover {
-          border-color: var(--hubspot-color);
+        .property-row:last-child {
+          border-bottom: none;
         }
 
-        .property-card:focus {
-          outline: none;
-          border-color: var(--hubspot-color);
-        }
-
-        .property-card.expanded .property-body {
-          display: block;
-        }
-
-        .property-header {
+        .cell {
           display: flex;
-          justify-content: space-between;
+          align-items: center;
+        }
+
+        .property-cell {
+          flex-direction: column;
           align-items: flex-start;
-          margin-bottom: 8px;
+        }
+
+        .property-main {
+          display: flex;
+          align-items: center;
+          width: 100%;
         }
 
         .property-info {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
+          flex: 1;
+        }
+
+        .property-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--title-color);
+          margin: 0 0 4px 0;
         }
 
         .property-name {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--title-color);
+          font-size: 12px;
+          color: var(--gray-color);
+          font-family: monospace;
+        }
+
+        .type-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .property-group {
+          background: var(--gray-background);
+          color: var(--text-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          border: 1px solid var(--border-color);
+        }
+
+        .status-cell {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .type-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
         .property-type {
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
-          text-transform: uppercase;
-        }
-
-        .property-type.type-string {
-          background: var(--accent-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-enumeration {
-          background: var(--hubspot-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-number {
           background: var(--success-color);
           color: var(--white-color);
-        }
-
-        .property-type.type-bool {
-          background: var(--alt-color);
-          color: var(--white-color);
-        }
-
-        .property-type.type-datetime,
-        .property-type.type-date {
-          background: var(--create-color);
-          color: var(--white-color);
-        }
-
-        .custom-badge {
-          background: var(--error-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
           font-weight: 500;
         }
 
-        .property-status {
+        .field-type {
+          font-size: 11px;
+          color: var(--gray-color);
+        }
+
+        .actions-cell {
+          justify-content: center;
+        }
+
+        .expand-btn {
+          background: none;
+          border: 1px solid var(--border-color);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
           display: flex;
-          gap: 4px;
-          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
         }
 
-        .status-badge {
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-          font-weight: 500;
+        .expand-btn:hover {
+          background: var(--gray-background);
+          border-color: var(--hubspot-color);
         }
 
-        .status-badge.readonly {
-          background: var(--gray-color);
+        .expand-icon {
+          width: 16px;
+          height: 16px;
+          color: var(--gray-color);
+          transition: transform 0.2s ease;
+        }
+
+        .expand-btn.expanded .expand-icon {
+          transform: rotate(180deg);
+        }
+
+        .expand-btn.expanded {
+          background: var(--hubspot-color);
+          border-color: var(--hubspot-color);
+        }
+
+        .expand-btn.expanded .expand-icon {
           color: var(--white-color);
-        }
-
-        .status-badge.hidden {
-          background: var(--alt-color);
-          color: var(--white-color);
-        }
-
-        .status-badge.calculated {
-          background: var(--accent-color);
-          color: var(--white-color);
-        }
-
-        .property-body {
-          display: none;
-        }
-
-        .property-card.expanded .property-body {
-          display: block;
-          padding-top: 8px;
-          border-top: var(--border);
         }
 
         .property-details {
+          display: none;
+          grid-column: 1 / -1;
+          margin-top: 16px;
+          padding: 20px;
+          background: var(--gray-background);
+          border-radius: 6px;
+          border: 1px solid var(--border-color);
+        }
+
+        .property-details.expanded {
+          display: block;
+        }
+
+        .details-grid {
+          display: grid;
+          gap: 20px;
+        }
+
+        .detail-section {
+          background: var(--background);
+          border-radius: 6px;
+          padding: 16px;
+          border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          color: var(--title-color);
+          font-size: 14px;
+          margin: 0 0 12px 0;
+        }
+
+        .section-title .icon {
+          width: 16px;
+          height: 16px;
+          color: var(--hubspot-color);
+        }
+
+        .detail-items {
           display: flex;
           flex-direction: column;
           gap: 8px;
@@ -762,84 +1044,100 @@ export default class HubspotProperties extends HTMLElement {
 
         .detail-item {
           display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          align-items: flex-start;
+          gap: 8px;
         }
 
         .detail-label {
-          font-size: 0.75rem;
+          font-size: 12px;
           color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
+          font-weight: 500;
+          min-width: 80px;
         }
 
         .detail-value {
-          font-size: 0.85rem;
+          font-size: 14px;
+          color: var(--text-color);
+          flex: 1;
+        }
+
+        .validation-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .validation-tag {
+          background: var(--success-color);
+          color: var(--white-color);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .options-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .options-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 8px;
+        }
+
+        .option-item {
+          background: var(--background);
+          border: 1px solid var(--border-color);
+          padding: 8px 12px;
+          border-radius: 4px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .option-label {
+          font-size: 13px;
           color: var(--text-color);
           font-weight: 500;
         }
 
-        .property-name-value {
+        .option-value {
+          font-size: 11px;
+          color: var(--gray-color);
           font-family: monospace;
-          background: var(--background);
-          padding: 2px 6px;
+        }
+
+        .show-more-btn {
+          background: none;
+          border: 1px solid var(--border-color);
+          color: var(--text-color);
+          padding: 8px 12px;
           border-radius: 4px;
-          font-size: 0.8rem;
-        }
-
-        .property-description {
-          margin: 0;
-          line-height: 1.4;
-          font-style: italic;
-        }
-
-        .property-options {
+          cursor: pointer;
+          font-size: 12px;
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 6px;
+          transition: all 0.2s ease;
         }
 
-        .options-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
+        .show-more-btn:hover {
+          background: var(--gray-background);
+          border-color: var(--hubspot-color);
         }
 
-        .option-tag {
-          background: var(--hubspot-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-        }
-
-        .option-more {
-          background: var(--gray-color);
-          color: var(--white-color);
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 8px;
-          font-style: italic;
-        }
-
-        .property-metadata {
-          background: var(--background);
-          border-radius: 4px;
-          padding: 8px;
-          margin-top: 4px;
-        }
-
-        .metadata-row {
+        .metadata-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 12px;
-          margin-bottom: 8px;
+        }
+
+        .icon {
+          width: 16px;
+          height: 16px;
+          fill: currentColor;
         }
 
         .loader-container {
@@ -852,8 +1150,8 @@ export default class HubspotProperties extends HTMLElement {
         .loader {
           width: 40px;
           height: 40px;
-          border: 3px solid var(--gray-background);
-          border-top: 3px solid var(--accent-color);
+          border: 3px solid var(--border-color);
+          border-top: 3px solid var(--hubspot-color);
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }
@@ -872,44 +1170,59 @@ export default class HubspotProperties extends HTMLElement {
         .empty-state h2 {
           margin: 0 0 8px 0;
           color: var(--title-color);
+          font-size: 18px;
+          font-weight: 600;
         }
 
         .empty-state p {
           margin: 0;
-          font-size: 0.9rem;
+          font-size: 14px;
+          line-height: 1.5;
         }
 
+        /* Mobile Responsive */
         @media (max-width: 768px) {
-          .properties-grid {
+          .container {
+            padding: 16px;
+          }
+
+          .table-header,
+          .property-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
+          .header-cell {
+            display: none;
+          }
+
+          .cell {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+          }
+
+          .cell:last-child {
+            border-bottom: none;
+          }
+
+          .property-details {
+            margin-top: 12px;
+            padding: 16px;
+          }
+
+          .details-grid {
+            gap: 16px;
+          }
+
+          .options-grid {
             grid-template-columns: 1fr;
           }
-          
-          .detail-row,
-          .metadata-row {
+
+          .metadata-grid {
             grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .property-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 6px;
-          }
-
-          .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .view-switcher {
-            flex-direction: column;
-            align-items: center;
-          }
-
-          .search-container {
-            max-width: 100%;
           }
         }
       </style>
     `;
-  };
+  }
 }

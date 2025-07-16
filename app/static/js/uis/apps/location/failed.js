@@ -157,96 +157,113 @@ export default class LocationFailed extends HTMLElement {
     }
 
     return /* html */ `
-      <div class="locations-grid">
-        ${this.locationsData.items.map(location => this.getLocationCard(location)).join('')}
+      <div class="locations-table">
+        <div class="table-header">
+          <div class="header-cell address">Location</div>
+          <div class="header-cell error">Error Details</div>
+          <div class="header-cell performance">Performance</div>
+          <div class="header-cell status">Status</div>
+        </div>
+        <div class="table-body">
+          ${this.locationsData.items.map(location => this.getLocationRow(location)).join('')}
+        </div>
       </div>
     `;
   };
 
-  getLocationCard = (location) => {
+  getSVGIcon = (type) => {
+    const icons = {
+      error: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>`,
+      warning: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>`,
+      location: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>`,
+      api: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6"/>
+        <path d="m21 12-6-3-6 3-6-3"/>
+      </svg>`,
+      cache: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12.89 1.45l8 4-8 4-8-4 8-4z"/>
+        <path d="M4 9.5l8 4 8-4"/>
+        <path d="M4 14.5l8 4 8-4"/>
+      </svg>`
+    };
+    return icons[type] || '';
+  };
+
+  getLocationRow = (location) => {
     return /* html */ `
-      <div class="location-card failed-card" data-location-id="${location.id}" tabindex="0">
-        <div class="location-header">
-          <div class="location-status">
-            <span class="status-indicator status-${location.status}"></span>
-            <span class="status-text">${this.formatStatus(location.status)}</span>
-            <span class="failure-badge">${this.getFailureBadge(location.status)}</span>
-          </div>
-          <div class="location-id">${location.id.slice(-8)}</div>
-        </div>
-        
-        <div class="location-body">
-          <div class="location-address">
-            <h3>${location.delivery_location}</h3>
+      <div class="location-row" data-location-id="${location.id}" tabindex="0">
+        <div class="cell address-cell">
+          <div class="address-info">
+            <h4>${location.delivery_location}</h4>
+            <span class="location-id">ID: ${location.id.slice(-8)}</span>
             ${location.original_query && location.original_query !== location.delivery_location ?
               /* html */ `<p class="original-query">Originally: ${location.original_query}</p>` : ''}
           </div>
-          
-          <div class="failure-details">
-            <div class="failure-header">
-              <span class="failure-icon">⚠</span>
-              <span class="failure-text">Lookup Failed</span>
+        </div>
+        
+        <div class="cell error-cell">
+          <div class="error-details">
+            <div class="error-item">
+              ${this.getSVGIcon('error')}
+              <span class="error-type">${this.formatStatus(location.status)}</span>
             </div>
             
-            <div class="failure-info">
-              <div class="detail-item">
-                <span class="detail-label">Failure Type</span>
-                <span class="detail-value failure-type">${this.formatStatus(location.status)}</span>
-              </div>
-              
-              <div class="detail-item">
-                <span class="detail-label">Error Context</span>
-                <span class="detail-value">${this.getErrorContext(location)}</span>
-              </div>
-              
-              ${location.api_method_used ? /* html */ `
-                <div class="detail-item">
-                  <span class="detail-label">Attempted Method</span>
-                  <span class="detail-value">${location.api_method_used}</span>
-                </div>
-              ` : ''}
-              
-              ${location.api_calls_made ? /* html */ `
-                <div class="detail-item">
-                  <span class="detail-label">API Calls Made</span>
-                  <span class="detail-value">${location.api_calls_made}</span>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-          
-          <div class="location-details">
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Processing Time</span>
-                <span class="detail-value">${location.processing_time_ms ? `${location.processing_time_ms}ms` : 'N/A'}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Geocoding Status</span>
-                <span class="detail-value ${location.geocoding_successful ? 'success' : 'failed'}">
-                  ${location.geocoding_successful ? 'Success' : 'Failed'}
-                </span>
-              </div>
+            <div class="error-item">
+              ${this.getSVGIcon('warning')}
+              <span class="error-context">${this.getErrorContext(location)}</span>
             </div>
             
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Fallback Attempted</span>
-                <span class="detail-value ${location.fallback_used ? 'attempted' : 'not-attempted'}">
-                  ${location.fallback_used ? 'Yes' : 'No'}
-                </span>
+            ${location.api_method_used ? /* html */ `
+              <div class="error-item">
+                ${this.getSVGIcon('api')}
+                <span class="api-method">Method: ${location.api_method_used}</span>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">Cache Check</span>
-                <span class="detail-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
-              </div>
+            ` : ''}
+          </div>
+        </div>
+        
+        <div class="cell performance-cell">
+          <div class="performance-info">
+            <div class="perf-item">
+              <span class="perf-label">Processing</span>
+              <span class="perf-value">${location.processing_time_ms ? `${location.processing_time_ms}ms` : 'N/A'}</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">API Calls</span>
+              <span class="perf-value">${location.api_calls_made || 0}</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Cache</span>
+              <span class="perf-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
             </div>
           </div>
-          
-          <div class="location-footer">
-            <span class="timestamp">Failed: ${this.formatDate(location.created_at)}</span>
-            ${location.background_task_id ? /* html */ `
-              <span class="task-id">Task: ${location.background_task_id.slice(-8)}</span>
+        </div>
+        
+        <div class="cell status-cell">
+          <div class="status-info">
+            <div class="status-badge failed">
+              ${this.getSVGIcon('error')}
+              <span>Failed</span>
+            </div>
+            <div class="failure-badge">${this.getFailureBadge(location.status)}</div>
+            <div class="failure-time">
+              <span class="time-label">Failed</span>
+              <span class="time-value">${this.formatDate(location.created_at)}</span>
+            </div>
+            ${location.fallback_used ? /* html */ `
+              <div class="status-tag fallback">Fallback Attempted</div>
             ` : ''}
           </div>
         </div>
@@ -365,21 +382,27 @@ export default class LocationFailed extends HTMLElement {
         }
 
         .header {
-          text-align: center;
-          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 8px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
-          color: var(--error-color);
+          color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
-          margin: 0;
+          font-size: 14px;
           color: var(--gray-color);
-          font-size: 0.95rem;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .failure-stats {
@@ -424,53 +447,225 @@ export default class LocationFailed extends HTMLElement {
           letter-spacing: 0.025em;
         }
 
-        .locations-grid {
-          display: grid;
-          gap: 16px;
-          grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        }
-
-        .location-card {
+        .locations-table {
           background: var(--background);
-          border: var(--border);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
-          padding: 16px;
-          transition: all 0.2s ease;
+          overflow: hidden;
+        }
+
+        .table-header {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          background: var(--gray-background);
+          border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-cell {
+          padding: 12px 16px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          border-right: 1px solid var(--border-color);
+        }
+
+        .header-cell:last-child {
+          border-right: none;
+        }
+
+        .table-body {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .location-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          border-bottom: 1px solid var(--border-color);
+          transition: background-color 0.2s ease;
           cursor: pointer;
-          position: relative;
         }
 
-        .failed-card {
-          border-left: 4px solid var(--error-color);
-          background: linear-gradient(135deg, var(--background) 0%, var(--error-background) 100%);
+        .location-row:last-child {
+          border-bottom: none;
         }
 
-        .location-card:hover {
-          border-color: var(--error-color);
+        .location-row:hover {
+          background: var(--gray-background);
         }
 
-        .location-card:focus {
+        .location-row:focus {
           outline: none;
-          border-color: var(--error-color);
+          background: var(--error-background);
         }
 
-        .location-header {
+        .cell {
+          padding: 16px;
+          border-right: 1px solid var(--border-color);
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
+          flex-direction: column;
+          justify-content: center;
         }
 
-        .location-status {
+        .cell:last-child {
+          border-right: none;
+        }
+
+        .address-info h4 {
+          margin: 0 0 4px 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--title-color);
+          line-height: 1.3;
+        }
+
+        .location-id {
+          font-family: var(--font-mono);
+          font-size: 0.7rem;
+          color: var(--gray-color);
+        }
+
+        .original-query {
+          margin: 4px 0 0 0;
+          font-size: 0.75rem;
+          color: var(--gray-color);
+          font-style: italic;
+        }
+
+        .error-details {
           display: flex;
-          align-items: center;
+          flex-direction: column;
           gap: 6px;
         }
 
-        .status-indicator {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
+        .error-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .icon {
+          width: 14px;
+          height: 14px;
+          color: var(--danger-color);
+          flex-shrink: 0;
+        }
+
+        .error-type {
+          font-size: 0.85rem;
+          color: var(--danger-color);
+          font-weight: 600;
+        }
+
+        .error-context {
+          font-size: 0.8rem;
+          color: var(--text-color);
+        }
+
+        .api-method {
+          font-size: 0.8rem;
+          color: var(--gray-color);
+        }
+
+        .performance-info {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .perf-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .perf-label {
+          font-size: 0.75rem;
+          color: var(--gray-color);
+        }
+
+        .perf-value {
+          font-size: 0.8rem;
+          color: var(--text-color);
+          font-weight: 500;
+        }
+
+        .perf-value.cache-hit {
+          color: var(--success-color);
+        }
+
+        .perf-value.cache-miss {
+          color: var(--warning-color);
+        }
+
+        .status-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .status-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          border-radius: 6px;
+          font-size: 0.8rem;
+          font-weight: 500;
+        }
+
+        .status-badge.failed {
+          background: var(--danger-color);
+          color: var(--white-color);
+        }
+
+        .status-badge .icon {
+          width: 12px;
+          height: 12px;
+          color: currentColor;
+        }
+
+        .failure-badge {
+          font-size: 0.7rem;
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-weight: 500;
+          background: var(--warning-color);
+          color: var(--white-color);
+        }
+
+        .failure-time {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .time-label {
+          font-size: 0.7rem;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+        }
+
+        .time-value {
+          font-size: 0.75rem;
+          color: var(--text-color);
+          font-weight: 500;
+        }
+
+        .status-tag {
+          font-size: 0.7rem;
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-weight: 500;
+        }
+
+        .status-tag.fallback {
+          background: var(--alt-color);
+          color: var(--white-color);
+        }
           background: var(--error-color);
         }
 
@@ -702,20 +897,48 @@ export default class LocationFailed extends HTMLElement {
         }
 
         @media (max-width: 768px) {
-          .locations-grid {
-            grid-template-columns: 1fr;
+          .table-header {
+            display: none;
           }
           
-          .detail-row {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .location-header {
+          .location-row {
+            display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            background: var(--background);
           }
+          
+          .location-row:last-child {
+            border-bottom: 1px solid var(--border-color);
+          }
+          
+          .cell {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+          }
+          
+          .cell:last-child {
+            border-bottom: none;
+          }
+          
+          .cell::before {
+            content: attr(data-label);
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--gray-color);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            display: block;
+            margin-bottom: 4px;
+          }
+          
+          .address-cell::before { content: "Location"; }
+          .error-cell::before { content: "Error Details"; }
+          .performance-cell::before { content: "Performance"; }
+          .status-cell::before { content: "Status"; }
 
           .stats-grid {
             grid-template-columns: repeat(2, 1fr);

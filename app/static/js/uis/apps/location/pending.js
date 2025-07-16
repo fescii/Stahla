@@ -219,90 +219,131 @@ export default class LocationPending extends HTMLElement {
     }
 
     return /* html */ `
-      <div class="locations-grid">
-        ${this.locationsData.items.map(location => this.getLocationCard(location)).join('')}
+      <div class="locations-table">
+        <div class="table-header">
+          <div class="header-cell">Location</div>
+          <div class="header-cell">Queue Status</div>
+          <div class="header-cell">Performance</div>
+          <div class="header-cell">Queue Time</div>
+        </div>
+        <div class="table-body">
+          ${this.locationsData.items.map(location => this.getLocationRow(location)).join('')}
+        </div>
       </div>
     `;
   };
 
-  getLocationCard = (location) => {
+  getSVGIcon = (type) => {
+    const icons = {
+      pending: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v6l4 2"/>
+      </svg>`,
+      processing: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v4"/>
+        <path d="m16.2 7.8 2.9-2.9"/>
+        <path d="M18 12h4"/>
+        <path d="m16.2 16.2 2.9 2.9"/>
+        <path d="M12 18v4"/>
+        <path d="m4.9 19.1 2.9-2.9"/>
+        <path d="M2 12h4"/>
+        <path d="m4.9 4.9 2.9 2.9"/>
+      </svg>`,
+      location: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>`,
+      queue: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h18"/>
+        <path d="M3 6h18"/>
+        <path d="M3 18h18"/>
+      </svg>`,
+      cache: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/>
+        <path d="M8 21v-4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"/>
+      </svg>`,
+      api: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 12l2 2 4-4"/>
+        <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"/>
+        <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"/>
+      </svg>`,
+      time: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v6l4 2"/>
+      </svg>`
+    };
+    return icons[type] || '';
+  };
+
+  getLocationRow = (location) => {
     const isProcessing = location.status === 'processing';
     const queueTime = this.calculateQueueTime(location.created_at);
 
     return /* html */ `
-      <div class="location-card ${isProcessing ? 'processing' : 'pending'}" data-location-id="${location.id}" tabindex="0">
-        <div class="location-header">
-          <div class="location-status">
-            <span class="status-indicator status-${location.status}"></span>
-            <span class="status-text">${this.formatStatus(location.status)}</span>
-            ${isProcessing ? /* html */ `<span class="processing-badge">Active</span>` : /* html */ `<span class="pending-badge">Queued</span>`}
-          </div>
-          <div class="queue-info">
-            <span class="queue-time">${queueTime}</span>
-            <div class="location-id">${location.id.slice(-8)}</div>
+      <div class="table-row ${isProcessing ? 'processing' : 'pending'}" data-location-id="${location.id}" tabindex="0">
+        <div class="table-cell location-cell">
+          <div class="location-info">
+            <div class="icon-status">
+              ${this.getSVGIcon(isProcessing ? 'processing' : 'pending')}
+              <span class="status-text">${this.formatStatus(location.status)}</span>
+              ${isProcessing ? `<span class="processing-badge">Active</span>` : `<span class="pending-badge">Queued</span>`}
+            </div>
+            <div class="location-address">
+              <div class="address-main">${location.delivery_location}</div>
+              ${location.original_query && location.original_query !== location.delivery_location ?
+        `<div class="address-original">Originally: ${location.original_query}</div>` : ''}
+              <div class="location-id">ID: ${location.id.slice(-8)}</div>
+            </div>
           </div>
         </div>
-        
-        <div class="location-body">
-          <div class="location-address">
-            <h3>${location.delivery_location}</h3>
-            ${location.original_query && location.original_query !== location.delivery_location ?
-              /* html */ `<p class="original-query">Originally: ${location.original_query}</p>` : ''}
-          </div>
-          
-          <div class="pending-details">
-            <div class="pending-header">
-              <span class="pending-icon">${isProcessing ? '⚡' : '⏱'}</span>
-              <span class="pending-text">
-                ${isProcessing ? 'Currently Processing' : 'Waiting in Queue'}
-              </span>
-            </div>
-            
-            <div class="pending-info">
-              <p class="pending-message">
-                ${isProcessing
+
+        <div class="table-cell queue-cell">
+          <div class="queue-status">
+            <div class="queue-info">
+              ${this.getSVGIcon('queue')}
+              <div class="queue-content">
+                <div class="queue-label">${isProcessing ? 'Currently Processing' : 'Waiting in Queue'}</div>
+                <div class="queue-description">
+                  ${isProcessing
         ? 'This location lookup is being actively processed by the system.'
         : 'This location lookup is waiting in the processing queue and will be handled soon.'
       }
-              </p>
-              
-              ${location.background_task_id ? /* html */ `
-                <div class="task-info">
-                  <span class="detail-label">Task ID</span>
-                  <span class="detail-value task-id">${location.background_task_id}</span>
                 </div>
-              ` : ''}
-            </div>
-          </div>
-          
-          <div class="location-details">
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Queue Time</span>
-                <span class="detail-value queue-duration">${queueTime}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">API Calls</span>
-                <span class="detail-value">${location.api_calls_made || 0}</span>
               </div>
             </div>
             
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Method</span>
-                <span class="detail-value">${location.api_method_used || 'Pending'}</span>
+            ${location.background_task_id ? /* html */ `
+              <div class="task-info">
+                <div class="task-label">Task ID</div>
+                <div class="task-id">${location.background_task_id}</div>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">Cache Check</span>
-                <span class="detail-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
-              </div>
-            </div>
+            ` : ''}
           </div>
-          
-          <div class="location-footer">
+        </div>
+
+        <div class="table-cell performance-cell">
+          <div class="performance-metrics">
+            <div class="metric">
+              ${this.getSVGIcon('api')}
+              <span>API Calls: ${location.api_calls_made || 0}</span>
+            </div>
+            <div class="metric">
+              ${this.getSVGIcon('cache')}
+              <span class="${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Cache Hit' : 'Cache Miss'}</span>
+            </div>
+            <div class="metric-small">Method: ${location.api_method_used || 'Pending'}</div>
+          </div>
+        </div>
+
+        <div class="table-cell time-cell">
+          <div class="time-info">
+            <div class="queue-duration">
+              ${this.getSVGIcon('time')}
+              <span class="duration-value">${queueTime}</span>
+            </div>
             <div class="timestamps">
-              <span class="timestamp">Created: ${this.formatDate(location.created_at)}</span>
-              <span class="timestamp">Updated: ${this.formatDate(location.updated_at)}</span>
+              <div class="timestamp">Created: ${this.formatDate(location.created_at)}</div>
+              <div class="timestamp">Updated: ${this.formatDate(location.updated_at)}</div>
             </div>
           </div>
         </div>
@@ -416,26 +457,26 @@ export default class LocationPending extends HTMLElement {
 
         .header {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 10px;
-        }
-
-        .header-content {
-          text-align: left;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 4px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
-          color: var(--alt-color);
+          color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
-          margin: 0;
+          font-size: 14px;
           color: var(--gray-color);
-          font-size: 0.95rem;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .refresh-btn {
@@ -515,240 +556,279 @@ export default class LocationPending extends HTMLElement {
           letter-spacing: 0.025em;
         }
 
-        .locations-grid {
-          display: grid;
-          gap: 16px;
-          grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        }
-
-        .location-card {
+        .locations-table {
           background: var(--background);
-          border: var(--border);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
-          padding: 16px;
-          transition: all 0.2s ease;
-          cursor: pointer;
-          position: relative;
+          overflow: hidden;
         }
 
-        .location-card.pending {
-          border-left: 4px solid var(--alt-color);
-          background: linear-gradient(135deg, var(--background) 0%, var(--gray-background) 100%);
+        .table-header {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          background: var(--gray-background);
+          border-bottom: 1px solid var(--border-color);
         }
 
-        .location-card.processing {
-          border-left: 4px solid var(--accent-color);
-          background: linear-gradient(135deg, var(--background) 0%, var(--create-background) 100%);
+        .header-cell {
+          padding: 12px;
+          font-weight: 600;
+          font-size: 0.85rem;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          border-right: 1px solid var(--border-color);
         }
 
-        .location-card:hover {
-          border-color: var(--alt-color);
+        .header-cell:last-child {
+          border-right: none;
         }
 
-        .location-card:focus {
-          outline: none;
-          border-color: var(--alt-color);
-        }
-
-        .location-header {
+        .table-body {
           display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
+          flex-direction: column;
         }
 
-        .location-status {
+        .table-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          border-bottom: 1px solid var(--border-color);
+          transition: background-color 0.2s ease;
+          cursor: pointer;
+        }
+
+        .table-row:hover {
+          background: var(--gray-background);
+        }
+
+        .table-row:last-child {
+          border-bottom: none;
+        }
+
+        .table-row.pending {
+          border-left: 4px solid var(--alt-color);
+        }
+
+        .table-row.processing {
+          border-left: 4px solid var(--accent-color);
+        }
+
+        .table-cell {
+          padding: 12px;
+          border-right: 1px solid var(--border-color);
+          display: flex;
+          align-items: flex-start;
+        }
+
+        .table-cell:last-child {
+          border-right: none;
+        }
+
+        .location-cell {
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .icon-status {
           display: flex;
           align-items: center;
           gap: 6px;
-          flex-wrap: wrap;
+          margin-bottom: 4px;
         }
 
-        .status-indicator {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
+        .icon-status svg {
+          color: var(--alt-color);
+          flex-shrink: 0;
         }
 
-        .status-indicator.status-pending {
-          background: var(--alt-color);
-          animation: pulse 2s infinite;
+        .table-row.processing .icon-status svg {
+          color: var(--accent-color);
+          animation: spin 2s linear infinite;
         }
 
-        .status-indicator.status-processing {
-          background: var(--accent-color);
-          animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.5; }
-          100% { opacity: 1; }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         .status-text {
-          font-size: 0.85rem;
-          font-weight: 500;
+          font-size: 0.8rem;
           color: var(--text-color);
+          font-weight: 500;
         }
 
         .pending-badge {
           background: var(--alt-color);
           color: var(--white-color);
-          font-size: 0.7rem;
+          font-size: 0.65rem;
           padding: 2px 6px;
           border-radius: 10px;
           font-weight: 500;
+          margin-left: auto;
         }
 
         .processing-badge {
           background: var(--accent-color);
           color: var(--white-color);
-          font-size: 0.7rem;
+          font-size: 0.65rem;
           padding: 2px 6px;
           border-radius: 10px;
           font-weight: 500;
+          margin-left: auto;
         }
 
-        .queue-info {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 4px;
+        .location-info {
+          width: 100%;
         }
 
-        .queue-time {
-          font-size: 0.8rem;
-          color: var(--alt-color);
+        .location-address {
+          flex-grow: 1;
+        }
+
+        .address-main {
           font-weight: 600;
+          color: var(--title-color);
+          font-size: 0.9rem;
+          line-height: 1.3;
+          margin-bottom: 2px;
+        }
+
+        .address-original {
+          font-size: 0.75rem;
+          color: var(--gray-color);
+          font-style: italic;
+          margin-bottom: 4px;
         }
 
         .location-id {
           font-family: var(--font-mono);
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: var(--gray-color);
           background: var(--gray-background);
-          padding: 2px 6px;
-          border-radius: 4px;
+          padding: 2px 4px;
+          border-radius: 3px;
+          display: inline-block;
         }
 
-        .location-body {
-          display: flex;
+        .queue-cell {
           flex-direction: column;
-          gap: 12px;
         }
 
-        .location-address h3 {
-          margin: 0 0 4px 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: var(--title-color);
-          line-height: 1.3;
+        .queue-status {
+          width: 100%;
         }
 
-        .original-query {
-          margin: 0;
-          font-size: 0.8rem;
-          color: var(--gray-color);
-          font-style: italic;
-        }
-
-        .pending-details {
-          background: linear-gradient(135deg, var(--gray-background) 0%, var(--background) 100%);
-          border: var(--border);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .pending-header {
+        .queue-info {
           display: flex;
-          align-items: center;
-          gap: 6px;
+          align-items: flex-start;
+          gap: 8px;
           margin-bottom: 8px;
         }
 
-        .pending-icon {
-          color: var(--alt-color);
-          font-weight: bold;
+        .queue-info svg {
+          color: var(--accent-color);
+          margin-top: 2px;
+          flex-shrink: 0;
         }
 
-        .pending-text {
-          font-weight: 500;
-          font-size: 0.9rem;
-          color: var(--alt-color);
+        .queue-content {
+          flex-grow: 1;
         }
 
-        .pending-message {
-          margin: 0 0 8px 0;
-          font-size: 0.85rem;
-          color: var(--text-color);
-          line-height: 1.4;
+        .queue-label {
+          font-weight: 600;
+          font-size: 0.8rem;
+          color: var(--title-color);
+          margin-bottom: 2px;
+        }
+
+        .queue-description {
+          font-size: 0.75rem;
+          color: var(--gray-color);
+          line-height: 1.3;
         }
 
         .task-info {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+          margin-top: 8px;
+        }
+
+        .task-label {
+          font-size: 0.7rem;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          margin-bottom: 2px;
         }
 
         .task-id {
           font-family: var(--font-mono);
-          font-size: 0.8rem;
-          color: var(--gray-color);
-        }
-
-        .location-details {
+          font-size: 0.75rem;
+          color: var(--text-color);
           background: var(--gray-background);
-          border-radius: 6px;
-          padding: 12px;
+          padding: 2px 4px;
+          border-radius: 3px;
         }
 
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 8px;
-        }
-
-        .detail-row:last-child {
-          margin-bottom: 0;
-        }
-
-        .detail-item {
-          display: flex;
+        .performance-cell {
           flex-direction: column;
-          gap: 2px;
         }
 
-        .detail-label {
+        .performance-metrics {
+          width: 100%;
+        }
+
+        .metric {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 6px;
+          font-size: 0.8rem;
+        }
+
+        .metric svg {
+          color: var(--accent-color);
+          flex-shrink: 0;
+        }
+
+        .metric-small {
           font-size: 0.75rem;
           color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
-        }
-
-        .detail-value {
-          font-size: 0.85rem;
-          color: var(--text-color);
-          font-weight: 500;
-        }
-
-        .queue-duration {
-          color: var(--alt-color);
-          font-weight: 600;
+          margin-bottom: 4px;
         }
 
         .cache-hit {
           color: var(--success-color);
+          font-weight: 600;
         }
 
         .cache-miss {
           color: var(--gray-color);
         }
 
-        .location-footer {
-          padding-top: 8px;
-          border-top: var(--border);
+        .time-cell {
+          flex-direction: column;
+        }
+
+        .time-info {
+          width: 100%;
+        }
+
+        .queue-duration {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .queue-duration svg {
+          color: var(--alt-color);
+          flex-shrink: 0;
+        }
+
+        .duration-value {
+          font-weight: 600;
+          color: var(--alt-color);
+          font-size: 0.85rem;
         }
 
         .timestamps {
@@ -758,7 +838,7 @@ export default class LocationPending extends HTMLElement {
         }
 
         .timestamp {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: var(--gray-color);
         }
 
@@ -835,37 +915,52 @@ export default class LocationPending extends HTMLElement {
         }
 
         @media (max-width: 768px) {
-          .header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
+          .locations-table {
+            display: block;
           }
 
-          .locations-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .detail-row {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .location-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
+          .table-header {
+            display: none;
           }
 
-          .queue-info {
-            align-items: flex-start;
+          .table-row {
+            display: block;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            padding: 0;
+            border-left-width: 4px;
           }
+
+          .table-cell {
+            display: block;
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px;
+          }
+
+          .table-cell:last-child {
+            border-bottom: none;
+          }
+
+          .table-cell::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--gray-color);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            display: block;
+            margin-bottom: 6px;
+          }
+
+          .location-cell::before { content: "Location"; }
+          .queue-cell::before { content: "Queue Status"; }
+          .performance-cell::before { content: "Performance"; }
+          .time-cell::before { content: "Queue Time"; }
 
           .stats-grid {
             grid-template-columns: repeat(2, 1fr);
-          }
-
-          .timestamps {
-            align-items: flex-start;
           }
         }
       </style>

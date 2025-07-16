@@ -177,40 +177,65 @@ export default class HubspotContacts extends HTMLElement {
     }
 
     return /* html */ `
-      <div class="contacts-grid">
-        ${this.contactsData.items.map(contact => this.getContactCard(contact)).join('')}
+      <div class="contacts-table">
+        <div class="table-header">
+          <div class="header-cell name">Contact</div>
+          <div class="header-cell contact-info">Contact Info</div>
+          <div class="header-cell service">Service</div>
+          <div class="header-cell dates">Created / Updated</div>
+        </div>
+        <div class="table-body">
+          ${this.contactsData.items.map(contact => this.getContactRow(contact)).join('')}
+        </div>
       </div>
     `;
   };
 
-  getContactCard = (contact) => {
+  getContactRow = (contact) => {
     const props = contact.properties;
 
     return /* html */ `
-      <div class="contact-card" data-contact-id="${contact.id}" tabindex="0">
-        <div class="contact-header">
+      <div class="contact-row" data-contact-id="${contact.id}" tabindex="0">
+        <div class="cell name-cell">
           <div class="contact-name">
-            <h3>${this.getFullName(props)}</h3>
+            <h4>${this.getFullName(props)}</h4>
             <span class="contact-id">ID: ${contact.id}</span>
           </div>
-          <div class="hubspot-badge">HubSpot</div>
         </div>
         
-        <div class="contact-body">
-          ${this.getContactInfo(props)}
-          
-          ${this.getServiceInfo(props)}
-          
+        <div class="cell contact-info-cell">
           <div class="contact-details">
-            <div class="detail-row">
+            ${props.email ? /* html */ `
               <div class="detail-item">
-                <span class="detail-label">Created</span>
-                <span class="detail-value">${this.formatDate(contact.created_at)}</span>
+                ${this.getSVGIcon('email')}
+                <span class="detail-text">${props.email}</span>
               </div>
+            ` : ''}
+            
+            ${props.phone ? /* html */ `
               <div class="detail-item">
-                <span class="detail-label">Updated</span>
-                <span class="detail-value">${this.formatDate(contact.updated_at)}</span>
+                ${this.getSVGIcon('phone')}
+                <span class="detail-text">${props.phone}</span>
               </div>
+            ` : ''}
+            
+            ${this.getAddressInfo(props)}
+          </div>
+        </div>
+        
+        <div class="cell service-cell">
+          ${this.getServiceInfo(props)}
+        </div>
+        
+        <div class="cell dates-cell">
+          <div class="date-info">
+            <div class="date-item">
+              <span class="date-label">Created</span>
+              <span class="date-value">${this.formatDate(contact.created_at)}</span>
+            </div>
+            <div class="date-item">
+              <span class="date-label">Updated</span>
+              <span class="date-value">${this.formatDate(contact.updated_at)}</span>
             </div>
           </div>
         </div>
@@ -225,19 +250,36 @@ export default class HubspotContacts extends HTMLElement {
     return fullName || 'Unknown Contact';
   };
 
+  getSVGIcon = (type) => {
+    const icons = {
+      email: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>`,
+      phone: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>`,
+      location: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>`
+    };
+    return icons[type] || '';
+  };
+
   getContactInfo = (props) => {
     return /* html */ `
       <div class="contact-info">
         ${props.email ? /* html */ `
           <div class="info-item">
-            <span class="info-icon">@</span>
+            ${this.getSVGIcon('email')}
             <span class="info-value">${props.email}</span>
           </div>
         ` : ''}
         
         ${props.phone ? /* html */ `
           <div class="info-item">
-            <span class="info-icon">📞</span>
+            ${this.getSVGIcon('phone')}
             <span class="info-value">${props.phone}</span>
           </div>
         ` : ''}
@@ -259,34 +301,28 @@ export default class HubspotContacts extends HTMLElement {
     if (!fullAddress) return '';
 
     return /* html */ `
-      <div class="info-item address">
-        <span class="info-icon">📍</span>
-        <span class="info-value">${fullAddress}</span>
+      <div class="detail-item">
+        ${this.getSVGIcon('location')}
+        <span class="detail-text">${fullAddress}</span>
       </div>
     `;
   };
 
   getServiceInfo = (props) => {
     if (!props.what_service_do_you_need_ && !props.your_message && !props.message) {
-      return '';
+      return /* html */ `<div class="no-service">No service information</div>`;
     }
 
     return /* html */ `
       <div class="service-info">
         ${props.what_service_do_you_need_ ? /* html */ `
-          <div class="service-item">
-            <span class="service-label">Service Needed</span>
-            <span class="service-value service-type">${props.what_service_do_you_need_}</span>
-          </div>
+          <div class="service-type">${props.what_service_do_you_need_}</div>
         ` : ''}
         
         ${this.getServiceDetails(props)}
         
         ${props.your_message || props.message ? /* html */ `
-          <div class="service-item message">
-            <span class="service-label">Message</span>
-            <p class="service-message">${props.your_message || props.message}</p>
-          </div>
+          <div class="service-message">${this.truncateText(props.your_message || props.message, 100)}</div>
         ` : ''}
       </div>
     `;
@@ -296,28 +332,30 @@ export default class HubspotContacts extends HTMLElement {
     const details = [];
 
     if (props.how_many_restroom_stalls_) {
-      details.push(`Restroom Stalls: ${props.how_many_restroom_stalls_}`);
+      details.push(`Restroom: ${props.how_many_restroom_stalls_}`);
     }
     if (props.how_many_shower_stalls_) {
-      details.push(`Shower Stalls: ${props.how_many_shower_stalls_}`);
+      details.push(`Shower: ${props.how_many_shower_stalls_}`);
     }
     if (props.how_many_laundry_units_) {
-      details.push(`Laundry Units: ${props.how_many_laundry_units_}`);
+      details.push(`Laundry: ${props.how_many_laundry_units_}`);
     }
     if (props.how_many_portable_toilet_stalls_) {
-      details.push(`Portable Toilets: ${props.how_many_portable_toilet_stalls_}`);
+      details.push(`Portable: ${props.how_many_portable_toilet_stalls_}`);
     }
 
     if (details.length === 0) return '';
 
     return /* html */ `
-      <div class="service-item">
-        <span class="service-label">Requirements</span>
-        <div class="service-details">
-          ${details.map(detail => /* html */ `<span class="detail-tag">${detail}</span>`).join('')}
-        </div>
+      <div class="service-details">
+        ${details.join(' • ')}
       </div>
     `;
+  };
+
+  truncateText = (text, maxLength) => {
+    if (!text || text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
   };
 
   getPagination = () => {
@@ -399,21 +437,27 @@ export default class HubspotContacts extends HTMLElement {
         }
 
         .header {
-          text-align: center;
-          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 8px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
-          color: var(--hubspot-color);
+          color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
-          margin: 0;
+          font-size: 14px;
           color: var(--gray-color);
-          font-size: 0.95rem;
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .contact-stats {
@@ -458,180 +502,162 @@ export default class HubspotContacts extends HTMLElement {
           letter-spacing: 0.025em;
         }
 
-        .contacts-grid {
-          display: grid;
-          gap: 16px;
-          grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-        }
-
-        .contact-card {
+        .contacts-table {
           background: var(--background);
-          border: var(--border);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
-          padding: 16px;
-          transition: all 0.2s ease;
-          cursor: pointer;
-          position: relative;
-          border-left: 4px solid var(--hubspot-color);
+          overflow: hidden;
         }
 
-        .contact-card:hover {
-          border-color: var(--hubspot-color);
+        .table-header {
+          display: grid;
+          grid-template-columns: 1.5fr 2fr 1.5fr 1fr;
+          background: var(--gray-background);
+          border-bottom: 1px solid var(--border-color);
         }
 
-        .contact-card:focus {
-          outline: none;
-          border-color: var(--hubspot-color);
+        .header-cell {
+          padding: 12px 16px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          border-right: 1px solid var(--border-color);
         }
 
-        .contact-header {
+        .header-cell:last-child {
+          border-right: none;
+        }
+
+        .table-body {
           display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
+          flex-direction: column;
         }
 
-        .contact-name h3 {
+        .contact-row {
+          display: grid;
+          grid-template-columns: 1.5fr 2fr 1.5fr 1fr;
+          border-bottom: 1px solid var(--border-color);
+          transition: background-color 0.2s ease;
+          cursor: pointer;
+        }
+
+        .contact-row:last-child {
+          border-bottom: none;
+        }
+
+        .contact-row:hover {
+          background: var(--gray-background);
+        }
+
+        .contact-row:focus {
+          outline: none;
+          background: var(--hubspot-background);
+        }
+
+        .cell {
+          padding: 16px;
+          border-right: 1px solid var(--border-color);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .cell:last-child {
+          border-right: none;
+        }
+
+        .name-cell .contact-name h4 {
           margin: 0 0 4px 0;
-          font-size: 1.1rem;
+          font-size: 1rem;
           font-weight: 600;
           color: var(--title-color);
         }
 
         .contact-id {
           font-family: var(--font-mono);
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: var(--gray-color);
         }
 
-        .hubspot-badge {
-          background: var(--hubspot-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 4px 8px;
-          border-radius: 12px;
-          font-weight: 500;
-        }
-
-        .contact-body {
+        .contact-details {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 6px;
         }
 
-        .contact-info {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .info-item {
+        .detail-item {
           display: flex;
           align-items: center;
           gap: 8px;
         }
 
-        .info-item.address {
-          align-items: flex-start;
-        }
-
-        .info-icon {
-          font-size: 0.9rem;
-          width: 20px;
+        .icon {
+          width: 14px;
+          height: 14px;
+          color: var(--hubspot-color);
           flex-shrink: 0;
         }
 
-        .info-value {
+        .detail-text {
+          font-size: 0.85rem;
           color: var(--text-color);
-          font-size: 0.9rem;
         }
 
         .service-info {
-          background: var(--gray-background);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .service-item {
-          margin-bottom: 8px;
-        }
-
-        .service-item:last-child {
-          margin-bottom: 0;
-        }
-
-        .service-label {
-          display: block;
-          font-size: 0.75rem;
-          color: var(--gray-color);
-          text-transform: uppercase;
-          letter-spacing: 0.025em;
-          margin-bottom: 4px;
-        }
-
-        .service-value {
-          font-size: 0.9rem;
-          color: var(--text-color);
-          font-weight: 500;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
         .service-type {
-          color: var(--hubspot-color);
+          font-size: 0.85rem;
           font-weight: 600;
+          color: var(--hubspot-color);
+          margin-bottom: 4px;
         }
 
         .service-details {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-        }
-
-        .detail-tag {
-          background: var(--hubspot-color);
-          color: var(--white-color);
           font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 10px;
+          color: var(--gray-color);
+          line-height: 1.3;
         }
 
         .service-message {
-          margin: 0;
-          font-size: 0.85rem;
+          font-size: 0.75rem;
           color: var(--text-color);
-          line-height: 1.4;
-          background: var(--background);
-          padding: 8px;
-          border-radius: 4px;
-          border-left: 3px solid var(--hubspot-color);
+          line-height: 1.3;
+          font-style: italic;
         }
 
-        .contact-details {
-          background: var(--gray-background);
-          border-radius: 6px;
-          padding: 12px;
+        .no-service {
+          font-size: 0.8rem;
+          color: var(--gray-color);
+          font-style: italic;
         }
 
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+        .date-info {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
 
-        .detail-item {
+        .date-item {
           display: flex;
           flex-direction: column;
           gap: 2px;
         }
 
-        .detail-label {
-          font-size: 0.75rem;
+        .date-label {
+          font-size: 0.7rem;
           color: var(--gray-color);
           text-transform: uppercase;
           letter-spacing: 0.025em;
         }
 
-        .detail-value {
-          font-size: 0.85rem;
+        .date-value {
+          font-size: 0.75rem;
           color: var(--text-color);
           font-weight: 500;
         }
@@ -709,28 +735,56 @@ export default class HubspotContacts extends HTMLElement {
         }
 
         @media (max-width: 768px) {
-          .contacts-grid {
-            grid-template-columns: 1fr;
+          .table-header {
+            display: none;
           }
           
-          .detail-row {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .contact-header {
+          .contact-row {
+            display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            background: var(--background);
           }
+          
+          .contact-row:last-child {
+            border-bottom: 1px solid var(--border-color);
+          }
+          
+          .cell {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+          }
+          
+          .cell:last-child {
+            border-bottom: none;
+          }
+          
+          .cell::before {
+            content: attr(data-label);
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--gray-color);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            display: block;
+            margin-bottom: 4px;
+          }
+          
+          .name-cell::before { content: "Contact"; }
+          .contact-info-cell::before { content: "Contact Info"; }
+          .service-cell::before { content: "Service"; }
+          .dates-cell::before { content: "Dates"; }
 
           .stats-grid {
             grid-template-columns: repeat(2, 1fr);
           }
 
-          .service-details {
-            flex-direction: column;
-            align-items: flex-start;
+          .date-info {
+            flex-direction: row;
+            gap: 16px;
           }
         }
       </style>

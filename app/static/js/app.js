@@ -108,31 +108,70 @@ export default class AppMain extends HTMLElement {
       const overviewItem = this.shadowRoot.querySelector('li.overview');
       if (overviewItem) overviewItem.classList.add('active');
     } else {
-      // Extract the path segments
+      // Parse URL segments
       const urlSegments = url.split('/').filter(segment => segment);
 
-      if (urlSegments.length > 0) {
-        // Try to find the nav item with the class matching the last segment
-        const segment = urlSegments[urlSegments.length - 1];
-        let navItem = this.shadowRoot.querySelector(`li.${segment}`);
+      if (urlSegments.length === 0) return;
 
-        // If not found, try the first segment
-        if (!navItem && urlSegments.length > 0) {
-          navItem = this.shadowRoot.querySelector(`li.${urlSegments[0]}`);
-        }
+      // Get the main section (first segment)
+      const mainSection = urlSegments[0];
+      const subSection = urlSegments[1];
 
-        if (navItem) {
-          navItem.classList.add('active');
+      // Find the main navigation item for this section
+      const mainNavItem = this.shadowRoot.querySelector(`section.nav > ul.nav.special > li.${mainSection}`);
 
-          // If it's in a dropdown, also mark the parent as active and expand the dropdown
-          const parentLi = navItem.closest('ul.dropdown')?.closest('li');
-          if (parentLi) {
-            parentLi.classList.add('active');
+      if (mainNavItem) {
+        // If there's a subsection, look for it in the dropdown
+        if (subSection) {
+          const dropdownContainer = mainNavItem.querySelector('ul.dropdown');
 
-            // Expand the dropdown if it's collapsed
-            if (parentLi.classList.contains('collapsed')) {
-              this._expandDropdown(parentLi);
+          if (dropdownContainer) {
+            // Look for the specific subsection in this dropdown only
+            const subNavItem = dropdownContainer.querySelector(`li.${subSection}`);
+
+            if (subNavItem) {
+              // Mark the specific sub-item as active
+              subNavItem.classList.add('active');
+
+              // Mark the parent section as active
+              mainNavItem.classList.add('active');
+
+              // Expand the dropdown if it's collapsed
+              if (mainNavItem.classList.contains('collapsed')) {
+                this._expandDropdown(mainNavItem);
+              }
+            } else {
+              // Subsection not found in dropdown, just mark main section as active
+              mainNavItem.classList.add('active');
             }
+          } else {
+            // No dropdown, just mark main section as active
+            mainNavItem.classList.add('active');
+          }
+        } else {
+          // No subsection, just mark main section as active
+          mainNavItem.classList.add('active');
+        }
+      } else {
+        // Main section not found, try to find any nav item that matches any segment
+        // This is a fallback for edge cases
+        for (const segment of urlSegments) {
+          const anyNavItem = this.shadowRoot.querySelector(`section.nav li.${segment}`);
+          if (anyNavItem) {
+            anyNavItem.classList.add('active');
+
+            // If it's in a dropdown, handle parent activation
+            const parentDropdown = anyNavItem.closest('ul.dropdown');
+            if (parentDropdown) {
+              const parentLi = parentDropdown.closest('li');
+              if (parentLi) {
+                parentLi.classList.add('active');
+                if (parentLi.classList.contains('collapsed')) {
+                  this._expandDropdown(parentLi);
+                }
+              }
+            }
+            break;
           }
         }
       }
@@ -827,6 +866,12 @@ export default class AppMain extends HTMLElement {
             </li>
             <li class="recent">
               <a href="/location/recent"><span class="text">Recent</span></a>
+            </li>
+            <li class="oldest">
+              <a href="/location/oldest"><span class="text">Oldest</span></a>
+            </li>
+            <li class="pending">
+              <a href="/location/pending"><span class="text">Pending</span></a>
             </li>
             <li class="success">
               <a href="/location/success"><span class="text">Success</span></a>

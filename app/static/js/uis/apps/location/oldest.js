@@ -130,74 +130,146 @@ export default class LocationOldest extends HTMLElement {
     }
 
     return /* html */ `
-      <div class="locations-grid">
-        ${this.locationsData.items.map((location, index) => this.getLocationCard(location, index)).join('')}
+      <div class="locations-table">
+        <div class="table-header">
+          <div class="header-cell address">Location</div>
+          <div class="header-cell details">Details</div>
+          <div class="header-cell performance">Performance</div>
+          <div class="header-cell status">Age & Status</div>
+        </div>
+        <div class="table-body">
+          ${this.locationsData.items.map(location => this.getLocationRow(location)).join('')}
+        </div>
       </div>
     `;
   };
 
-  getLocationCard = (location, index) => {
+  getSVGIcon = (type) => {
+    const icons = {
+      success: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22,4 12,14.01 9,11.01"/>
+      </svg>`,
+      failed: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>`,
+      location: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>`,
+      branch: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>`,
+      distance: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>`,
+      vintage: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6"/>
+        <path d="m21 12-6 0m-6 0-6 0"/>
+      </svg>`
+    };
+    return icons[type] || '';
+  };
+
+  getLocationRow = (location) => {
+    const isSuccess = location.lookup_successful;
     const isVintage = this.getLocationAge(location.created_at) > 30;
+    const ageFormatted = this.formatAge(location.created_at);
 
     return /* html */ `
-      <div class="location-card ${isVintage ? 'vintage' : ''}" data-location-id="${location.id}" tabindex="0">
-        <div class="location-header">
-          <div class="location-status">
-            <span class="status-indicator status-${location.status}"></span>
-            <span class="status-text">${this.formatStatus(location.status)}</span>
-            ${isVintage ? /* html */ `<span class="vintage-badge">Historic</span>` : ''}
-          </div>
-          <div class="age-info">
-            <span class="age-badge">${this.formatAge(location.created_at)}</span>
-            <div class="location-id">${location.id.slice(-8)}</div>
-          </div>
-        </div>
-        
-        <div class="location-body">
-          <div class="location-address">
-            <h3>${location.delivery_location}</h3>
+      <div class="location-row" data-location-id="${location.id}" tabindex="0">
+        <div class="cell address-cell">
+          <div class="address-info">
+            <h4>${location.delivery_location}</h4>
+            <span class="location-id">ID: ${location.id.slice(-8)}</span>
             ${location.original_query && location.original_query !== location.delivery_location ?
               /* html */ `<p class="original-query">Originally: ${location.original_query}</p>` : ''}
           </div>
-          
-          ${location.lookup_successful ? this.getSuccessfulLookupInfo(location) : this.getFailedLookupInfo(location)}
-          
+        </div>
+        
+        <div class="cell details-cell">
           <div class="location-details">
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">Processing Time</span>
-                <span class="detail-value">${location.processing_time_ms ? `${location.processing_time_ms}ms` : 'N/A'}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">API Method</span>
-                <span class="detail-value">${location.api_method_used || 'N/A'}</span>
-              </div>
+            ${isSuccess ? this.getSuccessDetails(location) : this.getFailureDetails(location)}
+          </div>
+        </div>
+        
+        <div class="cell performance-cell">
+          <div class="performance-info">
+            <div class="perf-item">
+              <span class="perf-label">Processing</span>
+              <span class="perf-value">${location.processing_time_ms ? `${location.processing_time_ms}ms` : 'N/A'}</span>
             </div>
-            
-            <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-label">API Calls</span>
-                <span class="detail-value">${location.api_calls_made || 0}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Cache Status</span>
-                <span class="detail-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
-              </div>
+            <div class="perf-item">
+              <span class="perf-label">API Calls</span>
+              <span class="perf-value">${location.api_calls_made || 0}</span>
+            </div>
+            <div class="perf-item">
+              <span class="perf-label">Cache</span>
+              <span class="perf-value ${location.cache_hit ? 'cache-hit' : 'cache-miss'}">${location.cache_hit ? 'Hit' : 'Miss'}</span>
             </div>
           </div>
-          
-          <div class="location-footer">
-            <span class="timestamp">Created: ${this.formatFullDate(location.created_at)}</span>
-            ${location.lookup_completed_at ? /* html */ `
-              <span class="completion-time">Completed: ${this.formatFullDate(location.lookup_completed_at)}</span>
+        </div>
+        
+        <div class="cell status-cell">
+          <div class="status-info">
+            <div class="age-badge ${isVintage ? 'vintage' : 'recent'}">
+              ${this.getSVGIcon('vintage')}
+              <span>${ageFormatted}</span>
+            </div>
+            <div class="status-badge ${isSuccess ? 'success' : 'failed'}">
+              ${this.getSVGIcon(isSuccess ? 'success' : 'failed')}
+              <span>${isSuccess ? 'Success' : 'Failed'}</span>
+            </div>
+            ${location.fallback_used ? /* html */ `
+              <div class="status-tag fallback">Fallback Used</div>
             ` : ''}
+            <div class="completion-time">
+              <span class="time-value">${this.formatFullDate(location.created_at)}</span>
+            </div>
           </div>
         </div>
       </div>
     `;
   };
 
-  getSuccessfulLookupInfo = (location) => {
+  getSuccessDetails = (location) => {
+    return /* html */ `
+      ${location.nearest_branch ? /* html */ `
+        <div class="detail-item">
+          ${this.getSVGIcon('branch')}
+          <span class="detail-text">${location.nearest_branch}</span>
+        </div>
+      ` : ''}
+      
+      ${location.distance_miles ? /* html */ `
+        <div class="detail-item">
+          ${this.getSVGIcon('distance')}
+          <span class="detail-text">${location.distance_miles} miles • ${this.formatDuration(location.duration_seconds)}</span>
+        </div>
+      ` : ''}
+      
+      <div class="detail-item">
+        ${this.getSVGIcon('location')}
+        <span class="detail-text ${location.within_service_area ? 'in-area' : 'out-area'}">
+          ${location.within_service_area ? 'In Service Area' : 'Outside Service Area'}
+        </span>
+      </div>
+    `;
+  };
+
+  getFailureDetails = (location) => {
+    return /* html */ `
+      <div class="detail-item">
+        ${this.getSVGIcon('failed')}
+        <span class="detail-text error">Failed: ${this.formatStatus(location.status)}</span>
+      </div>
+    `;
+  }; getSuccessfulLookupInfo = (location) => {
     return /* html */ `
       <div class="lookup-success">
         <div class="success-header">
@@ -398,301 +470,300 @@ export default class LocationOldest extends HTMLElement {
         }
 
         .header {
-          text-align: center;
-          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          flex-flow: column;
+          gap: 0;
         }
 
         .header h1 {
-          margin: 0 0 8px 0;
-          font-size: 1.8rem;
+          font-size: 24px;
           font-weight: 600;
           color: var(--title-color);
+          margin: 0;
+          padding: 0;
+          line-height: 1.4;
         }
 
         .subtitle {
+          font-size: 14px;
+          color: var(--gray-color);
           margin: 0;
-          color: var(--gray-color);
-          font-size: 0.95rem;
+          padding: 0;
+          line-height: 1.4;
         }
 
-        .locations-grid {
-          display: grid;
-          gap: 16px;
-          grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        }
-
-        .location-card {
+        .locations-table {
           background: var(--background);
-          border: var(--border);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
-          padding: 16px;
-          transition: all 0.2s ease;
-          cursor: pointer;
-          position: relative;
+          overflow: hidden;
         }
 
-        .location-card:hover {
-          border-color: var(--accent-color);
+        .table-header {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          background: var(--gray-background);
+          border-bottom: 1px solid var(--border-color);
         }
 
-        .location-card:focus {
-          outline: none;
-          border-color: var(--accent-color);
-        }
-
-        .location-card.vintage {
-          background: linear-gradient(135deg, var(--background) 0%, var(--gray-background) 100%);
-          border-color: var(--alt-color);
-        }
-
-        .location-card.vintage:hover {
-          border-color: var(--alt-color);
-        }
-
-        .location-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
-        }
-
-        .location-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
-        }
-
-        .status-indicator {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
-
-        .status-indicator.status-success {
-          background: var(--success-color);
-        }
-
-        .status-indicator.status-failed,
-        .status-indicator.status-geocoding-failed,
-        .status-indicator.status-distance-calculation-failed {
-          background: var(--error-color);
-        }
-
-        .status-indicator.status-pending {
-          background: var(--alt-color);
-        }
-
-        .status-indicator.status-processing {
-          background: var(--accent-color);
-          animation: pulse 2s infinite;
-        }
-
-        .status-indicator.status-fallback-used {
-          background: var(--alt-color);
-        }
-
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.5; }
-          100% { opacity: 1; }
-        }
-
-        .status-text {
+        .header-cell {
+          padding: 12px;
+          font-weight: 600;
           font-size: 0.85rem;
-          font-weight: 500;
-          color: var(--text-color);
+          color: var(--gray-color);
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
+          border-right: 1px solid var(--border-color);
         }
 
-        .vintage-badge {
-          background: var(--alt-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          font-weight: 500;
+        .header-cell:last-child {
+          border-right: none;
         }
 
-        .age-info {
+        .table-body {
           display: flex;
           flex-direction: column;
-          align-items: flex-end;
-          gap: 4px;
         }
 
-        .age-badge {
-          font-size: 0.75rem;
-          color: var(--gray-color);
+        .location-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr 1.5fr 1.5fr;
+          border-bottom: 1px solid var(--border-color);
+          transition: background-color 0.2s ease;
+          cursor: pointer;
+        }
+
+        .location-row:hover {
           background: var(--gray-background);
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-weight: 500;
         }
 
-        .location-id {
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-          color: var(--gray-color);
-          background: var(--gray-background);
-          padding: 2px 6px;
-          border-radius: 4px;
+        .location-row:last-child {
+          border-bottom: none;
         }
 
-        .location-body {
+        .cell {
+          padding: 12px;
+          border-right: 1px solid var(--border-color);
           display: flex;
-          flex-direction: column;
-          gap: 12px;
+          align-items: flex-start;
         }
 
-        .location-address h3 {
+        .cell:last-child {
+          border-right: none;
+        }
+
+        .address-cell {
+          flex-direction: column;
+        }
+
+        .address-info h4 {
           margin: 0 0 4px 0;
-          font-size: 1rem;
+          font-size: 0.9rem;
           font-weight: 600;
           color: var(--title-color);
           line-height: 1.3;
         }
 
+        .location-id {
+          font-family: var(--font-mono);
+          font-size: 0.7rem;
+          color: var(--gray-color);
+          background: var(--gray-background);
+          padding: 2px 4px;
+          border-radius: 3px;
+          display: inline-block;
+          margin-bottom: 4px;
+        }
+
         .original-query {
           margin: 0;
-          font-size: 0.8rem;
+          font-size: 0.75rem;
           color: var(--gray-color);
           font-style: italic;
         }
 
-        .lookup-success {
-          background: var(--create-background);
-          border: var(--border);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .lookup-failed {
-          background: var(--error-background);
-          border: var(--border);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .success-header,
-        .failed-header {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-bottom: 8px;
-        }
-
-        .success-icon {
-          color: var(--success-color);
-          font-weight: bold;
-        }
-
-        .failed-icon {
-          color: var(--error-color);
-          font-weight: bold;
-        }
-
-        .success-text,
-        .failed-text {
-          font-weight: 500;
-          font-size: 0.9rem;
-        }
-
-        .fallback-badge {
-          background: var(--alt-color);
-          color: var(--white-color);
-          font-size: 0.7rem;
-          padding: 2px 6px;
-          border-radius: 10px;
-          margin-left: auto;
-        }
-
-        .failed-reason {
-          font-size: 0.8rem;
-          color: var(--error-color);
-        }
-
-        .branch-info,
-        .distance-info,
-        .service-area-info {
-          margin-top: 8px;
-        }
-
-        .branch-name {
-          font-weight: 600;
-          color: var(--accent-color);
-        }
-
-        .distance {
-          font-weight: 600;
-          color: var(--success-color);
-        }
-
-        .service-area.in-area {
-          color: var(--success-color);
-          font-weight: 600;
-        }
-
-        .service-area.out-area {
-          color: var(--error-color);
-          font-weight: 600;
+        .details-cell {
+          flex-direction: column;
         }
 
         .location-details {
-          background: var(--gray-background);
-          border-radius: 6px;
-          padding: 12px;
-        }
-
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 8px;
-        }
-
-        .detail-row:last-child {
-          margin-bottom: 0;
+          width: 100%;
         }
 
         .detail-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 6px;
+        }
+
+        .detail-item:last-child {
+          margin-bottom: 0;
+        }
+
+        .icon {
+          width: 14px;
+          height: 14px;
+          color: var(--accent-color);
+          flex-shrink: 0;
+        }
+
+        .detail-text {
+          font-size: 0.8rem;
+          color: var(--text-color);
+        }
+
+        .detail-text.in-area {
+          color: var(--success-color);
+          font-weight: 600;
+        }
+
+        .detail-text.out-area {
+          color: var(--error-color);
+          font-weight: 600;
+        }
+
+        .detail-text.error {
+          color: var(--error-color);
+          font-weight: 600;
+        }
+
+        .performance-cell {
+          flex-direction: column;
+        }
+
+        .performance-info {
+          width: 100%;
+        }
+
+        .perf-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+          font-size: 0.8rem;
+        }
+
+        .perf-item:last-child {
+          margin-bottom: 0;
+        }
+
+        .perf-label {
+          color: var(--gray-color);
+          font-size: 0.75rem;
+        }
+
+        .perf-value {
+          color: var(--text-color);
+          font-weight: 500;
+        }
+
+        .perf-value.cache-hit {
+          color: var(--success-color);
+          font-weight: 600;
+        }
+
+        .perf-value.cache-miss {
+          color: var(--gray-color);
+        }
+
+        .status-cell {
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .status-info {
+          width: 100%;
+        }
+
+        .age-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          margin-bottom: 8px;
+          background: var(--gray-background);
+          color: var(--gray-color);
+        }
+
+        .age-badge.vintage {
+          background: var(--alt-color);
+          color: var(--white-color);
+        }
+
+        .age-badge .icon {
+          width: 12px;
+          height: 12px;
+        }
+
+        .status-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          border-radius: 6px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+
+        .status-badge.success {
+          background: var(--success-color);
+          color: var(--white-color);
+        }
+
+        .status-badge.failed {
+          background: var(--error-color);
+          color: var(--white-color);
+        }
+
+        .status-badge .icon {
+          width: 12px;
+          height: 12px;
+        }
+
+        .status-badge.success svg {
+          color: var(--white-color);
+        }
+
+        .status-badge.failed svg {
+          color: var(--white-color);
+        }
+
+        .status-tag {
+          font-size: 0.65rem;
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-weight: 500;
+          margin-bottom: 8px;
+          display: inline-block;
+        }
+
+        .status-tag.fallback {
+          background: var(--alt-color);
+          color: var(--white-color);
+        }
+
+        .completion-time {
           display: flex;
           flex-direction: column;
           gap: 2px;
         }
 
-        .detail-label {
-          font-size: 0.75rem;
+        .time-label {
+          font-size: 0.7rem;
           color: var(--gray-color);
           text-transform: uppercase;
           letter-spacing: 0.025em;
         }
 
-        .detail-value {
-          font-size: 0.85rem;
-          color: var(--text-color);
-          font-weight: 500;
-        }
-
-        .cache-hit {
-          color: var(--success-color);
-        }
-
-        .cache-miss {
-          color: var(--gray-color);
-        }
-
-        .location-footer {
-          padding-top: 8px;
-          border-top: var(--border);
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .timestamp,
-        .completion-time {
+        .time-value {
           font-size: 0.75rem;
-          color: var(--gray-color);
+          color: var(--text-color);
         }
 
         .pagination {
@@ -768,24 +839,48 @@ export default class LocationOldest extends HTMLElement {
         }
 
         @media (max-width: 768px) {
-          .locations-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .detail-row {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-          
-          .location-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
+          .locations-table {
+            display: block;
           }
 
-          .age-info {
-            align-items: flex-start;
+          .table-header {
+            display: none;
           }
+
+          .location-row {
+            display: block;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            padding: 0;
+          }
+
+          .cell {
+            display: block;
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px;
+          }
+
+          .cell:last-child {
+            border-bottom: none;
+          }
+
+          .cell::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--gray-color);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            display: block;
+            margin-bottom: 6px;
+          }
+
+          .address-cell::before { content: "Location"; }
+          .details-cell::before { content: "Details"; }
+          .performance-cell::before { content: "Performance"; }
+          .status-cell::before { content: "Age & Status"; }
         }
       </style>
     `;

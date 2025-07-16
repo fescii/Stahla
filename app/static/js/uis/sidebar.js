@@ -22,7 +22,6 @@ export default class Sidebar extends HTMLElement {
   }
 
   connectedCallback() {
-    this.setUpEventListeners();
   }
 
   getTemplate() {
