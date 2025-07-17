@@ -13,6 +13,25 @@ from app.models.classification import ClassificationInput
 import logfire
 from datetime import datetime
 import re
+import os
+import logging
+
+# Configure Marvin for reduced logging
+os.environ['MARVIN_LOG_LEVEL'] = 'ERROR'
+os.environ['MARVIN_VERBOSE'] = 'false'
+os.environ['MARVIN_QUIET'] = 'true'
+os.environ['MARVIN_DEBUG'] = 'false'
+
+# Configure Marvin loggers
+marvin_loggers = ['marvin', 'marvin.fn', 'marvin.agent', 'marvin.client', 'marvin.core', 'marvin.task']
+for logger_name in marvin_loggers:
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.ERROR)
+
+# Suppress OpenAI client logging
+logging.getLogger('openai').setLevel(logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 
 @marvin.fn
@@ -87,8 +106,9 @@ def extract_structured_call_data(
   - Focus on service requirements, location, timing, and project details
   - Return a structured dictionary with extracted values
   - **IMPORTANT: All date strings MUST be formatted as 'YYYY-MM-DD'**
+  - **CRITICAL: Always include a 'result' field in the returned dictionary**
 
-  **Key fields to extract:**
+  **Key fields to extract in 'result' field:**
   - product_interest: List of products/services mentioned
   - service_needed: Type of service requested
   - event_type: Type of event or project
@@ -108,9 +128,9 @@ def extract_structured_call_data(
   - comments: Additional important details or requirements
 
   **Input:** Voice call transcript text
-  **Output:** Dictionary with extracted structured data
+  **Output:** Dictionary with 'result' field containing extracted structured data
   """
-  return {}  # Marvin will implement this and return the actual data
+  return {"result": {}}  # Marvin will implement this and return the actual data
 
 
 class AIFieldExtractor:
@@ -135,7 +155,9 @@ class AIFieldExtractor:
     try:
       self.logger.info("Extracting contact data from transcript using AI")
 
-      contact_dict = extract_contact_properties_from_transcript(transcript)
+      # Run the Marvin function in a thread to avoid coroutine reuse issues
+      import asyncio
+      contact_dict = await asyncio.to_thread(extract_contact_properties_from_transcript, transcript)
 
       # Convert dictionary to HubSpotContactProperties object
       contact_data = HubSpotContactProperties(**contact_dict)
@@ -162,7 +184,9 @@ class AIFieldExtractor:
     try:
       self.logger.info("Extracting lead data from transcript using AI")
 
-      lead_dict = extract_lead_properties_from_transcript(transcript)
+      # Run the Marvin function in a thread to avoid coroutine reuse issues
+      import asyncio
+      lead_dict = await asyncio.to_thread(extract_lead_properties_from_transcript, transcript)
 
       # Convert dictionary to HubSpotLeadProperties object
       lead_data = HubSpotLeadProperties(**lead_dict)
@@ -190,7 +214,16 @@ class AIFieldExtractor:
       self.logger.info(
           "Extracting classification data from transcript using AI")
 
-      classification_data = extract_structured_call_data(transcript)
+      # Run the Marvin function in a thread to avoid coroutine reuse issues
+      import asyncio
+      classification_response = await asyncio.to_thread(extract_structured_call_data, transcript)
+
+      # Extract the result field from the response
+      if isinstance(classification_response, dict) and 'result' in classification_response:
+        classification_data = classification_response['result']
+      else:
+        # Fallback for backwards compatibility
+        classification_data = classification_response
 
       # Validate and clean the extracted data
       cleaned_data = self._validate_and_clean_data(classification_data)

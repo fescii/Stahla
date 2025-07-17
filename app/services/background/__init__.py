@@ -25,6 +25,10 @@ from .mongo import (
     update_location_status_bg,
     update_email_status_bg
 )
+from .classification import (
+    process_voice_classification_bg,
+    get_classification_status_bg
+)
 
 __all__ = [
     "log_request_response_bg",
@@ -45,5 +49,7 @@ __all__ = [
     "update_call_status_bg",
     "update_classify_status_bg",
     "update_location_status_bg",
-    "update_email_status_bg"
+    "update_email_status_bg",
+    "process_voice_classification_bg",
+    "get_classification_status_bg"
 ]

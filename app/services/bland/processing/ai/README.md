@@ -7,9 +7,11 @@ The AI processing functionality has been split into focused, modular components 
 ## Component Structure
 
 ### 1. Transcript Processor (`app/services/bland/processing/ai/transcript/processor.py`)
+
 **Responsibility**: Extract and clean transcript data from Bland webhook payloads
 
 **Key Methods**:
+
 - `extract_transcript()`: Extract transcript from various webhook formats
 - `extract_variables_data()`: Extract structured data from webhook variables
 - `get_transcript_summary()`: Create summarized transcript for processing
@@ -17,9 +19,11 @@ The AI processing functionality has been split into focused, modular components 
 **Usage**: Handles concatenated transcripts, summaries, and individual transcript entries
 
 ### 2. Location Handler (`app/services/bland/processing/ai/location/handler.py`)
+
 **Responsibility**: Process location information and determine service area coverage
 
 **Key Methods**:
+
 - `process_location_data()`: Process extracted location information
 - `_find_best_location()`: Find the most suitable location from candidates
 - `_build_city_state_location()`: Construct location from city/state data
@@ -27,9 +31,11 @@ The AI processing functionality has been split into focused, modular components 
 **Dependencies**: LocationService for distance calculations and service area validation
 
 ### 3. Classification Coordinator (`app/services/bland/processing/ai/classification/coordinator.py`)
+
 **Responsibility**: Coordinate lead classification using AI or rule-based approaches
 
 **Key Methods**:
+
 - `perform_classification()`: Main classification orchestration
 - `_create_classification_input()`: Build ClassificationInput with all required fields
 - `_classify_with_ai()`: AI-based classification using Marvin
@@ -38,18 +44,22 @@ The AI processing functionality has been split into focused, modular components 
 **Dependencies**: ClassificationManager, MarvinClassificationManager
 
 ### 4. Result Builder (`app/services/bland/processing/ai/results/builder.py`)
+
 **Responsibility**: Combine component results into final comprehensive output
 
 **Key Methods**:
+
 - `create_comprehensive_result()`: Build final result from all components
 - `create_error_result()`: Create standardized error responses
 - `_build_call_data()`: Extract call metadata
 - `_build_extraction_data()`: Format extraction results
 
 ### 5. Main Orchestrator (`app/services/bland/processing/ai/orchestrator.py`)
+
 **Responsibility**: Coordinate the complete processing pipeline
 
 **Key Methods**:
+
 - `process_voice_webhook_comprehensive()`: Main entry point for comprehensive processing
 
 **Dependencies**: All component services above
@@ -92,6 +102,7 @@ Comprehensive Result
 ## Error Handling
 
 Each component includes comprehensive error handling:
+
 - Detailed logging with context
 - Graceful degradation where possible
 - Standardized error result formats
