@@ -33,7 +33,7 @@ Content-Type: application/json
 ### =============================================================================
 
 ### Get comprehensive latency overview (RECOMMENDED - all metrics in one response)
-GET {{host}}{{api_v1}}/latency/overview
+GET {{host}}{{api_v1}}/latency/overview/data
 {{auth_header}}
 
 ### Get P50, P75, P90, P95, P99 percentiles for ALL services
