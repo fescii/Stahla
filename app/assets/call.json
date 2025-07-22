@@ -213,22 +213,7 @@
         "speechDuringWebhook": {
           "enabled": true,
           "text": "One moment while I verify your location and check our service area coverage."
-        },
-        "afterWebhookPrompt": "Perfect! I've verified your location: {{api_delivery_location}}. Your nearest branch is {{nearest_branch_name}}, approximately {{distance_miles}} miles away.",
-        "pathwayRouting": [
-          {
-            "condition": "{{location_api_success}} is true and {{is_in_service_area}} is true",
-            "nextNode": "determine_order_category"
-          },
-          {
-            "condition": "{{location_api_success}} is true and {{is_in_service_area}} is false",
-            "nextNode": "handle_out_of_service_area"
-          },
-          {
-            "condition": "{{location_api_success}} is false",
-            "nextNode": "api_error_location_tool"
-          }
-        ]
+        }
       }
     },
     {
@@ -260,6 +245,14 @@
       "data": {
         "name": "Closing - Out of Service No Referral",
         "prompt": "Understood. Sorry we couldn't assist directly this time. Thank you for considering Stahla Services. Have a great day!"
+      }
+    },
+    {
+      "id": "location_verification_success",
+      "type": "Default",
+      "data": {
+        "name": "Location Verification Success",
+        "prompt": "Perfect! I've verified your location: {{api_delivery_location}}. Your nearest branch is {{nearest_branch_name}}, approximately {{distance_miles}} miles away. Great news - we can service your area!"
       }
     },
     {
@@ -898,7 +891,7 @@
     {
       "id": "edge_webhook_success_in_area",
       "source": "trigger_background_location_processing_node",
-      "target": "determine_order_category",
+      "target": "location_verification_success",
       "label": "{{location_api_success}} is true and {{is_in_service_area}} is true"
     },
     {
@@ -944,6 +937,12 @@
       "label": "{{offer_referral_consent}} is false"
     },
     {
+      "id": "edge_location_success_to_order",
+      "source": "location_verification_success",
+      "target": "determine_order_category",
+      "label": "Always after location verification success"
+    },
+    {
       "id": "edge_order_to_product",
       "source": "determine_order_category",
       "target": "determine_product_type",
@@ -956,22 +955,10 @@
       "label": "{{project_category}} contains Event"
     },
     {
-      "id": "edge_product_to_construction_flow",
+      "id": "edge_product_to_non_event_flow",
       "source": "determine_product_type",
       "target": "ask_site_conditions_trailer",
-      "label": "{{project_category}} contains Construction or {{project_category}} contains Facility"
-    },
-    {
-      "id": "edge_product_to_disaster_flow",
-      "source": "determine_product_type",
-      "target": "ask_site_conditions_trailer",
-      "label": "{{project_category}} contains Disaster"
-    },
-    {
-      "id": "edge_product_to_default_flow",
-      "source": "determine_product_type",
-      "target": "ask_site_conditions_trailer",
-      "label": "Default flow for other categories"
+      "label": "{{project_category}} does not contain Event (Construction, Facility, Disaster Relief, or other)"
     },
     {
       "id": "edge_duration_multi_day",

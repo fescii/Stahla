@@ -32,9 +32,9 @@ Content-Type: application/json
   "Event start date": "2025-12-01",
   "Event end date": "2025-12-03",
   "First name": "Fred",
-  "Last name": "Juma",
-  "Phone number": "713253018",
-  "Email": "fred.juma@email.com",
+  "Last name": "Chris",
+  "Phone number": "111471323",
+  "Email": "fred.chris@email.com",
   "I consent to receive texts on the phone number provided": true
 }
 
